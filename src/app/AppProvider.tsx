@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Topic } from '@ethersphere/bee-js';
 
+import { isServedOverBzz } from '@/features/player/browserNode';
 import { manifestFetcher } from '@/features/player/CustomManifestLoader';
 import { ManifestStateManager } from '@/features/player/ManifestManagement';
 import { Stream } from '@/features/catalog/stream';
@@ -35,7 +36,17 @@ type AppContextState = {
   setNewStreamList: (read: CatalogRead) => void;
   fetchAppState: () => Promise<CatalogRead>;
   gatewayUrl: string;
+  /** Moves feeds and segments to this gateway, off the browser's own node if they were on it. */
   setGatewayUrl: (url: string) => void;
+  /**
+   * Whether the picker offers the browser's own Swarm node, which it does on a page the browser loaded
+   * from Swarm. See `browserNode`.
+   */
+  isBrowserNodeOffered: boolean;
+  /** Whether segments come from the browser's own node, while feeds keep coming from {@link gatewayUrl}. */
+  segmentsFromBrowserNode: boolean;
+  /** Takes segments from the browser's own node and reads feeds from the event gateway. */
+  switchToBrowserNode: () => void;
   /** The gateway this deployment's config names, which the picker offers as the way back. */
   defaultGatewayUrl: string;
   /** The chat's settings, or null when this deployment has chat switched off. */
@@ -62,6 +73,26 @@ type Props = {
 /** Where a viewer's chosen gateway survives a reload. */
 const GATEWAY_STORAGE_KEY = 'swarm-gateway-url';
 
+/** Where a viewer's choice to load segments from the browser's own node survives a reload. */
+const BROWSER_NODE_STORAGE_KEY = 'swarm-segments-from-browser-node';
+const BROWSER_NODE_ON = 'on';
+const BROWSER_NODE_OFF = 'off';
+
+/**
+ * On unless the viewer turned it off. A browser that loaded this page from Swarm runs a node of its
+ * own, and the video loading from it spares the event gateway a viewer it does not need to serve.
+ */
+function loadSegmentsFromBrowserNode(isOffered: boolean): boolean {
+  if (!isOffered) {
+    return false;
+  }
+  try {
+    return localStorage.getItem(BROWSER_NODE_STORAGE_KEY) !== BROWSER_NODE_OFF;
+  } catch {
+    return true;
+  }
+}
+
 function loadGatewayUrl(defaultGatewayUrl: string): string {
   try {
     return localStorage.getItem(GATEWAY_STORAGE_KEY) || defaultGatewayUrl;
@@ -73,8 +104,15 @@ function loadGatewayUrl(defaultGatewayUrl: string): string {
 export const AppContextProvider = ({ config, children }: Props) => {
   const [catalog, setCatalog] = useState<StreamCatalog>({ streams: [], gateway: null, slot: null });
   const [isStreamListLoaded, setIsStreamListLoaded] = useState(false);
+  const isBrowserNodeOffered = isServedOverBzz(window.location.protocol);
+  const [segmentsFromBrowserNode, setSegmentsFromBrowserNode] = useState(() => {
+    const fromBrowserNode = loadSegmentsFromBrowserNode(isBrowserNodeOffered);
+    manifestFetcher.segmentsFromBrowserNode = fromBrowserNode;
+    return fromBrowserNode;
+  });
   const [gatewayUrl, setGatewayUrlState] = useState<string>(() => {
-    const url = loadGatewayUrl(config.gatewayUrl);
+    // The browser's node cannot read feeds, and the event gateway is the one that can be reached from here.
+    const url = segmentsFromBrowserNode ? config.gatewayUrl : loadGatewayUrl(config.gatewayUrl);
     manifestFetcher.beeUrl = url;
     return url;
   });
@@ -82,7 +120,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
   const gatewayRef = useRef(gatewayUrl);
 
   /**
-   * Point every subsequent read at another node.
+   * Point every subsequent read at another node, and segments at that node or the browser's own.
    *
    * ⛔ **The stream list is not cleared here, and that is the fix rather than an omission.** What a
    * switch changes is whose answer the list is, which the gateway held beside it already records, so
@@ -91,22 +129,39 @@ export const AppContextProvider = ({ config, children }: Props) => {
    * nothing polls the catalog to put one back: the viewer's own node would cost them the ladder, the
    * playback position, or the whole player.
    */
-  const setGatewayUrl = useCallback((url: string) => {
-    const trimmed = url.replace(/\/+$/, '');
-    gatewayRef.current = trimmed;
-    setGatewayUrlState(trimmed);
-    manifestFetcher.beeUrl = trimmed;
-    // The new node has its own view of the feed, so a position established against the old one would
-    // ask it for slots it may not hold, which reads as a catalog that stopped rather than one being
-    // followed from the wrong place.
-    catalogReader.current.reset();
-    ManifestStateManager.getInstance().markAllDirty();
-    try {
-      localStorage.setItem(GATEWAY_STORAGE_KEY, trimmed);
-    } catch {
-      // localStorage unavailable
-    }
-  }, []);
+  const selectSource = useCallback(
+    (url: string, fromBrowserNode: boolean) => {
+      const trimmed = url.replace(/\/+$/, '');
+      // The new node has its own view of the feed, so a position established against the old one would
+      // ask it for slots it may not hold, which reads as a catalog that stopped rather than one being
+      // followed from the wrong place. Moving the segments alone leaves the feeds where they were.
+      if (trimmed !== gatewayRef.current) {
+        catalogReader.current.reset();
+      }
+      gatewayRef.current = trimmed;
+      setGatewayUrlState(trimmed);
+      setSegmentsFromBrowserNode(fromBrowserNode);
+      manifestFetcher.beeUrl = trimmed;
+      manifestFetcher.segmentsFromBrowserNode = fromBrowserNode;
+      ManifestStateManager.getInstance().markAllDirty();
+      try {
+        localStorage.setItem(GATEWAY_STORAGE_KEY, trimmed);
+        if (isBrowserNodeOffered) {
+          localStorage.setItem(BROWSER_NODE_STORAGE_KEY, fromBrowserNode ? BROWSER_NODE_ON : BROWSER_NODE_OFF);
+        }
+      } catch {
+        // localStorage unavailable
+      }
+    },
+    [isBrowserNodeOffered],
+  );
+
+  const setGatewayUrl = useCallback((url: string) => selectSource(url, false), [selectSource]);
+
+  const switchToBrowserNode = useCallback(
+    () => selectSource(config.gatewayUrl, true),
+    [selectSource, config.gatewayUrl],
+  );
 
   /**
    * Kept in a ref rather than rebuilt per call, because its whole value is the position it remembers
@@ -166,6 +221,9 @@ export const AppContextProvider = ({ config, children }: Props) => {
         fetchAppState,
         gatewayUrl,
         setGatewayUrl,
+        isBrowserNodeOffered,
+        segmentsFromBrowserNode,
+        switchToBrowserNode,
         defaultGatewayUrl: config.gatewayUrl,
         chat: enabledChat(config),
         theme: THEMES[selectedTheme(config)],

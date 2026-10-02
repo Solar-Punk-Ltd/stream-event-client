@@ -187,7 +187,11 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 - **Where the video loads from.** The Bee node picker offers the event gateway and a Bee node on the
   viewer's own computer, `http://localhost:1633` filled in and the port editable. Only `localhost`,
   `127.0.0.1` and `[::1]` are accepted. The node is checked before the switch, a failure is explained
-  in plain words, and the choice is remembered in the browser.
+  in plain words, and the choice is remembered in the browser. A browser that loaded the page from
+  Swarm over `bzz://`, such as Freedom, runs a node of its own, and the picker offers that node in
+  place of an address, as the default. The segments then load as `bzz://<ref>/`, older recordings'
+  `/bytes/<ref>` URLs included, and the stream list and playlists keep coming from the event gateway,
+  which `bzz://` cannot serve.
 - **Diagnosing playback.** `?qoe=1` on a watch page shows a draggable playback quality overlay,
   toggled with `Q`. `?level=720p` pins one quality, which tells a bad quality apart from a bad switch.
 
@@ -197,7 +201,8 @@ hls.js expects playlists at fixed URLs. On Swarm every playlist update is new co
 so the player brings its own loaders:
 
 - **CustomManifestLoader** reads the latest playlist from its feed instead of a fixed URL.
-- **CustomFragmentLoader** fetches each segment from the gateway, staggered by a bounded random delay
+- **CustomFragmentLoader** fetches each segment from the gateway, or from the browser's own node over
+  `bzz://` with hls.js's fetch loader on a page loaded that way, staggered by a bounded random delay
   so a crowd at the live edge does not ask in the same instant. `fetchSegmentBytes` is the one place
   segment bytes are fetched, where another source can plug in.
 - **ManifestStateManager** merges each live playlist into a growing EVENT playlist, so segments stay
