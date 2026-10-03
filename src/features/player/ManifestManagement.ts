@@ -5,7 +5,8 @@ import { parseManifest, type Segment } from '@/shared/manifest';
 import Pqueue from 'p-queue';
 
 import { Rendition } from '@/features/catalog/stream';
-import { fetchWithTimeout, TimedResponse } from '@/shared/fetchWithTimeout';
+import { fetchFeed } from '@/shared/browserNodeFeeds';
+import { TimedResponse } from '@/shared/fetchWithTimeout';
 import { RequestJitter } from '@/shared/requestJitter';
 
 import { BROWSER_NODE_BYTES, browserNodeSegmentUrl } from './browserNode';
@@ -521,7 +522,8 @@ export class ManifestFetcher {
 
   /**
    * Set by the app provider: whether segments come from the browser's own node over `bzz://`. Feeds
-   * keep going to {@link beeUrl} either way, since `bzz://` cannot serve them.
+   * are addressed to {@link beeUrl} either way, since `bzz://` cannot serve them, and in this mode
+   * `browserNodeFeeds` answers them from the same node through `window.swarm` where it can.
    */
   segmentsFromBrowserNode = false;
 
@@ -1169,7 +1171,7 @@ export class ManifestFetcher {
   }
 
   private async fetchResource(path: string): Promise<TimedResponse> {
-    const response = await fetchWithTimeout(`${this._beeUrl}/${path}`);
+    const response = await fetchFeed(`${this._beeUrl}/${path}`);
     if (!response.ok) {
       throw new ManifestFetchError(path, response.status);
     }

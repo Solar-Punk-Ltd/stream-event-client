@@ -6,8 +6,9 @@
  * is not a manifest. That is exactly a segment. The page cannot reach that node's HTTP port, so a
  * "my own Bee node" address never works there, and this is the only way its node can serve the video.
  *
- * ⛔ Segments only. `bzz://` serves content, not feeds or single-owner chunks, so every feed read goes
- * on through the event gateway in this mode.
+ * ⛔ Segments only. `bzz://` serves content, not feeds or single-owner chunks. In this mode those are
+ * read from the same node through `window.swarm` instead, with the event gateway behind it. See
+ * `shared/browserNodeFeeds`.
  */
 
 /** The protocol of a page Freedom loaded from Swarm. */

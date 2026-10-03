@@ -190,8 +190,12 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   in plain words, and the choice is remembered in the browser. A browser that loaded the page from
   Swarm over `bzz://`, such as Freedom, runs a node of its own, and the picker offers that node in
   place of an address, as the default. The segments then load as `bzz://<ref>/`, older recordings'
-  `/bytes/<ref>` URLs included, and the stream list and playlists keep coming from the event gateway,
-  which `bzz://` cannot serve.
+  `/bytes/<ref>` URLs included. `bzz://` cannot serve the stream list and playlists, which are feeds,
+  so where the page has the browser's `window.swarm` they are read from the same node through it, and
+  from the event gateway otherwise. The browser limits those reads per site, 120 a minute and 600
+  once the viewer connects the site, which the picker offers. A read the node refuses or cannot
+  answer goes to the event gateway, and a refusal over the limit sends the next minute's reads there
+  too. The chat keeps its own endpoint.
 - **Diagnosing playback.** `?qoe=1` on a watch page shows a draggable playback quality overlay,
   toggled with `Q`. `?level=720p` pins one quality, which tells a bad quality apart from a bad switch.
 
@@ -200,7 +204,10 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 hls.js expects playlists at fixed URLs. On Swarm every playlist update is new content under a feed,
 so the player brings its own loaders:
 
-- **CustomManifestLoader** reads the latest playlist from its feed instead of a fixed URL.
+- **CustomManifestLoader** reads the latest playlist from its feed instead of a fixed URL, through
+  `fetchFeed`, which is also how the catalog and the stream cards read theirs. With the browser's own
+  node in use, `browserNodeFeeds` answers those reads through `window.swarm`, shaped as the gateway's
+  answers are, and hands to the gateway what it cannot answer.
 - **CustomFragmentLoader** fetches each segment from the gateway, or from the browser's own node over
   `bzz://` with hls.js's fetch loader on a page loaded that way, staggered by a bounded random delay
   so a crowd at the live edge does not ask in the same instant. `fetchSegmentBytes` is the one place

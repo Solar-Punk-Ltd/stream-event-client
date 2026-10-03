@@ -2,6 +2,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, u
 import { Topic } from '@ethersphere/bee-js';
 
 import { isServedOverBzz } from '@/features/player/browserNode';
+import { browserNodeFeeds } from '@/shared/browserNodeFeeds';
 import { manifestFetcher } from '@/features/player/CustomManifestLoader';
 import { ManifestStateManager } from '@/features/player/ManifestManagement';
 import { Stream } from '@/features/catalog/stream';
@@ -43,9 +44,12 @@ type AppContextState = {
    * from Swarm. See `browserNode`.
    */
   isBrowserNodeOffered: boolean;
-  /** Whether segments come from the browser's own node, while feeds keep coming from {@link gatewayUrl}. */
+  /**
+   * Whether segments come from the browser's own node. Feeds come from it too where the page has
+   * `window.swarm` to read them with, and from {@link gatewayUrl} otherwise. See `browserNodeFeeds`.
+   */
   segmentsFromBrowserNode: boolean;
-  /** Takes segments from the browser's own node and reads feeds from the event gateway. */
+  /** Takes segments, and feeds where it can, from the browser's own node, with the event gateway behind it. */
   switchToBrowserNode: () => void;
   /** The gateway this deployment's config names, which the picker offers as the way back. */
   defaultGatewayUrl: string;
@@ -108,10 +112,12 @@ export const AppContextProvider = ({ config, children }: Props) => {
   const [segmentsFromBrowserNode, setSegmentsFromBrowserNode] = useState(() => {
     const fromBrowserNode = loadSegmentsFromBrowserNode(isBrowserNodeOffered);
     manifestFetcher.segmentsFromBrowserNode = fromBrowserNode;
+    browserNodeFeeds.enabled = fromBrowserNode;
     return fromBrowserNode;
   });
   const [gatewayUrl, setGatewayUrlState] = useState<string>(() => {
-    // The browser's node cannot read feeds, and the event gateway is the one that can be reached from here.
+    // The browser's node reads feeds only through `window.swarm` and within a budget, so the event
+    // gateway stays behind it for every read it does not take.
     const url = segmentsFromBrowserNode ? config.gatewayUrl : loadGatewayUrl(config.gatewayUrl);
     manifestFetcher.beeUrl = url;
     return url;
@@ -143,6 +149,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
       setSegmentsFromBrowserNode(fromBrowserNode);
       manifestFetcher.beeUrl = trimmed;
       manifestFetcher.segmentsFromBrowserNode = fromBrowserNode;
+      browserNodeFeeds.enabled = fromBrowserNode;
       ManifestStateManager.getInstance().markAllDirty();
       try {
         localStorage.setItem(GATEWAY_STORAGE_KEY, trimmed);

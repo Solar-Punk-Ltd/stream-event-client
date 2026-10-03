@@ -34,7 +34,7 @@ export interface TimedResponse {
   text: string;
 }
 
-interface FetchWithTimeoutOptions {
+export interface FetchWithTimeoutOptions {
   timeoutMs?: number;
   /** A caller's own cancellation, typically a React effect's unmount signal. Composed, not replaced. */
   signal?: AbortSignal;

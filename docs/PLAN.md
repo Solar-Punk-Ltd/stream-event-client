@@ -50,8 +50,9 @@ commits of their own, so every change can be read against where the code came fr
    plain words: wrong port, not a Bee node, or the node refused this site. The choice is remembered,
    and the way back to the event gateway is one click. On a page a browser loaded from Swarm over
    `bzz://`, such as Freedom, the browser's own node takes the place of the address, which that page
-   cannot reach, and is the default: the video loads from it and the stream list from the event
-   gateway.
+   cannot reach, and is the default: the video loads from it, and the stream list and playlists too
+   where the browser gives the page `window.swarm` to read feeds with, within the browser's read limit
+   per site, with the event gateway behind it.
 4. **Chat** beside the video, one chat per stream: send a message, react with an emoji, reply in a
    thread, load older messages, and retry a message that failed to send. Reading needs no name.
    Writing asks once for a display name, which creates a key in the browser that signs the
@@ -217,8 +218,10 @@ set up. Whoever sets that up needs these two constraints:
     `500 done split failed`. At depth 24, 256 slots, the same test ran clean.
 
 The Bee node picker moves the stream list and the video. The browser's own node, offered on a page loaded over `bzz://`,
-moves only the video, because `bzz://` serves no feeds. The chat keeps its own endpoint, because a viewer's own node
-holds no stamp for writing.
+moves the video, and moves the stream list and playlists through `window.swarm` where the browser provides it, because
+`bzz://` serves no feeds. Freedom limits those reads to 120 a minute per site, 600 once the viewer connects the site
+from the picker, and what it refuses goes to the event gateway. The chat keeps its own endpoint, because a viewer's own
+node holds no stamp for writing.
 
 ### Tests
 

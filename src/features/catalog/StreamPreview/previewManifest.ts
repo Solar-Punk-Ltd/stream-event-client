@@ -2,7 +2,8 @@ import type { Segment } from '@/shared/manifest';
 
 import { isMasterPlaylist, masterVariants, parseManifest } from '@/features/player/playlist';
 import { Rendition, STREAM_STATUS_VOD, StreamState } from '@/features/catalog/stream';
-import { fetchWithTimeout, TimedResponse } from '@/shared/fetchWithTimeout';
+import { fetchFeed } from '@/shared/browserNodeFeeds';
+import { TimedResponse } from '@/shared/fetchWithTimeout';
 import { thumbnailManifestUrl } from '@/features/catalog/thumbnailManifest';
 
 /** The catalog entry fields a stream card reads its preview manifest by. */
@@ -36,7 +37,7 @@ export async function fetchPreviewManifest(
   signal: AbortSignal,
   fetcher?: typeof fetch,
 ): Promise<{ res: TimedResponse; segments: Segment[] }> {
-  const res = await fetchWithTimeout(thumbnailManifestUrl(gatewayUrl, entry.owner, entry.topic, entry.index), {
+  const res = await fetchFeed(thumbnailManifestUrl(gatewayUrl, entry.owner, entry.topic, entry.index), {
     signal,
     fetcher,
   });
@@ -49,7 +50,7 @@ export async function fetchPreviewManifest(
     return { res, segments: [] };
   }
 
-  const rung = await fetchWithTimeout(
+  const rung = await fetchFeed(
     thumbnailManifestUrl(
       gatewayUrl,
       variant.owner || entry.owner,

@@ -3,6 +3,7 @@ import { useId, useRef, useState } from 'react';
 import { useAppContext } from '@/app/AppProvider';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { Dialog } from '@/shared/components/Dialog/Dialog';
+import { type BrowserNodeAccess, browserNodeFeeds, swarmProvider } from '@/shared/browserNodeFeeds';
 
 import {
   checkOwnNodeAddress,
@@ -48,6 +49,11 @@ export function DomainSelector() {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState(OWN_NODE_DEFAULT_ADDRESS);
   const [status, setStatus] = useState<PickerStatus>(IDLE);
+  // Whether the browser lets this page read feeds from its node, and how many. Asked when the
+  // picker opens, in the one way that never shows the viewer a prompt.
+  const hasSwarmProvider = isBrowserNodeOffered && swarmProvider() !== null;
+  const [access, setAccess] = useState<BrowserNodeAccess>('unknown');
+  const [isConnecting, setIsConnecting] = useState(false);
   // Bumped on every confirm and on close, so a probe that comes back after the viewer cancelled or
   // retyped cannot save an address they no longer meant.
   const probeGeneration = useRef(0);
@@ -61,6 +67,16 @@ export function DomainSelector() {
     setInputValue(isOnEventGateway ? OWN_NODE_DEFAULT_ADDRESS : gatewayUrl);
     setStatus(IDLE);
     setIsOpen(true);
+    if (hasSwarmProvider) {
+      void browserNodeFeeds.access().then(setAccess);
+    }
+  };
+
+  const handleConnect = async () => {
+    setIsConnecting(true);
+    const connected = await browserNodeFeeds.requestAccess();
+    setAccess(connected ? 'connected' : await browserNodeFeeds.access());
+    setIsConnecting(false);
   };
 
   const close = () => {
@@ -143,12 +159,28 @@ export function DomainSelector() {
             <section className="gateway-choice">
               <h3 className="gateway-choice-title">This browser's node</h3>
               <p className="gateway-choice-description">
-                The Swarm node this browser runs. The video loads from it, and the list of streams still comes from the
-                event gateway.
+                {hasSwarmProvider
+                  ? 'The Swarm node this browser runs. The video and the list of streams load from it, and the event gateway steps in for what it cannot read.'
+                  : 'The Swarm node this browser runs. The video loads from it, and the list of streams still comes from the event gateway.'}
               </p>
               <Button onClick={handleUseBrowserNode} disabled={segmentsFromBrowserNode}>
                 {segmentsFromBrowserNode ? 'In use' : "Use this browser's node"}
               </Button>
+              {segmentsFromBrowserNode && hasSwarmProvider && access === 'not-connected' && (
+                <>
+                  <p className="gateway-choice-description">
+                    The browser lets this site make 120 reads a minute from its node, and the event gateway serves the
+                    rest. Connecting the site raises that to 600, enough for every quality of a live stream.
+                  </p>
+                  <Button
+                    variant={ButtonVariant.SECONDARY}
+                    onClick={() => void handleConnect()}
+                    disabled={isConnecting}
+                  >
+                    {isConnecting ? 'Waiting for the browser...' : 'Connect this site'}
+                  </Button>
+                </>
+              )}
             </section>
           )}
 
