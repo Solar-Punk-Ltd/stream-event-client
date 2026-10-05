@@ -56,8 +56,10 @@ commits of their own, so every change can be read against where the code came fr
    reads and 512 KiB a minute (600 reads and 5 MiB once connected). A finished stream's playlist can
    be larger than 512 KiB on its own, so the first read of it costs a refusal and a minute of feed
    reads on the gateway. After that it is read from the gateway until the viewer connects the site.
-   Freedom reports a slot its node could not retrieve as missing, so a slot the node refuses twice is
-   asked of the gateway, whose answer tells a missing slot from a failing node.
+   Freedom reports a slot its node could not retrieve as missing, so a slot the node has refused for
+   a second is asked of the gateway, whose answer tells a missing slot from a failing node, and a feed
+   the gateway serves a refused slot of is read from the gateway for a while. A feed head the node
+   calls empty is always asked of the gateway.
 4. **Chat** beside the video, one chat per stream: send a message, react with an emoji, reply in a
    thread, load older messages, and retry a message that failed to send. Reading needs no name.
    Writing asks once for a display name, which creates a key in the browser that signs the

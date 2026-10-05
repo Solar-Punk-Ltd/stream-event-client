@@ -9,6 +9,8 @@ import {
   type SwarmProvider,
 } from '../src/shared/browserNodeFeeds';
 import { feedSlotPath, makeFeedIdentifier, nextFeedRequest } from '../src/shared/feedFollow';
+import { RUNG_DEATH_LAG_SEGMENTS, UNSERVED_SLOT_STALL_MS } from '../src/features/player/feedState';
+import { UNSERVED_POLLS_BEFORE_PROBE } from '../src/features/player/refusedSlot';
 
 /**
  * Feed reads through Freedom's `window.swarm`, with the gateway behind them.
@@ -121,15 +123,14 @@ describe('reading through the browser node', () => {
     expect(provider.calls).toHaveLength(2);
   });
 
-  it('keeps answering a slot polled at the live edge as a 404 until the stream has had time to write it', async () => {
+  it('keeps answering a slot polled at the live edge as a 404 while the node is trusted', async () => {
     provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
     const path = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
 
-    for (let poll = 0; poll < 5; poll++) {
-      expect(await feeds.read(path)).toMatchObject({ status: 404 });
-      clock += 750;
-    }
-    expect(provider.calls).toHaveLength(5);
+    expect(await feeds.read(path)).toMatchObject({ status: 404 });
+    clock += NOT_FOUND_TRUST_MS - 1;
+    expect(await feeds.read(path)).toMatchObject({ status: 404 });
+    expect(provider.calls).toHaveLength(2);
 
     provider.answer = () => Promise.resolve({ data: base64('slot 9'), encoding: 'base64', index: 9 });
     expect((await feeds.read(path))?.text).toBe('slot 9');
@@ -144,6 +145,25 @@ describe('reading through the browser node', () => {
     expect(await feeds.read(path)).toMatchObject({ status: 404 });
     clock += NOT_FOUND_TRUST_MS;
     expect(await feeds.read(path)).toBeNull();
+  });
+
+  // Until the gateway is asked, a slot the node cannot retrieve looks to the player like one that is
+  // not written, and the player acts on that: it probes past it, drops a ladder rung whose siblings
+  // are four segments ahead, and shows the stalled overlay.
+  it('believes a not-found for less time than the player takes to act on a missing slot', () => {
+    const SHORTEST_SEGMENT_MS = 500;
+    const POLL_MS = 750;
+    expect(NOT_FOUND_TRUST_MS).toBeLessThan(RUNG_DEATH_LAG_SEGMENTS * SHORTEST_SEGMENT_MS);
+    expect(NOT_FOUND_TRUST_MS).toBeLessThan(UNSERVED_POLLS_BEFORE_PROBE * POLL_MS);
+    expect(NOT_FOUND_TRUST_MS).toBeLessThan(UNSERVED_SLOT_STALL_MS);
+  });
+
+  // The catalog reads its head every few seconds, and a believed not-found would read as no streams.
+  it('asks the gateway about a feed head the node calls empty', async () => {
+    provider.answer = () => Promise.reject(providerError(-32602, 'feed_empty'));
+
+    expect(await feeds.read(`${GATEWAY}/${nextFeedRequest(OWNER, TOPIC, null).path}`)).toBeNull();
+    expect(provider.calls).toHaveLength(1);
   });
 
   it('leaves anything that is not a feed read to the gateway', async () => {
@@ -297,15 +317,48 @@ describe('fetchFeed', () => {
     expect(gatewayAnswer).not.toHaveBeenCalled();
   });
 
-  it('leaves the gateway out of polls at the live edge', async () => {
+  it('leaves the gateway out of most polls at the live edge', async () => {
     provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
     const slot = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
+    const missing = vi.fn(async () => new Response('', { status: 404 }));
 
-    for (let poll = 0; poll < 5; poll++) {
-      expect((await fetchFeed(slot, { fetcher: gatewayAnswer as typeof fetch }, feeds)).status).toBe(404);
+    for (let poll = 0; poll < 6; poll++) {
+      expect((await fetchFeed(slot, { fetcher: missing as typeof fetch }, feeds)).status).toBe(404);
       clock += 750;
     }
-    expect(gatewayAnswer).not.toHaveBeenCalled();
+    expect(missing).toHaveBeenCalledTimes(2);
+  });
+
+  // The R3 case: Freedom maps the node's Bee 500 to entry_not_found while the gateway has the slot.
+  it('serves a slot the node cannot retrieve from the gateway on the second poll', async () => {
+    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
+    const slot = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
+    const fetcher = { fetcher: gatewayAnswer as typeof fetch };
+
+    expect((await fetchFeed(slot, fetcher, feeds)).status).toBe(404);
+    clock += 750;
+    expect((await fetchFeed(slot, fetcher, feeds)).status).toBe(404);
+    clock += 750;
+    expect((await fetchFeed(slot, fetcher, feeds)).text).toBe('from the gateway');
+  });
+
+  it("sends a feed's refused slots to the gateway once it has served one the node called missing", async () => {
+    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
+    const slotAt = (i: bigint) => `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(i))}`;
+    const fetcher = { fetcher: gatewayAnswer as typeof fetch };
+
+    await fetchFeed(slotAt(9n), fetcher, feeds);
+    clock += NOT_FOUND_TRUST_MS;
+    expect((await fetchFeed(slotAt(9n), fetcher, feeds)).text).toBe('from the gateway');
+
+    for (const index of [10n, 11n, 12n, 18n]) {
+      expect((await fetchFeed(slotAt(index), fetcher, feeds)).text).toBe('from the gateway');
+    }
+    expect(gatewayAnswer).toHaveBeenCalledTimes(5);
+
+    clock += NODE_RETRY_MS;
+    expect((await fetchFeed(slotAt(13n), fetcher, feeds)).status).toBe(404);
+    expect(gatewayAnswer).toHaveBeenCalledTimes(5);
   });
 
   it('serves a slot the node cannot retrieve from the gateway once it has refused it for too long', async () => {
@@ -339,10 +392,8 @@ describe('fetchFeed', () => {
     await fetchFeed(slot, { fetcher: missing as typeof fetch }, feeds);
     clock += NOT_FOUND_TRUST_MS;
     expect((await fetchFeed(slot, { fetcher: missing as typeof fetch }, feeds)).status).toBe(404);
-    for (let poll = 0; poll < 5; poll++) {
-      clock += 750;
-      expect((await fetchFeed(slot, { fetcher: missing as typeof fetch }, feeds)).status).toBe(404);
-    }
+    clock += NOT_FOUND_TRUST_MS - 1;
+    expect((await fetchFeed(slot, { fetcher: missing as typeof fetch }, feeds)).status).toBe(404);
     expect(missing).toHaveBeenCalledTimes(1);
   });
 

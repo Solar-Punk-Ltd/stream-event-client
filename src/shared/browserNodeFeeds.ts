@@ -23,11 +23,16 @@
  *
  * Freedom answers a feed slot it could not retrieve the same way as one that does not exist. A
  * node's "not found" is the 404 a follower at the live edge expects, and is believed for a slot until
- * it has been refused for {@link NOT_FOUND_TRUST_MS}, far longer than a live stream takes to write its
- * next slot. Only then is that slot's next refusal asked of the gateway, whose answer tells the two
- * apart: its 404 earns the node another such stretch, and anything else ends the doubt for that slot.
- * So the live edge is polled through the node alone, and a slot the node cannot retrieve reaches the
- * gateway within that stretch.
+ * it has been refused for {@link NOT_FOUND_TRUST_MS}, shorter than anything the player concludes from
+ * a slot staying missing. Then that slot's next refusal is asked of the gateway, whose answer tells
+ * the two apart: its 404 earns the node another such stretch, and a slot it serves shows the node is
+ * failing that feed, whose refusals then all go to the gateway for {@link NODE_RETRY_MS}. So the live
+ * edge is polled through the node on most polls, and a slot the node cannot retrieve reaches the
+ * gateway before the player calls the feed stalled or a rung dead.
+ *
+ * A feed head the node calls empty is always asked of the gateway. A head is read once when a
+ * follower joins and every few seconds by the catalog, where a believed "not found" would show "no
+ * streams" until the next poll.
  *
  * Only ever on while segments come from the browser's node, which is only offered on a `bzz:` page.
  * Everywhere else every read goes to the gateway exactly as before.
@@ -85,6 +90,12 @@ function rememberAt(map: Map<string, number>, key: string, at: number): void {
   map.set(key, at);
 }
 
+/** The feed a slot read belongs to, when this tab built its path and so knows the topic. */
+function feedKey(path: ParsedPath): string | null {
+  const topic = path.kind === 'head' ? path.topic : feedSlotOf(path.identifier)?.topic.toString();
+  return topic === undefined ? null : `${path.owner.toLowerCase()}/${topic.toLowerCase()}`;
+}
+
 function parsePath(url: string): ParsedPath | null {
   const match = FEED_PATH.exec(url);
   if (!match) {
@@ -110,12 +121,16 @@ export const NODE_RETRY_MS = 15_000;
 const NOT_FOUND_REASONS = new Set(['entry_not_found', 'feed_empty', 'chunk_not_found']);
 
 /**
- * How long a node's "not found" for one slot is believed before the gateway is asked about it. A live
- * rung writes its next slot every segment, a few seconds, so a slot missing for longer than this is
- * either a stream that has stopped, which the gateway confirms once per stretch, or a slot the node
- * cannot retrieve, which the gateway then serves.
+ * How long a node's "not found" for one slot is believed before the gateway is asked about it.
+ *
+ * Bounded by what the player does with a slot that stays missing, since until the gateway is asked
+ * the node's retrieval failure is indistinguishable from that. The tightest is a ladder rung, called
+ * dead once its siblings are `RUNG_DEATH_LAG_SEGMENTS` (4) segments ahead, which at the shortest
+ * half-second segments is two seconds; next is the probe past a refusal after three polls, and the
+ * stalled overlay at eight seconds. At the 750 ms poll this sends at most one poll in two to the gateway
+ * while a follower waits at the live edge, against every poll after the first without it.
  */
-export const NOT_FOUND_TRUST_MS = 15_000;
+export const NOT_FOUND_TRUST_MS = 1_000;
 
 /** Freedom's byte budget for a site the viewer has not connected, used when a refusal does not say. */
 const ANONYMOUS_READ_BYTES = 512 * 1024;
@@ -155,6 +170,9 @@ export class BrowserNodeFeeds {
 
   /** Reads the node has said are not there, by when that stretch of believing it began. */
   private readonly notFoundSince = new Map<string, number>();
+
+  /** Feeds the gateway served a slot of that the node had called missing, by when it did. */
+  private readonly notFoundDisbelieved = new Map<string, number>();
 
   /** Set when the provider lacks these reads, which no later read can change. */
   private unsupported = false;
@@ -201,7 +219,7 @@ export class BrowserNodeFeeds {
       if (signal?.aborted) {
         throw error;
       }
-      return this.fallBack(error, key);
+      return this.fallBack(error, path, key);
     }
   }
 
@@ -220,6 +238,10 @@ export class BrowserNodeFeeds {
         rememberAt(this.notFoundSince, key, this.now());
       } else {
         this.notFoundSince.delete(key);
+        const feed = feedKey(path);
+        if (response.ok && feed !== null) {
+          rememberAt(this.notFoundDisbelieved, feed, this.now());
+        }
       }
     }
     const refused = this.refusedOverBudget;
@@ -343,16 +365,23 @@ export class BrowserNodeFeeds {
   }
 
   /** What a failed read becomes: a gateway's 404 for a slot that is not there, or a read for the gateway. */
-  private fallBack(error: unknown, key: string): TimedResponse | null {
+  private fallBack(error: unknown, path: ParsedPath, key: string): TimedResponse | null {
     const { code, data } = (error ?? {}) as ProviderError;
     if (data?.reason !== undefined && NOT_FOUND_REASONS.has(data.reason)) {
+      if (path.kind === 'head') {
+        return null;
+      }
       const now = this.now();
+      const feed = feedKey(path);
+      const disbelievedAt = feed === null ? undefined : this.notFoundDisbelieved.get(feed);
+      if (disbelievedAt !== undefined && now - disbelievedAt < NODE_RETRY_MS) {
+        return null;
+      }
       const since = this.notFoundSince.get(key);
       if (since === undefined) {
         rememberAt(this.notFoundSince, key, now);
       } else if (now - since >= NOT_FOUND_TRUST_MS) {
-        // Missing for longer than a live stream takes, so the gateway's 404 or 5xx says whether it is
-        // absent or the node failing.
+        // The gateway's 404 or 5xx says whether it is absent or the node failing.
         return null;
       }
       return { ok: false, status: 404, headers: new Headers(), text: '' };
