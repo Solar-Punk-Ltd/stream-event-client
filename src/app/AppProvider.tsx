@@ -111,8 +111,9 @@ export const AppContextProvider = ({ config, children }: Props) => {
     return fromBrowserNode;
   });
   const [gatewayUrl, setGatewayUrlState] = useState<string>(() => {
-    // The browser's node cannot read feeds, and the event gateway is the one that can be reached from here.
-    const url = segmentsFromBrowserNode ? config.gatewayUrl : loadGatewayUrl(config.gatewayUrl);
+    // A bzz page cannot reach a node's HTTP port, and the browser's node cannot read feeds, so the event
+    // gateway is the only node it has. An own node saved by an earlier build would be one it cannot reach.
+    const url = isBrowserNodeOffered ? config.gatewayUrl : loadGatewayUrl(config.gatewayUrl);
     manifestFetcher.beeUrl = url;
     return url;
   });

@@ -58,8 +58,9 @@ type FragmentTransport = new (config: HlsConfig) => Loader<FragmentLoaderContext
  * The hls.js loader that moves a fragment's bytes for a page served this way.
  *
  * hls.js's default is its XHR loader, and Freedom registers `bzz:` with `supportFetchAPI` and promises
- * nothing for XHR on a custom scheme, so a page it serves takes the fetch loader. Picked by the page rather than by the viewer's choice of node,
- * because fetch reaches a gateway as well, and a class hls.js constructs cannot be swapped later.
+ * nothing for XHR on a custom scheme, so a page it serves takes the fetch loader. Picked by the page
+ * rather than by the viewer's choice of node, because fetch reaches a gateway as well, and a class
+ * hls.js constructs cannot be swapped later.
  */
 export function fragmentTransport(pageProtocol: string): FragmentTransport {
   return (isServedOverBzz(pageProtocol) ? FetchLoader : Hls.DefaultConfig.loader) as unknown as FragmentTransport;

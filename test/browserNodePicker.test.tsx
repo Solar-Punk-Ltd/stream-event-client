@@ -111,6 +111,18 @@ describe('the picker on a page loaded over bzz', () => {
     expect(manifestFetcher.segmentsFromBrowserNode).toBe(true);
     expect(manifestFetcher.beeUrl).toBe(EVENT_GATEWAY);
   });
+
+  // With the browser's node off, the saved own node is still one the page cannot reach or edit.
+  it('reads from the event gateway with the browser node off and an own node saved', async () => {
+    localStorage.setItem('swarm-gateway-url', 'http://localhost:1633');
+    localStorage.setItem('swarm-segments-from-browser-node', 'off');
+
+    await showPicker();
+
+    expect(headerLabel()).toBe('Event gateway');
+    expect(manifestFetcher.segmentsFromBrowserNode).toBe(false);
+    expect(manifestFetcher.beeUrl).toBe(EVENT_GATEWAY);
+  });
 });
 
 describe('the picker on any other page', () => {
