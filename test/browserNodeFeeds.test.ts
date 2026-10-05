@@ -44,6 +44,9 @@ class FakeProvider implements SwarmProvider {
   }
 }
 
+/** Lets a check this route started on its own, such as asking the node again, settle. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 let provider: FakeProvider;
 let clock: number;
 let feeds: BrowserNodeFeeds;
@@ -363,9 +366,44 @@ describe('fetchFeed', () => {
     expect(gateway).toHaveBeenCalledTimes(6);
   });
 
+  // At the live edge the node's two-second miss outlasts most of a segment, so the next slot is
+  // usually written before the poll after it, which goes to the gateway, with no gateway 404 between.
+  it('keeps reading a feed through a healthy node that keeps losing the live-edge race', async () => {
+    const slotAt = (i: bigint) => `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(i))}`;
+    let written = 8n;
+    provider.answer = (call) => {
+      const index = BigInt(call.params.index as number);
+      if (index <= written) {
+        return Promise.resolve({ data: base64('from the node'), encoding: 'base64', index: Number(index) });
+      }
+      clock += 1_800;
+      written = index;
+      return Promise.reject(providerError(-32602, 'entry_not_found'));
+    };
+    const gateway = vi.fn(async (url: string | URL | Request) => {
+      const index = [...Array(20).keys()].map(BigInt).find((i) => url === slotAt(i));
+      return index !== undefined && index <= written
+        ? new Response('from the gateway', { status: 200 })
+        : new Response('', { status: 404 });
+    });
+    const fetcher = { fetcher: gateway as typeof fetch };
+
+    for (let index = 9n; index < 15n; index++) {
+      const nodeReads = provider.calls.length;
+      expect((await fetchFeed(slotAt(index), fetcher, feeds)).status).toBe(404);
+      expect(provider.calls).toHaveLength(nodeReads + 1);
+      clock += 750;
+      expect((await fetchFeed(slotAt(index), fetcher, feeds)).text).toBe('from the gateway');
+      await settle();
+    }
+    // Each slot's first poll went to the node, and every second raced slot was asked of it again.
+    expect(gateway).toHaveBeenCalledTimes(6);
+    expect(provider.calls).toHaveLength(6 + 6 / FAILED_SLOTS_BEFORE_DISTRUST);
+  });
+
   // Behind the live edge every slot is there, so a follower never waits, and a node failing the
   // feed would cost each slot a node miss and a poll.
-  it('reads a feed from the gateway alone once it serves slots in a row the node refused', async () => {
+  it('reads a feed from the gateway alone once the node refuses again a slot the gateway served', async () => {
     provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
     const slotAt = (i: bigint) => `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(i))}`;
     const fetcher = { fetcher: gatewayAnswer as typeof fetch };
@@ -375,6 +413,10 @@ describe('fetchFeed', () => {
       expect((await fetchFeed(slotAt(index), fetcher, feeds)).status).toBe(404);
       expect((await fetchFeed(slotAt(index), fetcher, feeds)).text).toBe('from the gateway');
     }
+    // The node is asked once more for the last slot the gateway served.
+    expect(provider.calls).toHaveLength(FAILED_SLOTS_BEFORE_DISTRUST + 1);
+    expect(provider.calls.at(-1)?.params.index).toBe(Number(index - 1n));
+    await settle();
     const nodeReads = provider.calls.length;
     for (let i = 0; i < 4; i++, index++) {
       expect((await fetchFeed(slotAt(index), fetcher, feeds)).text).toBe('from the gateway');
@@ -394,6 +436,7 @@ describe('fetchFeed', () => {
       await fetchFeed(slotAt(index), fetcher, feeds);
       await fetchFeed(slotAt(index), fetcher, feeds);
     }
+    await settle();
     const nodeReads = provider.calls.length;
 
     const missing = { fetcher: vi.fn(async () => new Response('', { status: 404 })) as typeof fetch };
@@ -401,6 +444,32 @@ describe('fetchFeed', () => {
     expect(provider.calls).toHaveLength(nodeReads);
     expect((await fetchFeed(slotAt(20n), missing, feeds)).status).toBe(404);
     expect(provider.calls).toHaveLength(nodeReads + 1);
+  });
+
+  // A gateway read that never answered leaves the slot as it would have been had it never been asked,
+  // so serving it later for another reason is not a slot the node refused.
+  it('forgets a refused slot handed to a gateway read that failed', async () => {
+    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
+    const slotAt = (i: bigint) => `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(i))}`;
+    const failing = { fetcher: vi.fn(async () => Promise.reject(new TypeError('network down'))) as typeof fetch };
+    const fetcher = { fetcher: gatewayAnswer as typeof fetch };
+
+    expect((await fetchFeed(slotAt(9n), fetcher, feeds)).status).toBe(404);
+    await expect(fetchFeed(slotAt(9n), failing, feeds)).rejects.toThrow();
+    // The node pauses after a failure of its own, and slot 9 is then served by the gateway.
+    provider.answer = () => Promise.reject(providerError(-32603, 'internal'));
+    expect((await fetchFeed(slotAt(9n), fetcher, feeds)).text).toBe('from the gateway');
+    clock += NODE_RETRY_MS;
+
+    // One slot the node refused and the gateway served, not two: the node is not asked about it again.
+    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
+    const nodeReads = provider.calls.length;
+    expect((await fetchFeed(slotAt(10n), fetcher, feeds)).status).toBe(404);
+    expect((await fetchFeed(slotAt(10n), fetcher, feeds)).text).toBe('from the gateway');
+    await settle();
+    expect(provider.calls).toHaveLength(nodeReads + 1);
+    expect((await fetchFeed(slotAt(11n), fetcher, feeds)).status).toBe(404);
+    expect(provider.calls).toHaveLength(nodeReads + 2);
   });
 
   it('passes on the 5xx the gateway gives for a slot the node refused', async () => {

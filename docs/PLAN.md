@@ -58,9 +58,10 @@ commits of their own, so every change can be read against where the code came fr
    reads on the gateway. After that it is read from the gateway until the viewer connects the site.
    Freedom reports a slot its node could not retrieve as missing, so the poll after a refusal asks
    the gateway instead, whose answer tells a missing slot from a failing node, and a waiting
-   follower's polls alternate between the two, never both on one poll. A feed whose slots the gateway
-   serves twice in a row after the node refused them is read from the gateway alone until the
-   gateway has a slot missing, or for 15 seconds. A feed head the node calls empty is asked of the
+   follower's polls alternate between the two, never both on one poll. At the live edge the gateway
+   often serves a slot the node refused, written during the node's slow miss. When it has done so
+   twice in a row the node is asked again for the second slot, and only a node that refuses that too
+   has the feed read from the gateway alone, until the gateway has a slot missing, or for 15 seconds. A feed head the node calls empty is asked of the
    gateway, and read from the gateway alone while the gateway agrees it is empty.
 4. **Chat** beside the video, one chat per stream: send a message, react with an emoji, reply in a
    thread, load older messages, and retry a message that failed to send. Reading needs no name.

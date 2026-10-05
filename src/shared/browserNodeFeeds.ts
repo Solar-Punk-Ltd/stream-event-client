@@ -5,7 +5,7 @@
  * Freedom injects `window.swarm` into every page it shows. Its `swarm_readFeedEntry` and
  * `swarm_readSingleOwnerChunk` read public Swarm data from the browser's own node without asking the
  * viewer anything, so with segments already on that node over `bzz://` (see
- * `features/player/browserNode`) nothing a viewer watches has to touch the gateway.
+ * `features/player/browserNode`) the gateway is left only what the node cannot answer.
  *
  * **Freedom limits these reads per site**: 120 requests and 512 KiB a minute for a site the viewer
  * has not connected, and 600 requests and 5 MiB for one they have (`READ_BUDGETS` in Freedom's
@@ -32,11 +32,16 @@
  * missing: it probes past one after `UNSERVED_POLLS_BEFORE_PROBE` (3) polls.
  *
  * A slot the gateway serves after the node refused it is either a slot written during the node's
- * slow lookup, which at the live edge happens every few segments, or a node failing the feed. Only
- * {@link FAILED_SLOTS_BEFORE_DISTRUST} such slots in a row, with neither a node read nor a gateway 404
- * of the feed between them, count as the second: a follower behind the edge, which never waits. Then
- * the feed's slots are read from the gateway alone until it answers one 404, which puts the follower
- * at the live edge where the node is tried again, or for {@link NODE_RETRY_MS} at most.
+ * slow lookup or a node failing the feed. At the live edge the first is the rule rather than the
+ * exception: the first poll of every slot goes to the node, which takes about two seconds to give up,
+ * by when the next two-to-four-second segment has often been written. So a run of such slots proves
+ * nothing on its own. After {@link FAILED_SLOTS_BEFORE_DISTRUST} of them in a row, with neither a
+ * node read nor a gateway 404 of the feed between them, the node is asked again for the last one,
+ * which the gateway has just shown exists. A node that serves it was only racing the writer. A node
+ * that refuses it again is failing the feed, and the feed's slots are then read from the gateway
+ * alone until it answers one 404, which puts the follower at the live edge where the node is tried
+ * again, or for {@link NODE_RETRY_MS} at most. While that question is open the feed's slots go to the
+ * gateway, so a follower behind the edge spends no node miss on it.
  *
  * A feed head the node calls empty is asked of the gateway, and while the gateway agrees it is
  * empty, the head is read from the gateway alone, until the gateway serves it. A head is read once
@@ -132,8 +137,8 @@ const NOT_FOUND_REASONS = new Set(['entry_not_found', 'feed_empty', 'chunk_not_f
 
 /**
  * How many slots of a feed in a row the gateway has to serve after the node refused them before the
- * feed is read from the gateway alone. One is the ordinary live-edge race, a slot written while the
- * node was still looking for it.
+ * node is asked again for the last of them, whose answer decides whether the feed is read from the
+ * gateway alone.
  */
 export const FAILED_SLOTS_BEFORE_DISTRUST = 2;
 
@@ -185,6 +190,9 @@ export class BrowserNodeFeeds {
   /** Feeds read from the gateway alone, by when that began. */
   private readonly distrusted = new Map<string, number>();
 
+  /** Feeds whose node is being asked again for a slot the gateway served after the node refused it. */
+  private readonly confirming = new Set<string>();
+
   /** Feed heads the node called empty and the gateway agreed, read from the gateway alone. */
   private readonly emptyHeads = new Set<string>();
 
@@ -231,7 +239,10 @@ export class BrowserNodeFeeds {
         return null;
       }
       const distrustedAt = feed === null ? undefined : this.distrusted.get(feed);
-      if (distrustedAt !== undefined && now - distrustedAt < NODE_RETRY_MS) {
+      if (
+        (distrustedAt !== undefined && now - distrustedAt < NODE_RETRY_MS) ||
+        (feed !== null && this.confirming.has(feed))
+      ) {
         return null;
       }
     }
@@ -276,7 +287,7 @@ export class BrowserNodeFeeds {
       const failed = (this.failedSlots.get(feed) ?? 0) + 1;
       if (failed >= FAILED_SLOTS_BEFORE_DISTRUST) {
         this.failedSlots.delete(feed);
-        rememberAt(this.distrusted, feed, this.now());
+        void this.confirmRefusal(path, key, feed);
       } else {
         rememberAt(this.failedSlots, feed, failed);
       }
@@ -291,6 +302,49 @@ export class BrowserNodeFeeds {
       console.warn(
         "A feed read is larger than this site's read limit in this browser, so it is read from the gateway. Connecting the site raises the limit.",
       );
+    }
+  }
+
+  /**
+   * Tells this route a gateway read it handed over failed without an answer, so the slot is no longer
+   * waiting on one. Called by {@link fetchFeed}.
+   */
+  noteGatewayFailure(url: string): void {
+    const path = parsePath(url);
+    if (path !== null) {
+      this.checking.delete(readKey(path));
+    }
+  }
+
+  /**
+   * Asks the node again for a slot the gateway has just served after the node refused it, and reads
+   * the feed from the gateway alone if the node refuses it again.
+   */
+  private async confirmRefusal(path: ParsedPath, key: string, feed: string): Promise<void> {
+    const provider = this.provider();
+    const now = this.now();
+    if (
+      !this.enabled ||
+      this.unsupported ||
+      provider === null ||
+      now < this.budgetPausedUntil ||
+      now < this.nodePausedUntil ||
+      this.confirming.has(feed)
+    ) {
+      return;
+    }
+    remember(this.confirming, feed);
+    try {
+      await this.readPath(provider, path);
+    } catch (error) {
+      const reason = ((error ?? {}) as ProviderError).data?.reason;
+      if (reason !== undefined && NOT_FOUND_REASONS.has(reason)) {
+        rememberAt(this.distrusted, feed, this.now());
+      } else {
+        this.fallBack(error, path, key);
+      }
+    } finally {
+      this.confirming.delete(feed);
     }
   }
 
@@ -477,7 +531,13 @@ export async function fetchFeed(
   if (fromNode !== null) {
     return fromNode;
   }
-  const fromGateway = await fetchWithTimeout(url, options);
+  let fromGateway: TimedResponse;
+  try {
+    fromGateway = await fetchWithTimeout(url, options);
+  } catch (error) {
+    feeds.noteGatewayFailure(url);
+    throw error;
+  }
   feeds.noteGatewayAnswer(url, fromGateway);
   return fromGateway;
 }
