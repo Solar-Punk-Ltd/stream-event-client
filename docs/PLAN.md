@@ -52,7 +52,12 @@ commits of their own, so every change can be read against where the code came fr
    `bzz://`, such as Freedom, the browser's own node takes the place of the address, which that page
    cannot reach, and is the default: the video loads from it, and the stream list and playlists too
    where the browser gives the page `window.swarm` to read feeds with, within the browser's read limit
-   per site, with the event gateway behind it.
+   per site, with the event gateway behind it. Freedom allows a site the viewer has not connected 120
+   reads and 512 KiB a minute (600 reads and 5 MiB once connected). A finished stream's playlist can
+   be larger than 512 KiB on its own, so the first read of it costs a refusal and a minute of feed
+   reads on the gateway. After that it is read from the gateway until the viewer connects the site.
+   Freedom reports a slot its node could not retrieve as missing, so a slot the node refuses twice is
+   asked of the gateway, whose answer tells a missing slot from a failing node.
 4. **Chat** beside the video, one chat per stream: send a message, react with an emoji, reply in a
    thread, load older messages, and retry a message that failed to send. Reading needs no name.
    Writing asks once for a display name, which creates a key in the browser that signs the

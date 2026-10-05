@@ -107,14 +107,30 @@ describe('reading through the browser node', () => {
   // A follower at the live edge asks for the next slot before it exists, every poll.
   it('answers a slot that is not there yet as a gateway 404, and keeps reading through the node', async () => {
     provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
+    const slot9 = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
+    const slot10 = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(10n))}`;
+
+    expect(await feeds.read(slot9)).toMatchObject({ ok: false, status: 404 });
+    expect(await feeds.read(slot10)).toMatchObject({ ok: false, status: 404 });
+    expect(provider.calls).toHaveLength(2);
+  });
+
+  // Freedom answers a Bee 500 on a feed read as entry_not_found, so the node cannot be the one to
+  // say a slot is still missing on the next poll.
+  it('asks the gateway about a slot the node refuses again, and goes back to the node once it answers', async () => {
+    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
     const path = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
 
-    const first = await feeds.read(path);
-    const second = await feeds.read(path);
+    expect(await feeds.read(path)).toMatchObject({ status: 404 });
+    expect(await feeds.read(path)).toBeNull();
+    expect(await feeds.read(path)).toBeNull();
+    expect(provider.calls).toHaveLength(3);
 
-    expect(first).toMatchObject({ ok: false, status: 404 });
-    expect(second).toMatchObject({ ok: false, status: 404 });
-    expect(provider.calls).toHaveLength(2);
+    provider.answer = () => Promise.resolve({ data: base64('slot 9'), encoding: 'base64', index: 9 });
+    expect((await feeds.read(path))?.text).toBe('slot 9');
+
+    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
+    expect(await feeds.read(path)).toMatchObject({ status: 404 });
   });
 
   it('leaves anything that is not a feed read to the gateway', async () => {
@@ -130,7 +146,6 @@ describe('when the browser node is not the place to read', () => {
 
     expect(await feeds.read(`${GATEWAY}/${nextFeedRequest(OWNER, TOPIC, null).path}`)).toBeNull();
     expect(provider.calls).toHaveLength(0);
-    expect(feeds.isActive()).toBe(false);
   });
 
   it('reads nothing through it in a browser that gives the page no provider', async () => {
@@ -138,7 +153,6 @@ describe('when the browser node is not the place to read', () => {
     without.enabled = true;
 
     expect(await without.read(`${GATEWAY}/${nextFeedRequest(OWNER, TOPIC, null).path}`)).toBeNull();
-    expect(without.isActive()).toBe(false);
   });
 });
 
@@ -172,6 +186,23 @@ describe("the browser's read budget", () => {
 
     provider.answer = () => Promise.resolve({ data: base64('more'), encoding: 'base64', index: 2 });
     expect((await feeds.read(head))?.text).toBe('more');
+  });
+
+  // Connecting raises the budget. It does nothing for a node that is failing.
+  it('keeps a pause for a node that failed when the viewer connects the site', async () => {
+    provider.answer = (call) =>
+      call.method === 'swarm_requestAccess'
+        ? Promise.resolve({ connected: true })
+        : Promise.reject(providerError(4900, 'node-stopped'));
+    expect(await feeds.read(head)).toBeNull();
+
+    expect(await feeds.requestAccess()).toBe(true);
+    expect(await feeds.read(head)).toBeNull();
+    expect(provider.calls.map((call) => call.method)).toEqual(['swarm_readFeedEntry', 'swarm_requestAccess']);
+
+    clock += NODE_RETRY_MS;
+    await feeds.read(head);
+    expect(provider.calls).toHaveLength(3);
   });
 
   it('keeps the pause when the viewer declines', async () => {
@@ -222,7 +253,6 @@ describe('a node that cannot answer', () => {
     clock += 10 * NODE_RETRY_MS;
     expect(await feeds.read(head)).toBeNull();
     expect(provider.calls).toHaveLength(1);
-    expect(feeds.isActive()).toBe(false);
   });
 
   it("hands the caller's own cancellation back rather than reading from the gateway", async () => {
@@ -252,6 +282,62 @@ describe('fetchFeed', () => {
 
     expect(response.text).toBe('from the node');
     expect(gatewayAnswer).not.toHaveBeenCalled();
+  });
+
+  it('passes on the 5xx the gateway gives for a slot the node keeps refusing', async () => {
+    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
+    const slot = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
+    const failing = vi.fn(async () => new Response('read chunk failed', { status: 500 }));
+
+    expect((await fetchFeed(slot, { fetcher: failing as typeof fetch }, feeds)).status).toBe(404);
+    expect((await fetchFeed(slot, { fetcher: failing as typeof fetch }, feeds)).status).toBe(500);
+    expect(failing).toHaveBeenCalledTimes(1);
+  });
+
+  describe('a read larger than the byte budget', () => {
+    const MAX_BYTES = 512 * 1024;
+    const finished = new Response('#EXTM3U\n' + 'x'.repeat(MAX_BYTES), { status: 200 });
+    const other = `${GATEWAY}/${nextFeedRequest(OWNER, Topic.fromString('another-rung'), null).path}`;
+
+    beforeEach(() => {
+      provider.answer = (call) =>
+        call.method === 'swarm_requestAccess'
+          ? Promise.resolve({ connected: true })
+          : Promise.reject(providerError(-32602, 'rate_limited', { windowMs: 60_000, maxBytes: MAX_BYTES }));
+    });
+
+    it('goes straight to the gateway once the gateway shows it is over the budget', async () => {
+      const gateway = vi.fn(async () => finished.clone());
+
+      await fetchFeed(head, { fetcher: gateway as typeof fetch }, feeds);
+      clock += 60_000;
+      const again = await fetchFeed(head, { fetcher: gateway as typeof fetch }, feeds);
+
+      expect(again.text.length).toBeGreaterThan(MAX_BYTES);
+      expect(provider.calls).toHaveLength(1);
+      expect(gateway).toHaveBeenCalledTimes(2);
+
+      // Every other read still goes to the node.
+      provider.answer = () => Promise.resolve({ data: base64('small'), encoding: 'base64', index: 0 });
+      expect((await fetchFeed(other, { fetcher: gateway as typeof fetch }, feeds)).text).toBe('small');
+    });
+
+    it('tries the node again for it once the viewer connects the site', async () => {
+      const gateway = vi.fn(async () => finished.clone());
+      await fetchFeed(head, { fetcher: gateway as typeof fetch }, feeds);
+
+      expect(await feeds.requestAccess()).toBe(true);
+      provider.answer = () => Promise.resolve({ data: base64('joined'), encoding: 'base64', index: 0 });
+      expect((await fetchFeed(head, { fetcher: gateway as typeof fetch }, feeds)).text).toBe('joined');
+    });
+
+    it('keeps reading through the node when the refusal was about the count, not the size', async () => {
+      await fetchFeed(head, { fetcher: gatewayAnswer as typeof fetch }, feeds);
+      clock += 60_000;
+      provider.answer = () => Promise.resolve({ data: base64('back'), encoding: 'base64', index: 0 });
+
+      expect((await fetchFeed(head, { fetcher: gatewayAnswer as typeof fetch }, feeds)).text).toBe('back');
+    });
   });
 
   it('reads the same URL from the gateway when the node has none', async () => {
