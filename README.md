@@ -40,13 +40,13 @@ The repository's `public/config.json` is an example with placeholders. The page 
 a value still in `<angle brackets>`, so the example can never pass for a real deployment. Real values
 live with the deployment, never in this repository.
 
-| Field           | What it is                                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `gatewayUrl`    | The event gateway: a path on this site such as `/bee`, which the site proxies to Bee, or an http or https address of a Bee node |
-| `catalog.owner` | The Ethereum address that owns the stream list feed                                                                             |
-| `catalog.topic` | The stream list feed's topic, as text                                                                                           |
-| `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                |
-| `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused            |
+| Field           | What it is                                                                                                                                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `gatewayUrl`    | The event gateway: a path on this site such as `/bee`, which the site proxies to Bee, or an http or https address of a Bee node. A page published to Swarm and opened over `bzz://` needs an absolute https address, since a path would resolve against the `bzz://` page instead of the gateway |
+| `catalog.owner` | The Ethereum address that owns the stream list feed                                                                                                                                                                                                                                              |
+| `catalog.topic` | The stream list feed's topic, as text                                                                                                                                                                                                                                                            |
+| `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                                                                                                                                                                                 |
+| `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused                                                                                                                                                                             |
 
 A theme is a set of colours and typefaces in `src/design/themes/`, with its logo, page copy and
 footer links in `src/design/themes.ts`. Every theme defines the same variables, so a deployment that picks another
@@ -187,7 +187,12 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 - **Where the video loads from.** The Bee node picker offers the event gateway and a Bee node on the
   viewer's own computer, `http://localhost:1633` filled in and the port editable. Only `localhost`,
   `127.0.0.1` and `[::1]` are accepted. The node is checked before the switch, a failure is explained
-  in plain words, and the choice is remembered in the browser.
+  in plain words, and the choice is remembered in the browser. A browser that loaded the page from
+  Swarm over `bzz://`, such as Freedom, runs a node of its own, and the picker offers that node in
+  place of an address, as the default. The segments then load as `bzz://<ref>/`, older recordings'
+  `/bytes/<ref>` URLs included, and the stream list and playlists keep coming from the event gateway,
+  which `bzz://` cannot serve. Such a page always reads from the event gateway, so an own node saved
+  there earlier is set aside.
 - **Diagnosing playback.** `?qoe=1` on a watch page shows a draggable playback quality overlay,
   toggled with `Q`. `?level=720p` pins one quality, which tells a bad quality apart from a bad switch.
 
@@ -197,7 +202,8 @@ hls.js expects playlists at fixed URLs. On Swarm every playlist update is new co
 so the player brings its own loaders:
 
 - **CustomManifestLoader** reads the latest playlist from its feed instead of a fixed URL.
-- **CustomFragmentLoader** fetches each segment from the gateway, staggered by a bounded random delay
+- **CustomFragmentLoader** fetches each segment from the gateway, or from the browser's own node over
+  `bzz://` with hls.js's fetch loader on a page loaded that way, staggered by a bounded random delay
   so a crowd at the live edge does not ask in the same instant. `fetchSegmentBytes` is the one place
   segment bytes are fetched, where another source can plug in.
 - **ManifestStateManager** merges each live playlist into a growing EVENT playlist, so segments stay

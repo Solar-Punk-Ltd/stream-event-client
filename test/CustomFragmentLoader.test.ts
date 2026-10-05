@@ -1,8 +1,14 @@
 import type { FragmentLoaderContext, HlsConfig, LoaderCallbacks, LoaderConfiguration, LoaderContext } from 'hls.js';
+import Hls, { FetchLoader } from 'hls.js';
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
-import { CustomFragmentLoader, manifestFetcher, requestJitter } from '../src/features/player/CustomManifestLoader';
+import {
+  CustomFragmentLoader,
+  fragmentTransport,
+  manifestFetcher,
+  requestJitter,
+} from '../src/features/player/CustomManifestLoader';
 import { FEED_STATE_LIVE, FEED_STATE_RECONNECTING } from '../src/features/player/feedState';
 
 const TOPIC = 'a-topic-being-watched';
@@ -184,6 +190,49 @@ describe('CustomFragmentLoader meeting a url that names no gateway', () => {
     toTransport.onSuccess(arrived(), {} as never, {} as LoaderContext, undefined);
 
     assert.equal(manifestFetcher.feedHealth.state(TOPIC), FEED_STATE_LIVE);
+  });
+});
+
+/**
+ * A fragment from the Swarm node of the browser that loaded the page, which Freedom serves at
+ * `bzz://<ref>/` and registers for the fetch API only.
+ */
+describe('CustomFragmentLoader on a page loaded over bzz', () => {
+  const BZZ_FRAGMENT_URL = `bzz://${'a'.repeat(64)}/`;
+
+  beforeEach(() => {
+    manifestFetcher.feedHealth.clear();
+    runStaggerInline();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    manifestFetcher.feedHealth.clear();
+  });
+
+  it('moves fragments with the fetch loader there, and with the default loader anywhere else', () => {
+    assert.equal(fragmentTransport('bzz:'), FetchLoader);
+    assert.equal(fragmentTransport('https:'), Hls.DefaultConfig.loader);
+    assert.equal(fragmentTransport('http:'), Hls.DefaultConfig.loader);
+  });
+
+  it('hands a bzz url to the transport, since it names the browser node', () => {
+    const { fromHls, transport: toTransport } = loadFragment(BZZ_FRAGMENT_URL);
+    toTransport.onSuccess(arrived(), {} as never, {} as LoaderContext, undefined);
+
+    assert.equal((fromHls.onSuccess as unknown as { mock: { calls: unknown[][] } }).mock.calls.length, 1);
+    assert.equal((fromHls.onError as unknown as { mock: { calls: unknown[][] } }).mock.calls.length, 0);
+  });
+
+  // The feeds are still read from the gateway, and a segment from somewhere else says nothing about it.
+  it('does not take a segment from the browser node as the gateway answering', () => {
+    manifestFetcher.feedHealth.recordGatewayFailure(TOPIC);
+
+    const { transport: toTransport } = loadFragment(BZZ_FRAGMENT_URL);
+    toTransport.onSuccess(arrived(), {} as never, {} as LoaderContext, undefined);
+
+    assert.ok(manifestFetcher.feedHealth.backoffRemainingMs(TOPIC) > 0, 'a bzz segment ended the gateway backoff');
+    assert.equal(manifestFetcher.feedHealth.state(TOPIC), FEED_STATE_RECONNECTING);
   });
 });
 

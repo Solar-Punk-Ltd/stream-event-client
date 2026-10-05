@@ -1,6 +1,7 @@
 import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import { feedSlotPath, nextFeedRequest } from '@/shared/feedFollow';
 
+import { browserNodeSegmentUrl } from '@/features/player/browserNode';
 import { absoluteGatewayUrl } from '@/features/player/gatewayUrl';
 
 /**
@@ -25,8 +26,19 @@ import { absoluteGatewayUrl } from '@/features/player/gatewayUrl';
  * since a recording keeps whatever its manifest was published with.
  *
  * @param pageOrigin the viewer page's own origin, which a rooted gateway is a path on.
+ * @param fromBrowserNode whether segments come from the browser's own node, which serves every shape
+ *   that names a reference. See `browserNodeSegmentUrl`.
  */
-export function previewSegmentUrl(uri: string, gatewayUrl: string, pageOrigin: string): string {
+export function previewSegmentUrl(
+  uri: string,
+  gatewayUrl: string,
+  pageOrigin: string,
+  fromBrowserNode = false,
+): string {
+  const onBrowserNode = fromBrowserNode ? browserNodeSegmentUrl(uri) : null;
+  if (onBrowserNode !== null) {
+    return onBrowserNode;
+  }
   if (uri.startsWith('http://') || uri.startsWith('https://')) {
     return uri;
   }

@@ -7,10 +7,11 @@ import type {
   LoaderContext,
   PlaylistLoaderContext,
 } from 'hls.js';
-import Hls from 'hls.js';
+import Hls, { FetchLoader } from 'hls.js';
 
 import { RequestJitter, StaggeredTask } from '@/shared/requestJitter';
 
+import { BROWSER_NODE_BYTES, isServedOverBzz } from './browserNode';
 import { ManifestFetcher } from './ManifestManagement';
 
 export const manifestFetcher = new ManifestFetcher();
@@ -51,9 +52,21 @@ export class CustomManifestLoader extends PlaylistLoader {
   }
 }
 
-const FragmentLoader = Hls.DefaultConfig.loader as unknown as {
-  new (config: HlsConfig): Loader<FragmentLoaderContext>;
-};
+type FragmentTransport = new (config: HlsConfig) => Loader<FragmentLoaderContext>;
+
+/**
+ * The hls.js loader that moves a fragment's bytes for a page served this way.
+ *
+ * hls.js's default is its XHR loader, and Freedom registers `bzz:` with `supportFetchAPI` and promises
+ * nothing for XHR on a custom scheme, so a page it serves takes the fetch loader. Picked by the page
+ * rather than by the viewer's choice of node, because fetch reaches a gateway as well, and a class
+ * hls.js constructs cannot be swapped later.
+ */
+export function fragmentTransport(pageProtocol: string): FragmentTransport {
+  return (isServedOverBzz(pageProtocol) ? FetchLoader : Hls.DefaultConfig.loader) as unknown as FragmentTransport;
+}
+
+const FragmentLoader = fragmentTransport(typeof window === 'undefined' ? '' : window.location.protocol);
 
 export class CustomFragmentLoader extends FragmentLoader {
   /**
@@ -74,12 +87,12 @@ export class CustomFragmentLoader extends FragmentLoader {
     // is a blob, and hls.js resolving `/bytes/<ref>` against `blob:http://viewer/<uuid>` returns
     // `blob:http:/bytes/<ref>`: the origin and the blob id are gone, so there is no gateway left to
     // resolve against. Rebuilding the path against the page's own origin would ask a host that never
-    // had the segment.
+    // had the segment. A `bzz://` URL is absolute too, and names the browser's own node.
     //
     // Not optional-chained, unlike the manifest loader above. hls.js declares `onError` required, and
     // this is the one path that returns without reaching the transport: chaining it would turn a
     // missing callback into a fragment that never succeeds and never fails.
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith(BROWSER_NODE_BYTES)) {
       callbacks.onError(
         { code: 0, text: `fragment url is not absolute, so it names no gateway: ${url}` },
         context,
@@ -101,8 +114,8 @@ export class CustomFragmentLoader extends FragmentLoader {
   }
 
   /**
-   * The one place segment bytes are fetched, today from the gateway through hls.js's own loader.
-   * Another source of segment bytes, such as a Swarm node in the tab, plugs in here.
+   * The one place segment bytes are fetched, today from the gateway or the browser's own node through
+   * hls.js's own loader. Another source of segment bytes, such as a Swarm node in the tab, plugs in here.
    */
   private fetchSegmentBytes(
     context: FragmentLoaderContext,
@@ -115,9 +128,12 @@ export class CustomFragmentLoader extends FragmentLoader {
       // half that ever holds off on the belief that it is not. Its backoff doubles from the failure
       // that set it, so an outage of twenty seconds went unnoticed for thirty: the gateway was back
       // for ten of them and the one thing still talking to it was this. Reported here because the
-      // player fetches segments anyway on hls.js's own retry cadence, so the signal is free.
+      // player fetches segments anyway on hls.js's own retry cadence, so the signal is free. A segment
+      // from the browser's own node says nothing about the gateway the feeds are read from.
       onSuccess: (response, stats, ctx, networkDetails) => {
-        manifestFetcher.feedHealth.recordGatewayReachable();
+        if (!context.url.startsWith(BROWSER_NODE_BYTES)) {
+          manifestFetcher.feedHealth.recordGatewayReachable();
+        }
         callbacks.onSuccess(response, stats, ctx, networkDetails);
       },
     });
