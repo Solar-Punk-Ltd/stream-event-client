@@ -118,6 +118,30 @@ describe('previewSegmentUrl', () => {
    * begin with those four characters. Swarm references are hex, so `http` cannot occur in one, but
    * the check was reading as a scheme test while only testing a prefix.
    */
+  /**
+   * On a page Freedom loaded from Swarm, its own node serves the segment at `bzz://<ref>/`, whichever
+   * shape the reference was published in.
+   */
+  describe('from the browser node', () => {
+    const REF = 'c'.repeat(64);
+
+    it.each([
+      ['a bare reference', REF],
+      ['a rooted path', `/bytes/${REF}`],
+      ['an absolute url', `https://other-gw/bytes/${REF}`],
+    ])('addresses %s on the browser node', (_shape, uri) => {
+      expect(previewSegmentUrl(uri, GATEWAY, PAGE_ORIGIN, true)).toBe(`bzz://${REF}/`);
+    });
+
+    it('falls back to the gateway for a uri that names no reference', () => {
+      expect(previewSegmentUrl('abc123', GATEWAY, PAGE_ORIGIN, true)).toBe(`${GATEWAY}/bytes/abc123`);
+    });
+
+    it('leaves a reference on the gateway when the browser node is not in use', () => {
+      expect(previewSegmentUrl(REF, GATEWAY, PAGE_ORIGIN, false)).toBe(`${GATEWAY}/bytes/${REF}`);
+    });
+  });
+
   it('does not mistake a reference beginning with the letters http for an absolute url', () => {
     expect(previewSegmentUrl('httpabc123', GATEWAY, PAGE_ORIGIN)).toBe(`${GATEWAY}/bytes/httpabc123`);
   });

@@ -73,7 +73,7 @@ export const StreamPreview = ({
   renditions,
   thumbnail,
 }: StreamPreviewProps) => {
-  const { gatewayUrl } = useAppContext();
+  const { gatewayUrl, segmentsFromBrowserNode } = useAppContext();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDataAvailable, setIsDataAvailable] = useState(false);
@@ -146,7 +146,7 @@ export const StreamPreview = ({
         }
 
         const seg = source.firstSegment;
-        const segUrl = previewSegmentUrl(seg.uri, gatewayUrl, window.location.origin);
+        const segUrl = previewSegmentUrl(seg.uri, gatewayUrl, window.location.origin, segmentsFromBrowserNode);
 
         // Spelled from the shared constants rather than by hand, so a tag rename cannot leave the
         // preview player asking for a playlist no decoder accepts.
@@ -220,7 +220,7 @@ export const StreamPreview = ({
         blobUrl = null;
       }
     };
-  }, [owner, topic, gatewayUrl, index, state, slotsKey, mode]);
+  }, [owner, topic, gatewayUrl, segmentsFromBrowserNode, index, state, slotsKey, mode]);
 
   const showsPlaceholder = mode === 'placeholder' || (mode === 'probe' && !isLoading && !isDataAvailable);
 

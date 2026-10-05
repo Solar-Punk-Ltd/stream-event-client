@@ -1,6 +1,7 @@
 import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import { nextFeedRequest, resolvedFeedIndex } from '@/shared/feedFollow';
 
+import { fetchFeed } from '@/shared/browserNodeFeeds';
 import { fetchWithTimeout, TimedResponse } from '@/shared/fetchWithTimeout';
 
 /**
@@ -93,7 +94,8 @@ export class CatalogFeedReader {
   constructor(
     private readonly owner: string,
     private readonly topic: Topic,
-    private readonly fetcher: typeof fetchWithTimeout = fetchWithTimeout,
+    /** Through the browser's node when it reads feeds, see `browserNodeFeeds`. Tests inject their own. */
+    private readonly fetcher: typeof fetchWithTimeout = fetchFeed,
   ) {}
 
   /** The slot this reader has read, or null before its first successful read. Diagnostics and tests. */

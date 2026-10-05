@@ -5,9 +5,11 @@ import { parseManifest, type Segment } from '@/shared/manifest';
 import Pqueue from 'p-queue';
 
 import { Rendition } from '@/features/catalog/stream';
-import { fetchWithTimeout, TimedResponse } from '@/shared/fetchWithTimeout';
+import { fetchFeed } from '@/shared/browserNodeFeeds';
+import { TimedResponse } from '@/shared/fetchWithTimeout';
 import { RequestJitter } from '@/shared/requestJitter';
 
+import { BROWSER_NODE_BYTES, browserNodeSegmentUrl } from './browserNode';
 import { FEED_RETURN_WATCH_INTERVAL_MS, FeedReturnWatch, feedReturnWatchWaitMs } from './feedReturn';
 import { FeedHealthTracker, UNSERVED_POLLS_PROBE_CEILING } from './feedState';
 import { LadderFeedPoller } from './LadderFeedPoller';
@@ -338,14 +340,20 @@ export class ManifestStateManager {
    * broadcast recorded before then names an absolute `http://<host>/bytes/<ref>` for ever. Deleting
    * these branches would send those segments to `<viewer gateway>/bytes/http://...`.
    *
-   * ⚠️ It is also why those recordings still fetch from the publisher's gateway no matter what their
-   * viewer configured. That cannot be repaired from this side: the address is in the published bytes.
+   * ⚠️ It is also why those recordings still fetch from the publisher's gateway when their viewer picked
+   * another gateway: the host is in the published bytes. The browser's own node is the exception,
+   * because a `bzz://` URL needs only the reference, which is in there too. See {@link BROWSER_NODE_BYTES}.
    *
    * ⛔ A gap entry never reaches here. Its URI names nothing fetchable, so re-hosting it would put a
    * real host in front of a token that stands for missing media, and every later reader would have to
    * strip the host back off to see what it was. {@link serialize} passes it through instead.
    */
   private buildUri(uri: string, bytesUrl: string): string {
+    if (bytesUrl === BROWSER_NODE_BYTES) {
+      // A URI naming no reference is left as it is: an absolute one still loads from its host, and the
+      // fragment loader reports anything else.
+      return browserNodeSegmentUrl(uri) ?? uri;
+    }
     if (!bytesUrl || uri.startsWith('http://') || uri.startsWith('https://') || uri.startsWith('/bytes/')) {
       return uri;
     }
@@ -511,6 +519,13 @@ export class ManifestFetcher {
   set beeUrl(url: string) {
     this._beeUrl = url;
   }
+
+  /**
+   * Set by the app provider: whether segments come from the browser's own node over `bzz://`. Feeds
+   * are addressed to {@link beeUrl} either way, since `bzz://` cannot serve them, and in this mode
+   * `browserNodeFeeds` answers them from the same node through `window.swarm` where it can.
+   */
+  segmentsFromBrowserNode = false;
 
   /**
    * Declares that the stream loaded from `sourceUrl` has a ladder in the stream catalog.
@@ -1152,11 +1167,11 @@ export class ManifestFetcher {
 
   /** Absolute, because it is written into a playlist. See {@link absoluteBytesBase}. */
   private bytesBaseUrl(): string {
-    return absoluteBytesBase(this._beeUrl, pageOrigin());
+    return this.segmentsFromBrowserNode ? BROWSER_NODE_BYTES : absoluteBytesBase(this._beeUrl, pageOrigin());
   }
 
   private async fetchResource(path: string): Promise<TimedResponse> {
-    const response = await fetchWithTimeout(`${this._beeUrl}/${path}`);
+    const response = await fetchFeed(`${this._beeUrl}/${path}`);
     if (!response.ok) {
       throw new ManifestFetchError(path, response.status);
     }

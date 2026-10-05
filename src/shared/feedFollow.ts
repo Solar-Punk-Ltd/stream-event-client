@@ -1,6 +1,7 @@
 // Copied from Solar-Punk-Ltd/streaming-monorepo at c1696c26, apps/hls-stream/packages/shared/src/feedFollow.ts.
 // Refresh it from there when the stream list format changes. Its comments lost the monorepo's
-// references to its own measurement tools.
+// references to its own measurement tools. `feedSlotOf` and the record `feedSlotPath` keeps for it
+// are this repository's own, for reads through the browser's node, and must survive a refresh.
 
 /**
  * Which request follows a sequential Swarm feed, so that everything reading one asks the same way.
@@ -36,7 +37,48 @@ export function makeFeedIdentifier(topic: Topic, index: FeedIndex): Identifier {
  * arithmetic at every call site and would have no answer at index 0.
  */
 export function feedSlotPath(owner: string, topic: Topic, index: FeedIndex): string {
-  return `soc/${owner}/${makeFeedIdentifier(topic, index).toString()}`;
+  const identifier = makeFeedIdentifier(topic, index).toString();
+  rememberFeedSlot(identifier, topic, index);
+  return `soc/${owner}/${identifier}`;
+}
+
+/** A feed slot named by its topic and index rather than by the hash of the two. */
+export interface FeedSlot {
+  readonly topic: Topic;
+  readonly index: FeedIndex;
+}
+
+/**
+ * Enough slots for every rung of a ladder and every card on a page to have its latest few, while a
+ * tab left open for days does not grow without end.
+ */
+const REMEMBERED_SLOTS = 4096;
+const rememberedSlots = new Map<string, FeedSlot>();
+
+function rememberFeedSlot(identifier: string, topic: Topic, index: FeedIndex): void {
+  // Deleted first so a slot asked for again moves to the young end, which is what the eviction below
+  // relies on.
+  rememberedSlots.delete(identifier);
+  rememberedSlots.set(identifier, { topic, index });
+  if (rememberedSlots.size > REMEMBERED_SLOTS) {
+    const oldest = rememberedSlots.keys().next().value;
+    if (oldest !== undefined) {
+      rememberedSlots.delete(oldest);
+    }
+  }
+}
+
+/**
+ * The topic and index behind a slot path's identifier, for one built by {@link feedSlotPath} in this
+ * tab, or null for any other.
+ *
+ * Needed because a `soc/…` path names its slot by a hash. A gateway reads that address directly, but
+ * the browser's node reads a slot as a feed entry, by topic and index, which is also the only read
+ * there that joins a payload larger than one chunk, as a finished stream's playlist is. See
+ * `browserNodeFeeds`.
+ */
+export function feedSlotOf(identifier: string): FeedSlot | null {
+  return rememberedSlots.get(identifier.toLowerCase()) ?? null;
 }
 
 /** Resolves whichever update is newest, at the cost of a lookup that cannot keep up with a live feed. */
