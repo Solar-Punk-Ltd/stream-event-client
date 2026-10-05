@@ -1,7 +1,13 @@
 import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { BrowserNodeFeeds, fetchFeed, NODE_RETRY_MS, type SwarmProvider } from '../src/shared/browserNodeFeeds';
+import {
+  BrowserNodeFeeds,
+  fetchFeed,
+  NODE_RETRY_MS,
+  NOT_FOUND_TRUST_MS,
+  type SwarmProvider,
+} from '../src/shared/browserNodeFeeds';
 import { feedSlotPath, makeFeedIdentifier, nextFeedRequest } from '../src/shared/feedFollow';
 
 /**
@@ -115,22 +121,29 @@ describe('reading through the browser node', () => {
     expect(provider.calls).toHaveLength(2);
   });
 
-  // Freedom answers a Bee 500 on a feed read as entry_not_found, so the node cannot be the one to
-  // say a slot is still missing on the next poll.
-  it('asks the gateway about a slot the node refuses again, and goes back to the node once it answers', async () => {
+  it('keeps answering a slot polled at the live edge as a 404 until the stream has had time to write it', async () => {
+    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
+    const path = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
+
+    for (let poll = 0; poll < 5; poll++) {
+      expect(await feeds.read(path)).toMatchObject({ status: 404 });
+      clock += 750;
+    }
+    expect(provider.calls).toHaveLength(5);
+
+    provider.answer = () => Promise.resolve({ data: base64('slot 9'), encoding: 'base64', index: 9 });
+    expect((await feeds.read(path))?.text).toBe('slot 9');
+  });
+
+  // Freedom answers a Bee 500 on a feed read as entry_not_found, so a slot the node keeps refusing
+  // for longer than a live stream takes is asked of the gateway.
+  it('asks the gateway about a slot the node has refused for too long', async () => {
     provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
     const path = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
 
     expect(await feeds.read(path)).toMatchObject({ status: 404 });
+    clock += NOT_FOUND_TRUST_MS;
     expect(await feeds.read(path)).toBeNull();
-    expect(await feeds.read(path)).toBeNull();
-    expect(provider.calls).toHaveLength(3);
-
-    provider.answer = () => Promise.resolve({ data: base64('slot 9'), encoding: 'base64', index: 9 });
-    expect((await feeds.read(path))?.text).toBe('slot 9');
-
-    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
-    expect(await feeds.read(path)).toMatchObject({ status: 404 });
   });
 
   it('leaves anything that is not a feed read to the gateway', async () => {
@@ -284,14 +297,53 @@ describe('fetchFeed', () => {
     expect(gatewayAnswer).not.toHaveBeenCalled();
   });
 
+  it('leaves the gateway out of polls at the live edge', async () => {
+    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
+    const slot = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
+
+    for (let poll = 0; poll < 5; poll++) {
+      expect((await fetchFeed(slot, { fetcher: gatewayAnswer as typeof fetch }, feeds)).status).toBe(404);
+      clock += 750;
+    }
+    expect(gatewayAnswer).not.toHaveBeenCalled();
+  });
+
+  it('serves a slot the node cannot retrieve from the gateway once it has refused it for too long', async () => {
+    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
+    const slot = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
+
+    expect((await fetchFeed(slot, { fetcher: gatewayAnswer as typeof fetch }, feeds)).status).toBe(404);
+    clock += NOT_FOUND_TRUST_MS;
+    expect((await fetchFeed(slot, { fetcher: gatewayAnswer as typeof fetch }, feeds)).text).toBe('from the gateway');
+    expect(gatewayAnswer).toHaveBeenCalledTimes(1);
+  });
+
   it('passes on the 5xx the gateway gives for a slot the node keeps refusing', async () => {
     provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
     const slot = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
     const failing = vi.fn(async () => new Response('read chunk failed', { status: 500 }));
 
     expect((await fetchFeed(slot, { fetcher: failing as typeof fetch }, feeds)).status).toBe(404);
+    clock += NOT_FOUND_TRUST_MS;
     expect((await fetchFeed(slot, { fetcher: failing as typeof fetch }, feeds)).status).toBe(500);
     expect(failing).toHaveBeenCalledTimes(1);
+  });
+
+  // A stream that has stopped leaves its next slot missing for good, which the gateway confirms once
+  // a stretch rather than on every poll.
+  it('trusts the node again for a while once the gateway agrees the slot is missing', async () => {
+    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
+    const slot = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
+    const missing = vi.fn(async () => new Response('', { status: 404 }));
+
+    await fetchFeed(slot, { fetcher: missing as typeof fetch }, feeds);
+    clock += NOT_FOUND_TRUST_MS;
+    expect((await fetchFeed(slot, { fetcher: missing as typeof fetch }, feeds)).status).toBe(404);
+    for (let poll = 0; poll < 5; poll++) {
+      clock += 750;
+      expect((await fetchFeed(slot, { fetcher: missing as typeof fetch }, feeds)).status).toBe(404);
+    }
+    expect(missing).toHaveBeenCalledTimes(1);
   });
 
   describe('a read larger than the byte budget', () => {

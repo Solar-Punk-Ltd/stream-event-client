@@ -21,9 +21,13 @@
  * once. When the gateway's answer to the same read then turns out larger than the budget, that read
  * goes straight to the gateway from then on, until the viewer connects the site.
  *
- * Freedom answers a feed slot it could not retrieve the same way as one that does not exist, so a
- * node's "not found" is believed once per slot, as the 404 a follower at the live edge expects, and
- * each later refusal of that slot is asked of the gateway instead, whose answer tells the two apart.
+ * Freedom answers a feed slot it could not retrieve the same way as one that does not exist. A
+ * node's "not found" is the 404 a follower at the live edge expects, and is believed for a slot until
+ * it has been refused for {@link NOT_FOUND_TRUST_MS}, far longer than a live stream takes to write its
+ * next slot. Only then is that slot's next refusal asked of the gateway, whose answer tells the two
+ * apart: its 404 earns the node another such stretch, and anything else ends the doubt for that slot.
+ * So the live edge is polled through the node alone, and a slot the node cannot retrieve reaches the
+ * gateway within that stretch.
  *
  * Only ever on while segments come from the browser's node, which is only offered on a `bzz:` page.
  * Everywhere else every read goes to the gateway exactly as before.
@@ -73,6 +77,14 @@ function remember(set: Set<string>, key: string): void {
   set.add(key);
 }
 
+/** {@link remember} for a key that carries a time. */
+function rememberAt(map: Map<string, number>, key: string, at: number): void {
+  if (map.size >= REMEMBERED_READS && !map.has(key)) {
+    map.clear();
+  }
+  map.set(key, at);
+}
+
 function parsePath(url: string): ParsedPath | null {
   const match = FEED_PATH.exec(url);
   if (!match) {
@@ -96,6 +108,14 @@ export const NODE_RETRY_MS = 15_000;
  * Freedom gives them for a Bee 500 as well, which is a retrieval failure rather than an absence.
  */
 const NOT_FOUND_REASONS = new Set(['entry_not_found', 'feed_empty', 'chunk_not_found']);
+
+/**
+ * How long a node's "not found" for one slot is believed before the gateway is asked about it. A live
+ * rung writes its next slot every segment, a few seconds, so a slot missing for longer than this is
+ * either a stream that has stopped, which the gateway confirms once per stretch, or a slot the node
+ * cannot retrieve, which the gateway then serves.
+ */
+export const NOT_FOUND_TRUST_MS = 15_000;
 
 /** Freedom's byte budget for a site the viewer has not connected, used when a refusal does not say. */
 const ANONYMOUS_READ_BYTES = 512 * 1024;
@@ -133,8 +153,8 @@ export class BrowserNodeFeeds {
   /** Reads larger than the site's byte budget, which the browser would refuse every time. */
   private readonly overBudget = new Set<string>();
 
-  /** Reads the node has said are not there, so a further refusal is asked of the gateway. */
-  private readonly refusedOnce = new Set<string>();
+  /** Reads the node has said are not there, by when that stretch of believing it began. */
+  private readonly notFoundSince = new Map<string, number>();
 
   /** Set when the provider lacks these reads, which no later read can change. */
   private unsupported = false;
@@ -175,7 +195,7 @@ export class BrowserNodeFeeds {
 
     try {
       const response = await this.readPath(provider, path, signal);
-      this.refusedOnce.delete(key);
+      this.notFoundSince.delete(key);
       return response;
     } catch (error) {
       if (signal?.aborted) {
@@ -190,12 +210,20 @@ export class BrowserNodeFeeds {
    * refused read's size can be learned. Called by {@link fetchFeed}.
    */
   noteGatewayAnswer(url: string, response: TimedResponse): void {
-    const refused = this.refusedOverBudget;
-    if (refused === null) {
+    const path = parsePath(url);
+    if (path === null) {
       return;
     }
-    const path = parsePath(url);
-    if (path === null || readKey(path) !== refused.key) {
+    const key = readKey(path);
+    if (this.notFoundSince.has(key)) {
+      if (response.status === 404) {
+        rememberAt(this.notFoundSince, key, this.now());
+      } else {
+        this.notFoundSince.delete(key);
+      }
+    }
+    const refused = this.refusedOverBudget;
+    if (refused === null || key !== refused.key) {
       return;
     }
     this.refusedOverBudget = null;
@@ -318,11 +346,15 @@ export class BrowserNodeFeeds {
   private fallBack(error: unknown, key: string): TimedResponse | null {
     const { code, data } = (error ?? {}) as ProviderError;
     if (data?.reason !== undefined && NOT_FOUND_REASONS.has(data.reason)) {
-      if (this.refusedOnce.has(key)) {
-        // Asked again, so the gateway's 404 or 5xx says whether it is absent or the node failing.
+      const now = this.now();
+      const since = this.notFoundSince.get(key);
+      if (since === undefined) {
+        rememberAt(this.notFoundSince, key, now);
+      } else if (now - since >= NOT_FOUND_TRUST_MS) {
+        // Missing for longer than a live stream takes, so the gateway's 404 or 5xx says whether it is
+        // absent or the node failing.
         return null;
       }
-      remember(this.refusedOnce, key);
       return { ok: false, status: 404, headers: new Headers(), text: '' };
     }
     if (data?.reason === 'rate_limited') {
