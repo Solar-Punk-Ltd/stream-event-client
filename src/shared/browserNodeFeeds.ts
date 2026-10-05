@@ -22,17 +22,27 @@
  * goes straight to the gateway from then on, until the viewer connects the site.
  *
  * Freedom answers a feed slot it could not retrieve the same way as one that does not exist. A
- * node's "not found" is the 404 a follower at the live edge expects, and is believed for a slot until
- * it has been refused for {@link NOT_FOUND_TRUST_MS}, shorter than anything the player concludes from
- * a slot staying missing. Then that slot's next refusal is asked of the gateway, whose answer tells
- * the two apart: its 404 earns the node another such stretch, and a slot it serves shows the node is
- * failing that feed, whose refusals then all go to the gateway for {@link NODE_RETRY_MS}. So the live
- * edge is polled through the node on most polls, and a slot the node cannot retrieve reaches the
- * gateway before the player calls the feed stalled or a rung dead.
+ * node's "not found" is the 404 a follower at the live edge expects, so it is passed on, and the
+ * slot's next poll goes to the gateway instead of the node, whose answer tells the two apart. Its 404
+ * sends the poll after back to the node. So polls of a missing slot alternate between the node and
+ * the gateway, and none costs both: a node miss is slow (about two seconds) and counts against the
+ * read budget, so asking the gateway behind it would make every poll the slowest and dearest there
+ * is. Counted in polls rather than time, because the time between two polls of a slot is mostly the
+ * node's own miss. Every second poll is within anything the player concludes from a slot staying
+ * missing: it probes past one after `UNSERVED_POLLS_BEFORE_PROBE` (3) polls.
  *
- * A feed head the node calls empty is always asked of the gateway. A head is read once when a
- * follower joins and every few seconds by the catalog, where a believed "not found" would show "no
- * streams" until the next poll.
+ * A slot the gateway serves after the node refused it is either a slot written during the node's
+ * slow lookup, which at the live edge happens every few segments, or a node failing the feed. Only
+ * {@link FAILED_SLOTS_BEFORE_DISTRUST} such slots in a row, with neither a node read nor a gateway 404
+ * of the feed between them, count as the second: a follower behind the edge, which never waits. Then
+ * the feed's slots are read from the gateway alone until it answers one 404, which puts the follower
+ * at the live edge where the node is tried again, or for {@link NODE_RETRY_MS} at most.
+ *
+ * A feed head the node calls empty is asked of the gateway, and while the gateway agrees it is
+ * empty, the head is read from the gateway alone, until the gateway serves it. A head is read once
+ * when a follower joins and every few seconds by the catalog, where a believed "not found" would show
+ * "no streams" until the next poll, and where a stream that has not started would otherwise cost a
+ * slow node miss on top of the gateway read on every poll.
  *
  * Only ever on while segments come from the browser's node, which is only offered on a `bzz:` page.
  * Everywhere else every read goes to the gateway exactly as before.
@@ -121,16 +131,11 @@ export const NODE_RETRY_MS = 15_000;
 const NOT_FOUND_REASONS = new Set(['entry_not_found', 'feed_empty', 'chunk_not_found']);
 
 /**
- * How long a node's "not found" for one slot is believed before the gateway is asked about it.
- *
- * Bounded by what the player does with a slot that stays missing, since until the gateway is asked
- * the node's retrieval failure is indistinguishable from that. The tightest is a ladder rung, called
- * dead once its siblings are `RUNG_DEATH_LAG_SEGMENTS` (4) segments ahead, which at the shortest
- * half-second segments is two seconds; next is the probe past a refusal after three polls, and the
- * stalled overlay at eight seconds. At the 750 ms poll this sends at most one poll in two to the gateway
- * while a follower waits at the live edge, against every poll after the first without it.
+ * How many slots of a feed in a row the gateway has to serve after the node refused them before the
+ * feed is read from the gateway alone. One is the ordinary live-edge race, a slot written while the
+ * node was still looking for it.
  */
-export const NOT_FOUND_TRUST_MS = 1_000;
+export const FAILED_SLOTS_BEFORE_DISTRUST = 2;
 
 /** Freedom's byte budget for a site the viewer has not connected, used when a refusal does not say. */
 const ANONYMOUS_READ_BYTES = 512 * 1024;
@@ -168,11 +173,20 @@ export class BrowserNodeFeeds {
   /** Reads larger than the site's byte budget, which the browser would refuse every time. */
   private readonly overBudget = new Set<string>();
 
-  /** Reads the node has said are not there, by when that stretch of believing it began. */
-  private readonly notFoundSince = new Map<string, number>();
+  /** Slots the node refused on their last poll, whose next poll goes to the gateway. */
+  private readonly refusedSlots = new Set<string>();
 
-  /** Feeds the gateway served a slot of that the node had called missing, by when it did. */
-  private readonly notFoundDisbelieved = new Map<string, number>();
+  /** Slots handed to the gateway because the node refused them, until the gateway answers. */
+  private readonly checking = new Set<string>();
+
+  /** Per feed, how many slots in a row the gateway served after the node refused them. */
+  private readonly failedSlots = new Map<string, number>();
+
+  /** Feeds read from the gateway alone, by when that began. */
+  private readonly distrusted = new Map<string, number>();
+
+  /** Feed heads the node called empty and the gateway agreed, read from the gateway alone. */
+  private readonly emptyHeads = new Set<string>();
 
   /** Set when the provider lacks these reads, which no later read can change. */
   private unsupported = false;
@@ -207,13 +221,26 @@ export class BrowserNodeFeeds {
       return null;
     }
     const key = readKey(path);
-    if (this.overBudget.has(key)) {
+    if (this.overBudget.has(key) || this.emptyHeads.has(key)) {
       return null;
+    }
+    const feed = feedKey(path);
+    if (path.kind === 'slot') {
+      if (this.refusedSlots.delete(key)) {
+        remember(this.checking, key);
+        return null;
+      }
+      const distrustedAt = feed === null ? undefined : this.distrusted.get(feed);
+      if (distrustedAt !== undefined && now - distrustedAt < NODE_RETRY_MS) {
+        return null;
+      }
     }
 
     try {
       const response = await this.readPath(provider, path, signal);
-      this.notFoundSince.delete(key);
+      if (feed !== null && response !== null) {
+        this.failedSlots.delete(feed);
+      }
       return response;
     } catch (error) {
       if (signal?.aborted) {
@@ -233,15 +260,25 @@ export class BrowserNodeFeeds {
       return;
     }
     const key = readKey(path);
-    if (this.notFoundSince.has(key)) {
+    const feed = feedKey(path);
+    if (path.kind === 'head') {
       if (response.status === 404) {
-        rememberAt(this.notFoundSince, key, this.now());
+        remember(this.emptyHeads, key);
       } else {
-        this.notFoundSince.delete(key);
-        const feed = feedKey(path);
-        if (response.ok && feed !== null) {
-          rememberAt(this.notFoundDisbelieved, feed, this.now());
-        }
+        this.emptyHeads.delete(key);
+      }
+    } else if (feed !== null && response.status === 404) {
+      // The gateway has not got this slot either, so the follower is at the live edge.
+      this.failedSlots.delete(feed);
+      this.distrusted.delete(feed);
+    }
+    if (this.checking.delete(key) && feed !== null && response.ok) {
+      const failed = (this.failedSlots.get(feed) ?? 0) + 1;
+      if (failed >= FAILED_SLOTS_BEFORE_DISTRUST) {
+        this.failedSlots.delete(feed);
+        rememberAt(this.distrusted, feed, this.now());
+      } else {
+        rememberAt(this.failedSlots, feed, failed);
       }
     }
     const refused = this.refusedOverBudget;
@@ -371,19 +408,7 @@ export class BrowserNodeFeeds {
       if (path.kind === 'head') {
         return null;
       }
-      const now = this.now();
-      const feed = feedKey(path);
-      const disbelievedAt = feed === null ? undefined : this.notFoundDisbelieved.get(feed);
-      if (disbelievedAt !== undefined && now - disbelievedAt < NODE_RETRY_MS) {
-        return null;
-      }
-      const since = this.notFoundSince.get(key);
-      if (since === undefined) {
-        rememberAt(this.notFoundSince, key, now);
-      } else if (now - since >= NOT_FOUND_TRUST_MS) {
-        // The gateway's 404 or 5xx says whether it is absent or the node failing.
-        return null;
-      }
+      remember(this.refusedSlots, key);
       return { ok: false, status: 404, headers: new Headers(), text: '' };
     }
     if (data?.reason === 'rate_limited') {
