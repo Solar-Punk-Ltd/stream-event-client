@@ -5,7 +5,8 @@
  * Freedom injects `window.swarm` into every page it shows. Its `swarm_readFeedEntry` and
  * `swarm_readSingleOwnerChunk` read public Swarm data from the browser's own node without asking the
  * viewer anything, so with segments already on that node over `bzz://` (see
- * `features/player/browserNode`) nothing a viewer watches has to touch the gateway.
+ * `features/player/browserNode`) a viewer's reads go to the gateway only for what the node cannot
+ * answer, or not soon enough.
  *
  * **Freedom limits these reads per site**: 120 requests and 512 KiB a minute for a site the viewer
  * has not connected, and 600 requests and 5 MiB for one they have (`READ_BUDGETS` in Freedom's
@@ -31,12 +32,12 @@
  * node's own miss. Every second poll is within anything the player concludes from a slot staying
  * missing: it probes past one after `UNSERVED_POLLS_BEFORE_PROBE` (3) polls.
  *
- * A slot the gateway serves after the node refused it is either a slot written during the node's
- * slow lookup, which at the live edge happens every few segments, or a node failing the feed. Only
- * {@link FAILED_SLOTS_BEFORE_DISTRUST} such slots in a row, with neither a node read nor a gateway 404
- * of the feed between them, count as the second: a follower behind the edge, which never waits. Then
- * the feed's slots are read from the gateway alone until it answers one 404, which puts the follower
- * at the live edge where the node is tried again, or for {@link NODE_RETRY_MS} at most.
+ * At the live edge this means the gateway serves most new slots for now. A node miss takes about as
+ * long as a segment, so the node's lookup of the next slot usually starts before the slot is written
+ * and misses it, and the poll after is the gateway's. A slot the gateway serves after the node refused
+ * it cannot be told from a node failing the feed, so it is not taken as one: either way the slot
+ * arrives on the poll after the refusal, and the node is asked first again for the next slot. Once the
+ * node gives up on a missing slot about as fast as a gateway does, the node serves the edge as well.
  *
  * A feed head the node calls empty is asked of the gateway, and while the gateway agrees it is
  * empty, the head is read from the gateway alone, until the gateway serves it. A head is read once
@@ -92,20 +93,6 @@ function remember(set: Set<string>, key: string): void {
   set.add(key);
 }
 
-/** {@link remember} for a key that carries a time. */
-function rememberAt(map: Map<string, number>, key: string, at: number): void {
-  if (map.size >= REMEMBERED_READS && !map.has(key)) {
-    map.clear();
-  }
-  map.set(key, at);
-}
-
-/** The feed a slot read belongs to, when this tab built its path and so knows the topic. */
-function feedKey(path: ParsedPath): string | null {
-  const topic = path.kind === 'head' ? path.topic : feedSlotOf(path.identifier)?.topic.toString();
-  return topic === undefined ? null : `${path.owner.toLowerCase()}/${topic.toLowerCase()}`;
-}
-
 function parsePath(url: string): ParsedPath | null {
   const match = FEED_PATH.exec(url);
   if (!match) {
@@ -129,13 +116,6 @@ export const NODE_RETRY_MS = 15_000;
  * Freedom gives them for a Bee 500 as well, which is a retrieval failure rather than an absence.
  */
 const NOT_FOUND_REASONS = new Set(['entry_not_found', 'feed_empty', 'chunk_not_found']);
-
-/**
- * How many slots of a feed in a row the gateway has to serve after the node refused them before the
- * feed is read from the gateway alone. One is the ordinary live-edge race, a slot written while the
- * node was still looking for it.
- */
-export const FAILED_SLOTS_BEFORE_DISTRUST = 2;
 
 /** Freedom's byte budget for a site the viewer has not connected, used when a refusal does not say. */
 const ANONYMOUS_READ_BYTES = 512 * 1024;
@@ -176,15 +156,6 @@ export class BrowserNodeFeeds {
   /** Slots the node refused on their last poll, whose next poll goes to the gateway. */
   private readonly refusedSlots = new Set<string>();
 
-  /** Slots handed to the gateway because the node refused them, until the gateway answers. */
-  private readonly checking = new Set<string>();
-
-  /** Per feed, how many slots in a row the gateway served after the node refused them. */
-  private readonly failedSlots = new Map<string, number>();
-
-  /** Feeds read from the gateway alone, by when that began. */
-  private readonly distrusted = new Map<string, number>();
-
   /** Feed heads the node called empty and the gateway agreed, read from the gateway alone. */
   private readonly emptyHeads = new Set<string>();
 
@@ -224,24 +195,12 @@ export class BrowserNodeFeeds {
     if (this.overBudget.has(key) || this.emptyHeads.has(key)) {
       return null;
     }
-    const feed = feedKey(path);
-    if (path.kind === 'slot') {
-      if (this.refusedSlots.delete(key)) {
-        remember(this.checking, key);
-        return null;
-      }
-      const distrustedAt = feed === null ? undefined : this.distrusted.get(feed);
-      if (distrustedAt !== undefined && now - distrustedAt < NODE_RETRY_MS) {
-        return null;
-      }
+    if (path.kind === 'slot' && this.refusedSlots.delete(key)) {
+      return null;
     }
 
     try {
-      const response = await this.readPath(provider, path, signal);
-      if (feed !== null && response !== null) {
-        this.failedSlots.delete(feed);
-      }
-      return response;
+      return await this.readPath(provider, path, signal);
     } catch (error) {
       if (signal?.aborted) {
         throw error;
@@ -260,25 +219,11 @@ export class BrowserNodeFeeds {
       return;
     }
     const key = readKey(path);
-    const feed = feedKey(path);
     if (path.kind === 'head') {
       if (response.status === 404) {
         remember(this.emptyHeads, key);
       } else {
         this.emptyHeads.delete(key);
-      }
-    } else if (feed !== null && response.status === 404) {
-      // The gateway has not got this slot either, so the follower is at the live edge.
-      this.failedSlots.delete(feed);
-      this.distrusted.delete(feed);
-    }
-    if (this.checking.delete(key) && feed !== null && response.ok) {
-      const failed = (this.failedSlots.get(feed) ?? 0) + 1;
-      if (failed >= FAILED_SLOTS_BEFORE_DISTRUST) {
-        this.failedSlots.delete(feed);
-        rememberAt(this.distrusted, feed, this.now());
-      } else {
-        rememberAt(this.failedSlots, feed, failed);
       }
     }
     const refused = this.refusedOverBudget;

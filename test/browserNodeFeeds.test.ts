@@ -1,13 +1,7 @@
 import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  BrowserNodeFeeds,
-  fetchFeed,
-  FAILED_SLOTS_BEFORE_DISTRUST,
-  NODE_RETRY_MS,
-  type SwarmProvider,
-} from '../src/shared/browserNodeFeeds';
+import { BrowserNodeFeeds, fetchFeed, NODE_RETRY_MS, type SwarmProvider } from '../src/shared/browserNodeFeeds';
 import { feedSlotPath, makeFeedIdentifier, nextFeedRequest } from '../src/shared/feedFollow';
 import { UNSERVED_POLLS_BEFORE_PROBE } from '../src/features/player/refusedSlot';
 
@@ -363,44 +357,21 @@ describe('fetchFeed', () => {
     expect(gateway).toHaveBeenCalledTimes(6);
   });
 
-  // Behind the live edge every slot is there, so a follower never waits, and a node failing the
-  // feed would cost each slot a node miss and a poll.
-  it('reads a feed from the gateway alone once it serves slots in a row the node refused', async () => {
+  // The R5 case: segments about as long as a node miss, so the node's lookup of each next slot starts
+  // before the slot is written. Every slot then comes from the gateway, and the node is still asked
+  // first for the next one rather than given up on for the feed.
+  it('asks the node first for every new slot, even when the gateway served each slot before', async () => {
     provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
     const slotAt = (i: bigint) => `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(i))}`;
     const fetcher = { fetcher: gatewayAnswer as typeof fetch };
 
-    let index = 9n;
-    for (; index < 9n + BigInt(FAILED_SLOTS_BEFORE_DISTRUST); index++) {
+    for (let index = 9n; index < 15n; index++) {
+      const nodeReads = provider.calls.length;
       expect((await fetchFeed(slotAt(index), fetcher, feeds)).status).toBe(404);
+      expect(provider.calls).toHaveLength(nodeReads + 1);
       expect((await fetchFeed(slotAt(index), fetcher, feeds)).text).toBe('from the gateway');
+      expect(provider.calls).toHaveLength(nodeReads + 1);
     }
-    const nodeReads = provider.calls.length;
-    for (let i = 0; i < 4; i++, index++) {
-      expect((await fetchFeed(slotAt(index), fetcher, feeds)).text).toBe('from the gateway');
-    }
-    expect(provider.calls).toHaveLength(nodeReads);
-
-    clock += NODE_RETRY_MS;
-    expect((await fetchFeed(slotAt(index), fetcher, feeds)).status).toBe(404);
-    expect(provider.calls).toHaveLength(nodeReads + 1);
-  });
-
-  it('tries the node again for a feed read from the gateway alone once the gateway has a slot missing', async () => {
-    provider.answer = () => Promise.reject(providerError(-32602, 'entry_not_found'));
-    const slotAt = (i: bigint) => `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(i))}`;
-    const fetcher = { fetcher: gatewayAnswer as typeof fetch };
-    for (let index = 9n; index < 9n + BigInt(FAILED_SLOTS_BEFORE_DISTRUST); index++) {
-      await fetchFeed(slotAt(index), fetcher, feeds);
-      await fetchFeed(slotAt(index), fetcher, feeds);
-    }
-    const nodeReads = provider.calls.length;
-
-    const missing = { fetcher: vi.fn(async () => new Response('', { status: 404 })) as typeof fetch };
-    expect((await fetchFeed(slotAt(20n), missing, feeds)).status).toBe(404);
-    expect(provider.calls).toHaveLength(nodeReads);
-    expect((await fetchFeed(slotAt(20n), missing, feeds)).status).toBe(404);
-    expect(provider.calls).toHaveLength(nodeReads + 1);
   });
 
   it('passes on the 5xx the gateway gives for a slot the node refused', async () => {
