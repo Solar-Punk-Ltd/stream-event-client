@@ -1,22 +1,23 @@
-// The Swarm theme, Swarm Brand v3.0 as msrs-client carries it: near-black surfaces, the orange
-// #f47a20 as a sparing accent, and Geist with JetBrains Mono for readouts. Every theme defines the same
-// groups and names as this one, and `theme.scss` emits them under `:root[data-theme='swarm']`.
+// The Web3Privacy Now theme, for the Cypherpunk Congress stream page, taken from web3privacy.info's own
+// tokens: a black page, #0a0a0a surfaces with white hairlines, white text and the neon green #70ff88
+// with its dark-green foreground for calls to action, in Archivo with Domine headings. Same
+// groups and names as the Swarm theme; only the brand values differ.
 
 $color: (
-  'background': #151517,
-  'surface': #1b1b1c,
-  'surface-glass': rgba(27, 27, 28, 0.88),
+  'background': #000000,
+  'surface': #0a0a0a,
+  'surface-glass': rgba(10, 10, 10, 0.88),
   // A card or featured block, a faint light wash over the page.
   'surface-card': rgba(255, 255, 255, 0.04),
   'surface-hover': rgba(250, 250, 250, 0.08),
-  'input': #242424,
-  'input-focus': #2b2b2b,
-  'border': #333333,
-  'border-strong': #4c4c4c,
+  'input': #141414,
+  'input-focus': #1c1c1c,
+  'border': rgba(255, 255, 255, 0.1),
+  'border-strong': rgba(255, 255, 255, 0.2),
   'overlay': rgba(0, 0, 0, 0.75),
   // The page colour at no opacity, where the header fades into the page.
-  'background-clear': rgba(21, 21, 23, 0),
-  'footer-end': #000000,
+  'background-clear': rgba(0, 0, 0, 0),
+  'footer-end': #0a0a0a,
   // Behind a dialog, over a page that stays blurred beneath it.
   'overlay-modal': rgba(0, 0, 0, 0.7),
   // A chat message's bubble, and a notice that sits in the flow of the page.
@@ -40,23 +41,23 @@ $color: (
   'error-border': rgba(251, 44, 54, 0.4),
   // Behind a letterboxed picture, where anything but black reads as part of the video.
   'video': #000000,
-  'primary': #f47a20,
-  'primary-hover': #f79c5a,
-  // Light text on the orange measures 2.6:1, so anything written on it is the darkest neutral.
-  'on-primary': #151517,
-  'text': #fafafa,
-  'text-secondary': rgba(250, 250, 250, 0.72),
-  'text-tertiary': rgba(250, 250, 250, 0.5),
-  'text-muted': #8a8a8a,
-  'text-soft': rgba(255, 255, 255, 0.885),
+  'primary': #70ff88,
+  'primary-hover': #8cff9e,
+  // web3privacy.info writes on its green in this dark green rather than black.
+  'on-primary': #122014,
+  'text': #ffffff,
+  'text-secondary': #e0e0e0,
+  'text-tertiary': #808080,
+  'text-muted': #a7b0bd,
+  'text-soft': #d0d0d0,
   'button-secondary': rgba(250, 250, 250, 0.1),
   'button-secondary-hover': rgba(250, 250, 250, 0.16),
   // Behind a duration on a thumbnail.
-  'badge-dark': rgba(21, 21, 23, 0.95),
+  'badge-dark': rgba(0, 0, 0, 0.95),
   // The brand's #fb2c36 carries white text at 3.6:1, so the badge uses its darker step.
   'live': #b91c1c,
   'on-live': #fafafa,
-  'error-text': #ff8a8a,
+  'error-text': #ff8b80,
   'warning': #f28b0a,
   'spinner-track': rgba(250, 250, 250, 0.15),
   // A chat name's colour, behind its initial in light text. The chat picks one by hashing the name.
@@ -80,8 +81,9 @@ $color: (
 );
 
 $font-family: (
+  // web3privacy.info's brand: Archivo for text, Domine for headings.
   'base': (
-    'Geist',
+    'Archivo',
     system-ui,
     -apple-system,
     'Segoe UI',
@@ -89,15 +91,10 @@ $font-family: (
     Arial,
     sans-serif,
   ),
-  // Headings share the body's Geist, as msrs-client sets them.
   'heading': (
-    'Geist',
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    Arial,
-    sans-serif,
+    'Domine',
+    Georgia,
+    serif,
   ),
   'mono': (
     'JetBrains Mono',
@@ -109,9 +106,9 @@ $font-family: (
   ),
 );
 
-// Headings bold, as msrs-client sets them.
+// web3privacy.info sets its Domine headings in the regular weight.
 $font-weight: (
-  'heading': 700,
+  'heading': 400,
 );
 
 $theme: (

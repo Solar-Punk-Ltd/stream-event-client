@@ -5,7 +5,7 @@
  *
  * Kept apart from `themes.ts`, which imports images, so the config schema reads it anywhere Node runs.
  */
-export const THEME_NAMES = ['swarm'] as const;
+export const THEME_NAMES = ['swarm', 'web3privacy'] as const;
 
 export type ThemeName = (typeof THEME_NAMES)[number];
 

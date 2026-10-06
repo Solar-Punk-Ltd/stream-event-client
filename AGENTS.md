@@ -14,7 +14,7 @@ and update it when a phase closes or a decision lands.
 - In: the stream list, the watch page and its player, the Bee node picker, the Swarm design, and a
   chat per stream with a display-name login.
 - Out, and staying out unless the plan changes: admin sign-in, wallets, postage stamps, uploads,
-  creating or managing streams, a theme switcher for viewers, and any theme beyond `swarm`. A
+  creating or managing streams, a theme switcher for viewers, and any theme beyond `swarm` and `web3privacy`. A
   deployment picks among the build's themes with `theme` in `config.json`.
 
 ## Rules

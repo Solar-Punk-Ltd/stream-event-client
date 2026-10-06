@@ -1,0 +1,77 @@
+// web3privacy.info's icon row: 48px tiles with 27px icons, 8px apart. Plain in the footer, light grey
+// turning green; as tiles in the hero, green icons on dark squares.
+.social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.social-link {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  transition:
+    color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+.social-links--plain .social-link {
+  color: var(--color-text-soft);
+
+  &:hover {
+    color: var(--color-primary);
+  }
+}
+
+.social-links--tiles {
+  justify-content: center;
+
+  // On a phone the row stays one line, each tile taking an equal share, as web3privacy.info does.
+  @media (max-width: 512px) {
+    flex-wrap: nowrap;
+    gap: 6px;
+    width: 100%;
+
+    li {
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: 52px;
+    }
+
+    .social-link {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1;
+    }
+
+    .social-link-icon {
+      width: 60%;
+      height: 60%;
+    }
+  }
+
+  .social-link {
+    color: var(--color-primary);
+    background-color: var(--color-scrim);
+
+    &:hover {
+      color: var(--color-primary-hover);
+      background-color: var(--color-overlay);
+    }
+  }
+}
+
+.social-link-icon {
+  display: block;
+  width: 27px;
+  height: 27px;
+  background-color: currentcolor;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}

@@ -35,7 +35,11 @@
 .main-layout-logo {
   display: block;
   width: auto;
+  // A wide wordmark shrinks on a phone rather than pushing the node picker and the chat button off.
+  max-width: 34vw;
   height: var(--size-logo-height);
+  object-fit: contain;
+  object-position: left center;
 
   @include media.tablet-up {
     height: var(--size-logo-height-desktop);

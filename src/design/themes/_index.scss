@@ -1,9 +1,11 @@
 // Every theme this build carries, by the name a deployment selects it with. The names are the same
 // list as `THEME_NAMES` in `themes.ts`, which the tokens test holds them to.
 @use 'swarm';
+@use 'web3privacy';
 
 $themes: (
   'swarm': swarm.$theme,
+  'web3privacy': web3privacy.$theme,
 );
 
 // Applied on a bare `:root` too, so the page is styled before the config has been read.

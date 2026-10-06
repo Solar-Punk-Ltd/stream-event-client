@@ -39,6 +39,27 @@ describe('choosing a theme', () => {
     expect(root.dataset.theme).toBe(DEFAULT_THEME);
   });
 
+  it("gives the tab the theme's own title and icon, and leaves the built-in ones otherwise", () => {
+    document.head.innerHTML = '<link rel="icon" type="image/png" href="./favicon.png" />';
+    document.title = 'Built-in title';
+    const icon = () => document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+
+    applyTheme(DEFAULT_THEME, document.documentElement);
+    expect(document.title).toBe(THEMES[DEFAULT_THEME].pageTitle ?? 'Built-in title');
+    expect(icon()?.getAttribute('href')).toBe(THEMES[DEFAULT_THEME].faviconUrl ?? './favicon.png');
+
+    for (const name of THEME_NAMES) {
+      const { pageTitle, faviconUrl } = THEMES[name];
+      applyTheme(name, document.documentElement);
+      if (pageTitle) {
+        expect(document.title).toBe(pageTitle);
+      }
+      if (faviconUrl) {
+        expect(icon()?.getAttribute('href')).toBe(faviconUrl);
+      }
+    }
+  });
+
   it('gives every theme its logo and page copy', () => {
     for (const name of THEME_NAMES) {
       expect(THEMES[name].logoUrl).toBeTruthy();
@@ -51,13 +72,25 @@ describe('choosing a theme', () => {
   it('gives every theme a footer whose links all go somewhere', () => {
     for (const name of THEME_NAMES) {
       const { footer } = THEMES[name];
-      const links = [...footer.brandLinks, ...footer.columns.flatMap((column) => column.links), ...footer.bottomLinks];
+      const links = [
+        ...(footer.brandLinks ?? []),
+        ...footer.columns.flatMap((column) => column.links),
+        ...(footer.social?.links ?? []),
+        ...footer.bottomLinks,
+      ];
 
-      expect(footer.tagline.trim()).not.toBe('');
+      if (footer.tagline !== undefined) {
+        expect(footer.tagline.trim()).not.toBe('');
+      }
       expect(footer.columns.length).toBeGreaterThan(0);
       for (const column of footer.columns) {
-        expect(column.title.trim()).not.toBe('');
+        if (column.title !== undefined) {
+          expect(column.title.trim()).not.toBe('');
+        }
         expect(column.links.length).toBeGreaterThan(0);
+      }
+      for (const link of footer.social?.links ?? []) {
+        expect(link.iconUrl).toBeTruthy();
       }
       for (const link of links) {
         expect(link.label.trim()).not.toBe('');

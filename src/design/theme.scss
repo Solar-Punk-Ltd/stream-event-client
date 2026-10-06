@@ -57,13 +57,14 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-// msrs-client sets every heading on the browse and watch pages in the body's Geist, bold, and leaves
-// its heading typeface unused there.
+// Each theme names its heading typeface: the Swarm theme the body's Geist, bold, as msrs-client sets
+// every heading on the browse and watch pages, and the web3privacy theme Domine.
 h1,
 h2,
 h3 {
   margin: 0;
-  font-weight: var(--font-weight-bold);
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-heading);
   line-height: var(--line-height-tight);
 }
 
