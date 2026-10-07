@@ -266,7 +266,8 @@ and the kinds of provider the build carries (`src/features/gateway/`).
   `/health`, so its connection is shown by its content reads: any answer passes it, and when none came
   it says it did not answer in time or could not be reached. The stream list is its feed's head, checked to
   be a stream list. The video is read as the player starts: the ladder's time marker on a live ladder,
-  otherwise a feed entry the list names, then one segment's URL is loaded. Previews read the playlist a
+  a rung's entry the list names on any other ladder, and the feed head of a stream the list names no
+  renditions for, a recording among them. Then one segment's URL is loaded. Previews read the playlist a
   stream card reads. Pictures load one stream's picture. The chat, "Chat feed on this gateway", is checked
   on the viewer's own node only: it reads its head and newest slot through the chat's own reader there.
   The chat itself always reads from the event's chat address, which the panel says, and a gateway the

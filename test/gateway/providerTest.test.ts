@@ -147,7 +147,7 @@ describe("the control panel's Test, on the event's recorded content", () => {
 
   it('tests the other features on the list the page already shows when this gateway cannot read it', async () => {
     const results = await run({
-      fetcher: gateway((url) => (url.includes('/feeds/dc014b8a') ? new Response('', { status: 404 }) : undefined)),
+      fetcher: gateway((url) => (url.includes(CATALOG_HEAD) ? new Response('', { status: 404 }) : undefined)),
       knownStreams: recordedStreams(),
     });
 
@@ -317,12 +317,15 @@ const STREAM_HEAD = `/feeds/${recordedStream().owner}/${Topic.fromString(recorde
  * chat's paths are refused with no CORS header, which a browser reports as no answer, and a head lookup on a long
  * feed takes 6 s.
  */
-function eventGateway(asked: string[] = []): typeof fetch {
+function eventGateway(
+  asked: string[] = [],
+  override: (url: string) => Answer | undefined = () => undefined,
+): typeof fetch {
   const refused = (url: string) => url === HEALTH || url.includes(CHAT_HEAD) || url.includes('/chunks/');
   return slowed(
     gateway((url) => {
       asked.push(url);
-      return refused(url) ? 'refuse' : undefined;
+      return refused(url) ? 'refuse' : override(url);
     }),
     (url) => (url.includes(CATALOG_HEAD) || url.includes(STREAM_HEAD) ? 6_000 : undefined),
   );
@@ -357,6 +360,23 @@ describe("the control panel's Test, on a gateway the deployment offers", () => {
     const results = await run({ fetcher: gateway(), chat: null, isOwnNode: false });
 
     expect(results.chat).toEqual({ check: 'chat', outcome: 'skipped', sentence: SKIPPED.noChat });
+  });
+
+  it('reads a recording as the player opens it, by its feed head, and waits the 6 s that head takes', async () => {
+    const { owner, topic } = recordedStream();
+    const firstEntry = `${RECORDED_GATEWAY}/soc/${owner}/${makeFeedIdentifier(Topic.fromString(topic), FeedIndex.fromBigInt(0n)).toString()}`;
+    const asked: string[] = [];
+    const results = await runOnTestClock({
+      fetcher: eventGateway(asked, (url) => (url === firstEntry ? new Response('', { status: 404 }) : undefined)),
+      isOwnNode: false,
+    });
+
+    expect(results.player).toEqual({
+      check: 'player',
+      outcome: 'passed',
+      sentence: `The video loaded: a playlist of ${RECORDED_TITLE} and one segment.`,
+    });
+    expect(asked.filter((url) => url.includes(STREAM_HEAD))).toHaveLength(1);
   });
 
   it('says it could not be reached when no read got an answer', async () => {
@@ -465,6 +485,8 @@ describe("the control panel's Test, on a live ladder and pictures", () => {
     const LOOP = 'test-loop-master';
     const entryOfLoop = `${GW}/soc/${OWNER}/${makeFeedIdentifier(Topic.fromString(LOOP), FeedIndex.fromBigInt(0n)).toString()}`;
     const master = ['#EXTM3U', '#EXT-X-STREAM-INF:BANDWIDTH=400000', `swarm://${OWNER}/${LOOP}`].join('\n');
+    // The player opens a stream with no renditions in the list by its feed head, and follows a master's variants.
+    const headOfLoop = `${GW}/feeds/${OWNER}/${Topic.fromString(LOOP).toHex()}`;
     let masterReads = 0;
     const loops = (async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -472,7 +494,7 @@ describe("the control panel's Test, on a live ladder and pictures", () => {
         return Response.json({ status: 'ok' });
       }
       // Answers a few dozen times only, so a reader with no limit ends rather than running forever.
-      if (url === entryOfLoop && masterReads < 30) {
+      if ((url === entryOfLoop || url === headOfLoop) && masterReads < 30) {
         masterReads += 1;
         return new Response(master);
       }
@@ -489,7 +511,8 @@ describe("the control panel's Test, on a live ladder and pictures", () => {
 
     const results = await run({ fetcher: loops, address: GW, knownStreams: [stream], chat: null, now: () => NOW });
 
-    expect(masterReads).toBe(4);
+    // Four by the video check, the head and three masters it follows, and two by the previews check, which follows one.
+    expect(masterReads).toBe(6);
     expect(results.player).toEqual({ check: 'player', outcome: 'failed', sentence: NO_SEGMENT('Loop') });
   });
 
