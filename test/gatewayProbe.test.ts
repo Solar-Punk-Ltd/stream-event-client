@@ -4,12 +4,18 @@ import {
   beeBaseUrlFromTypedAddress,
   describeProbeFailure,
   gatewayLabel,
+  probeFailureHelp,
   isBlockedAsMixedContent,
   isDefaultGateway,
   probeGateway,
 } from '@/features/gateway/gatewayProbe';
-import { LOCAL_HTTP_UNSUPPORTED } from '@/features/gateway/checkSentences';
-import { describeNodeState } from '@/features/gateway/nodeReadiness';
+import {
+  corsHelp,
+  LOCAL_HTTP_UNSUPPORTED,
+  LOCAL_NETWORK_HELP,
+  notReadySentence,
+  UNREACHABLE_SENTENCES,
+} from '@/features/gateway/checkSentences';
 import { PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
 import { BeeHttpProvider } from '@/swarm/providers/bee-http/beeHttpProvider';
 
@@ -37,12 +43,12 @@ function beeAnsweredBy(fetcher: typeof fetch) {
   return (url: string) => new BeeHttpProvider({ baseUrl: url, fetcher });
 }
 
-/** A node whose readiness and peers raise no objection. */
-const ready = async () => ({ kind: 'ready' }) as const;
-
 function answering(status: number, text = BEE_HEALTH) {
   return beeAnsweredBy((async () => new Response(text, { status })) as typeof fetch);
 }
+
+/** A browser without Local Network Access, so no permission is asked. */
+const NO_LOCAL_NETWORK = { localNetworkRequests: false } as const;
 
 /** One rejection stands for a closed port, a DNS miss and a CORS refusal, which a browser never tells apart. */
 function refusing() {
@@ -81,16 +87,16 @@ describe('beeBaseUrlFromTypedAddress', () => {
 
 describe('probeGateway', () => {
   it('asks the health endpoint under the address it was given', async () => {
-    let asked = '';
+    const asked: string[] = [];
     const prober = beeAnsweredBy((async (input: RequestInfo | URL) => {
-      asked = String(input);
+      asked.push(String(input));
       return new Response(BEE_HEALTH);
     }) as typeof fetch);
 
-    await probeGateway('http://localhost:1633', { prober, inspect: ready });
+    await probeGateway('http://localhost:1633', { prober });
 
     // Bee's health document, which a /bee proxy on this site forwards unchanged.
-    expect(asked).toBe('http://localhost:1633/health');
+    expect(asked).toContain('http://localhost:1633/health');
   });
 
   it('bounds its own wait at the window it ships with, so a node that goes quiet cannot hold the picker open', async () => {
@@ -102,7 +108,7 @@ describe('probeGateway', () => {
       },
     });
 
-    await probeGateway('http://localhost:1633', { prober, inspect: ready });
+    await probeGateway('http://localhost:1633', { prober });
 
     // The constant itself, not a lower bound. Above zero is satisfied by ten minutes, which is the
     // picker held open rather than a wait with an end.
@@ -119,7 +125,7 @@ describe('probeGateway', () => {
   });
 
   it('accepts an address that answers with a Bee health document', async () => {
-    expect(await probeGateway('http://localhost:1633', { prober: answering(200), inspect: ready })).toEqual({
+    expect(await probeGateway('http://localhost:1633', { prober: answering(200) })).toEqual({
       kind: 'ok',
     });
   });
@@ -131,9 +137,7 @@ describe('probeGateway', () => {
   });
 
   it('accepts a Bee node whose health says nok, because it is still a Bee node', async () => {
-    expect(
-      await probeGateway('http://localhost:1633', { prober: answering(200, '{"status":"nok"}'), inspect: ready }),
-    ).toEqual({
+    expect(await probeGateway('http://localhost:1633', { prober: answering(200, '{"status":"nok"}') })).toEqual({
       kind: 'ok',
     });
   });
@@ -145,8 +149,26 @@ describe('probeGateway', () => {
     });
   });
 
+  it('names a node that answered and refused this site, which the probe found by asking again without CORS', async () => {
+    const prober = () => ({ probe: async (): Promise<ProbeResult> => ({ kind: 'refuses-this-site' }) });
+    expect(await probeGateway('http://localhost:1633', { prober })).toEqual({
+      kind: 'unreachable',
+      cause: { kind: 'cors-refused' },
+    });
+  });
+
+  it("asks the browser's local network permission for a node on this computer that answered nothing", async () => {
+    const reachability = { pageUrl: 'https://viewer.example.com/', permission: async () => 'denied' as const };
+    expect(
+      await probeGateway('http://localhost:1633', { prober: refusing(), localNetworkRequests: true, reachability }),
+    ).toEqual({ kind: 'unreachable', cause: { kind: 'local-network-refused' } });
+  });
+
   it('reports a refusal rather than throwing, so the picker always has something to show', async () => {
-    expect(await probeGateway('http://localhost:1', { prober: refusing() })).toEqual({ kind: 'unreachable' });
+    expect(await probeGateway('http://localhost:1', { prober: refusing(), reachability: NO_LOCAL_NETWORK })).toEqual({
+      kind: 'unreachable',
+      cause: { kind: 'unreachable' },
+    });
   });
 
   it('keeps a node that never answered apart from one that could not be reached', async () => {
@@ -195,13 +217,13 @@ describe('a plain http node named from an https page', () => {
       return new Response(BEE_HEALTH);
     }) as typeof fetch);
 
-    expect(await probeGateway('http://localhost:1633', { pageProtocol: 'https:', prober, inspect: ready })).toEqual({
+    expect(await probeGateway('http://localhost:1633', { pageProtocol: 'https:', prober })).toEqual({
       kind: 'ok',
     });
-    expect(await probeGateway('http://127.0.0.1:1633', { pageProtocol: 'https:', prober, inspect: ready })).toEqual({
+    expect(await probeGateway('http://127.0.0.1:1633', { pageProtocol: 'https:', prober })).toEqual({
       kind: 'ok',
     });
-    expect(asked).toHaveLength(2);
+    expect(asked.filter((url) => url.endsWith('/health'))).toHaveLength(2);
   });
 
   it('leaves an https node and a page served over http alone', () => {
@@ -232,7 +254,6 @@ describe('a plain http node on the local network named from an https page', () =
         pageProtocol: 'https:',
         localNetworkRequests: true,
         prober: answering(200),
-        inspect: ready,
       }),
     ).toEqual({ kind: 'ok' });
   });
@@ -260,36 +281,44 @@ describe('a Bee node that answers but cannot serve this viewer yet', () => {
   it.each([
     [{ kind: 'starting' } as const],
     [{ kind: 'no-peers' } as const],
-    [{ kind: 'too-old', version: '2.2.0' } as const],
-  ])('is not switched to when it is %o, and says so', async (state) => {
-    const outcome = await probeGateway('http://localhost:1633', { prober: answering(200), inspect: async () => state });
+    [{ kind: 'too-old', version: '2.2.0', needed: '2.3.0' } as const],
+  ])('is not switched to when it is %o, and says so', async (reason) => {
+    const prober = () => ({ probe: async (): Promise<ProbeResult> => ({ kind: 'not-ready', reason }) });
+    const outcome = await probeGateway('http://localhost:1633', { prober });
 
-    expect(outcome).toEqual({ kind: 'not-ready', state });
-    expect(describeProbeFailure({ kind: 'not-ready', state })).toBe(describeNodeState(state));
-  });
-
-  it('is asked only once its health has shown a Bee node is there', async () => {
-    let inspected = false;
-    const inspect = async () => {
-      inspected = true;
-      return { kind: 'ready' } as const;
-    };
-    await probeGateway('http://localhost:1633', { prober: answering(200, SPA_INDEX), inspect });
-
-    expect(inspected).toBe(false);
+    expect(outcome).toEqual({ kind: 'not-ready', reason });
+    expect(describeProbeFailure({ kind: 'not-ready', reason })).toBe(notReadySentence(reason));
   });
 });
 
 describe('describeProbeFailure', () => {
-  it('tells an unreachable viewer about CORS, because a browser hides that cause behind a failed fetch', () => {
-    expect(describeProbeFailure({ kind: 'unreachable' })).toContain('cors-allowed-origins');
+  it('tells a viewer whose node answers and refuses this site about CORS, with the lines to add', () => {
+    const failure = { kind: 'unreachable', cause: { kind: 'cors-refused' } } as const;
+
+    expect(describeProbeFailure(failure)).toBe(UNREACHABLE_SENTENCES['cors-refused']);
+    expect(probeFailureHelp(failure, 'https://viewer.example.com')).toEqual(corsHelp('https://viewer.example.com'));
+  });
+
+  it('sends a viewer whose address has nothing behind it to the node, with no CORS help', () => {
+    const failure = { kind: 'unreachable', cause: { kind: 'unreachable' } } as const;
+
+    expect(describeProbeFailure(failure)).not.toContain('cors-allowed-origins');
+    expect(probeFailureHelp(failure, 'https://viewer.example.com')).toBeNull();
+  });
+
+  it("explains the browser's local network question where it may be the cause", () => {
+    for (const kind of ['local-network-refused', 'unreachable-local'] as const) {
+      const failure = { kind: 'unreachable', cause: { kind } } as const;
+      expect(describeProbeFailure(failure)).toBe(UNREACHABLE_SENTENCES[kind]);
+      expect(probeFailureHelp(failure, 'https://viewer.example.com')).toBe(LOCAL_NETWORK_HELP);
+    }
   });
 
   it('sends a viewer whose node never answered to the node rather than to its CORS settings', () => {
     const timedOut = describeProbeFailure({ kind: 'timed-out' });
 
     expect(timedOut).not.toContain('cors-allowed-origins');
-    expect(timedOut).not.toBe(describeProbeFailure({ kind: 'unreachable' }));
+    expect(timedOut).not.toBe(describeProbeFailure({ kind: 'unreachable', cause: { kind: 'unreachable' } }));
   });
 
   it('names the status when something answered with an error', () => {

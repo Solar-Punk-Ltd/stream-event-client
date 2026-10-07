@@ -10,13 +10,15 @@ import {
   LOCAL_HTTP_UNSUPPORTED,
   MIXED_CONTENT,
   NODE_NOT_READY,
+  UNREACHABLE_SENTENCES,
+  corsHelp,
   NO_SEGMENT,
   NOT_A_SWARM_GATEWAY,
   SKIPPED,
 } from '../../src/features/gateway/checkSentences';
 import { onlyGateway } from '../../src/features/gateway/gatewayProbe';
-import { inspectBeeNode, MINIMUM_BEE_VERSION } from '../../src/features/gateway/nodeReadiness';
 import { CHECKS, type CheckResult, testProvider } from '../../src/features/gateway/providerTest';
+import { MINIMUM_BEE_VERSION } from '../../src/swarm/providers/bee-http/beeNodeState';
 import { makeFeedIdentifier } from '../../src/shared/feedFollow';
 import { encodeLadderMarker, ladderMarkerIdentifier, markerPeriodAt } from '../../src/shared/ladderMarker';
 import { loadUrl } from '../../src/swarm/client';
@@ -103,13 +105,17 @@ async function run({
     now,
     isOwnNode,
     loadUrl: (url, options) => loadUrl(url, { ...options, fetcher }),
-    inspectNode: (url, options) => inspectBeeNode(url, { ...options, fetcher }),
+    reachability: { pageUrl: `${PAGE_ORIGIN}/` },
+    pageOrigin: PAGE_ORIGIN,
   });
   expect(results.map(({ check }) => check)).toEqual([...CHECKS]);
   return Object.fromEntries(results.map((result) => [result.check, result]));
 }
 
 const RECORDED_TITLE = '“Recorded test pattern”';
+
+/** This page's origin as the Test reads it, which the CORS help names. */
+const PAGE_ORIGIN = 'https://viewer.example.com';
 
 describe("the control panel's Test, on the event's recorded content", () => {
   it('passes every feature the recording holds, and says what each loaded', async () => {
@@ -143,10 +149,11 @@ describe("the control panel's Test, on the event's recorded content", () => {
     });
   });
 
-  it('says a gateway that cannot be reached may be refusing this site, on every check', async () => {
+  it('says a gateway that cannot be reached may be refusing this site, on every check but the connection', async () => {
     const results = await run({ fetcher: faultyFetch(), knownStreams: recordedStreams() });
 
-    for (const check of CHECKS.filter((name) => name !== 'thumbnails')) {
+    // The connection of the viewer's own node asks again and names the one cause it finds, tested below.
+    for (const check of CHECKS.filter((name) => name !== 'thumbnails' && name !== 'connection')) {
       expect(results[check], check).toEqual({ check, outcome: 'failed', sentence: COULD_NOT_REACH });
     }
     expect(COULD_NOT_REACH).toContain('this node does not allow this site');
@@ -257,6 +264,48 @@ describe("the control panel's Test, on the event's recorded content", () => {
     expect(Object.values(results).map(({ sentence }) => sentence)).toEqual(CHECKS.map(() => LOCAL_HTTP_UNSUPPORTED));
     expect(asked).toEqual([]);
   });
+
+  it("fails the connection of the viewer's own node while it is still starting, and says to wait", async () => {
+    const starting = (url: string) =>
+      url.endsWith('/readiness') ? Response.json({ status: 'notReady' }, { status: 400 }) : undefined;
+    const results = await run({ fetcher: gateway(starting) });
+
+    expect(results.connection).toEqual({ check: 'connection', outcome: 'failed', sentence: NODE_NOT_READY.starting });
+  });
+  it("fails the connection of the viewer's own node when it is older than the viewer needs", async () => {
+    const old = (url: string) =>
+      url.endsWith('/health') ? Response.json({ status: 'ok', version: '2.2.0' }) : undefined;
+    const results = await run({ fetcher: gateway(old) });
+
+    expect(results.connection.outcome).toBe('failed');
+    expect(results.connection.sentence).toBe(NODE_NOT_READY.tooOld('2.2.0', MINIMUM_BEE_VERSION));
+  });
+  it("tells a node of the viewer's own that answers and refuses this site apart, with the lines to add", async () => {
+    // The Test's own reads fail as a CORS refusal does, and the second request without CORS is answered.
+    const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.mode === 'no-cors') {
+        return new Response(null);
+      }
+      throw new TypeError('Failed to fetch');
+    }) as typeof fetch;
+    const results = await run({ fetcher, knownStreams: recordedStreams() });
+
+    expect(results.connection).toEqual({
+      check: 'connection',
+      outcome: 'failed',
+      sentence: UNREACHABLE_SENTENCES['cors-refused'],
+      help: corsHelp(PAGE_ORIGIN),
+    });
+  });
+  it("says nothing answers at the address of a node of the viewer's own when the second request fails too", async () => {
+    const results = await run({ fetcher: faultyFetch(), knownStreams: recordedStreams() });
+
+    expect(results.connection).toEqual({
+      check: 'connection',
+      outcome: 'failed',
+      sentence: UNREACHABLE_SENTENCES.unreachable,
+    });
+  });
 });
 
 /** Answers the URLs `delayOf` names that many milliseconds late, by the test's clock, unless the read is stopped first. */
@@ -330,23 +379,6 @@ describe('the window the Test gives each read', () => {
       sentence:
         'The gateway did not answer in 5 s. It may be busy or still starting. Test again in a minute, or pick another gateway.',
     });
-  });
-
-  it("fails the connection of the viewer's own node while it is still starting, and says to wait", async () => {
-    const starting = (url: string) =>
-      url.endsWith('/readiness') ? Response.json({ status: 'notReady' }, { status: 400 }) : undefined;
-    const results = await run({ fetcher: gateway(starting) });
-
-    expect(results.connection).toEqual({ check: 'connection', outcome: 'failed', sentence: NODE_NOT_READY.starting });
-  });
-
-  it("fails the connection of the viewer's own node when it is older than the viewer needs", async () => {
-    const old = (url: string) =>
-      url.endsWith('/health') ? Response.json({ status: 'ok', version: '2.2.0' }) : undefined;
-    const results = await run({ fetcher: gateway(old) });
-
-    expect(results.connection.outcome).toBe('failed');
-    expect(results.connection.sentence).toBe(NODE_NOT_READY.tooOld('2.2.0', MINIMUM_BEE_VERSION));
   });
 });
 

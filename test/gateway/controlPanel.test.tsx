@@ -5,7 +5,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { AppContextProvider, useAppContext } from '../../src/app/AppProvider';
 import { parseRuntimeConfig, type RuntimeConfig } from '../../src/config/runtimeConfig';
-import { ADDRESS_REFUSED, CONNECTED_BY_CONTENT } from '../../src/features/gateway/checkSentences';
+import {
+  ADDRESS_REFUSED,
+  CONNECTED_BY_CONTENT,
+  NODE_NOT_READY,
+  UNREACHABLE_SENTENCES,
+} from '../../src/features/gateway/checkSentences';
 import { ControlPanel } from '../../src/features/gateway/ControlPanel';
 import type { SwarmClient } from '../../src/swarm/client';
 import { button, click, dialog, input, mount, settle, text, type, waitFor, type Mounted } from '../helpers/dom';
@@ -170,6 +175,37 @@ describe('the control panel', () => {
     expect(gatewayUrl).toBe(EVENT);
   });
 
+  it("shows the exact cors-allowed-origins lines for this page's origin when a node answers and refuses this site", async () => {
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.mode === 'no-cors') {
+        return new Response(null);
+      }
+      throw new TypeError('Failed to fetch');
+    }) as typeof fetch;
+    await open();
+    click(button('Check and use'));
+    await waitFor(() => (text().includes(UNREACHABLE_SENTENCES['cors-refused']) ? true : null));
+
+    const help = row('Your own node').textContent ?? '';
+    expect(help).toContain(`cors-allowed-origins: ["${window.location.origin}"]`);
+    expect(help).toContain(`BEE_CORS_ALLOWED_ORIGINS=${window.location.origin}`);
+    expect(help).toContain('Swarm Desktop');
+    expect(gatewayUrl).toBe(EVENT);
+  });
+
+  it("says a node of the viewer's own is still starting rather than switching to it", async () => {
+    const answer = globalThis.fetch;
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith('/readiness')
+        ? Promise.resolve(Response.json({ status: 'notReady' }, { status: 400 }))
+        : answer(input, init)) as typeof fetch;
+    await open();
+    click(button('Check and use'));
+    await waitFor(() => (text().includes(NODE_NOT_READY.starting) ? true : null));
+
+    expect(gatewayUrl).toBe(EVENT);
+  });
+
   it('tests a gateway on every feature and shows each sentence', async () => {
     await open();
     click(buttonIn(row('Backup gateway'), 'Test'));
@@ -195,11 +231,7 @@ describe('the control panel', () => {
 
     click(button('Test your own node'));
     await waitFor(() => (row('Your own node').textContent?.includes('The gateway answered in') ? true : null));
-    // Twice: the probe, then the version check beside readiness and peers.
-    expect(asked.filter((url) => url.endsWith('/health'))).toEqual([
-      'http://localhost:1633/health',
-      'http://localhost:1633/health',
-    ]);
+    expect(asked.filter((url) => url.endsWith('/health'))).toEqual(['http://localhost:1633/health']);
     expect(asked).toContain('http://localhost:1633/readiness');
   });
 

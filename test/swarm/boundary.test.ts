@@ -52,13 +52,20 @@ describe('the Swarm layer', () => {
 });
 
 /**
- * The modules of the Swarm layer the features and the app may import: the client and what it reads in.
+ * The modules of the Swarm layer the features and the app may import: the client and what it reads in,
+ * and two that read nothing, which network an address is on and how far a viewer's own node may be.
  * A provider's own files and the registry of kinds stay behind it, so a new kind of provider changes
  * nothing outside `src/swarm`.
  */
-const PUBLIC_SURFACE = ['client', 'answers', 'provider', 'settings', 'createSwarmClient'].map((name) =>
-  join(SWARM, name),
-);
+const PUBLIC_SURFACE = [
+  'client',
+  'answers',
+  'provider',
+  'settings',
+  'createSwarmClient',
+  'addressSpace',
+  'beeNodeAccess',
+].map((name) => join(SWARM, name));
 
 /** Each import past the public surface that is allowed, with the reason it cannot go through the client yet. */
 const ALLOWED_PAST_THE_SURFACE: readonly { readonly file: string; readonly target: string; readonly why: string }[] = [

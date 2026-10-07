@@ -7,13 +7,20 @@
  * vitest without a DOM and a rule left inside the component is a rule nothing covers.
  */
 import { createSwarmClient } from '@/swarm/createSwarmClient';
-import { PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
+import { type NotReadyReason, PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
 import { addressSpaceOf, supportsLocalNetworkRequests } from '@/swarm/addressSpace';
 import { type BeeNodeAccess, DEFAULT_BEE_NODE_ACCESS } from '@/swarm/beeNodeAccess';
 import { type GatewaySetting, OWN_GATEWAY_ID, type SwarmSettings } from '@/swarm/settings';
 
-import { ADDRESS_REFUSED, LOCAL_HTTP_UNSUPPORTED } from './checkSentences';
-import { describeNodeState, inspectBeeNode, type NodeState } from './nodeReadiness';
+import {
+  ADDRESS_REFUSED,
+  type Help,
+  LOCAL_HTTP_UNSUPPORTED,
+  notReadySentence,
+  unreachableHelp,
+  unreachableSentence,
+} from './checkSentences';
+import { type ReachabilityOptions, unreachableCause, type UnreachableCause } from './reachability';
 
 /** Both a viewer's typing and a saved address, since every caller joins with a path of its own. */
 function withoutTrailingSlash(url: string): string {
@@ -185,9 +192,9 @@ type GatewayProbeOutcome =
   | { kind: 'not-bee' }
   | { kind: 'timed-out' }
   /** A Bee node answered its health and cannot serve this viewer yet. */
-  | { kind: 'not-ready'; state: Exclude<NodeState, { kind: 'ready' }> }
-  /** No answer at all: connection refused, wrong port, DNS miss, or the node blocked this site. */
-  | { kind: 'unreachable' };
+  | { kind: 'not-ready'; reason: NotReadyReason }
+  /** No readable answer, and what a second look at the address found: nothing, CORS, or the browser. */
+  | { kind: 'unreachable'; cause: UnreachableCause };
 
 /** What can ask an address whether a Swarm node is there: a provider's own probe. */
 type Prober = (gatewayUrl: string) => { probe(options?: ReadOptions): Promise<ProbeResult> };
@@ -218,8 +225,8 @@ interface GatewayProbeOptions {
   pageProtocol?: string;
   /** Whether this browser can mark a request as meant for the local network. Read from the page when absent. */
   localNetworkRequests?: boolean;
-  /** Injected only by tests. Production asks the node's readiness, peers and version. */
-  inspect?: (gatewayUrl: string) => Promise<NodeState>;
+  /** Injected only by tests. Production reads the page and asks the browser's Permissions API. */
+  reachability?: ReachabilityOptions;
 }
 
 /** Empty off a browser, where nothing is being loaded into a page and nothing can be blocked. */
@@ -242,7 +249,7 @@ export async function probeGateway(
     prober = beeHttpProber,
     pageProtocol = currentPageProtocol(),
     localNetworkRequests = supportsLocalNetworkRequests(),
-    inspect = inspectBeeNode,
+    reachability = {},
   }: GatewayProbeOptions = {},
 ): Promise<GatewayProbeOutcome> {
   // Asked before the fetch, because this is the one failure that is knowable without one and the
@@ -253,20 +260,25 @@ export async function probeGateway(
   }
 
   // A browser reports a CORS refusal, a closed port and a DNS miss identically, as a rejected fetch
-  // with no status, so the probe finds every one of them unreachable.
+  // with no status, so the probe finds every one of them unreachable and the diagnosis tells them apart.
   const found = await prober(gatewayUrl).probe({ timeoutMs: PROBE_TIMEOUT_MS });
   switch (found.kind) {
-    case 'ok': {
-      const state = await inspect(gatewayUrl);
-      return state.kind === 'ready' ? { kind: 'ok' } : { kind: 'not-ready', state };
-    }
+    case 'ok':
+      return { kind: 'ok' };
+    case 'not-ready':
+      return { kind: 'not-ready', reason: found.reason };
     case 'not-swarm':
       return { kind: 'not-bee' };
     case 'rejected':
       return { kind: 'rejected', status: found.status };
     case 'timed-out':
+      return { kind: 'timed-out' };
     case 'unreachable':
-      return { kind: found.kind };
+    case 'refuses-this-site':
+      return {
+        kind: 'unreachable',
+        cause: await unreachableCause(gatewayUrl, found, { localNetworkRequests, ...reachability }),
+      };
   }
 }
 
@@ -291,14 +303,19 @@ export function describeProbeFailure(failure: GatewayProbeFailure): string {
     case 'local-http-unsupported':
       return LOCAL_HTTP_UNSUPPORTED;
     case 'not-ready':
-      return describeNodeState(failure.state);
+      return notReadySentence(failure.reason);
     case 'mixed-content':
       return 'This site is served over https, and a browser refuses to load anything over plain http from it, so the request never leaves this page. Give the node an https address, or open this site over http.';
     case 'timed-out':
       return 'The node accepted the connection and then stopped answering. Check that it has finished starting up, then try again.';
     case 'unreachable':
-      return 'Could not reach a Bee node at this address. Check that the node is running, and that it allows this site: set cors-allowed-origins to "*" in its config and restart it.';
+      return unreachableSentence(failure.cause);
   }
+}
+
+/** The help a failure needs beyond its sentence, for this page's origin, or null when the sentence is enough. */
+export function probeFailureHelp(failure: GatewayProbeFailure, origin: string): Help | null {
+  return failure.kind === 'unreachable' ? unreachableHelp(failure.cause, origin) : null;
 }
 
 /**

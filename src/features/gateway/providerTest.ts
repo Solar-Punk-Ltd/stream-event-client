@@ -39,9 +39,12 @@ import {
   PASSED,
   probeSentence,
   SKIPPED,
+  type Help,
+  unreachableHelp,
+  unreachableSentence,
 } from './checkSentences';
 import { isBlockedAsMixedContent, isLocalHttp } from './gatewayProbe';
-import { describeNodeState, inspectBeeNode, type InspectOptions, type NodeState } from './nodeReadiness';
+import { type ReachabilityOptions, unreachableCause } from './reachability';
 
 /** What the Test checks, in the order the panel shows them. */
 export const CHECKS = ['connection', 'stream-list', 'player', 'previews', 'thumbnails', 'chat'] as const;
@@ -64,6 +67,8 @@ export interface CheckResult {
   readonly check: CheckName;
   readonly outcome: CheckOutcome;
   readonly sentence: string;
+  /** Steps shown under the sentence, when the fix takes more than one sentence. */
+  readonly help?: Help;
 }
 
 export interface ProviderTestContext {
@@ -96,8 +101,10 @@ export interface ProviderTestContext {
   readonly pageProtocol?: string;
   /** Whether this browser can mark a request as meant for the local network. Injected by tests. */
   readonly localNetworkRequests?: boolean;
-  /** Injected by tests. Asks the node's readiness, peers and version otherwise. */
-  readonly inspectNode?: (address: string, options: InspectOptions) => Promise<NodeState>;
+  /** Injected by tests. Reads the page and asks the browser's Permissions API otherwise. */
+  readonly reachability?: ReachabilityOptions;
+  /** The origin the page is served from, which the CORS help names. Read from the page when absent. */
+  readonly pageOrigin?: string;
 }
 
 const passed = (check: CheckName, sentence: string): CheckResult => ({ check, outcome: 'passed', sentence });
@@ -107,6 +114,10 @@ const skipped = (check: CheckName, sentence: string): CheckResult => ({ check, o
 /** A read that did not give its content, as the check's failure. */
 const failedRead = (check: CheckName, what: string, answer: Exclude<SwarmAnswer, { kind: 'content' }>) =>
   failed(check, failedReadSentence(what, answer));
+
+function currentPageOrigin(): string {
+  return typeof window === 'undefined' ? '' : window.location.origin;
+}
 
 function currentPageProtocol(): string {
   return typeof window === 'undefined' ? '' : window.location.protocol;
@@ -195,13 +206,17 @@ function connectionByContent(answers: readonly SwarmAnswer[], list: CheckResult)
 async function checkConnection(context: ProviderTestContext): Promise<CheckResult> {
   // The picker's window for a node of the viewer's own, short so a wrong port does not feel like a hang.
   const found = await context.client.probe({ timeoutMs: PROBE_TIMEOUT_MS, signal: context.signal });
-  const sentence = probeSentence(found, PROBE_TIMEOUT_MS);
-  if (found.kind !== 'ok') {
-    return failed('connection', sentence);
+  if (found.kind === 'unreachable' || found.kind === 'refuses-this-site') {
+    const cause = await unreachableCause(context.address, found, {
+      localNetworkRequests: context.localNetworkRequests,
+      ...context.reachability,
+    });
+    const help = unreachableHelp(cause, context.pageOrigin ?? currentPageOrigin());
+    const result = failed('connection', unreachableSentence(cause));
+    return help === null ? result : { ...result, help };
   }
-  const inspect = context.inspectNode ?? inspectBeeNode;
-  const state = await inspect(context.address, { signal: context.signal });
-  return state.kind === 'ready' ? passed('connection', sentence) : failed('connection', describeNodeState(state));
+  const sentence = probeSentence(found, PROBE_TIMEOUT_MS);
+  return found.kind === 'ok' ? passed('connection', sentence) : failed('connection', sentence);
 }
 
 async function checkStreamList(

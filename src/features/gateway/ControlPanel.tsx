@@ -18,9 +18,10 @@ import {
   describeProbeFailure,
   onlyGateway,
   OWN_NODE_DEFAULT_ADDRESS,
+  probeFailureHelp,
   probeGateway,
 } from './gatewayProbe';
-import { OWN_NODE_DESCRIPTION } from './checkSentences';
+import { type Help, OWN_NODE_DESCRIPTION } from './checkSentences';
 import { isServingFromFallback, statusRows } from './providerStatus';
 import { CHECK_LABELS, type CheckResult, testProvider } from './providerTest';
 import { reportText, type TestedGateway } from './report';
@@ -32,7 +33,7 @@ const KEY_ENTER = 'Enter';
 /** How often the status view and the header's fallback marker read the client's counts again. */
 const STATUS_REFRESH_MS = 2_000;
 
-type OwnNodeStatus = { kind: 'idle' } | { kind: 'checking' } | { kind: 'error'; text: string };
+type OwnNodeStatus = { kind: 'idle' } | { kind: 'checking' } | { kind: 'error'; text: string; help?: Help | null };
 
 const IDLE: OwnNodeStatus = { kind: 'idle' };
 
@@ -175,7 +176,11 @@ export function ControlPanel() {
       close();
       return;
     }
-    setOwnStatus({ kind: 'error', text: describeProbeFailure(outcome) });
+    setOwnStatus({
+      kind: 'error',
+      text: describeProbeFailure(outcome),
+      help: probeFailureHelp(outcome, window.location.origin),
+    });
   };
 
   const typeOwnAddress = (value: string) => {
@@ -313,6 +318,7 @@ export function ControlPanel() {
                 {ownStatus.kind === 'checking' && 'Checking the node...'}
                 {ownStatus.kind === 'error' && ownStatus.text}
               </p>
+              {ownStatus.kind === 'error' && ownStatus.help && <HelpSteps help={ownStatus.help} />}
               <div className="panel-gateway-actions">
                 <Button
                   variant={ButtonVariant.SECONDARY}
@@ -405,8 +411,28 @@ function TestResults({ test }: { test: GatewayTest | undefined }) {
             {CHECK_LABELS[result.check]}: {OUTCOME_WORDS[result.outcome]}
           </span>
           <span className="panel-result-sentence">{result.sentence}</span>
+          {result.help && <HelpSteps help={result.help} />}
         </li>
       ))}
     </ul>
+  );
+}
+
+/** The steps of a fix that takes more than one sentence, with any text to copy set apart as code. */
+function HelpSteps({ help }: { help: Help }) {
+  return (
+    <div className="panel-help">
+      <p>{help.intro}</p>
+      <ul className="panel-help-steps">
+        {help.steps.map((step) => (
+          <li key={step.label}>
+            <span className="panel-help-label">{step.label}</span>{' '}
+            {step.code !== undefined && <code className="panel-help-code">{step.code}</code>}
+            {step.text}
+          </li>
+        ))}
+      </ul>
+      <p>{help.note}</p>
+    </div>
   );
 }

@@ -162,6 +162,42 @@
   font-size: var(--font-size-xs);
 }
 
+.panel-help {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+
+  p {
+    margin: 0;
+  }
+}
+
+.panel-help-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin: 0;
+  padding-left: var(--spacing-md);
+}
+
+.panel-help-label {
+  font-weight: var(--font-weight-semibold);
+}
+
+.panel-help-code {
+  display: block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  background: var(--color-input);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 .panel-status {
   min-height: 1.5em;
   font-size: var(--font-size-sm);
