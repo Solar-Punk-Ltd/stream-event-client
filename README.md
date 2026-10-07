@@ -260,7 +260,8 @@ and the kinds of provider the build carries (`src/features/gateway/`).
   the player, the stream list and the previews read through it from then on.
 - **Test.** Each gateway, and the address typed for a node of the viewer's own, has a Test that reads
   this event's real content through a client of that gateway alone, with no fallback behind it, each
-  read given 5 s. The connection is Bee's health check. The stream list is its feed's head, checked to
+  read given the window the viewer's own read has: 10 s for the stream list, the video, previews and
+  pictures, and the chat's own windows for the chat. The connection is Bee's health check, given 5 s. The stream list is its feed's head, checked to
   be a stream list. The video is read as the player starts: the ladder's time marker on a live ladder,
   otherwise a feed entry the list names, then one segment's URL is loaded. Previews read the playlist a
   stream card reads. Pictures load one stream's picture. The chat, "Chat feed on this gateway", reads its
@@ -269,7 +270,7 @@ and the kinds of provider the build carries (`src/features/gateway/`).
   streams have a chat, so a head that is not there is "Not tested" with the reason. The checks after the list use the stream this gateway listed, or the list the
   page already shows when it could not, a live stream first. Each check ends in one sentence, and a
   failure says what the viewer can do: "this node does not allow this site" with the setting that
-  decides it, or that this site's own policy does not allow the address, "this address is not a Swarm gateway", or "the gateway did not answer in 5 s". The
+  decides it, or that this site's own policy does not allow the address, "this address is not a Swarm gateway", or "the gateway did not answer in 10 s". The
   sentences are in `checkSentences.ts`, each with its test.
 - **Status.** Who answered each feature in the last minute, from the client's own counts: which
   provider the feature reads from and which stands behind it, how many answers of each kind came from

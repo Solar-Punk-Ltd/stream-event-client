@@ -1,5 +1,5 @@
 import { FeedIndex, Topic } from '@ethersphere/bee-js';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { parseRuntimeConfig, type ChatConfig } from '../../src/config/runtimeConfig';
 import type { Stream } from '../../src/features/catalog/stream';
@@ -222,6 +222,80 @@ describe("the control panel's Test, on the event's recorded content", () => {
 
     expect(Object.values(results).map(({ sentence }) => sentence)).toEqual(CHECKS.map(() => MIXED_CONTENT));
     expect(asked).toEqual([]);
+  });
+});
+
+/** Answers the URLs `delayOf` names that many milliseconds late, by the test's clock, unless the read is stopped first. */
+function slowed(fetcher: typeof fetch, delayOf: (url: string) => number | undefined): typeof fetch {
+  return ((input: RequestInfo | URL, init?: RequestInit) => {
+    const delayMs = delayOf(String(input));
+    if (delayMs === undefined) {
+      return fetcher(input, init);
+    }
+    return new Promise<Response>((resolve, reject) => {
+      const timer = setTimeout(() => resolve(fetcher(input, init)), delayMs);
+      init?.signal?.addEventListener('abort', () => {
+        clearTimeout(timer);
+        reject(new DOMException('aborted', 'AbortError'));
+      });
+    });
+  }) as typeof fetch;
+}
+
+/** The Test on a clock the test moves, so a read of seconds takes none. */
+async function runOnTestClock(args: Run): Promise<Record<string, CheckResult>> {
+  vi.useFakeTimers();
+  const pending = run(args);
+  await vi.advanceTimersByTimeAsync(60_000);
+  return pending;
+}
+
+const CATALOG_HEAD = `/feeds/${recordedCatalog().owner}/${Topic.fromString(recordedCatalog().topic).toHex()}`;
+const CHAT_HEAD = '/feeds/c1ba847e';
+
+describe('the window the Test gives each read', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('waits for each read as long as the viewer waits for it, so a 6 s stream list and an 11 s chat head pass', async () => {
+    const results = await runOnTestClock({
+      fetcher: slowed(gateway(), (url) =>
+        url.includes(CATALOG_HEAD) ? 6_000 : url.includes(CHAT_HEAD) ? 11_000 : undefined,
+      ),
+    });
+
+    expect(results['stream-list']).toEqual({
+      check: 'stream-list',
+      outcome: 'passed',
+      sentence: 'The stream list loaded: 1 stream, entry 0.',
+    });
+    expect(results.chat.outcome).toBe('passed');
+  });
+
+  it('fails a read that has not answered once the 10 s the viewer would wait are up', async () => {
+    const results = await runOnTestClock({
+      fetcher: gateway((url) => (url.includes(CATALOG_HEAD) ? 'hang' : undefined)),
+      knownStreams: recordedStreams(),
+    });
+
+    expect(results['stream-list']).toEqual({
+      check: 'stream-list',
+      outcome: 'failed',
+      sentence:
+        'The gateway did not answer in 10 s. It may be busy or still starting. Test again in a minute, or pick another gateway.',
+    });
+  });
+
+  it("asks the viewer's own node for its health for 5 s, as the picker does", async () => {
+    const results = await runOnTestClock({ fetcher: gateway((url) => (url === HEALTH ? 'hang' : undefined)) });
+
+    expect(results.connection).toEqual({
+      check: 'connection',
+      outcome: 'failed',
+      sentence:
+        'The gateway did not answer in 5 s. It may be busy or still starting. Test again in a minute, or pick another gateway.',
+    });
   });
 });
 
