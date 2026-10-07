@@ -32,8 +32,39 @@
   }
 }
 
-.dialog-title {
+.dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
   margin-bottom: var(--spacing-lg);
+}
+
+// As quiet as the title beside it, and a full touch target, since on a phone it is the plain way out.
+.dialog-close {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-touch-target);
+  height: var(--size-touch-target);
+  margin: calc(-1 * var(--spacing-sm)) calc(-1 * var(--spacing-sm)) 0 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-base);
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-none);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+  }
+}
+
+.dialog-title {
   font-family: var(--font-family-base);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);

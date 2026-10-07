@@ -18,6 +18,8 @@ const FOCUSABLE = [
 interface DialogProps {
   title: string;
   onClose: () => void;
+  /** Puts a close button beside the title, named this for a screen reader. */
+  closeLabel?: string;
   children: ReactNode;
 }
 
@@ -29,7 +31,7 @@ interface DialogProps {
  * Built by hand rather than on the `<dialog>` element because the declared browser floor includes
  * Safari 14, which has no `showModal`.
  */
-export function Dialog({ title, onClose, children }: DialogProps) {
+export function Dialog({ title, onClose, closeLabel, children }: DialogProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   // Read through a ref so a parent passing a new function each render does not re-run the effect,
@@ -78,9 +80,16 @@ export function Dialog({ title, onClose, children }: DialogProps) {
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id={titleId} className="dialog-title">
-          {title}
-        </h2>
+        <div className="dialog-header">
+          <h2 id={titleId} className="dialog-title">
+            {title}
+          </h2>
+          {closeLabel !== undefined && (
+            <button type="button" className="dialog-close" aria-label={closeLabel} onClick={() => onCloseRef.current()}>
+              <span aria-hidden="true">×</span>
+            </button>
+          )}
+        </div>
         {children}
       </div>
     </div>,

@@ -110,6 +110,22 @@ describe('a dialog', () => {
     assert.equal(onClose.mock.calls.length, 1);
   });
 
+  it('closes from a close button named for a screen reader, when asked for one', () => {
+    const onClose = vi.fn();
+    act(() => {
+      root.render(createElement(Dialog, { title: 'Pick one', onClose, closeLabel: 'Close sources' }, 'body'));
+    });
+    const close = document.querySelector('[role="dialog"] button[aria-label="Close sources"]') as HTMLButtonElement;
+    assert.ok(close, 'no close button');
+    act(() => close.click());
+    assert.equal(onClose.mock.calls.length, 1);
+  });
+
+  it('has no close button unless asked for one', () => {
+    renderDialog(true);
+    assert.equal(document.querySelectorAll('[role="dialog"] button').length, 1);
+  });
+
   it('gives focus back to what had it before it opened', () => {
     renderDialog(true);
     renderDialog(false);
