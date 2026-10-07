@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { followImmediately } from '../../src/features/player/following/followImmediately';
 import { followPredicted } from '../../src/features/player/following/followPredicted';
 
 import { NO_PENALTY } from './beeNode';
+import { followImmediately } from './followImmediately';
 import { PROFILE_A, PROFILE_B } from './profiles';
 import { FindScenario, FollowScenario, runFind, runFollow } from './runs';
 import { summariseFind, summariseFollow } from './summaries';

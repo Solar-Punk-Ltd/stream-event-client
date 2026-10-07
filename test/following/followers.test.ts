@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import type { FeedEntry, FollowContext } from '../../src/features/player/following/feedReader';
-import { followAfterSegment } from '../../src/features/player/following/followAfterSegment';
-import { followImmediately } from '../../src/features/player/following/followImmediately';
 import { followPredicted } from '../../src/features/player/following/followPredicted';
 
+import { followAfterSegment } from '../feedModel/followAfterSegment';
+import { followImmediately } from '../feedModel/followImmediately';
 import { VirtualTime } from '../feedModel/virtualTime';
 
 import { steadyFeed, TimedFeed } from './timedFeed';

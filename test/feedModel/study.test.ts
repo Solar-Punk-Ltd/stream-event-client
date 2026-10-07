@@ -1,12 +1,11 @@
 import { writeFileSync } from 'node:fs';
 import { describe, it } from 'vitest';
 
-import { followAfterSegment } from '../../src/features/player/following/followAfterSegment';
-import { followImmediately } from '../../src/features/player/following/followImmediately';
 import { followPredicted, PREDICTED_DEFAULTS } from '../../src/features/player/following/followPredicted';
-import { TODAY_TRIGGER } from '../../src/features/player/following/probeAhead';
 
 import { EarlyAskPenalty, NO_PENALTY } from './beeNode';
+import { followAfterSegment } from './followAfterSegment';
+import { followImmediately, TODAY_TRIGGER } from './followImmediately';
 import { NodeProfile, PROFILE_A, PROFILE_B } from './profiles';
 import { Finder, FindScenario, Follower, FollowScenario, runFind, runFollow } from './runs';
 import { FindSummary, FollowSummary, summariseFind, summariseFollow } from './summaries';

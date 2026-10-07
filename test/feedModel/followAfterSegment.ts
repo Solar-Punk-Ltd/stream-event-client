@@ -1,5 +1,8 @@
-import { FeedEntry, FollowContext, SEGMENT_MS } from './feedReader';
-import { pollsTriggerFires, probeAhead, RefusedSlotTrigger, TODAY_TRIGGER } from './probeAhead';
+import { FeedEntry, FollowContext, SEGMENT_MS } from '../../src/features/player/following/feedReader';
+import { pollsTriggerFires, probeAhead, RefusedSlotTrigger } from '../../src/features/player/following/probeAhead';
+import { PROBE_DISTANCES } from '../../src/features/player/refusedSlot';
+
+import { TODAY_TRIGGER } from './followImmediately';
 
 export interface FollowAfterSegmentOptions {
   /**
@@ -52,7 +55,7 @@ export async function followAfterSegment(
       }
       unservedPolls += 1;
       if (pollsTriggerFires(options.trigger, unservedPolls)) {
-        const behind = await probeAhead(reader, next);
+        const behind = await probeAhead(reader, next, PROBE_DISTANCES);
         if (behind !== null) {
           current = behind;
           foundAskMs = clock.now();

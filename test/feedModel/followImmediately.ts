@@ -1,5 +1,9 @@
-import type { FeedEntry, FollowContext } from './feedReader';
-import { pollsTriggerFires, probeAhead, RefusedSlotTrigger, TODAY_TRIGGER } from './probeAhead';
+import type { FeedEntry, FollowContext } from '../../src/features/player/following/feedReader';
+import { pollsTriggerFires, probeAhead, RefusedSlotTrigger } from '../../src/features/player/following/probeAhead';
+import { PROBE_DISTANCES } from '../../src/features/player/refusedSlot';
+
+/** The walk's trigger before the predicted follower: after three unserved polls, and not past thirty. */
+export const TODAY_TRIGGER: RefusedSlotTrigger = { kind: 'polls', polls: 3, ceiling: 30 };
 
 export interface FollowImmediatelyOptions {
   readonly pollIntervalMs: number;
@@ -7,8 +11,8 @@ export interface FollowImmediatelyOptions {
 }
 
 /**
- * Today's walk, as `LadderFeedPoller` runs it, kept here as the baseline every other strategy is
- * measured against.
+ * The walk `LadderFeedPoller` ran before the predicted follower, kept here as the baseline every other
+ * strategy is measured against.
  *
  * A pass reads the next slot, and after a found slot reads the one after at once. A pass that found
  * anything is followed by another pass straight away, so the first miss after a find is asked again
@@ -46,7 +50,7 @@ export async function followImmediately(
       if (!pollsTriggerFires(options.trigger, unservedPolls)) {
         break;
       }
-      const behind = await probeAhead(reader, next);
+      const behind = await probeAhead(reader, next, PROBE_DISTANCES);
       if (isStopped() || behind === null) {
         break;
       }

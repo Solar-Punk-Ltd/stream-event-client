@@ -14,9 +14,9 @@ import { LadderFeedPoller, STALL_REPROBE_MS } from '../src/features/player/Ladde
 import { ManifestStateManager } from '../src/features/player/ManifestManagement.js';
 import type { NewestIndexFinder } from '../src/features/player/newestIndexFinder.js';
 import { parseManifest } from '../src/features/player/playlist.js';
-import type { PollPacing } from '../src/features/player/pollPacing.js';
 import { STALE_RUNG_LAG_MS } from '../src/features/player/rungPosition.js';
 
+import { fastClock } from './helpers/fastClock.js';
 import { FakeLadderGateway, LADDER_EPOCH_MS, SEGMENT_S } from './helpers/fakeLadderGateway.js';
 import { waitFor } from './helpers/waiting.js';
 
@@ -67,9 +67,7 @@ interface Rig {
 
 let rigs: Rig[] = [];
 
-function makeRig(
-  options: { finderFor?: (gateway: FakeLadderGateway) => NewestIndexFinder; pacing?: PollPacing } = {},
-): Rig {
+function makeRig(options: { finderFor?: (gateway: FakeLadderGateway) => NewestIndexFinder } = {}): Rig {
   const gateway = new FakeLadderGateway(OWNER);
   const clock = makeClock();
   const health = new FeedHealthTracker(clock.now);
@@ -79,7 +77,7 @@ function makeRig(
     progressBoundMs: BOUND_MS,
     playheadMs: () => playhead.ms,
     finder: options.finderFor?.(gateway),
-    pacing: options.pacing,
+    followClock: fastClock(),
   });
   const stopped: Rig['stopped'] = [];
   health.onRungStopped((rung, detail) => {
@@ -178,25 +176,6 @@ describe('Q1: only the rung that plays is walked', () => {
 
     assert.deepEqual(hints, [null, 7n], 'the first rung has no hint, and a switch hints the playing index');
     assert.equal(state.getIndex(hex(MID))?.toBigInt(), 900n, 'the hint was read as the new rung index');
-  });
-
-  it('decides every wait through the pacing it was given', async () => {
-    const asked: number[] = [];
-    const pacing: PollPacing = {
-      waitBeforeNextAskMs(observation) {
-        asked.push(observation.advanced);
-        return POLL_MS;
-      },
-      probesPastRefusal: () => false,
-    };
-    const { gateway, poller } = makeRig({ pacing });
-    gateway.publishLive(TOP, 'top', 3);
-    poller.register(OWNER, RUNGS, GROUP);
-
-    poller.activate(hex(TOP));
-    await waitFor(() => asked.length >= 3, 'the pacing to be asked three times');
-
-    assert.equal(asked[0], 1, 'the first pass found the newest index and the pacing was not told');
   });
 });
 
