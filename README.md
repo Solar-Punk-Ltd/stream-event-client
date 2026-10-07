@@ -193,18 +193,30 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   ask in four comes too early. A second ask covers that one, then one ask per segment, then asks
   every 2 seconds rising to 4 while nothing comes. A playlist 4 seconds late is looked past, one
   slot further on. One viewer costs about 40 reads a minute.
-- **How it finds the newest playlist.** It reads slots by their number, never Bee's feed lookup. At
-  the start it reads eight slots at once, spread out to the feed's length, and closes in on the
-  newest in a few rounds. At a switch it starts from the playing quality's newest slot, which is
-  usually one round of eight. The new quality is read further back when the viewer is behind the
-  live edge, at most ten reads, and the old one stops being read once hls.js has switched. A switch
-  asked before hls.js has reported its first quality is kept.
+- **How it finds the newest playlist.** It reads slots by their number, never Bee's feed lookup.
+  The uploader writes a time marker for each stream every 10 seconds, at an address worked out from
+  the clock, naming every quality's newest playlist. At the start, at a switch, and when a quality
+  stops or finishes, the player reads the marker of the previous 10 seconds, and the one before if
+  that is missing, then one round of eight slots from where it says. One marker read serves every
+  quality for a few seconds, and a marker address found missing is never asked again. The clock is
+  the gateway's, taken from the `Date` header on the stream list, so a viewer whose clock is wrong
+  still finds the marker. With no marker, it searches as before: at the start eight slots at once,
+  spread out to the feed's length, closing in on the newest in a few rounds, and at a switch from
+  the playing quality's newest slot, usually one round. The new quality is read further back when the
+  viewer is behind the live edge, at most ten reads, and the old one stops being read once hls.js has
+  switched. When hls.js goes back to the old one before the new one plays, the new one stops instead.
+  A switch asked before hls.js has reported its first quality is kept.
 - **A quality that stops.** A quality is judged by its own progress, never by comparing it with
   another, because the qualities' feeds drift apart. A switch to a quality that has finished while
   the playing one is live, or sits more than 30 seconds behind it, is refused. When the playing
   quality has had nothing new for 8 seconds, or finishes, the next lower quality is found and then
   read for 6 seconds: if it moves on, the player moves to it and drops the stopped one, at most one per stream.
   If it does not, the broadcast paused or ended, and the player says so.
+- **The end.** The qualities of one broadcast finish moments apart, each as its upload drains. So
+  when the playing quality finishes, the next lower one is watched for the whole 6 seconds rather than
+  to its first new playlist: one that finishes inside them means the broadcast ended, and only one
+  that carries on through them is moved to. A quality the player was moved to that finishes before
+  hls.js has switched to it runs the same check.
 - **Where the video loads from.** The Bee node picker offers the event gateway and a Bee node on the
   viewer's own computer, `http://localhost:1633` filled in and the port editable. Only `localhost`,
   `127.0.0.1` and `[::1]` are accepted. The node is checked before the switch, a failure is explained
@@ -225,9 +237,10 @@ so the player brings its own loaders:
   playable longer than the publisher's sliding window.
 - **LadderFeedPoller** follows the feed of the quality hls.js plays, plus the one being switched to
   during a switch. A quality left behind forgets where it was, so coming back to it starts at its
-  newest playlist. Where it starts comes from a `NewestIndexFinder`, injected so it can be swapped,
-  and how it follows is `followPredicted` in `src/features/player/following/`, the polling study's
-  choice. The study's simulator and the strategies it was compared with are in `test/feedModel/`.
+  newest playlist. Where it starts comes from a `NewestIndexFinder`, injected so it can be swapped:
+  the `MarkerFinder`, which reads the ladder's time marker (`src/shared/ladderMarker.ts`, copied from
+  the uploader) and falls back to the `IndexSearchFinder`. How it follows is `followPredicted` in
+  `src/features/player/following/`, the polling study's choice. The study's simulator and the strategies it was compared with are in `test/feedModel/`.
 
 Feed URIs use a `swarm://<owner>/<topic>` scheme, because hls.js resolves every playlist URI against
 the playlist's own URL and a URI with a scheme is the one case it leaves untouched.
