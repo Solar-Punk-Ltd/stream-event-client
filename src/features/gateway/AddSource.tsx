@@ -43,6 +43,8 @@ interface AddSourceProps {
   /** Asks the address whether it is a source this viewer can read from. Never rejects. */
   readonly check: (type: SourceType, url: string) => Promise<AddCheck>;
   readonly onAdd: (source: { type: SourceType; name: string; url: string }, results?: readonly CheckResult[]) => void;
+  /** Told when the panel opens and when it closes or goes away, so the screen can quiet its own primary. */
+  readonly onOpenChange?: (isOpen: boolean) => void;
 }
 
 /**
@@ -50,7 +52,7 @@ interface AddSourceProps {
  * name and an address, checked before the source is added. A refusal says why in one sentence, with
  * the steps of its fix behind "How to fix".
  */
-export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
+export function AddSource({ access, kinds, check, onAdd, onOpenChange }: AddSourceProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [type, setType] = useState<SourceType | null>(null);
   const [name, setName] = useState('');
@@ -60,6 +62,8 @@ export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
   // late cannot add an address the viewer no longer meant.
   const generation = useRef(0);
   const formRef = useRef<HTMLDivElement>(null);
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
   const nameId = useId();
   const addressId = useId();
   const hintId = useId();
@@ -70,6 +74,13 @@ export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
     setType(null);
     setStatus(IDLE);
   };
+
+  // The tiles a viewer can pick first, each with the line under its name.
+  const offered = SOURCE_TYPES.map((tile) => ({ tile, reason: unavailableTypeReason(tile, access, kinds) }));
+  const tiles = [
+    ...offered.filter(({ reason }) => reason === null),
+    ...offered.filter(({ reason }) => reason !== null),
+  ];
 
   const close = () => {
     reset();
@@ -91,6 +102,11 @@ export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
       setStatus(IDLE);
     }
   };
+
+  useEffect(() => {
+    onOpenChangeRef.current?.(isOpen);
+  }, [isOpen]);
+  useEffect(() => () => onOpenChangeRef.current?.(false), []);
 
   // The form opens under the tiles, which can be below the fold of the screen's body.
   useEffect(() => {
@@ -124,37 +140,42 @@ export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
 
   return (
     <div className={`add-source-area${isOpen ? ' open' : ''}`}>
-      <button
-        type="button"
-        className="sources-small-button with-icon add-source-toggle"
-        aria-expanded={isOpen}
-        onClick={() => (isOpen ? close() : setIsOpen(true))}
-      >
-        <PlusIcon />
-        Add source
-      </button>
+      {isOpen ? (
+        <h3 className="add-source-title">Add source</h3>
+      ) : (
+        <button
+          type="button"
+          className="sources-small-button with-icon"
+          aria-expanded={false}
+          onClick={() => setIsOpen(true)}
+        >
+          <PlusIcon />
+          Add source
+        </button>
+      )}
       {isOpen && (
         <section className="add-source" aria-label="Add source">
           <div className="add-source-tiles">
-            {SOURCE_TYPES.map((tile) => {
-              const reason = unavailableTypeReason(tile, access, kinds);
-              return (
-                <button
-                  key={tile}
-                  type="button"
-                  className={`add-source-tile${type === tile ? ' picked' : ''}`}
-                  disabled={reason !== null}
-                  aria-pressed={type === tile}
-                  onClick={() => pick(tile)}
-                >
-                  <span className="add-source-tile-head">
-                    {TYPE_ICONS[tile]}
-                    <span className="add-source-tile-name">{TYPE_LABELS[tile]}</span>
-                  </span>
-                  {reason !== null && <span className="add-source-tile-reason">{reason}</span>}
-                </button>
-              );
-            })}
+            {tiles.map(({ tile, reason }, at) => (
+              <button
+                key={tile}
+                type="button"
+                className={`add-source-tile${type === tile ? ' picked' : ''}`}
+                disabled={reason !== null}
+                aria-pressed={type === tile}
+                // The opener is gone once the panel is open, so focus lands on the first tile it offers.
+                autoFocus={at === 0 && reason === null}
+                onClick={() => pick(tile)}
+              >
+                <span className="add-source-tile-head">
+                  {TYPE_ICONS[tile]}
+                  <span className="add-source-tile-name">{TYPE_LABELS[tile]}</span>
+                </span>
+                <span className="add-source-tile-note" id={type === tile ? hintId : undefined}>
+                  {reason ?? addressHint(tile, access)}
+                </span>
+              </button>
+            ))}
           </div>
 
           {type !== null && (
@@ -201,9 +222,6 @@ export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
                   />
                 </div>
               </div>
-              <p className="sources-muted" id={hintId}>
-                {addressHint(type, access)}
-              </p>
               <p className={`sources-message${status.kind === 'refused' ? ' error' : ''}`} id={statusId} role="status">
                 {status.kind === 'checking' && 'Checking'}
                 {status.kind === 'refused' && status.text}

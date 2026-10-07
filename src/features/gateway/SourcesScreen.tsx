@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import { useAppContext } from '@/app/AppProvider';
-import { Button } from '@/shared/components/Button/Button';
+import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { Dialog } from '@/shared/components/Dialog/Dialog';
 import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
 import { CopyIcon } from '@/shared/components/Icons/CopyIcon';
@@ -57,6 +57,7 @@ export function SourcesScreen() {
   const [copy, setCopy] = useState<CopyState>(NOT_COPIED);
   const [, setRefreshes] = useState(0);
   const [isListShown, setIsListShown] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   const reportRef = useRef<HTMLTextAreaElement>(null);
   const running = useRef(new Set<AbortController>());
   const radioName = useId();
@@ -211,7 +212,15 @@ export function SourcesScreen() {
     </section>
   ));
 
-  const addSource = <AddSource access={settings.beeNodes} kinds={settings.kinds} check={checkNew} onAdd={add} />;
+  const addSource = (
+    <AddSource
+      access={settings.beeNodes}
+      kinds={settings.kinds}
+      check={checkNew}
+      onAdd={add}
+      onOpenChange={setIsAdding}
+    />
+  );
 
   return (
     <>
@@ -243,11 +252,7 @@ export function SourcesScreen() {
           closeLabel="Close sources"
           footer={
             <div className="sources-footer">
-              <button
-                type="button"
-                className="sources-small-button ghost with-icon"
-                onClick={() => void copyDiagnostics()}
-              >
+              <button type="button" className="sources-link-button" onClick={() => void copyDiagnostics()}>
                 <CopyIcon />
                 Copy diagnostics
               </button>
@@ -255,7 +260,12 @@ export function SourcesScreen() {
                 {copy.kind === 'copied' && 'Diagnostics copied'}
                 {copy.kind === 'failed' && 'Copy the diagnostics below'}
               </p>
-              <Button className="sources-done" onClick={close}>
+              {/* The add form's Check and add is the one primary while it is open. */}
+              <Button
+                className="sources-done"
+                variant={isAdding ? ButtonVariant.SECONDARY : ButtonVariant.PRIMARY}
+                onClick={close}
+              >
                 Done
               </Button>
             </div>
@@ -314,6 +324,7 @@ export function SourcesScreen() {
           )}
 
           <FallbackOrder
+            isJoined={isPerPart}
             order={fallbackOrder}
             nameOf={nameOf}
             inUseId={isPerPart ? null : inUseId}

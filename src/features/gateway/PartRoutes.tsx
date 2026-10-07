@@ -1,5 +1,6 @@
-import { useId } from 'react';
+import { type ReactNode, useId } from 'react';
 
+import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
 import type { SwarmFeature } from '@/swarm/client';
 import { CHAT_SERVICE_ID, type PartSources, type Routing, setLinked, setPart } from '@/swarm/routing';
 import type { Source } from '@/swarm/sources';
@@ -20,14 +21,14 @@ interface PartRoutesProps {
 
 /**
  * Per part: a source for the video, the stream list, the previews and the chat, each from the same
- * list of sources, with the video and the stream list linked until the viewer unlinks them. The link is
- * a bracket joining those two rows, so every row keeps the same columns.
+ * list of sources, with the video and the stream list linked until the viewer unlinks them, by a "Same
+ * as video" toggle on the stream list's label line.
  */
 export function PartRoutes({ sources, routing, parts, statuses, hasChat, onChange }: PartRoutesProps) {
   const noteId = useId();
   const linkLabel = routing.linked ? 'Unlink video and stream list' : 'Link video and stream list';
 
-  const row = (part: SwarmFeature) => (
+  const row = (part: SwarmFeature, aside?: ReactNode) => (
     <PartRow
       key={part}
       part={part}
@@ -35,31 +36,29 @@ export function PartRoutes({ sources, routing, parts, statuses, hasChat, onChang
       value={parts[part]}
       status={statuses[parts[part]]}
       describedBy={part === 'chat' ? noteId : undefined}
+      aside={aside}
       onPick={(id) => onChange(setPart(routing, part, id))}
     />
   );
 
+  const link = (
+    <button
+      type="button"
+      className={`part-link-button${routing.linked ? ' linked' : ''}`}
+      aria-label={linkLabel}
+      aria-pressed={routing.linked}
+      title={linkLabel}
+      onClick={() => onChange(setLinked(routing, !routing.linked))}
+    >
+      <LinkIcon />
+      <span aria-hidden="true">Same as video</span>
+    </button>
+  );
+
   return (
     <div className="part-routes" aria-label="Source per part" role="group">
-      <div className={`part-pair${routing.linked ? ' linked' : ''}`}>
-        {row('player')}
-        {row('stream-list')}
-        <div className="part-link">
-          <button
-            type="button"
-            className="part-link-button"
-            aria-label={linkLabel}
-            aria-pressed={routing.linked}
-            title={linkLabel}
-            onClick={() => onChange(setLinked(routing, !routing.linked))}
-          >
-            <LinkIcon broken={!routing.linked} />
-            <span className="part-link-words" aria-hidden="true">
-              Same as video
-            </span>
-          </button>
-        </div>
-      </div>
+      {row('player')}
+      {row('stream-list', link)}
       {!routing.linked && <p className="sources-muted part-note">{UNLINKED_NOTE}</p>}
       {row('previews')}
       {hasChat && (
@@ -80,17 +79,22 @@ interface PartRowProps {
   readonly value: string;
   readonly status?: SourceStatus;
   readonly describedBy?: string;
+  /** A control at the end of the label's line. */
+  readonly aside?: ReactNode;
   readonly onPick: (id: string) => void;
 }
 
-/** A part's label, and its select with the dot of the source it reads from inside the field. */
-function PartRow({ part, sources, value, status, describedBy, onPick }: PartRowProps) {
+/** A part's label over its select, with the dot of the source it reads from inside the field. */
+function PartRow({ part, sources, value, status, describedBy, aside, onPick }: PartRowProps) {
   const selectId = useId();
   return (
     <div className="part-row" data-part={part}>
-      <label className="part-row-label" htmlFor={selectId}>
-        {PART_LABELS[part]}
-      </label>
+      <span className="part-row-head">
+        <label className="part-row-label" htmlFor={selectId}>
+          {PART_LABELS[part]}
+        </label>
+        {aside}
+      </span>
       <span className="part-row-field">
         <select
           id={selectId}
@@ -107,13 +111,16 @@ function PartRow({ part, sources, value, status, describedBy, onPick }: PartRowP
           ))}
         </select>
         <StatusDot status={value === CHAT_SERVICE_ID ? undefined : status} withWords={false} />
+        <span className="part-row-caret" aria-hidden="true">
+          <ChevronIcon />
+        </span>
       </span>
     </div>
   );
 }
 
-/** Two chain links, drawn apart while the parts are unlinked. */
-function LinkIcon({ broken }: { broken: boolean }) {
+/** Two chain links. */
+function LinkIcon() {
   return (
     <svg
       width="16"
@@ -124,17 +131,8 @@ function LinkIcon({ broken }: { broken: boolean }) {
       strokeWidth="1.5"
       aria-hidden="true"
     >
-      {broken ? (
-        <>
-          <path d="M6.5 4.5 5 3a2.5 2.5 0 0 0-3.5 3.5L3 8" />
-          <path d="M9.5 11.5 11 13a2.5 2.5 0 0 0 3.5-3.5L13 8" />
-        </>
-      ) : (
-        <>
-          <path d="M7 9a2.5 2.5 0 0 0 3.5 0l2.5-2.5a2.5 2.5 0 0 0-3.5-3.5L8.5 4" />
-          <path d="M9 7a2.5 2.5 0 0 0-3.5 0L3 9.5a2.5 2.5 0 0 0 3.5 3.5l1-1" />
-        </>
-      )}
+      <path d="M7 9a2.5 2.5 0 0 0 3.5 0l2.5-2.5a2.5 2.5 0 0 0-3.5-3.5L8.5 4" />
+      <path d="M9 7a2.5 2.5 0 0 0-3.5 0L3 9.5a2.5 2.5 0 0 0 3.5 3.5l1-1" />
     </svg>
   );
 }

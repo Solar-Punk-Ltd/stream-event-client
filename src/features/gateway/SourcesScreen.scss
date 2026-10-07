@@ -4,9 +4,6 @@
 // One spacing scale on the 8px grid: 8 inside a control group, 16 between rows and groups, 24 between
 // sections, which are the only places a rule is drawn.
 
-// The width of a part's label beside its select, from the large phone up.
-$part-label-width: 104px;
-
 // The height of the screen's full-size controls, the switch, the fields and Done, with a finger's
 // worth on a touch screen.
 @mixin control-height {
@@ -175,6 +172,44 @@ $part-label-width: 104px;
   }
 }
 
+// A text action that sits on a column edge: no padding and no fill, so its words or its icon line
+// up with the content, and only its colour answers a hover.
+.sources-link-button {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--spacing-xs-sm);
+  height: var(--spacing-xl);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-none);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--duration-fast) ease;
+
+  @include touch.touch-target;
+
+  &:hover {
+    color: var(--color-text);
+  }
+
+  &:focus-visible {
+    outline: var(--size-focus-ring) solid var(--color-primary);
+    outline-offset: var(--spacing-2xs);
+    border-radius: var(--radius-sm);
+  }
+
+  svg {
+    flex: none;
+  }
+}
+
 .sources-icon-button {
   position: relative;
   display: inline-flex;
@@ -224,6 +259,10 @@ $part-label-width: 104px;
     background: var(--color-input-focus);
   }
 
+  &:focus-visible {
+    box-shadow: 0 0 0 var(--size-focus-ring) var(--color-primary);
+  }
+
   &::placeholder {
     color: var(--color-text-tertiary);
   }
@@ -252,6 +291,12 @@ $part-label-width: 104px;
   margin-top: var(--spacing-lg);
   padding-top: var(--spacing-lg);
   border-top: 1px solid var(--color-border);
+
+  &.joined {
+    margin-top: var(--spacing-base);
+    padding-top: 0;
+    border-top: none;
+  }
 }
 
 // The segmented switch: the picked half raised and lit over a sunken track, the other quiet.
@@ -276,7 +321,7 @@ $part-label-width: 104px;
   border-radius: var(--radius-base);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition:
     background-color var(--duration-fast) ease,
@@ -316,7 +361,7 @@ $part-label-width: 104px;
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-normal);
   letter-spacing: normal;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 }
 
 .sources-list {
@@ -337,8 +382,18 @@ $part-label-width: 104px;
     background: var(--color-surface-hover);
   }
 
+  // A card with room above its name and a gap before the next row, so the pitch of the list holds.
   &.expanded {
+    margin-bottom: var(--spacing-sm);
     background: var(--color-surface-card);
+
+    .source-row-main {
+      padding-top: var(--spacing-md);
+    }
+  }
+
+  &.expanded:not(:first-child) {
+    margin-top: var(--spacing-sm);
   }
 }
 
@@ -346,13 +401,16 @@ $part-label-width: 104px;
 // its own so dots and words line up from row to row. On a phone it moves under the address, so the
 // name and the address keep the full width and every row is three lines.
 .source-row-main {
+  // The chevron and the inset that lines it up with a select's caret.
+  --source-chevron-column: calc(var(--spacing-base) + var(--spacing-sm));
+
   position: relative;
   display: grid;
   grid-template-areas:
     'pick title chevron'
     'pick address chevron'
     'pick status chevron';
-  grid-template-columns: var(--spacing-base) minmax(0, 1fr) var(--spacing-base);
+  grid-template-columns: var(--spacing-base) minmax(0, 1fr) var(--source-chevron-column);
   align-items: center;
   gap: var(--spacing-2xs) var(--spacing-md);
   padding: var(--spacing-sm) 0;
@@ -362,20 +420,22 @@ $part-label-width: 104px;
       'title chevron'
       'address chevron'
       'status chevron';
-    grid-template-columns: minmax(0, 1fr) var(--spacing-base);
+    grid-template-columns: minmax(0, 1fr) var(--source-chevron-column);
   }
 
   @include media.large-phone-up {
     grid-template-areas:
       'pick title status chevron'
       'pick address status chevron';
-    grid-template-columns: var(--spacing-base) minmax(0, 1fr) var(--size-source-status-width) var(--spacing-base);
+    grid-template-columns:
+      var(--spacing-base) minmax(0, 1fr) var(--size-source-status-width)
+      var(--source-chevron-column);
 
     &.no-pick {
       grid-template-areas:
         'title status chevron'
         'address status chevron';
-      grid-template-columns: minmax(0, 1fr) var(--size-source-status-width) var(--spacing-base);
+      grid-template-columns: minmax(0, 1fr) var(--size-source-status-width) var(--source-chevron-column);
     }
   }
 
@@ -457,7 +517,7 @@ $part-label-width: 104px;
   grid-area: address;
   font-size: var(--font-size-xs);
   line-height: var(--line-height-snug);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 }
 
 .source-row-rename {
@@ -488,9 +548,12 @@ $part-label-width: 104px;
   }
 }
 
+// Set in from the content edge by the same step as a select's caret, so the two columns of chevrons
+// line up.
 .source-row-chevron {
   display: flex;
   grid-area: chevron;
+  margin-right: var(--spacing-sm);
   color: var(--color-text-tertiary);
   transition: transform var(--duration-fast) ease;
 
@@ -567,7 +630,8 @@ $part-label-width: 104px;
   align-items: center;
   gap: var(--spacing-xs-sm);
   min-width: 0;
-  padding: var(--spacing-xs) var(--spacing-sm);
+  height: var(--size-chat-quick-emoji);
+  padding: 0 var(--spacing-sm);
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-base);
   font-size: var(--font-size-xs);
@@ -724,45 +788,26 @@ $part-label-width: 104px;
   user-select: all;
 }
 
-// Per part. On a phone each label sits over a full-width select, and the link is a "Same as video"
-// toggle at the end of the stream list's label line. From the large phone up the labels sit beside the
-// selects and every row leaves a gutter on the right, where a bracket joins the video and the stream
-// list with the link at its middle.
+// Per part. Each label over a full-width select, so all four selects share the content's right edge,
+// and the link is a "Same as video" toggle at the end of the stream list's label line.
 .part-routes {
-  --part-control: var(--size-dialog-button-height);
-  --part-label-above: calc(var(--line-height-tagline) + var(--spacing-xs));
-
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
-
-  @media (pointer: coarse) {
-    --part-control: var(--size-touch-target);
-  }
-
-  @include media.large-phone-up {
-    --part-label-above: 0px;
-  }
-}
-
-.part-pair {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
 }
 
 .part-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: var(--spacing-xs);
+}
 
-  @include media.large-phone-up {
-    grid-template-columns: $part-label-width minmax(0, 1fr);
-    align-items: center;
-    gap: var(--spacing-md);
-    padding-right: var(--spacing-xl);
-  }
+.part-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  min-height: var(--size-chat-quick-emoji);
 }
 
 .part-row-label {
@@ -785,56 +830,37 @@ $part-label-width: 104px;
   }
 }
 
+// The browser's own caret is replaced by the rows' chevron, at the same inset from the right edge.
 .part-row-select {
-  height: var(--part-control);
+  padding-right: calc(var(--spacing-sm) + var(--spacing-base) + var(--spacing-sm));
   padding-left: calc(var(--spacing-md) + var(--size-badge-dot) + var(--spacing-sm));
+  appearance: none;
   text-overflow: ellipsis;
+  cursor: pointer;
 }
 
-// On a phone, the stream list's label line, right-aligned. From the large phone up, the gutter beside
-// the two selects, holding the bracket.
-.part-link {
+.part-row-caret {
   position: absolute;
-  top: calc(var(--part-label-above) + var(--part-control) + var(--spacing-sm));
-  right: 0;
+  top: 50%;
+  right: var(--spacing-sm);
   display: flex;
-  align-items: center;
-  height: var(--line-height-tagline);
-
-  @include media.large-phone-up {
-    top: calc(var(--part-control) / 2);
-    bottom: calc(var(--part-control) / 2);
-    display: block;
-    width: var(--spacing-xl);
-    height: auto;
-
-    &::before {
-      content: '';
-      position: absolute;
-      inset: 0 50% 0 var(--spacing-xs);
-      border: 1px dashed var(--color-border-strong);
-      border-left: none;
-      border-radius: 0 var(--radius-base) var(--radius-base) 0;
-    }
-
-    .linked > &::before {
-      border-style: solid solid solid none;
-    }
-  }
+  color: var(--color-text-tertiary);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
+// The same chain in both states: solid and orange while linked, dashed and quiet while not.
 .part-link-button {
   position: relative;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: var(--spacing-xs);
   height: var(--size-chat-quick-emoji);
   padding: 0 var(--spacing-sm);
-  border: 1px solid var(--color-border-strong);
+  border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-full);
-  background: var(--color-surface);
-  color: var(--color-text-tertiary);
+  background: none;
+  color: var(--color-text-secondary);
   font-family: var(--font-family-base);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -843,34 +869,19 @@ $part-label-width: 104px;
 
   @include touch.touch-target;
 
-  @include media.large-phone-up {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: var(--size-chat-quick-emoji);
-    padding: 0;
-    transform: translate(-50%, -50%);
-  }
-
   &:hover {
-    border-color: var(--color-text-tertiary);
     color: var(--color-text);
   }
 
-  .linked & {
+  &.linked {
+    border-style: solid;
     border-color: var(--color-primary);
     color: var(--color-primary);
   }
 }
 
-.part-link-words {
-  @include media.large-phone-up {
-    @include visually-hidden;
-  }
-}
-
 .part-note {
-  margin-top: calc(-1 * var(--spacing-xs));
+  margin-top: calc(-1 * var(--spacing-sm));
 }
 
 // Per part's own list of sources, folded under one row with their count.
@@ -879,7 +890,7 @@ $part-label-width: 104px;
   align-items: center;
   gap: var(--spacing-sm);
   width: 100%;
-  height: var(--spacing-xl);
+  height: var(--size-dialog-button-height);
   padding: 0;
   border: none;
   background: none;
@@ -890,6 +901,7 @@ $part-label-width: 104px;
   cursor: pointer;
 
   svg {
+    margin-right: var(--spacing-sm);
     margin-left: auto;
     color: var(--color-text-tertiary);
     transition: transform var(--duration-fast) ease;
@@ -929,17 +941,13 @@ $part-label-width: 104px;
   }
 }
 
-.add-source-toggle svg {
-  transition: transform var(--duration-fast) ease;
-
-  .open > & {
-    transform: rotate(45deg);
-  }
-}
-
-.open > .add-source-toggle {
-  padding-left: var(--spacing-xs);
-  background: none;
+.add-source-title {
+  margin: 0;
+  padding: var(--spacing-xs) var(--spacing-xs) 0;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: normal;
 }
 
 .add-source {
@@ -1014,8 +1022,9 @@ $part-label-width: 104px;
   font-weight: var(--font-weight-semibold);
 }
 
-.add-source-tile-reason {
+.add-source-tile-note {
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
   color: var(--color-text-secondary);
 }
 
@@ -1052,29 +1061,39 @@ $part-label-width: 104px;
   }
 }
 
-// A setting: its name over its value on the left, its action on the right, centred on the pair.
+// A setting: its name with its action at the end of the same line on a phone, so its value below gets
+// the full width. From the large phone up the action moves to the right of the name and value pair,
+// centred on it.
 .sources-setting {
-  display: flex;
+  display: grid;
+  grid-template-areas:
+    'label action'
+    'value value';
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--spacing-md);
+  gap: var(--spacing-2xs) var(--spacing-md);
   font-size: var(--font-size-sm);
-}
 
-.sources-setting-text {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: var(--spacing-2xs);
-  min-width: 0;
+  @include media.large-phone-up {
+    grid-template-areas:
+      'label action'
+      'value action';
+  }
 }
 
 .sources-setting-label {
+  grid-area: label;
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
 }
 
 .sources-setting-value {
+  grid-area: value;
   color: var(--color-text-secondary);
+}
+
+.sources-setting-action {
+  grid-area: action;
 }
 
 .fallback-list {
@@ -1105,9 +1124,10 @@ $part-label-width: 104px;
   text-overflow: ellipsis;
 }
 
+// Two 32px buttons whose 44px touch areas would overlap any closer than this.
 .fallback-item-moves {
   display: flex;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-md);
 }
 
 .fallback-move {

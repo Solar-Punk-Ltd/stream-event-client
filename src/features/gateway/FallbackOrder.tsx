@@ -4,6 +4,8 @@ import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
 import { canMoveFallback, moveFallback } from '@/swarm/fallbackOrder';
 
 interface FallbackOrderProps {
+  /** Set close under the section above, with no rule between, as under per part's Sources row. */
+  readonly isJoined?: boolean;
   /** The order the fallbacks are asked in, the event gateway last. */
   readonly order: readonly string[];
   readonly nameOf: (id: string) => string;
@@ -27,28 +29,28 @@ function fallbackLine(order: readonly string[], asked: readonly string[], nameOf
  * The one order of fallbacks, as a line, and a small list to reorder it with a button up and a button
  * down per gateway. The event gateway is pinned last, so it has neither.
  */
-export function FallbackOrder({ order, nameOf, inUseId, onChange }: FallbackOrderProps) {
+export function FallbackOrder({ isJoined = false, order, nameOf, inUseId, onChange }: FallbackOrderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const listId = useId();
   const canReorder = order.length > 2;
   const asked = order.filter((id) => id !== inUseId);
 
   return (
-    <section className="fallback sources-section" aria-label="Fallback">
+    <section className={`fallback sources-section${isJoined ? ' joined' : ''}`} aria-label="Fallback">
       <div className="sources-setting">
-        <span className="sources-setting-text">
-          <span className="sources-setting-label">Fallback</span>
-          <span className="sources-setting-value">{fallbackLine(order, asked, nameOf)}</span>
-        </span>
+        <span className="sources-setting-label">Fallback</span>
+        <span className="sources-setting-value">{fallbackLine(order, asked, nameOf)}</span>
         {canReorder && (
           <button
             type="button"
-            className="sources-small-button ghost"
+            className="sources-link-button sources-setting-action"
             aria-expanded={isEditing}
             aria-controls={listId}
+            // Named apart from the screen's own Done for a screen reader.
+            aria-label={isEditing ? 'Done ordering' : undefined}
             onClick={() => setIsEditing((editing) => !editing)}
           >
-            {isEditing ? 'Done ordering' : 'Edit order'}
+            {isEditing ? 'Done' : 'Edit order'}
           </button>
         )}
       </div>

@@ -268,7 +268,9 @@ describe('the Sources screen', () => {
         'Pictures: not applicable',
         'Chat: not applicable',
       ]);
-      expect(row('Backup gateway').querySelector('.source-status-line')?.textContent).toBe('Stream list failed');
+      // One failure says itself in its badge and its fix's heading, so no status line repeats it.
+      expect(row('Backup gateway').querySelector('.source-status-line')?.textContent).toBe('');
+      expect(row('Backup gateway').querySelector('.source-fix-name')?.textContent).toBe('Stream list');
     });
 
     it('show the sentences only for a failure, behind How to fix', async () => {
@@ -347,7 +349,7 @@ describe('the Sources screen', () => {
 
       expect(button(/^Gateway/).disabled).toBe(true);
       expect(button(/^Gateway/).textContent).toContain('Not allowed on this site');
-      expect(button('Bee node').disabled).toBe(false);
+      expect(button(/^Bee node/).disabled).toBe(false);
     });
 
     it("checks a node of the viewer's own before adding it, and says why one cannot be used", async () => {
@@ -455,6 +457,27 @@ describe('the Sources screen', () => {
         'Two',
       ]);
     });
+
+    it('turn Done to a secondary button while the add form is open, so one primary is in view', async () => {
+      await open();
+      const done = () => [...document.querySelectorAll<HTMLButtonElement>('.dialog-footer button')].at(-1)!;
+      expect(done().classList.contains('primary')).toBe(true);
+
+      startAdding('Bee node');
+      expect(done().classList.contains('secondary')).toBe(true);
+
+      click(button('Cancel'));
+      expect(done().classList.contains('primary')).toBe(true);
+    });
+
+    it('lists a tile that can be picked first, with where such a source may be inside it', async () => {
+      await open();
+      click(button('Add source'));
+
+      const tiles = [...section('Add source').querySelectorAll<HTMLButtonElement>('.add-source-tile')];
+      expect(tiles.map((tile) => tile.disabled)).toEqual([false, true]);
+      expect(tiles[0].textContent).toContain('On this computer, such as Swarm Desktop');
+    });
   });
 
   describe('a source the viewer added', () => {
@@ -517,7 +540,7 @@ describe('the Sources screen', () => {
         ]);
       }
       expect(select('Chat').value).toBe('chat-read');
-      expect(dialog()?.textContent).toContain("Messages are always sent through the event's chat service");
+      expect(dialog()?.textContent).toContain("Messages go through the event's chat service");
     });
 
     it('keeps the sources reachable under a row with their count, Add source included', async () => {
@@ -542,14 +565,14 @@ describe('the Sources screen', () => {
       pick(select('Video'), 'backup');
       await settle();
       expect(app!.parts).toMatchObject({ player: 'backup', 'stream-list': 'backup', previews: 'event' });
-      expect(dialog()?.textContent).not.toContain('Live timing may slip');
+      expect(dialog()?.textContent).not.toContain('Timing may slip');
 
       click(button('Unlink video and stream list'));
       pick(select('Stream list'), 'event');
       await settle();
 
       expect(app!.parts).toMatchObject({ player: 'backup', 'stream-list': 'event' });
-      expect(dialog()?.textContent).toContain('Live timing may slip');
+      expect(dialog()?.textContent).toContain('Video and stream list differ. Timing may slip.');
       expect(button('Link video and stream list').getAttribute('aria-pressed')).toBe('false');
     });
 
@@ -590,6 +613,7 @@ describe('the Sources screen', () => {
     it('is reordered by the viewer, kept in the browser, with the event gateway pinned last', async () => {
       await open({ ...three, fallback: ['backup', 'third'] });
       click(button('Edit order'));
+      expect(button('Done ordering').textContent).toBe('Done');
       click(button('Move Third gateway up'));
       await settle();
 

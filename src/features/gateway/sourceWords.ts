@@ -57,9 +57,9 @@ export const ADDRESS_PLACEHOLDERS: Readonly<Record<SourceType, string>> = {
 /** What the chat reads from unless a viewer picks another source for it. */
 export const CHAT_SERVICE_NAME = 'Event chat service';
 
-export const CHAT_SEND_NOTE = "Messages are always sent through the event's chat service";
+export const CHAT_SEND_NOTE = "Messages go through the event's chat service";
 
-export const UNLINKED_NOTE = 'Live timing may slip while video and stream list differ';
+export const UNLINKED_NOTE = 'Video and stream list differ. Timing may slip.';
 
 const BEE_NODE_HINTS: Readonly<Record<BeeNodeAccess, string>> = {
   off: 'On this computer, such as Swarm Desktop',

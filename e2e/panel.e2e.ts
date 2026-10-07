@@ -77,7 +77,7 @@ for (const theme of THEME_NAMES) {
 
     const badges = row.getByRole('list', { name: 'Checks of Event gateway' }).getByRole('listitem');
     await expect(badges).toHaveText(EXPECTED_BADGES, { timeout: 30_000 });
-    await expect(row.locator('.source-status-line')).toHaveText('Pictures failed');
+    await expect(row.locator('.source-fix-name'), 'the one failure heads its fix').toHaveText('Pictures');
 
     const fix = row.locator('details.source-fix');
     await expect(fix.getByText(PICTURE_FAILURE), 'the sentence waits behind How to fix').toBeHidden();

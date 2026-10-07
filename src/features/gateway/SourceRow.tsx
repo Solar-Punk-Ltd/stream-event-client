@@ -153,7 +153,8 @@ function SourceDetails({
       <div className="source-details-bar">
         <p className="source-status-line" role="status">
           {isRunning && 'Testing every part'}
-          {!isRunning && test?.state === 'done' && testStatusLine(results)}
+          {/* One fix's heading already names every failure, and the badges say the rest. */}
+          {!isRunning && test?.state === 'done' && fixes.length !== 1 && testStatusLine(results)}
         </p>
         <div className="source-actions">
           {radioName !== null && !isInUse && (
