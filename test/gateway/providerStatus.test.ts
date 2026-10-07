@@ -1,0 +1,91 @@
+import { Topic } from '@ethersphere/bee-js';
+import { describe, expect, it } from 'vitest';
+
+import { statusRows } from '../../src/features/gateway/providerStatus';
+import { SwarmClient } from '../../src/swarm/client';
+import { content, fault, notFound, ScriptedProvider } from '../helpers/scriptedProvider';
+
+const OWNER = '1'.repeat(40);
+const TOPIC = Topic.fromString('status-test');
+const NAMES: Record<string, string> = {
+  event: 'Event gateway',
+  backup: 'Backup gateway',
+  'chat-read': "The chat's gateway",
+};
+const nameOf = (id: string) => NAMES[id] ?? id;
+
+function world() {
+  const event = new ScriptedProvider('event');
+  const backup = new ScriptedProvider('backup');
+  const chat = new ScriptedProvider('chat');
+  let nowMs = 1_000_000;
+  const client = new SwarmClient({
+    chosen: { id: 'event', provider: event },
+    fallback: { id: 'backup', provider: backup },
+    routes: { chat: { id: 'chat-read', provider: chat } },
+    pausePolicy: { faultsBeforePause: 2, firstPauseMs: 15_000, longestPauseMs: 15_000 },
+    now: () => nowMs,
+  });
+  return { event, backup, chat, client, now: () => nowMs, advance: (ms: number) => (nowMs += ms) };
+}
+
+describe('the status view', () => {
+  it('says, per feature, who it reads from, who stands behind, and what answered in the last minute', async () => {
+    const { event, backup, client, now } = world();
+    event.answer = content();
+    await client.reader('player').readFeedEntry(OWNER, TOPIC, 1);
+    event.answer = notFound;
+    await client.reader('player').readFeedEntry(OWNER, TOPIC, 2);
+    event.answer = fault;
+    backup.answer = content();
+    await client.reader('stream-list').readFeedHead(OWNER, TOPIC);
+    await client.reader('stream-list').readFeedHead(OWNER, TOPIC);
+
+    expect(statusRows(client.activity(), client.health(), now(), nameOf)).toEqual([
+      {
+        feature: 'player',
+        label: 'Video',
+        route: 'Reads from Event gateway, paused for 15 s after failing. Falls back to Backup gateway.',
+        answered: 'In the last minute, Event gateway: 1 served, 1 not there yet.',
+      },
+      {
+        feature: 'stream-list',
+        label: 'Stream list',
+        route: 'Reads from Event gateway, paused for 15 s after failing. Falls back to Backup gateway.',
+        answered:
+          'In the last minute, Event gateway: 2 failed. Backup gateway: 2 served. 2 answers came from the fallback.',
+      },
+      {
+        feature: 'previews',
+        label: 'Previews and pictures',
+        route: 'Reads from Event gateway, paused for 15 s after failing. Falls back to Backup gateway.',
+        answered: 'Nothing read in the last minute.',
+      },
+      {
+        feature: 'chat',
+        label: 'Chat',
+        route: "Reads from The chat's gateway. Falls back to Backup gateway.",
+        answered: 'Nothing read in the last minute.',
+      },
+    ]);
+  });
+
+  it('forgets what answered more than a minute ago', async () => {
+    const { event, client, now, advance } = world();
+    event.answer = content();
+    await client.reader('player').readFeedEntry(OWNER, TOPIC, 1);
+    advance(60_001);
+
+    expect(statusRows(client.activity(), client.health(), now(), nameOf)[0].answered).toBe(
+      'Nothing read in the last minute.',
+    );
+  });
+
+  it('says there is no fallback when the deployment has none', () => {
+    const client = new SwarmClient({ chosen: { id: 'event', provider: new ScriptedProvider('event') } });
+
+    expect(statusRows(client.activity(), client.health(), 0, nameOf)[0].route).toBe(
+      'Reads from Event gateway. No fallback.',
+    );
+  });
+});
