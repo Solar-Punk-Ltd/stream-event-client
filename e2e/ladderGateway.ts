@@ -12,7 +12,7 @@ import {
   markerPeriodAt,
   markerPeriodStartMs,
 } from '../src/shared/ladderMarker';
-import { buildSwarmUri } from '../src/shared/masterPlaylist';
+import { buildMasterPlaylist, buildSwarmUri } from '../src/shared/masterPlaylist';
 import { GATEWAY_PATH, PREVIEW_ORIGIN, RECORDED_DIR, RecordingFile } from './recording';
 
 /**
@@ -73,6 +73,10 @@ export type RequestKind =
   | 'marker'
   /** A read of a ladder time marker that was not written, answered 404. */
   | 'markerMiss'
+  /** Bee's health check, which the control panel asks. */
+  | 'health'
+  /** A stream's picture. */
+  | 'picture'
   /** Anything else, answered 404 so the journey fails on it rather than a real node being asked. */
   | 'unknown';
 
@@ -165,11 +169,28 @@ function recordedSegments(): RecordedSegment[] {
 export interface LadderGatewayOptions {
   /** Whether the uploader writes time markers, as it does unless they are switched off. */
   readonly markers?: boolean;
+  /**
+   * Whether the master feed answers with the ladder's master, as the uploader publishes one. Off by default, so a
+   * journey that never needs it sees every master read answered 404.
+   */
+  readonly servesMaster?: boolean;
+  /** The status the stream's picture is answered with. Without it the stream list names no picture. */
+  readonly pictureStatus?: number;
 }
+
+/** The reference the stream list names the stream's picture by, made up, 64 hex digits as a real one is. */
+const PICTURE_REF = '9c'.repeat(32);
+/** The smallest PNG there is, one transparent pixel. */
+const PICTURE = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+  'base64',
+);
 
 export class LadderGateway {
   readonly startedAtMs = Date.now() - RUNNING_FOR_MS;
   readonly markers: boolean;
+  readonly servesMaster: boolean;
+  readonly pictureStatus: number | null;
   readonly requests: LoggedRequest[] = [];
   private readonly feeds = new Map<RungName, RungFeed>();
   private readonly byTopicHex = new Map<string, 'catalog' | 'master' | RungName>();
@@ -178,6 +199,8 @@ export class LadderGateway {
 
   constructor(options: LadderGatewayOptions = {}) {
     this.markers = options.markers ?? true;
+    this.servesMaster = options.servesMaster ?? false;
+    this.pictureStatus = options.pictureStatus ?? null;
     const name = (feed: 'catalog' | 'master' | RungName) =>
       feed === 'catalog' ? CATALOG_TOPIC : feed === 'master' ? MASTER_TOPIC : `ladder-test-${feed}`;
     const feeds: ('catalog' | 'master' | RungName)[] = ['catalog', 'master', ...RUNGS.map((rung) => rung.name)];
@@ -302,6 +325,15 @@ export class LadderGateway {
     if (resource === 'bytes' && owner) {
       return this.decideSegment(route, path, owner);
     }
+    if (resource === 'health' && owner === undefined) {
+      this.log('health', null, path);
+      return () => route.fulfill({ status: 200, contentType: 'application/json', body: '{"status":"ok"}' });
+    }
+    if (resource === 'bzz' && owner === PICTURE_REF && this.pictureStatus !== null) {
+      this.log('picture', null, path);
+      const status = this.pictureStatus;
+      return () => route.fulfill({ status, contentType: 'image/png', body: status === 200 ? PICTURE : '' });
+    }
     if (owner === LADDER_OWNER && resource === 'feeds' && id) {
       const feed = this.byTopicHex.get(id);
       if (feed === 'catalog') {
@@ -311,7 +343,8 @@ export class LadderGateway {
       }
       if (feed === 'master') {
         this.log('master', null, path);
-        return () => notFound(route);
+        const master = buildMasterPlaylist(LADDER_OWNER, RUNGS);
+        return () => (this.servesMaster ? this.fulfillFeed(route, 0, master) : notFound(route));
       }
       if (feed) {
         const newest = this.newestIndex(feed);
@@ -423,6 +456,7 @@ export class LadderGateway {
       mediatype: 'video',
       state: 'live',
       renditions: RUNGS,
+      ...(this.pictureStatus === null ? {} : { thumbnail: PICTURE_REF }),
     };
   }
 
