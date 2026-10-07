@@ -15,7 +15,7 @@ const isSuccess = (status: number) => status >= 200 && status < 300;
 /**
  * Loads a URL the client gave, a segment or a picture, the way the browser or hls.js would, and answers
  * as a read does. The player and the pages never call this, they hand the URL to the browser. It is how
- * the control panel shows that what the browser would load is really there.
+ * the Sources screen's Test shows that what the browser would load is really there.
  */
 export async function loadUrl(url: string, options: UrlLoadOptions = {}): Promise<SwarmAnswer> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_READ_TIMEOUT_MS;

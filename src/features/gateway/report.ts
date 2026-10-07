@@ -1,5 +1,5 @@
 /**
- * The control panel's copyable report: what a viewer pastes to whoever runs the site when something
+ * The Sources screen's copyable diagnostics: what a viewer pastes to whoever runs the site when something
  * does not load. It holds the Test's sentences, the status view, the build and the browser, and the
  * one address of the gateway that was tested. Every other provider is named, never addressed, so a
  * report carries nothing from the viewer's own settings beyond what they chose to test.

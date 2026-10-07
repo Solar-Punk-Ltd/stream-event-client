@@ -1,5 +1,5 @@
 /**
- * What the control panel's Test tells a viewer about each check, one plain sentence each, with the fix
+ * What the Sources screen's Test tells a viewer about each check, one plain sentence each, with the fix
  * they can make when a check fails. Kept apart from the checks so every sentence has a test of its own
  * and a new way of failing cannot ship without its words.
  */

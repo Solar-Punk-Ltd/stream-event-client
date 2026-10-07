@@ -1,6 +1,6 @@
 /**
- * The control panel's status view: who answered each feature in the last minute, in words, from the
- * Swarm client's own counts. Pure, so the panel only refreshes it.
+ * The status in the Sources screen's diagnostics: who answered each feature in the last minute, in words, from the
+ * Swarm client's own counts. Pure, so the screen only reads it when the diagnostics are copied.
  */
 import type { AnswerKind } from '@/swarm/answers';
 import type { FeatureActivity, ProviderHealth, SwarmFeature } from '@/swarm/client';

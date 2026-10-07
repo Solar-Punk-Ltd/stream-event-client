@@ -1,5 +1,5 @@
 /**
- * The control panel's Test: one gateway, each feature of the viewer, on this event's real content.
+ * The Sources screen's Test: one source, each feature of the viewer, on this event's real content.
  *
  * Every check reads through a Swarm client made for that gateway alone, with no fallback, so a pass is
  * the gateway's own and a failure is not covered up by the event gateway behind it. Each check ends in

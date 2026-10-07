@@ -122,7 +122,7 @@ const RECORDED_TITLE = '“Recorded test pattern”';
 /** This page's origin as the Test reads it, which the CORS help names. */
 const PAGE_ORIGIN = 'https://viewer.example.com';
 
-describe("the control panel's Test, on the event's recorded content", () => {
+describe("the Sources screen's Test, on the event's recorded content", () => {
   it('passes every feature the recording holds, and says what each loaded', async () => {
     const results = await run({ fetcher: gateway() });
 
@@ -438,7 +438,7 @@ function eventGateway(
   );
 }
 
-describe("the control panel's Test, on a gateway the deployment offers", () => {
+describe("the Sources screen's Test, on a gateway the deployment offers", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -515,7 +515,7 @@ describe("the control panel's Test, on a gateway the deployment offers", () => {
   });
 });
 
-describe("the control panel's Test, on a live ladder and pictures", () => {
+describe("the Sources screen's Test, on a live ladder and pictures", () => {
   const GW = 'https://gateway.example.com';
   const OWNER = 'a1'.repeat(20);
   const GROUP = 'test-ladder-master';

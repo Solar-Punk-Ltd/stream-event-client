@@ -17,7 +17,7 @@ export interface SwarmSettings {
   readonly fallbackOrder: readonly string[];
   /** The kinds of provider a viewer may add one of their own of. */
   readonly kinds: readonly ProviderKindName[];
-  /** How far a Bee node of the viewer's own may be, which the control panel's picker holds to. */
+  /** How far a Bee node of the viewer's own may be, which the Sources screen holds to. */
   readonly beeNodes: BeeNodeAccess;
 }
 
@@ -63,7 +63,7 @@ export const CHAT_READ_GATEWAY_ID = 'chat-read';
 
 /**
  * What a viewer is shown a provider as: its label, or what it is. Never its address, so a name can go
- * anywhere an address must not, such as the control panel's report.
+ * anywhere an address must not, such as the diagnostics a viewer copies.
  */
 export function gatewayName(settings: SwarmSettings, id: string): string {
   if (id === OWN_GATEWAY_ID) {
@@ -82,9 +82,9 @@ export function gatewayName(settings: SwarmSettings, id: string): string {
 const withoutTrailingSlash = (url: string) => url.replace(/\/+$/, '');
 
 /**
- * The gateway a saved or picked address means. A viewer's choice is kept as an address, which is what
- * the control panel saves and what a choice saved before `providers` existed holds, so an address an
- * offered gateway has is that gateway, and any other is a Bee node of the viewer's own.
+ * The gateway an address saved before sources existed means. The node picker and the control panel
+ * kept a viewer's choice as one address, so an address an offered gateway has is that gateway, and any
+ * other is a Bee node of the viewer's own.
  */
 export function choiceForAddress(settings: SwarmSettings, address: string): GatewaySetting {
   const wanted = withoutTrailingSlash(address);

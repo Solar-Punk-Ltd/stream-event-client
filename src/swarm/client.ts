@@ -194,7 +194,7 @@ export class SwarmClient {
     return [...this.countByKey.values()];
   }
 
-  /** What each feature read in the last minute, for the control panel's status view. */
+  /** What each feature read in the last minute, for the status in the Sources screen's diagnostics. */
   activity(): FeatureActivity[] {
     this.forgetOldAnswers();
     return SWARM_FEATURES.map((feature) => {

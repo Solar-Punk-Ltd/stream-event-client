@@ -90,7 +90,7 @@ async function reportOfBackup(): Promise<string> {
   });
 }
 
-describe("the control panel's report", () => {
+describe("the Sources screen's diagnostics", () => {
   it('holds the test, the status, the build and the browser', async () => {
     const report = await reportOfBackup();
 
