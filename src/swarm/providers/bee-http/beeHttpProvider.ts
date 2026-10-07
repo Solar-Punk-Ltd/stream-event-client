@@ -1,7 +1,7 @@
 import { FeedIndex, type Topic } from '@ethersphere/bee-js';
 
 import { makeFeedIdentifier, nextFeedRequest, resolvedFeedIndex } from '@/shared/feedFollow';
-import { ABORTED, type SwarmAnswer } from '../../answers';
+import { ABORTED, type SwarmAnswer, UNSUPPORTED } from '../../answers';
 import {
   DEFAULT_READ_TIMEOUT_MS,
   type ProbeResult,
@@ -125,8 +125,14 @@ export class BeeHttpProvider implements SwarmProvider {
     return this.read(nextFeedRequest(owner, topic, null).path, options);
   }
 
-  /** A feed entry is the single-owner chunk its owner wrote under the topic and index together. */
-  readFeedEntry(owner: string, topic: Topic, index: number, options?: ReadOptions): Promise<SwarmAnswer> {
+  /**
+   * A feed entry is the single-owner chunk its owner wrote under the topic and index together. An index
+   * that is not a whole number from zero up names no entry, and bee-js would throw building one.
+   */
+  async readFeedEntry(owner: string, topic: Topic, index: number, options?: ReadOptions): Promise<SwarmAnswer> {
+    if (!Number.isSafeInteger(index) || index < 0) {
+      return UNSUPPORTED;
+    }
     return this.readSoc(owner, makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))).toString(), options);
   }
 

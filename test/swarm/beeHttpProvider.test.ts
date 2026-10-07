@@ -158,6 +158,16 @@ describe('the Bee HTTP provider', () => {
     }
   });
 
+  it('answers unsupported for a feed index that is not a whole number from zero up, and asks nothing', async () => {
+    const log: AskedLog = { urls: [] };
+    const bee = provider(recordedFetch(log));
+
+    for (const index of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(await bee.readFeedEntry(STREAM.owner, STREAM_TOPIC, index)).toEqual({ kind: 'unsupported' });
+    }
+    expect(log.urls).toEqual([]);
+  });
+
   it('caps the wait Retry-After asks for, so one answer cannot stall a feed for an hour', async () => {
     const answer = await provider(answeringFetch(429, { 'retry-after': '3600' })).readBytes(SEGMENT);
 
