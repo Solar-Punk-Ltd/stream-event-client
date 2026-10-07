@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
+import { Topic } from '@ethersphere/bee-js';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { AppContextProvider, useAppContext } from '../../src/app/AppProvider';
 import { parseRuntimeConfig, type RuntimeConfig } from '../../src/config/runtimeConfig';
 import { ControlPanel } from '../../src/features/gateway/ControlPanel';
+import type { SwarmClient } from '../../src/swarm/client';
 import { button, click, dialog, input, mount, settle, text, type, waitFor, type Mounted } from '../helpers/dom';
 
 const EVENT = 'https://event.example.com';
@@ -41,10 +43,11 @@ function config(extra: Record<string, unknown> = {}): RuntimeConfig {
 const realFetch = globalThis.fetch;
 let mounted: Mounted | null = null;
 let gatewayUrl = '';
+let swarm: SwarmClient | null = null;
 let copied: string | null = null;
 
 function Probe() {
-  gatewayUrl = useAppContext().gatewayUrl;
+  ({ gatewayUrl, swarm } = useAppContext());
   return null;
 }
 
@@ -193,6 +196,26 @@ describe('the control panel', () => {
 
     expect(dialog()?.textContent).toContain("The chat itself reads from the event's chat address");
     expect(row('Backup gateway').textContent).toContain('Chat feed on this gateway: ');
+  });
+
+  const VIDEO_OWNER = 'a'.repeat(40);
+
+  it('marks the header button while the fallback serves the video, with the panel closed', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/health')) {
+        return Response.json({ status: 'ok' });
+      }
+      return new Response('', { status: url.startsWith(BACKUP) && url.includes(VIDEO_OWNER) ? 502 : 404 });
+    }) as typeof fetch;
+    await open();
+    click(buttonIn(row('Backup gateway'), 'Use'));
+    await settle();
+    expect(button(/^Gateway/).textContent).not.toContain('Using fallback');
+
+    await swarm?.reader('player').readFeedEntry(VIDEO_OWNER, Topic.fromString('a-rung'), 0);
+
+    await waitFor(() => (button(/^Gateway/).textContent?.includes('Using fallback') ? true : null), 150);
   });
 
   it('shows who answered each feature in the last minute', async () => {

@@ -20,7 +20,7 @@ import {
   OWN_NODE_DEFAULT_ADDRESS,
   probeGateway,
 } from './gatewayProbe';
-import { statusRows } from './providerStatus';
+import { isServingFromFallback, statusRows } from './providerStatus';
 import { CHECK_LABELS, type CheckResult, testProvider } from './providerTest';
 import { reportText, type TestedGateway } from './report';
 
@@ -28,7 +28,7 @@ import './ControlPanel.scss';
 
 const KEY_ENTER = 'Enter';
 
-/** How often the status view reads the client's counts again while the panel is open. */
+/** How often the status view and the header's fallback marker read the client's counts again. */
 const STATUS_REFRESH_MS = 2_000;
 
 type OwnNodeStatus = { kind: 'idle' } | { kind: 'checking' } | { kind: 'error'; text: string };
@@ -90,13 +90,11 @@ export function ControlPanel() {
   const fallbackId = swarm.activity().find(({ feature }) => feature === 'player')?.fallback ?? null;
   const nameOf = useCallback((id: string) => gatewayName(settings, id), [settings]);
 
+  // Also while closed, because the header button marks the fallback serving from the same counts.
   useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
     const timer = setInterval(() => setRefreshes((count) => count + 1), STATUS_REFRESH_MS);
     return () => clearInterval(timer);
-  }, [isOpen]);
+  }, []);
 
   const handleOpen = () => {
     setOwnAddress(choice.id === OWN_GATEWAY_ID ? choice.url : OWN_NODE_DEFAULT_ADDRESS);
@@ -221,6 +219,9 @@ export function ControlPanel() {
       >
         <span className="gateway-button-label">Gateway</span>
         <span className="gateway-button-current">{headerName(settings, choice)}</span>
+        {isServingFromFallback(swarm.activity(), swarm.health()) && (
+          <span className="gateway-button-marker">Using fallback</span>
+        )}
       </button>
 
       {isOpen && (

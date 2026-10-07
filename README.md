@@ -274,7 +274,9 @@ and the kinds of provider the build carries (`src/features/gateway/`).
 - **Status.** Who answered each feature in the last minute, from the client's own counts: which
   provider the feature reads from and which stands behind it, how many answers of each kind came from
   each, how many came from the fallback, and which provider is paused and for how long. It refreshes
-  every 2 s while the panel is open.
+  every 2 s while the panel is open. With the panel closed, the header's Gateway button says "Using
+  fallback" while the fallback answered a read of the video in the last minute, or the gateway in use is
+  paused, so a viewer sees the switch without opening anything.
 - **Report.** "Copy report" copies the last test's sentences, the status, the build and the browser.
   It holds no address but the tested gateway's: every other provider is named, never addressed, and a
   test fails if another address, a key or the viewer's saved node gets in.

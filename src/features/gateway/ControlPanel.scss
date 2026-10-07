@@ -94,6 +94,15 @@
 }
 
 // Quiet labels in the header button's type, the one in use in the accent colour.
+.gateway-button-marker {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: normal;
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
 .panel-badge {
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
