@@ -7,7 +7,7 @@ import { HelpSteps } from './HelpSteps';
 import type { CheckResult } from './providerTest';
 import { StatusDot } from './StatusDot';
 import type { SourceStatus } from './sourceStatus';
-import { BADGE_LABELS, OUTCOME_WORDS, testStatusLine } from './sourceWords';
+import { BADGE_LABELS, fixGroups, OUTCOME_WORDS, testStatusLine } from './sourceWords';
 
 const KEY_ENTER = 'Enter';
 const KEY_ESCAPE = 'Escape';
@@ -45,7 +45,7 @@ export function whereIs(url: string): string {
 }
 
 /**
- * One source in the list: a radio that puts it in use, its name with its tags and where it is, and its
+ * One source in the list: a radio that puts it in use, its name, an In use tag, where it is, and its
  * status dot. The rest of the row opens its details, where the Test's result shows as badges and one
  * line, the actions that apply, and a failure's sentences and fix only behind "How to fix".
  */
@@ -76,45 +76,42 @@ export function SourceRow(props: SourceRowProps) {
             />
           </span>
         )}
-        <span className="source-row-text">
-          <span className="source-row-title">
-            {draft === null ? (
-              <button
-                type="button"
-                className="source-row-toggle"
-                onClick={onToggle}
-                aria-expanded={isExpanded}
-                aria-controls={detailsId}
-                aria-label={`Details of ${source.name}`}
-              >
-                <span className="source-row-name">{source.name}</span>
-              </button>
-            ) : (
-              <input
-                className="sources-input source-row-rename"
-                type="text"
-                value={draft}
-                maxLength={SOURCE_NAME_MAX_LENGTH}
-                autoFocus
-                aria-label={`New name for ${source.name}`}
-                onChange={(event) => setDraft(event.target.value)}
-                onBlur={finishRename}
-                onKeyDown={(event) => {
-                  if (event.key === KEY_ENTER) {
-                    finishRename();
-                  } else if (event.key === KEY_ESCAPE) {
-                    // Escape here leaves the name as it was rather than closing the whole screen.
-                    event.stopPropagation();
-                    setDraft(null);
-                  }
-                }}
-              />
-            )}
-            {source.offered && <span className="source-tag">Offered</span>}
-            {isInUse && <span className="source-tag in-use">In use</span>}
-          </span>
-          <span className="source-row-address">{whereIs(source.url)}</span>
+        <span className="source-row-title">
+          {draft === null ? (
+            <button
+              type="button"
+              className="source-row-toggle"
+              onClick={onToggle}
+              aria-expanded={isExpanded}
+              aria-controls={detailsId}
+              aria-label={`Details of ${source.name}`}
+            >
+              <span className="source-row-name">{source.name}</span>
+            </button>
+          ) : (
+            <input
+              className="sources-input source-row-rename"
+              type="text"
+              value={draft}
+              maxLength={SOURCE_NAME_MAX_LENGTH}
+              autoFocus
+              aria-label={`New name for ${source.name}`}
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={finishRename}
+              onKeyDown={(event) => {
+                if (event.key === KEY_ENTER) {
+                  finishRename();
+                } else if (event.key === KEY_ESCAPE) {
+                  // Escape here leaves the name as it was rather than closing the whole screen.
+                  event.stopPropagation();
+                  setDraft(null);
+                }
+              }}
+            />
+          )}
+          {isInUse && <span className="source-tag in-use">In use</span>}
         </span>
+        <span className="source-row-address">{whereIs(source.url)}</span>
         <StatusDot status={status} />
         <span className="source-row-chevron" aria-hidden="true">
           <ChevronIcon />
@@ -137,7 +134,7 @@ function SourceDetails({
   onStartRename,
 }: SourceRowProps & { readonly id: string; readonly onStartRename: () => void }) {
   const results = test?.state === 'done' ? test.results : [];
-  const failures = results.filter(({ outcome }) => outcome === 'failed');
+  const fixes = fixGroups(results);
   const isRunning = test?.state === 'running';
 
   return (
@@ -195,18 +192,18 @@ function SourceDetails({
           )}
         </div>
       </div>
-      {failures.length > 0 && (
+      {fixes.length > 0 && (
         <details className="source-fix">
           <summary>
             How to fix
             <ChevronIcon />
           </summary>
           <ul className="source-fix-list" aria-label={`How to fix ${source.name}`}>
-            {failures.map((failure) => (
-              <li key={failure.check} className="source-fix-item">
-                <span className="source-fix-name">{BADGE_LABELS[failure.check]}</span>
-                <span className="source-fix-sentence">{failure.sentence}</span>
-                {failure.help && <HelpSteps help={failure.help} />}
+            {fixes.map((fix) => (
+              <li key={fix.heading} className="source-fix-item">
+                <span className="source-fix-name">{fix.heading}</span>
+                <span className="source-fix-sentence">{fix.sentence}</span>
+                {fix.help && <HelpSteps help={fix.help} />}
               </li>
             ))}
           </ul>

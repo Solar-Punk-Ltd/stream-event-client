@@ -150,10 +150,6 @@ $part-label-width: 104px;
     padding-left: var(--spacing-sm);
   }
 
-  &[aria-expanded='true']:not(.ghost) {
-    background: var(--color-button-secondary-hover);
-  }
-
   &.ghost {
     background: none;
     color: var(--color-text-secondary);
@@ -346,18 +342,45 @@ $part-label-width: 104px;
   }
 }
 
-// Radio, name and address, status, chevron. The status column is fixed so dots and words line up from
-// row to row.
+// Radio, name over address, status, chevron. From the large phone up the status has a fixed column of
+// its own so dots and words line up from row to row. On a phone it moves under the address, so the
+// name and the address keep the full width and every row is three lines.
 .source-row-main {
   position: relative;
   display: grid;
-  grid-template-columns: var(--spacing-base) minmax(0, 1fr) var(--size-source-status-width) var(--spacing-base);
+  grid-template-areas:
+    'pick title chevron'
+    'pick address chevron'
+    'pick status chevron';
+  grid-template-columns: var(--spacing-base) minmax(0, 1fr) var(--spacing-base);
   align-items: center;
-  column-gap: var(--spacing-md);
+  gap: var(--spacing-2xs) var(--spacing-md);
   padding: var(--spacing-sm) 0;
 
   &.no-pick {
-    grid-template-columns: minmax(0, 1fr) var(--size-source-status-width) var(--spacing-base);
+    grid-template-areas:
+      'title chevron'
+      'address chevron'
+      'status chevron';
+    grid-template-columns: minmax(0, 1fr) var(--spacing-base);
+  }
+
+  @include media.large-phone-up {
+    grid-template-areas:
+      'pick title status chevron'
+      'pick address status chevron';
+    grid-template-columns: var(--spacing-base) minmax(0, 1fr) var(--size-source-status-width) var(--spacing-base);
+
+    &.no-pick {
+      grid-template-areas:
+        'title status chevron'
+        'address status chevron';
+      grid-template-columns: minmax(0, 1fr) var(--size-source-status-width) var(--spacing-base);
+    }
+  }
+
+  > .source-status {
+    grid-area: status;
   }
 }
 
@@ -366,6 +389,7 @@ $part-label-width: 104px;
   position: relative;
   z-index: 1;
   display: flex;
+  grid-area: pick;
 
   @include touch.touch-target;
 }
@@ -378,18 +402,11 @@ $part-label-width: 104px;
   cursor: pointer;
 }
 
-.source-row-text {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-2xs);
-  min-width: 0;
-}
-
 .source-row-title {
   display: flex;
-  flex-wrap: wrap;
+  grid-area: title;
   align-items: center;
-  gap: var(--spacing-2xs) var(--spacing-xs-sm);
+  gap: var(--spacing-xs-sm);
   min-width: 0;
 }
 
@@ -437,6 +454,7 @@ $part-label-width: 104px;
 }
 
 .source-row-address {
+  grid-area: address;
   font-size: var(--font-size-xs);
   line-height: var(--line-height-snug);
   color: var(--color-text-tertiary);
@@ -472,6 +490,7 @@ $part-label-width: 104px;
 
 .source-row-chevron {
   display: flex;
+  grid-area: chevron;
   color: var(--color-text-tertiary);
   transition: transform var(--duration-fast) ease;
 
@@ -705,8 +724,10 @@ $part-label-width: 104px;
   user-select: all;
 }
 
-// Per part. Stacked label over select on a phone, side by side from the large phone up, every row
-// leaving a gutter on the right where the link joins the video and the stream list.
+// Per part. On a phone each label sits over a full-width select, and the link is a "Same as video"
+// toggle at the end of the stream list's label line. From the large phone up the labels sit beside the
+// selects and every row leaves a gutter on the right, where a bracket joins the video and the stream
+// list with the link at its middle.
 .part-routes {
   --part-control: var(--size-dialog-button-height);
   --part-label-above: calc(var(--line-height-tagline) + var(--spacing-xs));
@@ -735,12 +756,12 @@ $part-label-width: 104px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--spacing-xs);
-  padding-right: var(--spacing-xl);
 
   @include media.large-phone-up {
     grid-template-columns: $part-label-width minmax(0, 1fr);
     align-items: center;
     gap: var(--spacing-md);
+    padding-right: var(--spacing-xl);
   }
 }
 
@@ -770,46 +791,66 @@ $part-label-width: 104px;
   text-overflow: ellipsis;
 }
 
-// A bracket in the gutter from the video's select to the stream list's, with the link at its middle.
+// On a phone, the stream list's label line, right-aligned. From the large phone up, the gutter beside
+// the two selects, holding the bracket.
 .part-link {
   position: absolute;
-  top: calc(var(--part-label-above) + var(--part-control) / 2);
+  top: calc(var(--part-label-above) + var(--part-control) + var(--spacing-sm));
   right: 0;
-  bottom: calc(var(--part-control) / 2);
-  width: var(--spacing-xl);
+  display: flex;
+  align-items: center;
+  height: var(--line-height-tagline);
 
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0 50% 0 var(--spacing-xs);
-    border: 1px dashed var(--color-border-strong);
-    border-left: none;
-    border-radius: 0 var(--radius-base) var(--radius-base) 0;
-  }
+  @include media.large-phone-up {
+    top: calc(var(--part-control) / 2);
+    bottom: calc(var(--part-control) / 2);
+    display: block;
+    width: var(--spacing-xl);
+    height: auto;
 
-  .linked > &::before {
-    border-style: solid solid solid none;
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0 50% 0 var(--spacing-xs);
+      border: 1px dashed var(--color-border-strong);
+      border-left: none;
+      border-radius: 0 var(--radius-base) var(--radius-base) 0;
+    }
+
+    .linked > &::before {
+      border-style: solid solid solid none;
+    }
   }
 }
 
 .part-link-button {
-  position: absolute;
-  top: 50%;
-  left: 50%;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--size-chat-quick-emoji);
+  gap: var(--spacing-xs);
   height: var(--size-chat-quick-emoji);
-  padding: 0;
+  padding: 0 var(--spacing-sm);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-full);
   background: var(--color-surface);
   color: var(--color-text-tertiary);
-  transform: translate(-50%, -50%);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
   cursor: pointer;
 
   @include touch.touch-target;
+
+  @include media.large-phone-up {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--size-chat-quick-emoji);
+    padding: 0;
+    transform: translate(-50%, -50%);
+  }
 
   &:hover {
     border-color: var(--color-text-tertiary);
@@ -822,12 +863,14 @@ $part-label-width: 104px;
   }
 }
 
-.part-note {
-  padding-right: var(--spacing-xl);
-
+.part-link-words {
   @include media.large-phone-up {
-    padding-left: calc(#{$part-label-width} + var(--spacing-md));
+    @include visually-hidden;
   }
+}
+
+.part-note {
+  margin-top: calc(-1 * var(--spacing-xs));
 }
 
 // Per part's own list of sources, folded under one row with their count.
@@ -874,13 +917,36 @@ $part-label-width: 104px;
 
 .add-source-area {
   margin-top: var(--spacing-base);
+
+  // Open, the button heads a panel that holds the tiles and the form, its plus turned to a cross.
+  &.open {
+    margin-right: calc(-1 * var(--spacing-sm));
+    margin-left: calc(-1 * var(--spacing-sm));
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-card);
+  }
+}
+
+.add-source-toggle svg {
+  transition: transform var(--duration-fast) ease;
+
+  .open > & {
+    transform: rotate(45deg);
+  }
+}
+
+.open > .add-source-toggle {
+  padding-left: var(--spacing-xs);
+  background: none;
 }
 
 .add-source {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-base);
-  margin-top: var(--spacing-base);
+  margin-top: var(--spacing-sm);
 }
 
 // Equal tiles, an icon and a name on one line, a reason under a tile that cannot be picked.
@@ -956,21 +1022,50 @@ $part-label-width: 104px;
 .add-source-form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
+  // Clear of the footer when scrolled into view.
+  scroll-margin-bottom: var(--spacing-base);
 
-  .source-actions {
-    margin-top: var(--spacing-sm);
+  .sources-message:empty {
+    min-height: 0;
   }
 }
 
-// A setting: its name on the left, its value and its action on the right.
+// Name and address side by side from the large phone up, so the form stays short.
+.add-source-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-sm);
+
+  @include media.large-phone-up {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
+.add-source-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+
+  .sources-label {
+    margin-top: 0;
+  }
+}
+
+// A setting: its name over its value on the left, its action on the right, centred on the pair.
 .sources-setting {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-xs) var(--spacing-md);
-  min-height: var(--spacing-xl);
+  gap: var(--spacing-md);
   font-size: var(--font-size-sm);
+}
+
+.sources-setting-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--spacing-2xs);
+  min-width: 0;
 }
 
 .sources-setting-label {
@@ -979,10 +1074,6 @@ $part-label-width: 104px;
 }
 
 .sources-setting-value {
-  flex: 1 1 0;
-  min-width: 0;
-  text-align: right;
-  text-wrap: balance;
   color: var(--color-text-secondary);
 }
 

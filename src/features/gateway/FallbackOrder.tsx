@@ -36,8 +36,10 @@ export function FallbackOrder({ order, nameOf, inUseId, onChange }: FallbackOrde
   return (
     <section className="fallback sources-section" aria-label="Fallback">
       <div className="sources-setting">
-        <span className="sources-setting-label">Fallback</span>
-        <span className="sources-setting-value">{fallbackLine(order, asked, nameOf)}</span>
+        <span className="sources-setting-text">
+          <span className="sources-setting-label">Fallback</span>
+          <span className="sources-setting-value">{fallbackLine(order, asked, nameOf)}</span>
+        </span>
         {canReorder && (
           <button
             type="button"
@@ -46,7 +48,7 @@ export function FallbackOrder({ order, nameOf, inUseId, onChange }: FallbackOrde
             aria-controls={listId}
             onClick={() => setIsEditing((editing) => !editing)}
           >
-            {isEditing ? 'Close order' : 'Edit order'}
+            {isEditing ? 'Done ordering' : 'Edit order'}
           </button>
         )}
       </div>

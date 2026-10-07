@@ -1,4 +1,4 @@
-import { type ReactNode, useId, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 
 import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
 import { GlobeIcon } from '@/shared/components/Icons/GlobeIcon';
@@ -12,7 +12,13 @@ import type { Help } from './checkSentences';
 import { checkSourceAddress, OWN_NODE_DEFAULT_ADDRESS } from './gatewayProbe';
 import { HelpSteps } from './HelpSteps';
 import type { CheckResult } from './providerTest';
-import { ADDRESS_PLACEHOLDERS, addressHint, TYPE_LABELS, unavailableTypeReason } from './sourceWords';
+import {
+  ADDRESS_PLACEHOLDERS,
+  addressHint,
+  NAME_PLACEHOLDERS,
+  TYPE_LABELS,
+  unavailableTypeReason,
+} from './sourceWords';
 
 const KEY_ENTER = 'Enter';
 
@@ -53,6 +59,7 @@ export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
   // Bumped on every check, on every change of what was typed and on cancel, so a check that comes back
   // late cannot add an address the viewer no longer meant.
   const generation = useRef(0);
+  const formRef = useRef<HTMLDivElement>(null);
   const nameId = useId();
   const addressId = useId();
   const hintId = useId();
@@ -85,6 +92,13 @@ export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
     }
   };
 
+  // The form opens under the tiles, which can be below the fold of the screen's body.
+  useEffect(() => {
+    if (type !== null) {
+      formRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [type]);
+
   const checkAndAdd = async () => {
     if (type === null || status.kind === 'checking') {
       return;
@@ -109,10 +123,10 @@ export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
   };
 
   return (
-    <div className="add-source-area">
+    <div className={`add-source-area${isOpen ? ' open' : ''}`}>
       <button
         type="button"
-        className="sources-small-button with-icon"
+        className="sources-small-button with-icon add-source-toggle"
         aria-expanded={isOpen}
         onClick={() => (isOpen ? close() : setIsOpen(true))}
       >
@@ -144,43 +158,49 @@ export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
           </div>
 
           {type !== null && (
-            <div className="add-source-form">
-              <label className="sources-label" htmlFor={nameId}>
-                Name
-              </label>
-              <input
-                id={nameId}
-                className="sources-input"
-                type="text"
-                autoComplete="off"
-                maxLength={SOURCE_NAME_MAX_LENGTH}
-                placeholder={TYPE_LABELS[type]}
-                value={name}
-                onChange={(event) => typed(setName)(event.target.value)}
-                aria-label="Name"
-              />
-              <label className="sources-label" htmlFor={addressId}>
-                Address
-              </label>
-              <input
-                id={addressId}
-                className="sources-input"
-                type="text"
-                inputMode="url"
-                autoComplete="off"
-                spellCheck={false}
-                placeholder={ADDRESS_PLACEHOLDERS[type]}
-                value={address}
-                onChange={(event) => typed(setAddress)(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === KEY_ENTER) {
-                    void checkAndAdd();
-                  }
-                }}
-                aria-label="Address"
-                aria-describedby={`${hintId} ${statusId}`}
-                aria-invalid={status.kind === 'refused'}
-              />
+            <div className="add-source-form" ref={formRef}>
+              <div className="add-source-fields">
+                <div className="add-source-field">
+                  <label className="sources-label" htmlFor={nameId}>
+                    Name
+                  </label>
+                  <input
+                    id={nameId}
+                    className="sources-input"
+                    type="text"
+                    autoComplete="off"
+                    maxLength={SOURCE_NAME_MAX_LENGTH}
+                    placeholder={NAME_PLACEHOLDERS[type]}
+                    value={name}
+                    onChange={(event) => typed(setName)(event.target.value)}
+                    aria-label="Name"
+                  />
+                </div>
+                <div className="add-source-field">
+                  <label className="sources-label" htmlFor={addressId}>
+                    Address
+                  </label>
+                  <input
+                    id={addressId}
+                    className="sources-input"
+                    type="text"
+                    inputMode="url"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder={ADDRESS_PLACEHOLDERS[type]}
+                    value={address}
+                    onChange={(event) => typed(setAddress)(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === KEY_ENTER) {
+                        void checkAndAdd();
+                      }
+                    }}
+                    aria-label="Address"
+                    aria-describedby={`${hintId} ${statusId}`}
+                    aria-invalid={status.kind === 'refused'}
+                  />
+                </div>
+              </div>
               <p className="sources-muted" id={hintId}>
                 {addressHint(type, access)}
               </p>

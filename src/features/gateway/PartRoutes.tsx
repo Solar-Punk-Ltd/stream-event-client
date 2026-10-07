@@ -54,6 +54,9 @@ export function PartRoutes({ sources, routing, parts, statuses, hasChat, onChang
             onClick={() => onChange(setLinked(routing, !routing.linked))}
           >
             <LinkIcon broken={!routing.linked} />
+            <span className="part-link-words" aria-hidden="true">
+              Same as video
+            </span>
           </button>
         </div>
       </div>

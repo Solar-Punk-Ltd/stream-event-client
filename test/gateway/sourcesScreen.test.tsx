@@ -188,12 +188,12 @@ describe('the Sources screen', () => {
     expect((dialog()?.textContent ?? '').length).toBeLessThanOrEqual(221);
   });
 
-  it('lists every gateway the deployment offers, marked offered, the one in use checked', async () => {
+  it('lists every gateway the deployment offers, the one in use checked and tagged, no other tag', async () => {
     await open();
 
     expect(section('Gateways').querySelector('h3')?.textContent).toBe('Gateways');
-    expect(row('Event gateway').textContent).toContain('Offered');
-    expect(row('Event gateway').textContent).toContain('In use');
+    expect([...row('Event gateway').querySelectorAll('.source-tag')].map((tag) => tag.textContent)).toEqual(['In use']);
+    expect(row('Backup gateway').querySelector('.source-tag')).toBeNull();
     expect(radio('Event gateway').checked).toBe(true);
     expect(row('Backup gateway').textContent).not.toContain('In use');
     expect(row('Backup gateway').textContent).toContain('backup.example.com');
