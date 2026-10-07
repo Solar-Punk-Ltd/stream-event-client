@@ -8,11 +8,11 @@
  */
 import { createSwarmClient } from '@/swarm/createSwarmClient';
 import { PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
-import { addressSpaceOf } from '@/swarm/addressSpace';
+import { addressSpaceOf, supportsLocalNetworkRequests } from '@/swarm/addressSpace';
 import { type BeeNodeAccess, DEFAULT_BEE_NODE_ACCESS } from '@/swarm/beeNodeAccess';
 import { type GatewaySetting, OWN_GATEWAY_ID, type SwarmSettings } from '@/swarm/settings';
 
-import { ADDRESS_REFUSED } from './checkSentences';
+import { ADDRESS_REFUSED, LOCAL_HTTP_UNSUPPORTED } from './checkSentences';
 
 /** Both a viewer's typing and a saved address, since every caller joins with a path of its own. */
 function withoutTrailingSlash(url: string): string {
@@ -135,20 +135,28 @@ function isLoopbackHost(hostname: string): boolean {
 /**
  * Whether the browser will refuse this address before any request leaves the page.
  *
- * An `https` page may not load a plain `http` subresource, so a node typed as `192.168.1.20:1633`
- * from the deployed site is blocked as mixed content. The `fetch` rejects with the same `TypeError`
- * a closed port and a CORS refusal produce, which is why this has to be decided before the request
- * rather than read off the failure.
+ * An `https` page may not load a plain `http` subresource, so a node typed as `192.0.2.10:1633` from
+ * the deployed site is blocked as mixed content. The `fetch` rejects with the same `TypeError` a closed
+ * port and a CORS refusal produce, which is why this has to be decided before the request rather than
+ * read off the failure. A browser with Local Network Access, Chrome and Edge today, lets such a page
+ * reach a plain http node on the local network, and the provider marks those requests for it.
  *
  * Exported because it is the one failure this module can name exactly rather than guess at.
  */
-export function isBlockedAsMixedContent(gatewayUrl: string, pageProtocol: string): boolean {
+export function isBlockedAsMixedContent(
+  gatewayUrl: string,
+  pageProtocol: string,
+  localNetworkRequests: boolean = supportsLocalNetworkRequests(),
+): boolean {
   if (pageProtocol !== 'https:') {
     return false;
   }
   try {
     const candidate = new URL(gatewayUrl);
-    return candidate.protocol === 'http:' && !isLoopbackHost(candidate.hostname);
+    if (candidate.protocol !== 'http:' || isLoopbackHost(candidate.hostname)) {
+      return false;
+    }
+    return !(localNetworkRequests && addressSpaceOf(gatewayUrl) === 'local');
   } catch {
     // A path-only address such as the deployed `/bee` default, which is served by this page's own
     // origin and carries its scheme with it.
@@ -156,11 +164,18 @@ export function isBlockedAsMixedContent(gatewayUrl: string, pageProtocol: string
   }
 }
 
+/** Whether a blocked address is on the local network, which a browser other than this one could reach. */
+export function isLocalHttp(gatewayUrl: string): boolean {
+  return gatewayUrl.startsWith('http://') && addressSpaceOf(gatewayUrl) === 'local';
+}
+
 type GatewayProbeOutcome =
   | { kind: 'ok' }
   | { kind: 'rejected'; status: number }
   /** An `http` node named from an `https` page, which the browser refuses before anything is sent. */
   | { kind: 'mixed-content' }
+  /** The same on the local network, in a browser without Local Network Access, which Chrome and Edge have. */
+  | { kind: 'local-http-unsupported' }
   /**
    * Something answered 2xx and it was not Bee's health document. A web server with a single-page
    * fallback route answers any path with its index page and a 200, which is the case a status-only
@@ -198,6 +213,8 @@ interface GatewayProbeOptions {
    * `ReferenceError`.
    */
   pageProtocol?: string;
+  /** Whether this browser can mark a request as meant for the local network. Read from the page when absent. */
+  localNetworkRequests?: boolean;
 }
 
 /** Empty off a browser, where nothing is being loaded into a page and nothing can be blocked. */
@@ -216,13 +233,17 @@ function currentPageProtocol(): string {
  */
 export async function probeGateway(
   gatewayUrl: string,
-  { prober = beeHttpProber, pageProtocol = currentPageProtocol() }: GatewayProbeOptions = {},
+  {
+    prober = beeHttpProber,
+    pageProtocol = currentPageProtocol(),
+    localNetworkRequests = supportsLocalNetworkRequests(),
+  }: GatewayProbeOptions = {},
 ): Promise<GatewayProbeOutcome> {
   // Asked before the fetch, because this is the one failure that is knowable without one and the
   // only one whose cause survives: once the browser has refused it, what reaches this code is
   // indistinguishable from a closed port.
-  if (isBlockedAsMixedContent(gatewayUrl, pageProtocol)) {
-    return { kind: 'mixed-content' };
+  if (isBlockedAsMixedContent(gatewayUrl, pageProtocol, localNetworkRequests)) {
+    return isLocalHttp(gatewayUrl) ? { kind: 'local-http-unsupported' } : { kind: 'mixed-content' };
   }
 
   // A browser reports a CORS refusal, a closed port and a DNS miss identically, as a rejected fetch
@@ -259,6 +280,8 @@ export function describeProbeFailure(failure: GatewayProbeFailure): string {
       return `Something answered at this address with an error (HTTP ${failure.status}). ${CHECK_THE_PORT}`;
     case 'not-bee':
       return `Something answered at this address, but it is not a Bee node. ${CHECK_THE_PORT}`;
+    case 'local-http-unsupported':
+      return LOCAL_HTTP_UNSUPPORTED;
     case 'mixed-content':
       return 'This site is served over https, and a browser refuses to load anything over plain http from it, so the request never leaves this page. Give the node an https address, or open this site over http.';
     case 'timed-out':

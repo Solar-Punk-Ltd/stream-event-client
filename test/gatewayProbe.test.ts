@@ -8,6 +8,7 @@ import {
   isDefaultGateway,
   probeGateway,
 } from '@/features/gateway/gatewayProbe';
+import { LOCAL_HTTP_UNSUPPORTED } from '@/features/gateway/checkSentences';
 import { PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
 import { BeeHttpProvider } from '@/swarm/providers/bee-http/beeHttpProvider';
 
@@ -167,7 +168,7 @@ describe('a plain http node named from an https page', () => {
   });
 
   it('is refused as mixed content rather than sent and misread as unreachable', async () => {
-    expect(await probeGateway('http://192.168.1.20:1633', { pageProtocol: 'https:', prober: neverAsked })).toEqual({
+    expect(await probeGateway('http://192.0.2.10:1633', { pageProtocol: 'https:', prober: neverAsked })).toEqual({
       kind: 'mixed-content',
     });
   });
@@ -198,6 +199,47 @@ describe('a plain http node named from an https page', () => {
 
   it("leaves the deployed default alone, which is a path on this page's own origin", () => {
     expect(isBlockedAsMixedContent('/bee', 'https:')).toBe(false);
+  });
+});
+
+/**
+ * Chrome and Edge let an https page reach a plain http node on the local network, and other browsers
+ * block it as mixed content before anything is sent. Which one this is is read off the browser's
+ * `Request`, so the probe takes the answer as an option.
+ */
+describe('a plain http node on the local network named from an https page', () => {
+  const neverAsked = (url: string) => ({
+    probe: async (): Promise<ProbeResult> => {
+      throw new Error(`the probe asked ${url}, which this browser would have refused to send`);
+    },
+  });
+
+  it('is asked in a browser that can mark a request as meant for the local network', async () => {
+    expect(
+      await probeGateway('http://192.168.1.20:1633', {
+        pageProtocol: 'https:',
+        localNetworkRequests: true,
+        prober: answering(200),
+      }),
+    ).toEqual({ kind: 'ok' });
+  });
+
+  it('is refused in any other browser, with a sentence naming the browsers that can', async () => {
+    expect(
+      await probeGateway('http://192.168.1.20:1633', {
+        pageProtocol: 'https:',
+        localNetworkRequests: false,
+        prober: neverAsked,
+      }),
+    ).toEqual({ kind: 'local-http-unsupported' });
+    expect(describeProbeFailure({ kind: 'local-http-unsupported' })).toBe(LOCAL_HTTP_UNSUPPORTED);
+    expect(LOCAL_HTTP_UNSUPPORTED).toContain('Chrome');
+  });
+
+  it('is still mixed content on the internet, whatever the browser', () => {
+    expect(isBlockedAsMixedContent('http://192.0.2.10:1633', 'https:', true)).toBe(true);
+    expect(isBlockedAsMixedContent('http://192.168.1.20:1633', 'https:', true)).toBe(false);
+    expect(isBlockedAsMixedContent('http://192.168.1.20:1633', 'https:', false)).toBe(true);
   });
 });
 

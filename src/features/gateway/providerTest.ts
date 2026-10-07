@@ -16,6 +16,7 @@ import { isMasterPlaylist, masterVariants, parseManifest } from '@/features/play
 import { viewerCatalogSchema } from '@/shared/catalog';
 import { FetchTimeoutError } from '@/shared/fetchTimeoutError';
 import { ladderMarkerIdentifier, markerPeriodAt, parseLadderMarker } from '@/shared/ladderMarker';
+import { supportsLocalNetworkRequests } from '@/swarm/addressSpace';
 import { contentText, type SwarmAnswer } from '@/swarm/answers';
 import {
   loadUrl as loadUrlOverHttp,
@@ -31,6 +32,7 @@ import {
   CONNECTED_BY_CONTENT,
   type FailedAnswer,
   failedReadSentence,
+  LOCAL_HTTP_UNSUPPORTED,
   MIXED_CONTENT,
   NO_SEGMENT,
   NOT_A_SWARM_GATEWAY,
@@ -38,7 +40,7 @@ import {
   probeSentence,
   SKIPPED,
 } from './checkSentences';
-import { isBlockedAsMixedContent } from './gatewayProbe';
+import { isBlockedAsMixedContent, isLocalHttp } from './gatewayProbe';
 
 /** What the Test checks, in the order the panel shows them. */
 export const CHECKS = ['connection', 'stream-list', 'player', 'previews', 'thumbnails', 'chat'] as const;
@@ -91,6 +93,8 @@ export interface ProviderTestContext {
   readonly now?: () => number;
   /** Injected by tests. Read from the page otherwise. */
   readonly pageProtocol?: string;
+  /** Whether this browser can mark a request as meant for the local network. Injected by tests. */
+  readonly localNetworkRequests?: boolean;
 }
 
 const passed = (check: CheckName, sentence: string): CheckResult => ({ check, outcome: 'passed', sentence });
@@ -111,8 +115,10 @@ function currentPageProtocol(): string {
  */
 export async function testProvider(context: ProviderTestContext): Promise<CheckResult[]> {
   const pageProtocol = context.pageProtocol ?? currentPageProtocol();
-  if (isBlockedAsMixedContent(context.address, pageProtocol)) {
-    return CHECKS.map((check) => failed(check, MIXED_CONTENT));
+  const localNetworkRequests = context.localNetworkRequests ?? supportsLocalNetworkRequests();
+  if (isBlockedAsMixedContent(context.address, pageProtocol, localNetworkRequests)) {
+    const sentence = isLocalHttp(context.address) ? LOCAL_HTTP_UNSUPPORTED : MIXED_CONTENT;
+    return CHECKS.map((check) => failed(check, sentence));
   }
 
   const answers: SwarmAnswer[] = [];

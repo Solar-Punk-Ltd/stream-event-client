@@ -7,6 +7,7 @@ import {
   CHAT_FEED_NOT_FOUND,
   CONNECTED_BY_CONTENT,
   COULD_NOT_REACH,
+  LOCAL_HTTP_UNSUPPORTED,
   MIXED_CONTENT,
   NO_SEGMENT,
   NOT_A_SWARM_GATEWAY,
@@ -69,6 +70,7 @@ interface Run {
   readonly catalog?: { owner: string; topic: string };
   readonly address?: string;
   readonly pageProtocol?: string;
+  readonly localNetworkRequests?: boolean;
   readonly now?: () => number;
   /** Whether the gateway is the viewer's own node rather than one the deployment offers. Own by default. */
   readonly isOwnNode?: boolean;
@@ -81,6 +83,7 @@ async function run({
   catalog = recordedCatalog(),
   address = RECORDED_GATEWAY,
   pageProtocol = 'http:',
+  localNetworkRequests = false,
   now,
   isOwnNode = true,
 }: Run): Promise<Record<string, CheckResult>> {
@@ -94,6 +97,7 @@ async function run({
     knownStreams,
     chat,
     pageProtocol,
+    localNetworkRequests,
     now,
     isOwnNode,
     loadUrl: (url, options) => loadUrl(url, { ...options, fetcher }),
@@ -232,6 +236,22 @@ describe("the control panel's Test, on the event's recorded content", () => {
     });
 
     expect(Object.values(results).map(({ sentence }) => sentence)).toEqual(CHECKS.map(() => MIXED_CONTENT));
+    expect(asked).toEqual([]);
+  });
+
+  it('names the browsers that can reach a plain http node on the local network, in one that cannot', async () => {
+    const asked: string[] = [];
+    const results = await run({
+      fetcher: (async (input: RequestInfo | URL) => {
+        asked.push(String(input));
+        return new Response('');
+      }) as typeof fetch,
+      address: 'http://192.168.1.20:1633',
+      pageProtocol: 'https:',
+      localNetworkRequests: false,
+    });
+
+    expect(Object.values(results).map(({ sentence }) => sentence)).toEqual(CHECKS.map(() => LOCAL_HTTP_UNSUPPORTED));
     expect(asked).toEqual([]);
   });
 });

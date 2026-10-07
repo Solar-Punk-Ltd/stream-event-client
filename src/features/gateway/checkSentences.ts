@@ -28,6 +28,13 @@ export const NOT_A_SWARM_GATEWAY =
 export const MIXED_CONTENT =
   'This site is served over https, and a browser refuses to load anything over plain http from it. Give the node an https address, or open this site over http.';
 
+/**
+ * A plain http node on the local network, from an https page, in a browser that blocks it before any
+ * request leaves the page.
+ */
+export const LOCAL_HTTP_UNSUPPORTED =
+  "This browser does not let a site served over https reach a plain http node on your local network. Open this page in Chrome or Edge, or enter the node's https address.";
+
 /** Why a read failed and what the viewer can do about it. `what` names the content, such as "the stream list". */
 export function failedReadSentence(what: string, answer: FailedAnswer): string {
   switch (answer.kind) {
