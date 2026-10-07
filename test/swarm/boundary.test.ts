@@ -53,7 +53,7 @@ describe('the Swarm layer', () => {
 
 /**
  * The modules of the Swarm layer the features and the app may import: the client and what it reads in,
- * and two that read nothing, which network an address is on and how far a viewer's own node may be.
+ * and two that make no requests, which network an address is on and how far a viewer's own node may be.
  * A provider's own files and the registry of kinds stay behind it, so a new kind of provider changes
  * nothing outside `src/swarm`.
  */
