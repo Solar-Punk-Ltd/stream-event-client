@@ -67,6 +67,11 @@ describe("what a Bee node's health, readiness and peers say before a viewer swit
     });
   });
 
+  it('takes a peer list of null as unread rather than empty, since Bee 2.8.2 always sends an array', async () => {
+    const peers = Response.json({ peers: null });
+    expect(await node({ health: health('2.8.2'), readiness: READY, peers }).probe()).toMatchObject({ kind: 'ok' });
+  });
+
   it.each(['2.2.0', '2.2.9-a1b2c3d4', '1.18.2'])('finds version %s older than the viewer needs', async (version) => {
     expect(await node({ health: health(version), readiness: READY, peers: PEERS }).probe()).toEqual({
       kind: 'not-ready',
