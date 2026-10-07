@@ -22,14 +22,18 @@ export interface ReadOptions {
  */
 export type UrlUse = 'segment' | 'preview-segment' | 'thumbnail';
 
-/** Which reads a provider can make, so a client asks another one before asking in vain. */
+/**
+ * Which reads a provider can make. The client does not consult the read flags before asking: a
+ * provider asked for a read it cannot make answers unsupported, and the client then asks the next one.
+ * Only `urls` is read ahead, to pass over a provider that gives none.
+ */
 export interface ProviderCapabilities {
   readonly feedHead: boolean;
   readonly feedEntry: boolean;
   readonly soc: boolean;
   readonly chunk: boolean;
   readonly bytes: boolean;
-  /** Whether {@link SwarmProvider.urlFor} gives URLs. A provider without them is read through `readBytes`. */
+  /** Whether {@link SwarmProvider.urlFor} gives URLs. The client takes a URL from the next provider that does. */
   readonly urls: boolean;
   /** Whether the provider runs a node inside the tab, which {@link SwarmProvider.start} starts. */
   readonly inTab: boolean;

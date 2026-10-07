@@ -19,8 +19,10 @@ interface BoundedRequestOptions {
  * throwing: a gateway that sends headers and withholds the body is still bounded, and a caller who
  * cancelled is told so even if the window ran out in the same tick.
  *
- * Built from `AbortController` and `setTimeout` because `AbortSignal.timeout` and `AbortSignal.any` are
- * newer than the bundle's declared browser floor of Safari 14.
+ * Built from `AbortController` and `setTimeout` rather than `AbortSignal.timeout` (Safari 16) and
+ * `AbortSignal.any` (Safari 17.4), so every read works on the build target's Safari 14. The chat's
+ * write in `gsocWrite` does use `AbortSignal.timeout`, so below Safari 16 a viewer can read the chat
+ * but not write to it.
  */
 export async function boundedRequest(url: string, options: BoundedRequestOptions): Promise<BoundedOutcome> {
   const { fetcher, timeoutMs, signal, readsBody } = options;

@@ -253,10 +253,12 @@ so the player brings its own loaders:
   shared `ManifestFetcher` at start and on every node switch (`useSwarm`). Not found is a slot not
   written yet, and anything else is the gateway failing, backed off as before, a rate limit for at
   least as long as it asked.
-- **CustomFragmentLoader** fetches each segment from the URL the client gives for it (`urlFor`),
-  written into the playlist, staggered by a bounded random delay so a crowd at the live edge does not
-  ask in the same instant. `fetchSegmentBytes` is the one place segment bytes are fetched, where a
-  provider without URLs can plug in.
+- **CustomFragmentLoader** hands each segment to hls.js's own loader, staggered by a bounded random
+  delay so a crowd at the live edge does not ask in the same instant. Segments, preview segments and
+  stream pictures are loaded by hls.js and the browser from the URLs the client gives (`urlFor`),
+  written into the playlist or the page, not read through the client. So those loads are not counted
+  and a failed one is not asked again of the fallback. `fetchSegmentBytes` is the one place segment
+  bytes are fetched, where a provider without URLs can plug in.
 - **ManifestStateManager** merges each live playlist into a growing EVENT playlist, so segments stay
   playable longer than the publisher's sliding window.
 - **LadderFeedPoller** follows the feed of the quality hls.js plays, plus the one being switched to
