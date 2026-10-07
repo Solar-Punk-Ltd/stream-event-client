@@ -2,8 +2,6 @@ import { HLS_STREAM_INF } from '@/shared/hlsTags';
 import { parseManifest, type Segment } from '@/shared/manifest';
 import { buildMasterPlaylist, buildSwarmUri, parseSwarmUri } from '@/shared/masterPlaylist';
 
-import { absoluteGatewayUrl } from '@/features/player/gatewayUrl';
-
 /**
  * Playlist text and feed URIs, the pure half of the Swarm HLS loader.
  *
@@ -17,21 +15,6 @@ import { absoluteGatewayUrl } from '@/features/player/gatewayUrl';
  */
 
 export { buildMasterPlaylist, buildSwarmUri, parseManifest, parseSwarmUri, type Segment };
-
-/**
- * Where segment references are fetched from, as an absolute URL.
- *
- * Absolute is the whole point. These strings are written into a media playlist, and hls.js
- * resolves every URI in a playlist against that playlist's own URL, which here is
- * `swarm://<owner>/<topic>`. A root-relative `/bee/bytes/<ref>` resolved against that inherits the
- * scheme *and* the owner, arriving at the fragment loader as
- * `swarm://<owner>/bee/bytes/<ref>`. Strip the scheme and what is left still carries the owner as
- * a path segment, so the request goes to `<origin>//<owner>/bee/bytes/<ref>` and a dev server
- * answers it with index.html. A URI that already carries a scheme is returned untouched instead.
- */
-export function absoluteBytesBase(beeUrl: string, origin: string): string {
-  return absoluteGatewayUrl(beeUrl, '/bytes', origin);
-}
 
 /**
  * Whether a feed answered with a multivariant playlist rather than a media playlist.

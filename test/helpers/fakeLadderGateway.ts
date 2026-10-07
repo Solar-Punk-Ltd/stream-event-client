@@ -1,8 +1,11 @@
 import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import { makeFeedIdentifier } from '@/shared/feedFollow';
 
+import type { PlayerReader } from '../../src/features/player/playerReads.js';
 import { ManifestFetchError } from '../../src/features/player/refusedSlot.js';
 import { TimedResponse } from '../../src/shared/fetchWithTimeout.js';
+
+import { readerOverPaths } from './playerReader.js';
 
 /** The instant every fake ladder's first segment is stamped with. */
 export const LADDER_EPOCH_MS = Date.UTC(2026, 9, 7, 12, 0, 0);
@@ -162,6 +165,9 @@ export class FakeLadderGateway {
   slotIndexOf(path: string): number | null {
     return this.slotOwners.get(path)?.index ?? null;
   }
+
+  /** The player's reads, answered by {@link fetchResource}. */
+  readonly reader: PlayerReader = readerOverPaths((path) => this.fetchResource(path));
 
   fetchResource = async (path: string): Promise<TimedResponse> => {
     const head = /^feeds\/[^/]+\/([0-9a-f]+)$/.exec(path);

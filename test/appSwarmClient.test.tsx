@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
+import { Topic } from '@ethersphere/bee-js';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { AppContextProvider, useAppContext } from '../src/app/AppProvider';
 import { parseRuntimeConfig, type RuntimeConfig } from '../src/config/runtimeConfig';
+import { manifestFetcher } from '../src/features/player/CustomManifestLoader';
+import { buildSwarmUri } from '../src/features/player/playlist';
 import { gatewayClock } from '../src/shared/gatewayClock';
 import type { SwarmClient } from '../src/swarm/client';
 import { mount, settle, type Mounted } from './helpers/dom';
@@ -13,6 +16,9 @@ const REFERENCE = 'ef'.repeat(32);
 const EVENT_GATEWAY = 'https://event.example.com';
 const BACKUP_GATEWAY = 'https://backup.example.com';
 const OWN_NODE = 'http://localhost:1633';
+const STREAM_OWNER = '2'.repeat(40);
+const STREAM_TOPIC_HEX = Topic.fromString('a-stream').toString();
+const SOURCE_URL = buildSwarmUri(STREAM_OWNER, 'a-stream');
 /** Where a viewer's chosen gateway survives a reload, as the provider keeps it. */
 const GATEWAY_STORAGE_KEY = 'swarm-gateway-url';
 
@@ -108,6 +114,27 @@ describe("the app's Swarm client", () => {
     current().setGatewayUrl(current().defaultGatewayUrl);
     await settle();
     expect(await readThrough(current().swarm)).toBe(`${EVENT_GATEWAY}/bytes/${REFERENCE}`);
+  });
+
+  it("hands the player the client's player reader, at start and on every node picked", async () => {
+    start();
+    await settle();
+    const before = asked.length;
+
+    await manifestFetcher.fetchSource(SOURCE_URL).catch(() => {});
+    current().setGatewayUrl(OWN_NODE);
+    await settle();
+    await manifestFetcher.fetchSource(SOURCE_URL).catch(() => {});
+
+    expect(asked.slice(before)).toEqual([
+      `${EVENT_GATEWAY}/feeds/${STREAM_OWNER}/${STREAM_TOPIC_HEX}`,
+      `${OWN_NODE}/feeds/${STREAM_OWNER}/${STREAM_TOPIC_HEX}`,
+    ]);
+    expect(
+      current()
+        .swarm.counts()
+        .filter(({ feature }) => feature === 'player'),
+    ).toEqual([{ feature: 'player', read: 'feed-head', provider: 'own-node', answer: 'not-found', count: 1 }]);
   });
 
   it("keeps the shared gateway clock from every answer's server time", async () => {

@@ -2,6 +2,7 @@ import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import { makeFeedIdentifier } from '@/shared/feedFollow';
 
 import type { NewestIndexFinder } from '../../src/features/player/newestIndexFinder.js';
+import type { PlayerReader } from '../../src/features/player/playerReads.js';
 import { ManifestFetchError } from '../../src/features/player/refusedSlot.js';
 import { TimedResponse } from '../../src/shared/fetchWithTimeout.js';
 import {
@@ -11,6 +12,8 @@ import {
   markerPeriodAt,
   markerPeriodStartMs,
 } from '../../src/shared/ladderMarker.js';
+
+import { readerOverPaths } from './playerReader.js';
 
 import type { VirtualTime } from '../feedModel/virtualTime.js';
 
@@ -175,6 +178,9 @@ export class TimedGateway {
     }
     return Object.keys(rungs).length === 0 ? null : { v: 1, period, writtenAt, rungs };
   }
+
+  /** The player's reads, answered by {@link fetchResource}. */
+  readonly reader: PlayerReader = readerOverPaths((path) => this.fetchResource(path));
 
   fetchResource = (path: string): Promise<TimedResponse> => {
     const slot = this.slots.get(path);

@@ -5,6 +5,7 @@ import { ManifestFetcher, ManifestStateManager } from '../src/features/player/Ma
 import { RequestJitter } from '../src/shared/requestJitter';
 
 import { slotPathsOf } from './helpers/slotPaths';
+import { swarmOverGlobalFetch } from './helpers/playerReader';
 
 /**
  * The first browser ever pointed at a published ladder failed with three
@@ -94,7 +95,7 @@ describe('a published ladder master starts the rungs', () => {
     }) as typeof fetch;
 
     fetcher = new ManifestFetcher(manager, undefined, undefined, NO_JITTER);
-    fetcher.beeUrl = 'http://gateway.test';
+    fetcher.useSwarm(swarmOverGlobalFetch('http://gateway.test'));
   });
 
   afterEach(async () => {

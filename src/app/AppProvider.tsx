@@ -90,12 +90,12 @@ export const AppContextProvider = ({ config, children }: Props) => {
   const defaultGatewayUrl = defaultGateway(settings).url;
   const [catalog, setCatalog] = useState<StreamCatalog>({ streams: [], gateway: null, slot: null });
   const [isStreamListLoaded, setIsStreamListLoaded] = useState(false);
-  const [gatewayUrl, setGatewayUrlState] = useState<string>(() => {
-    const url = loadGatewayUrl(defaultGatewayUrl);
-    manifestFetcher.beeUrl = url;
-    return url;
+  const [gatewayUrl, setGatewayUrlState] = useState<string>(() => loadGatewayUrl(defaultGatewayUrl));
+  const [swarm, setSwarm] = useState<SwarmClient>(() => {
+    const client = swarmClientFor(settings, gatewayUrl);
+    manifestFetcher.useSwarm(client.reader('player'));
+    return client;
   });
-  const [swarm, setSwarm] = useState<SwarmClient>(() => swarmClientFor(settings, gatewayUrl));
 
   const gatewayRef = useRef(gatewayUrl);
 
@@ -114,8 +114,9 @@ export const AppContextProvider = ({ config, children }: Props) => {
       const trimmed = url.replace(/\/+$/, '');
       gatewayRef.current = trimmed;
       setGatewayUrlState(trimmed);
-      setSwarm(swarmClientFor(settings, trimmed));
-      manifestFetcher.beeUrl = trimmed;
+      const client = swarmClientFor(settings, trimmed);
+      setSwarm(client);
+      manifestFetcher.useSwarm(client.reader('player'));
       // The new node has its own view of the feed, so a position established against the old one would
       // ask it for slots it may not hold, which reads as a catalog that stopped rather than one being
       // followed from the wrong place.

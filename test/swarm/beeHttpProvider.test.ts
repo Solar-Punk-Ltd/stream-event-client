@@ -157,6 +157,15 @@ describe('the Bee HTTP provider', () => {
     expect(bee.urlFor(SEGMENT, 'preview-segment')).toBe(`${PAGE_ORIGIN}/bee/bytes/${SEGMENT}`);
   });
 
+  it('gives an absolute gateway its own segment URLs, with any run of trailing slashes dropped', () => {
+    // A rooted path resolved against the playlist's own swarm:// URL would keep the owner as a host,
+    // and a doubled slash before bytes would read as a host called bytes.
+    expect(provider(recordedFetch(), 'https://gateway.example//').urlFor(SEGMENT, 'segment')).toBe(
+      `https://gateway.example/bytes/${SEGMENT}`,
+    );
+    expect(provider(recordedFetch(), '/bee///').urlFor(SEGMENT, 'segment')).toBe(`${PAGE_ORIGIN}/bee/bytes/${SEGMENT}`);
+  });
+
   it('gives a picture URL under /bzz with the reference encoded and the trailing slash', () => {
     const bee = provider(recordedFetch(), '/bee');
 

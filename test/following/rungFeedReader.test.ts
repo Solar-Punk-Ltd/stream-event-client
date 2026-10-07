@@ -4,13 +4,14 @@ import { describe, it } from 'vitest';
 
 import { RungFeedReader } from '../../src/features/player/rungFeedReader.js';
 import type { TimedResponse } from '../../src/shared/fetchWithTimeout.js';
+import { readerOverPaths } from '../helpers/playerReader.js';
 
 const OWNER = 'a1'.repeat(20);
 const TOPIC = Topic.fromString('rung-feed-reader-test');
 
 function readerAnswering(text: string): RungFeedReader {
   const fetchResource = async (): Promise<TimedResponse> => ({ ok: true, status: 200, headers: new Headers(), text });
-  return new RungFeedReader(fetchResource, OWNER, TOPIC, () => 0);
+  return new RungFeedReader(readerOverPaths(fetchResource), OWNER, TOPIC, () => 0);
 }
 
 describe('reading one slot of a quality', () => {

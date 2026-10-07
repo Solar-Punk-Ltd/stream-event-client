@@ -6,6 +6,7 @@ import { FeedReturnWatch, feedReturnWatchWaitMs } from '../src/features/player/f
 import { TimedResponse } from '../src/shared/fetchWithTimeout';
 import { RequestJitter } from '../src/shared/requestJitter';
 
+import { readerOverPaths } from './helpers/playerReader';
 import { waitFor } from './helpers/waiting';
 
 const OWNER = 'aabbcc';
@@ -56,7 +57,7 @@ describe('the wait before each ask for a broadcaster coming back', () => {
       throw new Error(`Failed to fetch: ${path}`);
     };
     const watch = new FeedReturnWatch({
-      fetchResource: neverWritten,
+      reader: readerOverPaths(neverWritten),
       owner: OWNER,
       topic: TOPIC,
       finishedAt: FeedIndex.fromBigInt(1n),
