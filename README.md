@@ -169,14 +169,15 @@ A setting that is missing or malformed stops the container at start, and its log
 ### Watching through a Bee node of the viewer's own
 
 `BEE_NODES` decides which addresses the page may read a viewer's own Bee node at, beside the gateways
-above. It sets the page's content security policy and nothing else. The page itself is not told the
-level, so a deployment that raises it also has to let the control panel offer such addresses.
+above. It sets the page's content security policy. `providers.beeNodes` in `config.json` must name the
+same level, because that is what the control panel offers, and the deployment repository writes both
+from one setting.
 
-| Level                  | What the page may reach                                                                                                                                                                 |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `off`, the default     | A node on the viewer's own machine at `localhost` or `127.0.0.1`, any port, over plain http. This is what the image did before the setting existed                                      |
-| `https`                | Also a node at any https address, such as a node on another machine behind TLS                                                                                                          |
-| `https-and-local-http` | Also a node at any plain http address, which is how a node on the viewer's local network is reached. Chrome is the browser that allows this from an https page, after asking the viewer |
+| Level                  | What the page may reach                                                                                                                                                     |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `off`, the default     | A node on the viewer's own machine at `localhost` or `127.0.0.1`, any port, over plain http. This is what the image did before the setting existed                          |
+| `https`                | Also a node at any https address, such as a node on another machine behind TLS                                                                                              |
+| `https-and-local-http` | Also a node at any plain http address, which is how a node on the viewer's local network is reached. Chrome and Edge allow this from an https page, after asking the viewer |
 
 The last level is weaker than it sounds. A policy can name schemes and hosts but not private address
 ranges, so allowing plain http on the local network means allowing every plain http address on the
