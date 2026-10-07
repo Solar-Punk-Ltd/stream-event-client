@@ -40,13 +40,14 @@ The repository's `public/config.json` is an example with placeholders. The page 
 a value still in `<angle brackets>`, so the example can never pass for a real deployment. Real values
 live with the deployment, never in this repository.
 
-| Field           | What it is                                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `gatewayUrl`    | The event gateway: a path on this site such as `/bee`, which the site proxies to Bee, or an http or https address of a Bee node |
-| `catalog.owner` | The Ethereum address that owns the stream list feed                                                                             |
-| `catalog.topic` | The stream list feed's topic, as text                                                                                           |
-| `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                |
-| `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused            |
+| Field           | What it is                                                                                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `gatewayUrl`    | The event gateway: a path on this site such as `/bee`, which the site proxies to Bee, or an http or https address of a Bee node. Set this or `providers`, not both |
+| `providers`     | Optional in place of `gatewayUrl`. The gateways offered, the default, the fallback and the kinds offered, below                                                    |
+| `catalog.owner` | The Ethereum address that owns the stream list feed                                                                                                                |
+| `catalog.topic` | The stream list feed's topic, as text                                                                                                                              |
+| `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                                                   |
+| `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused                                               |
 
 A theme is a set of colours and typefaces in `src/design/themes/`, with its logo, page copy and
 footer links in `src/design/themes.ts`. Every theme defines the same variables, so a deployment that picks another
@@ -64,6 +65,19 @@ otherwise. With `enabled` false the other fields are not read.
 | `chat.gsocTopic`      | The topic of the address the chat aggregator listens on                                                                                                          |
 | `chat.feedOwner`      | The Ethereum address that writes the chat feeds, which is the aggregator's                                                                                       |
 | `chat.pollIntervalMs` | How often an open chat reads its feed, in milliseconds. A positive whole number, raised under load without a rebuild                                             |
+
+The `providers` block names more than one way of reaching Swarm. A config that names only `gatewayUrl` is
+read as one Bee gateway, the default, with no fallback, so a deployment written before `providers` needs no
+change.
+
+| Field                       | What it is                                                                                                      |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `providers.gateways`        | The gateways offered, at least one. Each has an `id`, a `kind`, an optional `label` and its own settings        |
+| `providers.gateways[].kind` | `bee-http`, a Bee node's HTTP API, the only kind this build carries. A kind the build does not carry is refused |
+| `providers.gateways[].url`  | For `bee-http`: a path on this site such as `/bee`, or an http or https address, as `gatewayUrl` takes          |
+| `providers.default`         | The `id` of the gateway every reader starts on                                                                  |
+| `providers.fallback`        | Optional. The `id` of another gateway, asked when the one in use fails                                          |
+| `providers.kinds`           | Optional. The kinds a viewer may add a gateway of their own of. Every kind the build carries when absent        |
 
 Serve `config.json` with `Cache-Control: no-store`, so a changed setting reaches every page opened
 after the change.
@@ -247,6 +261,33 @@ so the player brings its own loaders:
 Feed URIs use a `swarm://<owner>/<topic>` scheme, because hls.js resolves every playlist URI against
 the playlist's own URL and a URI with a scheme is the one case it leaves untouched.
 
+## The Swarm client
+
+`src/swarm/` is the one layer meant to read Swarm, plain TypeScript with no React, and it imports nothing
+from `src/app` or `src/features` (a test holds it to that). The features still read the gateway
+themselves and move onto it next.
+
+- **A provider** is one way of reaching Swarm (`src/swarm/provider.ts`), holding only what the app reads:
+  a feed's head, a feed entry by index, a chunk, the bytes a reference names, and a URL for what the
+  browser or hls.js loads itself. It also says what it can do, its status, a probe, and start and stop
+  for a node in the tab. `src/swarm/providers/bee-http/` is Bee's HTTP API, asking the paths the app has
+  always asked.
+- **Every read answers and never throws** (`src/swarm/answers.ts`): the content, with the feed index
+  and the server time where the answer carries them, not found, rate limited with the wait asked for,
+  unsupported, unavailable with its cause (a timeout, a status or no answer at all), or aborted. Every
+  read takes a signal and a window, ten seconds when none is given. Bee's 404 is not found, its 429 is
+  rate limited, and any other failing status, a 500 included, is unavailable.
+- **The client** (`src/swarm/client.ts`) is made from the settings and the viewer's choice by
+  `createSwarmClient`, which makes each gateway's provider through the registry of kinds
+  (`src/swarm/registry.ts`). Each feature (the player, the stream list, the previews, the chat) reads
+  through its own provider with the fallback behind it. A provider that faults three times in a row is
+  left alone for 15 seconds, twice that each time it faults again at once, up to two minutes, and a
+  rate-limited one for as long as it asked. A paused provider is still asked when nothing else can be.
+  Every read is counted by feature, kind, provider and answer, and every answer's server time keeps the
+  gateway clock.
+- **The contract** (`test/swarm/providerContract.ts`) is the suite every provider kind must pass, run
+  for Bee over HTTP against the answers the browser smoke test replays.
+
 ## The design
 
 One look today, Swarm Brand v3.0 as msrs-client's Swarm theme draws it: near-black surfaces, the
@@ -285,6 +326,7 @@ src/
     player/     the Swarm HLS player, its loaders and overlays, the watch page
     gateway/    the Bee node picker and its health check
     chat/       the chat panel, the display-name login, the chat library's lifecycle
+  swarm/        the Swarm client, its providers and their answers, and the settings it is made from
   shared/       the stream list format and feed helpers copied from streaming-monorepo, the fetch
                 helpers every feature uses, and the components more than one feature uses
 test/           the unit tests, test/shared for the copied modules, test/chat for the chat against a
