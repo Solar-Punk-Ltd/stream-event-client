@@ -269,7 +269,7 @@ and the kinds of provider the build carries (`src/features/gateway/`).
   streams have a chat, so a head that is not there is "Not tested" with the reason. The checks after the list use the stream this gateway listed, or the list the
   page already shows when it could not, a live stream first. Each check ends in one sentence, and a
   failure says what the viewer can do: "this node does not allow this site" with the setting that
-  decides it, "this address is not a Swarm gateway", or "the gateway did not answer in 5 s". The
+  decides it, or that this site's own policy does not allow the address, "this address is not a Swarm gateway", or "the gateway did not answer in 5 s". The
   sentences are in `checkSentences.ts`, each with its test.
 - **Status.** Who answered each feature in the last minute, from the client's own counts: which
   provider the feature reads from and which stands behind it, how many answers of each kind came from
