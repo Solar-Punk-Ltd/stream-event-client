@@ -71,10 +71,9 @@ export class CustomFragmentLoader extends FragmentLoader {
 
     // Every playlist this client hands hls.js names its segments absolutely, so anything else here is
     // a bug upstream rather than a URL to repair, and it is not repairable anyway. A preview playlist
-    // is a blob, and hls.js resolving `/bytes/<ref>` against `blob:http://viewer/<uuid>` returns
-    // `blob:http:/bytes/<ref>`: the origin and the blob id are gone, so there is no gateway left to
-    // resolve against. Rebuilding the path against the page's own origin would ask a host that never
-    // had the segment.
+    // is answered from memory under its own scheme, and hls.js resolving `/bytes/<ref>` against it
+    // returns `memory:preview.m3u8/bytes/<ref>`, so there is no gateway left to resolve against.
+    // Rebuilding the path against the page's own origin would ask a host that never had the segment.
     //
     // Not optional-chained, unlike the manifest loader above. hls.js declares `onError` required, and
     // this is the one path that returns without reaching the transport: chaining it would turn a

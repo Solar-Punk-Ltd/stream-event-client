@@ -13,6 +13,7 @@ import Pqueue from 'p-queue';
 
 import { fetchPreviewManifest, rungSlotsKey } from '@/features/catalog/StreamPreview/previewManifest';
 import { previewMode, thumbnailFailed } from '@/features/catalog/StreamPreview/previewMode';
+import { PREVIEW_PLAYLIST_URL, previewPlaylistLoader } from '@/features/catalog/StreamPreview/previewPlaylistLoader';
 import { previewSourceFrom } from '@/features/catalog/StreamPreview/previewSource';
 import { CustomFragmentLoader } from '@/features/player/CustomManifestLoader';
 import { useAppContext } from '@/app/AppProvider';
@@ -117,7 +118,6 @@ export const StreamPreview = ({
 
     const abort = new AbortController();
     let hls: Hls | null = null;
-    let blobUrl: string | null = null;
 
     // The task catches its own failure and clears the spinner, so nothing waits on the queue.
     void thumbnailQueue.add(async () => {
@@ -167,22 +167,15 @@ export const StreamPreview = ({
           HLS_ENDLIST,
         ].join('\n');
 
-        const blob = new Blob([miniManifest], { type: 'application/vnd.apple.mpegurl' });
-        blobUrl = URL.createObjectURL(blob);
-
-        if (abort.signal.aborted) {
-          return;
-        }
-
         await new Promise<void>((resolve) => {
           if (!videoRef.current || abort.signal.aborted) {
             resolve();
             return;
           }
 
-          hls = new Hls({ fLoader: CustomFragmentLoader });
+          hls = new Hls({ pLoader: previewPlaylistLoader(miniManifest), fLoader: CustomFragmentLoader });
           hls.attachMedia(videoRef.current);
-          hls.loadSource(blobUrl!);
+          hls.loadSource(PREVIEW_PLAYLIST_URL);
 
           const done = () => {
             abort.signal.removeEventListener('abort', done);
@@ -220,10 +213,6 @@ export const StreamPreview = ({
       if (hls) {
         hls.destroy();
         hls = null;
-      }
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-        blobUrl = null;
       }
     };
   }, [owner, topic, swarm, index, state, slotsKey, mode]);
