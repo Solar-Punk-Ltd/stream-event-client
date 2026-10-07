@@ -51,10 +51,14 @@ type AppContextState = {
    * The same function for the life of the page, so a running chat follows a rebuilt client.
    */
   chatReads: () => SwarmReader;
-  /** The address of the gateway the viewer chose, which the node picker shows and the stream list is tagged with. */
+  /** The gateways this deployment offers, its default and its fallback, which the control panel lists. */
+  swarmSettings: SwarmSettings;
+  /** The stream list feed this event publishes, which the control panel's Test reads. */
+  catalogFeed: { readonly owner: string; readonly topic: string };
+  /** The address of the gateway the viewer chose, which the control panel shows and the stream list is tagged with. */
   gatewayUrl: string;
   setGatewayUrl: (url: string) => void;
-  /** The address of the gateway this deployment reads by default, which the picker offers as the way back. */
+  /** The address of the gateway this deployment reads by default, which the panel offers as the way back. */
   defaultGatewayUrl: string;
   /** The chat's settings, or null when this deployment has chat switched off. */
   chat: ChatConfig | null;
@@ -210,6 +214,8 @@ export const AppContextProvider = ({ config, children }: Props) => {
         fetchAppState,
         swarm,
         chatReads,
+        swarmSettings: settings,
+        catalogFeed: config.catalog,
         gatewayUrl,
         setGatewayUrl,
         defaultGatewayUrl,
