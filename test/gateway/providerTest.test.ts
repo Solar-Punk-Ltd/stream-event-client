@@ -342,6 +342,23 @@ describe("the control panel's Test, on a gateway the deployment offers", () => {
     expect(asked).not.toContain(HEALTH);
   });
 
+  it("does not test the chat, which reads from the event's chat address rather than from this gateway", async () => {
+    const asked: string[] = [];
+    const results = await runOnTestClock({ fetcher: eventGateway(asked), isOwnNode: false });
+
+    expect(results.chat).toEqual({ check: 'chat', outcome: 'skipped', sentence: SKIPPED.chatElsewhere });
+    expect(SKIPPED.chatElsewhere).toBe(
+      "Not tested: the chat reads from the event's chat address, whichever gateway is in use, so only your own node is checked for it.",
+    );
+    expect(asked.filter((url) => url.includes(CHAT_HEAD) || url.includes('/chunks/'))).toEqual([]);
+  });
+
+  it('still says a site with no chat has none', async () => {
+    const results = await run({ fetcher: gateway(), chat: null, isOwnNode: false });
+
+    expect(results.chat).toEqual({ check: 'chat', outcome: 'skipped', sentence: SKIPPED.noChat });
+  });
+
   it('says it could not be reached when no read got an answer', async () => {
     const results = await run({ fetcher: faultyFetch(), knownStreams: recordedStreams(), isOwnNode: false });
 

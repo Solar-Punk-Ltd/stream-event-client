@@ -79,6 +79,8 @@ export const SKIPPED = {
   noPlayable: 'Not tested: no stream in the list has video yet.',
   noPicture: 'Not tested: no stream in the list has a picture.',
   noChat: 'Not tested: this site has no chat.',
+  chatElsewhere:
+    "Not tested: the chat reads from the event's chat address, whichever gateway is in use, so only your own node is checked for it.",
 } as const;
 
 /**

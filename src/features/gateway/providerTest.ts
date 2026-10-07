@@ -51,7 +51,7 @@ export const CHECK_LABELS: Readonly<Record<CheckName, string>> = {
   player: 'Video',
   previews: 'Previews',
   thumbnails: 'Pictures',
-  // The Test reads the chat through the gateway under test, while the chat itself reads its own address.
+  // Read through the viewer's own node under test, while the chat itself reads its own address.
   chat: 'Chat feed on this gateway',
 };
 
@@ -432,13 +432,18 @@ async function checkPicture(
 }
 
 /**
- * The chat's head and its newest slot through the chat reader the chat itself runs on. Its reads are
+ * The chat's head and its newest slot through the chat reader the chat itself runs on, on the viewer's
+ * own node only. A gateway the deployment offers refuses the chat's paths, which the chat reads from the
+ * event's chat address instead, so a check of them there would fail a gateway that serves the viewer. Its reads are
  * recorded on the way through, because the chat reader rejects with the library's own errors and the
  * answer behind one is what tells the viewer what to do.
  */
 async function checkChat(context: ProviderTestContext, streams: readonly Stream[]): Promise<CheckResult> {
   if (context.chat === null) {
     return skipped('chat', SKIPPED.noChat);
+  }
+  if (!context.isOwnNode) {
+    return skipped('chat', SKIPPED.chatElsewhere);
   }
   const stream = streamToTest(streams);
   if (stream === null) {

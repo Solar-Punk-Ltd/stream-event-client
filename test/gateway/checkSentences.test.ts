@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CHAT_FEED_NOT_FOUND,
+  CONNECTED_BY_CONTENT,
   COULD_NOT_REACH,
   failedReadSentence,
   NOT_A_SWARM_GATEWAY,
@@ -80,12 +81,14 @@ describe('the sentences a passed or skipped check ends in', () => {
       'Not tested: no stream in the list has video yet.',
       'Not tested: no stream in the list has a picture.',
       'Not tested: this site has no chat.',
+      "Not tested: the chat reads from the event's chat address, whichever gateway is in use, so only your own node is checked for it.",
     ]);
   });
 
   it('use no em-dash and no semicolon', () => {
     const every = [
       COULD_NOT_REACH,
+      CONNECTED_BY_CONTENT,
       NOT_A_SWARM_GATEWAY,
       ...Object.values(SKIPPED),
       CHAT_FEED_NOT_FOUND('x'),

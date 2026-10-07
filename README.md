@@ -267,9 +267,10 @@ and the kinds of provider the build carries (`src/features/gateway/`).
   it says it did not answer in time or could not be reached. The stream list is its feed's head, checked to
   be a stream list. The video is read as the player starts: the ladder's time marker on a live ladder,
   otherwise a feed entry the list names, then one segment's URL is loaded. Previews read the playlist a
-  stream card reads. Pictures load one stream's picture. The chat, "Chat feed on this gateway", reads its
-  head and newest slot through the chat's own reader on the tested gateway, while the chat itself always
-  reads from the event's chat address, which the panel says. It passes only when the head is found: the stream list does not say which
+  stream card reads. Pictures load one stream's picture. The chat, "Chat feed on this gateway", is checked
+  on the viewer's own node only: it reads its head and newest slot through the chat's own reader there.
+  The chat itself always reads from the event's chat address, which the panel says, and a gateway the
+  deployment offers refuses the chat's paths, so for one of those the chat is "Not tested" with that reason. It passes only when the head is found: the stream list does not say which
   streams have a chat, so a head that is not there is "Not tested" with the reason. The checks after the list use the stream this gateway listed, or the list the
   page already shows when it could not, a live stream first. Each check ends in one sentence, and a
   failure says what the viewer can do: "this node does not allow this site" with the setting that
