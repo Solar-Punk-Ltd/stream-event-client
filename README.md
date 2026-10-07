@@ -297,7 +297,8 @@ there that builds a Bee URL, calls fetch, or makes a Bee client of its own (`tes
   and the server time where the answer carries them, not found, rate limited with the wait asked for,
   unsupported, unavailable with its cause (a timeout, a status or no answer at all), or aborted. Every
   read takes a signal and a window, ten seconds when none is given. Bee's 404 is not found, its 429 is
-  rate limited, and any other failing status, a 500 included, is unavailable.
+  rate limited with its `Retry-After` capped at a minute, and any other failing status, a 500 included,
+  is unavailable.
 - **The client** (`src/swarm/client.ts`) is made from the settings and the viewer's choice by
   `createSwarmClient`, which makes each gateway's provider through the registry of kinds
   (`src/swarm/registry.ts`). Each feature (the player, the stream list, the previews, the chat) reads
