@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react-swc';
+import { readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv } from 'vite';
@@ -19,9 +20,13 @@ export default defineConfig(({ mode }) => {
     },
   };
 
+  const { version } = JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+
   return {
     base: './',
     plugins: [react()],
+    // What the control panel's report names the build by.
+    define: { __BUILD_LABEL__: JSON.stringify(`stream-event-client ${version}, built ${new Date().toISOString()}`) },
     build: {
       // Stated rather than inherited, because the bundler default is not stable
       // across majors and moving it is silent: vite 5 defaulted to this list and

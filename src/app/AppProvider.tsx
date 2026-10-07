@@ -10,7 +10,13 @@ import { THEMES, type ThemeSettings } from '@/design/themes';
 import { gatewayClock } from '@/shared/gatewayClock';
 import type { SwarmClient, SwarmReader } from '@/swarm/client';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
-import { choiceForAddress, defaultGateway, type SwarmSettings, swarmSettingsFrom } from '@/swarm/settings';
+import {
+  CHAT_READ_GATEWAY_ID,
+  choiceForAddress,
+  defaultGateway,
+  type SwarmSettings,
+  swarmSettingsFrom,
+} from '@/swarm/settings';
 
 import { CatalogRead, catalogUpdater, StreamCatalog, toCatalogRead } from '@/features/catalog/catalogState';
 
@@ -81,9 +87,6 @@ function loadGatewayUrl(defaultGatewayUrl: string): string {
     return defaultGatewayUrl;
   }
 }
-
-/** The id the event's chat read address goes by in the client's counts. */
-const CHAT_READ_GATEWAY_ID = 'chat-read';
 
 /**
  * The client for the gateway at `address`, sharing the one gateway clock the player's time markers
