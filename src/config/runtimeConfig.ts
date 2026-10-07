@@ -89,11 +89,14 @@ const providersSchema = z
     /** The gateway every reader starts on. */
     default: notEmpty,
     /**
-     * The gateway asked when the one in use fails. Absent means the default gateway, so a viewer who
-     * picked another always has the event's own behind them, and false means none.
+     * The gateways asked when the one in use fails, one or an ordered list, with the default gateway
+     * always asked last. Absent means the default gateway alone, so a viewer who picked another always
+     * has the event's own behind them, and false means none.
      */
     fallback: z
-      .union([notEmpty, z.literal(false)], { message: 'must name one of the gateways, or be false' })
+      .union([notEmpty, z.array(notEmpty).min(1), z.literal(false)], {
+        message: 'must name one of the gateways, list them, or be false',
+      })
       .optional(),
     /** The kinds of provider a viewer may add one of their own of. Absent means every kind this build carries. */
     kinds: z.array(providerKindSchema).min(1, { message: 'must offer at least one kind' }).optional(),
@@ -113,10 +116,17 @@ const providersSchema = z
     if (!ids.has(providers.default)) {
       context.addIssue({ code: 'custom', path: ['default'], message: 'must name one of the gateways' });
     }
-    if (typeof providers.fallback === 'string' && !ids.has(providers.fallback)) {
+    const named = providers.fallback === false || providers.fallback === undefined ? [] : [providers.fallback].flat();
+    if (named.some((id) => !ids.has(id))) {
       context.addIssue({ code: 'custom', path: ['fallback'], message: 'must name one of the gateways' });
-    } else if (providers.fallback === providers.default) {
-      context.addIssue({ code: 'custom', path: ['fallback'], message: 'must name a gateway other than the default' });
+    } else if (named.includes(providers.default)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['fallback'],
+        message: 'must name gateways other than the default, which is always asked last',
+      });
+    } else if (new Set(named).size !== named.length) {
+      context.addIssue({ code: 'custom', path: ['fallback'], message: 'names a gateway twice' });
     }
   });
 

@@ -56,7 +56,7 @@ describe('the Swarm settings', () => {
     expect(swarmSettingsFrom(config({ gatewayUrl: '/bee' }))).toEqual({
       gateways: [{ id: SINGLE_GATEWAY_ID, kind: 'bee-http', url: '/bee' }],
       defaultId: SINGLE_GATEWAY_ID,
-      fallbackId: SINGLE_GATEWAY_ID,
+      fallbackOrder: [SINGLE_GATEWAY_ID],
       kinds: [...PROVIDER_KINDS],
       beeNodes: 'off',
     });
@@ -65,13 +65,13 @@ describe('the Swarm settings', () => {
   it('make the default gateway the fallback when providers names none', () => {
     const { fallback: _named, ...providers } = TWO_GATEWAYS.providers!;
 
-    expect(swarmSettingsFrom(config({ providers })).fallbackId).toBe('primary');
+    expect(swarmSettingsFrom(config({ providers })).fallbackOrder).toEqual(['primary']);
   });
 
   it('have no fallback when providers switches it off', () => {
-    expect(swarmSettingsFrom(config({ providers: { ...TWO_GATEWAYS.providers!, fallback: false } })).fallbackId).toBe(
-      null,
-    );
+    expect(
+      swarmSettingsFrom(config({ providers: { ...TWO_GATEWAYS.providers!, fallback: false } })).fallbackOrder,
+    ).toEqual([]);
   });
 
   it('take the gateways, the default, the fallback and the kinds from providers', () => {
@@ -81,10 +81,52 @@ describe('the Swarm settings', () => {
         { id: 'backup', kind: 'bee-http', url: BACKUP },
       ],
       defaultId: 'primary',
-      fallbackId: 'backup',
+      fallbackOrder: ['backup', 'primary'],
       kinds: [...PROVIDER_KINDS],
       beeNodes: 'off',
     });
+  });
+});
+
+describe('the order of fallbacks', () => {
+  const THREE_GATEWAYS = {
+    gateways: [
+      ...TWO_GATEWAYS.providers!.gateways,
+      { id: 'third', kind: 'bee-http' as const, url: 'https://third.example.com' },
+    ],
+    default: 'primary',
+  };
+
+  it("is the config's list with the default gateway last", () => {
+    expect(
+      swarmSettingsFrom(config({ providers: { ...THREE_GATEWAYS, fallback: ['third', 'backup'] } })).fallbackOrder,
+    ).toEqual(['third', 'backup', 'primary']);
+  });
+
+  it('asks a client in that order, the default last, whatever the viewer reads from', async () => {
+    const asked: string[] = [];
+    const settings = swarmSettingsFrom(config({ providers: { ...THREE_GATEWAYS, fallback: ['third', 'backup'] } }));
+    const client = createSwarmClient(settings, {
+      choice: { id: 'own-node', kind: 'bee-http', url: 'http://localhost:1633' },
+      environment: {
+        fetcher: (async (input: RequestInfo | URL) => {
+          asked.push(new URL(String(input)).host);
+          return new Response('', { status: 502 });
+        }) as typeof fetch,
+      },
+    });
+
+    await client.reader('player').readBytes(REFERENCE);
+
+    expect(asked).toEqual(['localhost:1633', 'third.example.com', 'backup.example.com', 'primary.example.com']);
+  });
+
+  it("takes the viewer's own order of the same gateways", () => {
+    const settings = swarmSettingsFrom(config({ providers: { ...THREE_GATEWAYS, fallback: ['third', 'backup'] } }));
+
+    expect(
+      createSwarmClient(settings, { fallbackOrder: ['backup', 'third', 'primary'] }).activity()[0].fallbackOrder,
+    ).toEqual(['backup', 'third']);
   });
 });
 
@@ -226,6 +268,6 @@ describe('making the client from the settings', () => {
     await client.reader('previews').readBytes(REFERENCE);
 
     expect(asked).toEqual([`http://localhost:1633/bytes/${REFERENCE}`]);
-    expect(client.health().map(({ id }) => id)).toEqual(['own-node', 'backup']);
+    expect(client.health().map(({ id }) => id)).toEqual(['own-node', 'backup', 'primary']);
   });
 });

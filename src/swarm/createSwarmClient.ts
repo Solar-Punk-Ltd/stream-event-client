@@ -14,16 +14,27 @@ export interface CreateSwarmClientOptions {
    * chat read address for the chat. Every other feature reads from the viewer's choice.
    */
   readonly routes?: Partial<Record<SwarmFeature, GatewaySetting>>;
+  /**
+   * The viewer's own order of the gateways the settings fall back to. Absent means the deployment's.
+   * An id the settings do not offer is skipped.
+   */
+  readonly fallbackOrder?: readonly string[];
   readonly environment?: ProviderEnvironment;
   /** Injected by tests. {@link PROVIDER_REGISTRY} otherwise. */
   readonly registry?: Readonly<Record<ProviderKindName, ProviderKind>>;
   /** Everything else the client takes, such as a feature's own route or the clock. */
-  readonly client?: Omit<SwarmClientOptions, 'chosen' | 'fallback' | 'routes'>;
+  readonly client?: Omit<SwarmClientOptions, 'chosen' | 'fallback' | 'fallbacks' | 'routes'>;
 }
 
 /** The Swarm client the settings and the viewer's choice describe, its providers made by their kinds. */
 export function createSwarmClient(settings: SwarmSettings, options: CreateSwarmClientOptions = {}): SwarmClient {
-  const { choice, routes = {}, environment = {}, registry = PROVIDER_REGISTRY } = options;
+  const {
+    choice,
+    routes = {},
+    fallbackOrder = settings.fallbackOrder,
+    environment = {},
+    registry = PROVIDER_REGISTRY,
+  } = options;
   const offered = (id: string | null) => settings.gateways.find((gateway) => gateway.id === id) ?? null;
   const make = (gateway: GatewaySetting): NamedProvider => ({
     id: gateway.id,
@@ -32,19 +43,19 @@ export function createSwarmClient(settings: SwarmSettings, options: CreateSwarmC
 
   const chosen =
     (typeof choice === 'string' ? offered(choice) : choice) ?? offered(settings.defaultId) ?? settings.gateways[0];
-  // A viewer on the fallback gateway itself has the default behind them, so the event's own gateway is
-  // behind every other choice for as long as the deployment keeps the fallback on.
-  const fallback =
-    settings.fallbackId === null
-      ? null
-      : ([offered(settings.fallbackId), offered(settings.defaultId)].find(
-          (gateway) => gateway !== null && gateway.id !== chosen.id,
-        ) ?? null);
+  // Only gateways the deployment falls back to are asked, so a viewer's saved order cannot add one.
+  const fallbacks =
+    settings.fallbackOrder.length === 0
+      ? []
+      : fallbackOrder
+          .filter((id) => settings.fallbackOrder.includes(id))
+          .map(offered)
+          .filter((gateway): gateway is GatewaySetting => gateway !== null);
 
   return new SwarmClient({
     ...options.client,
     chosen: make(chosen),
-    fallback: fallback ? make(fallback) : null,
+    fallbacks: fallbacks.map(make),
     routes: Object.fromEntries(Object.entries(routes).map(([feature, gateway]) => [feature, make(gateway)])) as Partial<
       Record<SwarmFeature, NamedProvider>
     >,

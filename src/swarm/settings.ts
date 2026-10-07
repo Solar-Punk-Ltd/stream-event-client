@@ -11,10 +11,10 @@ export interface SwarmSettings {
   readonly gateways: readonly GatewaySetting[];
   readonly defaultId: string;
   /**
-   * The gateway asked when the one in use fails, or null when the deployment switched the fallback off.
-   * A viewer on this gateway itself has the default behind them instead.
+   * The gateways asked in this order when the one in use fails, the default always last, or none when
+   * the deployment switched the fallback off. A feature's own gateway is left out of its list.
    */
-  readonly fallbackId: string | null;
+  readonly fallbackOrder: readonly string[];
   /** The kinds of provider a viewer may add one of their own of. */
   readonly kinds: readonly ProviderKindName[];
   /** How far a Bee node of the viewer's own may be, which the control panel's picker holds to. */
@@ -28,8 +28,8 @@ export const SINGLE_GATEWAY_ID = 'gateway';
  * The settings a config describes. A config written before `providers` existed names one gateway,
  * `gatewayUrl`, and that is read as the only gateway offered, the default and the fallback, so a
  * deployment needs no change to its settings and a viewer on a node of their own still has the event
- * gateway behind them. The fallback is the default gateway unless the config names another or
- * switches it off.
+ * gateway behind them. The fallback is the default gateway unless the config names others first or
+ * switches it off, and the default is always asked last.
  */
 export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'providers'>): SwarmSettings {
   const { providers, gatewayUrl } = config;
@@ -41,7 +41,7 @@ export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'pr
     return {
       gateways: [{ id: SINGLE_GATEWAY_ID, kind: 'bee-http', url: gatewayUrl }],
       defaultId: SINGLE_GATEWAY_ID,
-      fallbackId: SINGLE_GATEWAY_ID,
+      fallbackOrder: [SINGLE_GATEWAY_ID],
       kinds: [...PROVIDER_KINDS],
       beeNodes: DEFAULT_BEE_NODE_ACCESS,
     };
@@ -49,7 +49,7 @@ export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'pr
   return {
     gateways: providers.gateways,
     defaultId: providers.default,
-    fallbackId: providers.fallback === false ? null : (providers.fallback ?? providers.default),
+    fallbackOrder: providers.fallback === false ? [] : [...[providers.fallback ?? []].flat(), providers.default],
     kinds: providers.kinds ?? [...PROVIDER_KINDS],
     beeNodes: providers.beeNodes ?? DEFAULT_BEE_NODE_ACCESS,
   };

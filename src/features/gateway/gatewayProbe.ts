@@ -215,7 +215,7 @@ export function onlyGateway(gateway: GatewaySetting): SwarmSettings {
   return {
     gateways: [gateway],
     defaultId: gateway.id,
-    fallbackId: null,
+    fallbackOrder: [],
     kinds: [gateway.kind],
     beeNodes: DEFAULT_BEE_NODE_ACCESS,
   };

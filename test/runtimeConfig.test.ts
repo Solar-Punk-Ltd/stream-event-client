@@ -254,6 +254,19 @@ describe('the providers settings', () => {
     expect(problemOf(withProviders({ fallback: 'event' }))).toContain('providers.fallback');
   });
 
+  it('accepts the fallback as an ordered list of gateways', () => {
+    const THIRD = { id: 'third', kind: 'bee-http', url: 'https://third.example.com' };
+
+    expect(withProviders({ gateways: [EVENT, BACKUP, THIRD], fallback: ['third', 'backup'] }).ok).toBe(true);
+  });
+
+  it('refuses a fallback list that is empty, repeats a gateway, names the default or one not offered', () => {
+    expect(problemOf(withProviders({ fallback: [] }))).toContain('providers.fallback');
+    expect(problemOf(withProviders({ fallback: ['backup', 'backup'] }))).toContain('providers.fallback');
+    expect(problemOf(withProviders({ fallback: ['backup', 'event'] }))).toContain('providers.fallback');
+    expect(problemOf(withProviders({ fallback: ['elsewhere'] }))).toContain('providers.fallback');
+  });
+
   it('refuses two gateways under one id', () => {
     expect(problemOf(withProviders({ gateways: [EVENT, { ...BACKUP, id: 'event' }] }))).toContain(
       'providers.gateways.1.id',

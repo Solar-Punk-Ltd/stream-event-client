@@ -68,9 +68,9 @@ otherwise. With `enabled` false the other fields are not read.
 
 The `providers` block names more than one way of reaching Swarm. A config that names only `gatewayUrl` is
 read as one Bee gateway, the default and the fallback, so a deployment written before `providers` needs no
-change. The fallback is on by default: a viewer who picks another gateway or a node of their own reads from
-it with the fallback behind it, which is the default gateway unless the config names another, and a viewer
-who picks the named fallback itself has the default behind them. The chat reads from `chat.readUrl` whatever the viewer picks.
+change. The fallback is on by default: when the source a part reads from fails, the gateways the config
+names in `providers.fallback` are asked in that order, and the default gateway is always asked last. A
+source is never its own fallback. The chat reads from `chat.readUrl` whatever the viewer picks.
 Every gateway in `providers.gateways` whose `url` is an address rather than a path on this site must
 also be named in the image's `EXTRA_GATEWAY_URLS` (below), or the page's policy refuses it. The one
 exception is the image's own `BEE_GATEWAY_URL` in direct mode, which the policy already allows.
@@ -81,7 +81,7 @@ exception is the image's own `BEE_GATEWAY_URL` in direct mode, which the policy 
 | `providers.gateways[].kind` | `bee-http`, a Bee node's HTTP API, the only kind this build carries. A kind the build does not carry is refused                                                                                                               |
 | `providers.gateways[].url`  | For `bee-http`: a path on this site such as `/bee`, or an http or https address, as `gatewayUrl` takes                                                                                                                        |
 | `providers.default`         | The `id` of the gateway every reader starts on                                                                                                                                                                                |
-| `providers.fallback`        | Optional. The `id` of another gateway, asked when the one in use fails. The default gateway when absent, and none when `false`                                                                                                |
+| `providers.fallback`        | Optional. The `id` of another gateway, or a list of them in order, asked when the one in use fails. The default gateway is always asked last. Just the default when absent, and none when `false`                             |
 | `providers.kinds`           | Optional. The kinds a viewer may add a gateway of their own of. Every kind the build carries when absent                                                                                                                      |
 | `providers.beeNodes`        | Optional. How far a Bee node of the viewer's own may be: `off`, this computer only, the default. `https`, also any https address. `https-and-local-http`, also plain http on the local network. Match the image's `BEE_NODES` |
 
