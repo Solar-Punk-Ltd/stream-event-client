@@ -193,6 +193,35 @@ void describe('direct mode', () => {
   });
 });
 
+void describe('BEE_NODES=https-and-local-http', () => {
+  let base;
+  before(async () => {
+    base = startContainer('image-test-bee-nodes', {
+      BEE_GATEWAY_URL: GATEWAY,
+      BEE_NODES: 'https-and-local-http',
+    });
+    await waitForServer(base, 'image-test-bee-nodes');
+  });
+
+  void it('lets the page reach a Bee node at any https or plain http address', async () => {
+    const policy = policyOf(await get(`${base}/`));
+    assert.match(policy, /img-src [^;]* https: http:;/);
+    assert.match(policy, /connect-src [^;]* https: http:;/);
+    assert.match(policy, /media-src 'self' blob:;/);
+  });
+});
+
+void it('refuses to start on an unknown BEE_NODES, and says why', () => {
+  const settings = ['-e', `BEE_GATEWAY_URL=${GATEWAY}`, '-e', 'BEE_NODES=lan'];
+  const result = docker(['run', '--rm', '--label', LABEL, ...settings, IMAGE], {
+    allowFailure: true,
+    timeoutMs: 60_000,
+  });
+  assert.equal(result.signal, null, 'the container kept running with BEE_NODES=lan');
+  assert.notEqual(result.status, 0, 'the container stopped');
+  assert.match(`${result.stdout}\n${result.stderr}`, /BEE_NODES must be off, https or https-and-local-http/);
+});
+
 void it('refuses to start without BEE_GATEWAY_URL, and says why', () => {
   // A container that started anyway would serve for ever, so the wait is bounded and a timeout reads as a failure.
   const result = docker(['run', '--rm', '--label', LABEL, IMAGE], { allowFailure: true, timeoutMs: 60_000 });
