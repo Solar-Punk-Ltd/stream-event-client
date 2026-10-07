@@ -2,7 +2,7 @@ import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { feedSlotPath, makeFeedIdentifier, nextFeedRequest } from '../../src/shared/feedFollow';
-import { BeeHttpProvider } from '../../src/swarm/providers/bee-http/beeHttpProvider';
+import { BeeHttpProvider, LONGEST_RETRY_AFTER_MS } from '../../src/swarm/providers/bee-http/beeHttpProvider';
 import {
   answeringFetch,
   type AskedLog,
@@ -139,6 +139,21 @@ describe('the Bee HTTP provider', () => {
   it('answers rate limited with no wait when Retry-After is missing or unreadable', async () => {
     for (const headers of [{}, { 'retry-after': 'soon' }]) {
       const answer = await provider(answeringFetch(429, headers)).readBytes(SEGMENT);
+
+      expect(answer).toMatchObject({ kind: 'rate-limited', retryAfterMs: null });
+    }
+  });
+
+  it('caps the wait Retry-After asks for, so one answer cannot stall a feed for an hour', async () => {
+    const answer = await provider(answeringFetch(429, { 'retry-after': '3600' })).readBytes(SEGMENT);
+
+    expect(answer).toMatchObject({ kind: 'rate-limited', retryAfterMs: LONGEST_RETRY_AFTER_MS });
+  });
+
+  it('answers rate limited with no wait when Retry-After is too large to be a number or is negative', async () => {
+    const date = new Date(CATALOG_HEAD_DATE_MS).toUTCString();
+    for (const retryAfter of ['9'.repeat(400), '-5']) {
+      const answer = await provider(answeringFetch(429, { date, 'retry-after': retryAfter })).readBytes(SEGMENT);
 
       expect(answer).toMatchObject({ kind: 'rate-limited', retryAfterMs: null });
     }

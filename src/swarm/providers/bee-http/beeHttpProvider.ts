@@ -19,6 +19,9 @@ export const BEE_PROBE_TIMEOUT_MS = 5_000;
 /** Bee answers this with `{"status":"ok",...}` in every version this viewer has targeted. */
 const HEALTH_PATH = 'health';
 
+/** The longest a node's `Retry-After` may keep a provider paused, so one answer cannot stall a feed for an hour. */
+export const LONGEST_RETRY_AFTER_MS = 60_000;
+
 const NOT_FOUND = 404;
 const TOO_MANY_REQUESTS = 429;
 
@@ -52,19 +55,26 @@ function dateOf(headers: Headers): number | null {
 }
 
 /**
- * The wait `Retry-After` asks for, as seconds or as an HTTP date. A date is read against the answer's
- * own `Date` when it has one, because the two come from the same clock and the viewer's may be off.
+ * The wait `Retry-After` asks for, as seconds or as an HTTP date, never longer than
+ * {@link LONGEST_RETRY_AFTER_MS}. A date is read against the answer's own `Date` when it has one,
+ * because the two come from the same clock and the viewer's may be off. A value that is negative or
+ * too large to be a number is read as no wait named.
  */
 function retryAfterMsOf(headers: Headers, serverTimeMs: number | null): number | null {
   const raw = headers.get('retry-after')?.trim();
   if (!raw) {
     return null;
   }
-  if (/^\d+$/.test(raw)) {
-    return Number(raw) * 1000;
+  if (/^-?\d+$/.test(raw)) {
+    const seconds = Number(raw);
+    return Number.isFinite(seconds) && seconds >= 0 ? cappedRetryAfterMs(seconds * 1000) : null;
   }
   const until = Date.parse(raw);
-  return Number.isFinite(until) ? Math.max(0, until - (serverTimeMs ?? Date.now())) : null;
+  return Number.isFinite(until) ? cappedRetryAfterMs(Math.max(0, until - (serverTimeMs ?? Date.now()))) : null;
+}
+
+function cappedRetryAfterMs(ms: number): number {
+  return Math.min(ms, LONGEST_RETRY_AFTER_MS);
 }
 
 function looksLikeBeeHealth(body: string): boolean {
