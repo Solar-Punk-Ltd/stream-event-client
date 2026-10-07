@@ -10,9 +10,19 @@ import { button, click, dialog, input, mount, settle, text, type, waitFor, type 
 const EVENT = 'https://event.example.com';
 const BACKUP = 'https://backup.example.com';
 const GATEWAY_STORAGE_KEY = 'swarm-gateway-url';
+const CHAT = {
+  enabled: true,
+  readUrl: 'https://chat-read.example.com',
+  writeUrl: 'https://chat-write.example.com',
+  gsocResourceId: '2'.repeat(64),
+  gsocTopic: 'event-chat',
+  feedOwner: '3'.repeat(40),
+  pollIntervalMs: 1_000,
+};
 
-function config(): RuntimeConfig {
+function config(extra: Record<string, unknown> = {}): RuntimeConfig {
   const result = parseRuntimeConfig({
+    ...extra,
     catalog: { owner: '0x' + '1'.repeat(40), topic: 'event-streams' },
     providers: {
       gateways: [
@@ -38,10 +48,10 @@ function Probe() {
   return null;
 }
 
-async function open() {
+async function open(extra: Record<string, unknown> = {}) {
   mounted = mount(
     createElement(AppContextProvider, {
-      config: config(),
+      config: config(extra),
       children: [createElement(ControlPanel, { key: 'panel' }), createElement(Probe, { key: 'probe' })],
     }),
   );
@@ -174,6 +184,15 @@ describe('the control panel', () => {
     expect(copied).toContain('Status, the last minute');
     expect(copied).not.toContain(EVENT);
     expect(text()).toContain('Report copied.');
+  });
+
+  it("says the chat itself reads from the event's chat address, and names the chat check for what it tests", async () => {
+    await open({ chat: CHAT });
+    click(buttonIn(row('Backup gateway'), 'Test'));
+    await waitFor(() => (text().includes('The gateway answered in') ? true : null));
+
+    expect(dialog()?.textContent).toContain("The chat itself reads from the event's chat address");
+    expect(row('Backup gateway').textContent).toContain('Chat feed on this gateway: ');
   });
 
   it('shows who answered each feature in the last minute', async () => {

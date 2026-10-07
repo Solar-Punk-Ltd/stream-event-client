@@ -43,7 +43,8 @@ export const CHECK_LABELS: Readonly<Record<CheckName, string>> = {
   player: 'Video',
   previews: 'Previews',
   thumbnails: 'Pictures',
-  chat: 'Chat',
+  // The Test reads the chat through the gateway under test, while the chat itself reads its own address.
+  chat: 'Chat feed on this gateway',
 };
 
 export type CheckOutcome = 'passed' | 'failed' | 'skipped';

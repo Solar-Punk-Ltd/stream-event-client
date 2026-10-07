@@ -26,7 +26,7 @@ const EXPECTED: readonly (readonly [string, RegExp | string])[] = [
     'Pictures: Failed',
     'The gateway answered with an error (HTTP 500). Test again in a minute, or pick another gateway.',
   ],
-  ['Chat: Not tested', 'Not tested: this site has no chat.'],
+  ['Chat feed on this gateway: Not tested', 'Not tested: this site has no chat.'],
 ];
 
 async function screenshot(page: Page, name: string): Promise<void> {

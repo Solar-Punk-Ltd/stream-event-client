@@ -228,6 +228,8 @@ export function ControlPanel() {
           <p className="panel-intro">
             The video, the stream list and the previews load from the gateway in use. When it fails, the fallback
             answers in its place. Test a gateway to see what loads from it.
+            {chat !== null &&
+              " The chat itself reads from the event's chat address, whichever gateway is in use, so its check only says whether this gateway can read the chat feed too."}
           </p>
 
           <ul className="panel-gateways" aria-label="Gateways">
