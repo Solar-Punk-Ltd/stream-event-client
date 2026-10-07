@@ -129,6 +129,7 @@ export function ControlPanel() {
       catalog: catalogFeed,
       knownStreams: streamList,
       chat,
+      isOwnNode: gateway.id === OWN_GATEWAY_ID,
       clockOffsetMs: swarm.clockOffsetMs(),
       signal: controller.signal,
     });

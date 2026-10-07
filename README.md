@@ -261,7 +261,10 @@ and the kinds of provider the build carries (`src/features/gateway/`).
 - **Test.** Each gateway, and the address typed for a node of the viewer's own, has a Test that reads
   this event's real content through a client of that gateway alone, with no fallback behind it, each
   read given the window the viewer's own read has: 10 s for the stream list, the video, previews and
-  pictures, and the chat's own windows for the chat. The connection is Bee's health check, given 5 s. The stream list is its feed's head, checked to
+  pictures, and the chat's own windows for the chat. The connection of the viewer's own node is Bee's
+  health check, given 5 s. A gateway the deployment offers serves only the event's content and refuses
+  `/health`, so its connection is shown by its content reads: any answer passes it, and when none came
+  it says it did not answer in time or could not be reached. The stream list is its feed's head, checked to
   be a stream list. The video is read as the player starts: the ladder's time marker on a live ladder,
   otherwise a feed entry the list names, then one segment's URL is loaded. Previews read the playlist a
   stream card reads. Pictures load one stream's picture. The chat, "Chat feed on this gateway", reads its

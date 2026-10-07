@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
 import { THEME_NAMES } from '../src/design/themeNames';
+import { CONNECTED_BY_CONTENT } from '../src/features/gateway/checkSentences';
 import { refuseOtherOrigins, serveConfig } from './journey';
 import { LadderGateway } from './ladderGateway';
 import { GATEWAY_PATH, PREVIEW_ORIGIN } from './recording';
@@ -18,7 +19,7 @@ const WIDTHS = [1440, 390] as const;
 
 /** What each check says against this gateway, in the order the panel lists them. */
 const EXPECTED: readonly (readonly [string, RegExp | string])[] = [
-  ['Connection: Passed', /^The gateway answered in \d+ ms\.$/],
+  ['Connection: Passed', CONNECTED_BY_CONTENT],
   ['Stream list: Passed', 'The stream list loaded: 1 stream, entry 0.'],
   ['Video: Passed', 'The video loaded: the time marker of “Ladder test stream”, a playlist and one segment.'],
   ['Previews: Passed', 'Previews loaded: the preview playlist of “Ladder test stream”.'],

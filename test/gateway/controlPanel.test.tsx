@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { AppContextProvider, useAppContext } from '../../src/app/AppProvider';
 import { parseRuntimeConfig, type RuntimeConfig } from '../../src/config/runtimeConfig';
+import { CONNECTED_BY_CONTENT } from '../../src/features/gateway/checkSentences';
 import { ControlPanel } from '../../src/features/gateway/ControlPanel';
 import type { SwarmClient } from '../../src/swarm/client';
 import { button, click, dialog, input, mount, settle, text, type, waitFor, type Mounted } from '../helpers/dom';
@@ -153,12 +154,29 @@ describe('the control panel', () => {
   it('tests a gateway on every feature and shows each sentence', async () => {
     await open();
     click(buttonIn(row('Backup gateway'), 'Test'));
-    await waitFor(() => (text().includes('The gateway answered in') ? true : null));
+    await waitFor(() => (text().includes(CONNECTED_BY_CONTENT) ? true : null));
 
     const results = row('Backup gateway').textContent ?? '';
     expect(results).toContain('Connection');
     expect(results).toContain('This gateway answered that the stream list is not there.');
     expect(results).toContain('Not tested: the stream list has no stream to test with.');
+  });
+
+  it("asks a node of the viewer's own for its health, and a gateway the deployment offers for none", async () => {
+    const asked: string[] = [];
+    const answer = globalThis.fetch;
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      asked.push(String(input));
+      return answer(input, init);
+    }) as typeof fetch;
+    await open();
+    click(buttonIn(row('Backup gateway'), 'Test'));
+    await waitFor(() => (row('Backup gateway').textContent?.includes(CONNECTED_BY_CONTENT) ? true : null));
+    expect(asked.filter((url) => url.endsWith('/health'))).toEqual([]);
+
+    click(button('Test your own node'));
+    await waitFor(() => (row('Your own node').textContent?.includes('The gateway answered in') ? true : null));
+    expect(asked.filter((url) => url.endsWith('/health'))).toEqual(['http://localhost:1633/health']);
   });
 
   it('forgets a Test the viewer stopped by closing the panel, so it can be run again', async () => {
@@ -187,7 +205,7 @@ describe('the control panel', () => {
   it('copies a report of the last test and the status', async () => {
     await open();
     click(buttonIn(row('Backup gateway'), 'Test'));
-    await waitFor(() => (text().includes('The gateway answered in') ? true : null));
+    await waitFor(() => (text().includes(CONNECTED_BY_CONTENT) ? true : null));
     click(button('Copy report'));
     await waitFor(() => copied);
     await settle();
@@ -201,7 +219,7 @@ describe('the control panel', () => {
   it("says the chat itself reads from the event's chat address, and names the chat check for what it tests", async () => {
     await open({ chat: CHAT });
     click(buttonIn(row('Backup gateway'), 'Test'));
-    await waitFor(() => (text().includes('The gateway answered in') ? true : null));
+    await waitFor(() => (text().includes(CONNECTED_BY_CONTENT) ? true : null));
 
     expect(dialog()?.textContent).toContain("The chat itself reads from the event's chat address");
     expect(row('Backup gateway').textContent).toContain('Chat feed on this gateway: ');

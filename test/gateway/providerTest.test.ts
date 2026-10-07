@@ -5,6 +5,7 @@ import { parseRuntimeConfig, type ChatConfig } from '../../src/config/runtimeCon
 import type { Stream } from '../../src/features/catalog/stream';
 import {
   CHAT_FEED_NOT_FOUND,
+  CONNECTED_BY_CONTENT,
   COULD_NOT_REACH,
   MIXED_CONTENT,
   NO_SEGMENT,
@@ -17,7 +18,13 @@ import { makeFeedIdentifier } from '../../src/shared/feedFollow';
 import { encodeLadderMarker, ladderMarkerIdentifier, markerPeriodAt } from '../../src/shared/ladderMarker';
 import { loadUrl } from '../../src/swarm/client';
 import { createSwarmClient } from '../../src/swarm/createSwarmClient';
-import { faultyFetch, RECORDED_GATEWAY, recordedCatalog, recordedFetch } from '../helpers/recordedBeeGateway';
+import {
+  faultyFetch,
+  RECORDED_GATEWAY,
+  recordedCatalog,
+  recordedFetch,
+  recordedStream,
+} from '../helpers/recordedBeeGateway';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -63,6 +70,8 @@ interface Run {
   readonly address?: string;
   readonly pageProtocol?: string;
   readonly now?: () => number;
+  /** Whether the gateway is the viewer's own node rather than one the deployment offers. Own by default. */
+  readonly isOwnNode?: boolean;
 }
 
 async function run({
@@ -73,6 +82,7 @@ async function run({
   address = RECORDED_GATEWAY,
   pageProtocol = 'http:',
   now,
+  isOwnNode = true,
 }: Run): Promise<Record<string, CheckResult>> {
   const client = createSwarmClient(onlyGateway({ id: 'tested', kind: 'bee-http', url: address }), {
     environment: { fetcher, pageOrigin: 'http://127.0.0.1:4173' },
@@ -85,6 +95,7 @@ async function run({
     chat,
     pageProtocol,
     now,
+    isOwnNode,
     loadUrl: (url, options) => loadUrl(url, { ...options, fetcher }),
   });
   expect(results.map(({ check }) => check)).toEqual([...CHECKS]);
@@ -296,6 +307,67 @@ describe('the window the Test gives each read', () => {
       sentence:
         'The gateway did not answer in 5 s. It may be busy or still starting. Test again in a minute, or pick another gateway.',
     });
+  });
+});
+
+const STREAM_HEAD = `/feeds/${recordedStream().owner}/${Topic.fromString(recordedStream().topic).toHex()}`;
+
+/**
+ * A gateway the deployment offers, as the event gateway behaves: it serves stream paths only, so `/health` and the
+ * chat's paths are refused with no CORS header, which a browser reports as no answer, and a head lookup on a long
+ * feed takes 6 s.
+ */
+function eventGateway(asked: string[] = []): typeof fetch {
+  const refused = (url: string) => url === HEALTH || url.includes(CHAT_HEAD) || url.includes('/chunks/');
+  return slowed(
+    gateway((url) => {
+      asked.push(url);
+      return refused(url) ? 'refuse' : undefined;
+    }),
+    (url) => (url.includes(CATALOG_HEAD) || url.includes(STREAM_HEAD) ? 6_000 : undefined),
+  );
+}
+
+describe("the control panel's Test, on a gateway the deployment offers", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('shows the connection by the content it served, and never asks for its health', async () => {
+    const asked: string[] = [];
+    const results = await runOnTestClock({ fetcher: eventGateway(asked), isOwnNode: false });
+
+    expect(results.connection).toEqual({ check: 'connection', outcome: 'passed', sentence: CONNECTED_BY_CONTENT });
+    expect(results['stream-list'].outcome).toBe('passed');
+    expect(asked).not.toContain(HEALTH);
+  });
+
+  it('says it could not be reached when no read got an answer', async () => {
+    const results = await run({ fetcher: faultyFetch(), knownStreams: recordedStreams(), isOwnNode: false });
+
+    expect(results.connection).toEqual({ check: 'connection', outcome: 'failed', sentence: COULD_NOT_REACH });
+  });
+
+  it('says it did not answer in time when its reads ran out of time', async () => {
+    const results = await runOnTestClock({
+      fetcher: gateway(() => 'hang'),
+      knownStreams: recordedStreams(),
+      isOwnNode: false,
+    });
+
+    expect(results.connection).toEqual({
+      check: 'connection',
+      outcome: 'failed',
+      sentence:
+        'The gateway did not answer in 10 s. It may be busy or still starting. Test again in a minute, or pick another gateway.',
+    });
+  });
+
+  it('says an address that answers with a web page is not a Swarm gateway', async () => {
+    const page = () => new Response('<!doctype html><title>Some site</title>', { status: 200 });
+    const results = await run({ fetcher: gateway(page), knownStreams: recordedStreams(), isOwnNode: false });
+
+    expect(results.connection).toEqual({ check: 'connection', outcome: 'failed', sentence: NOT_A_SWARM_GATEWAY });
   });
 });
 
