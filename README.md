@@ -210,8 +210,10 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   another, because the qualities' feeds drift apart. A switch to a quality that has finished while
   the playing one is live, or sits more than 30 seconds behind it, is refused. When the playing
   quality has had nothing new for 8 seconds, or finishes, the next lower quality is found and then
-  read for 6 seconds: if it moves on, the player moves to it and drops the stopped one, at most one per stream.
-  If it does not, the broadcast paused or ended, and the player says so.
+  read for 6 seconds: if it moves on, the player moves to it and drops the stopped one. There is no limit
+  on how many are dropped: a quality refused at a switch is dropped too, and the player keeps moving on
+  until it is on a quality that moves. The last quality is never dropped. If the next one does not move
+  on, the broadcast paused or ended, and the player says so.
 - **The end.** The qualities of one broadcast finish moments apart, each as its upload drains. So
   when the playing quality finishes, the next lower one is watched for the whole 6 seconds rather than
   to its first new playlist: one that finishes inside them means the broadcast ended, and only one
