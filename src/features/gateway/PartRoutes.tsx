@@ -42,17 +42,19 @@ export function PartRoutes({ sources, routing, parts, statuses, hasChat, onChang
     <div className="part-routes" aria-label="Source per part" role="group">
       {row('player')}
       <div className="part-link">
-        <button
-          type="button"
-          className={`sources-icon-button part-link-button${routing.linked ? ' linked' : ''}`}
-          aria-label={linkLabel}
-          aria-pressed={routing.linked}
-          title={linkLabel}
-          onClick={() => onChange(setLinked(routing, !routing.linked))}
-        >
-          <LinkIcon broken={!routing.linked} />
-        </button>
-        {!routing.linked && <span className="sources-muted">{UNLINKED_NOTE}</span>}
+        <div className="part-link-inner">
+          <button
+            type="button"
+            className={`sources-icon-button part-link-button${routing.linked ? ' linked' : ''}`}
+            aria-label={linkLabel}
+            aria-pressed={routing.linked}
+            title={linkLabel}
+            onClick={() => onChange(setLinked(routing, !routing.linked))}
+          >
+            <LinkIcon broken={!routing.linked} />
+          </button>
+          {!routing.linked && <span className="sources-muted">{UNLINKED_NOTE}</span>}
+        </div>
       </div>
       {row('stream-list')}
       {row('previews')}

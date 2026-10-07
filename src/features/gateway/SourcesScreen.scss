@@ -193,7 +193,7 @@
     color: var(--color-text);
   }
 
-  &:focus-within {
+  &:has(input:focus-visible) {
     outline: var(--size-focus-ring) solid var(--color-primary);
   }
 }
@@ -474,9 +474,11 @@
   gap: var(--spacing-xs);
 }
 
-.part-row {
+// The label, the select and the dot, in columns the link between video and stream list shares.
+.part-row,
+.part-link {
   display: grid;
-  grid-template-columns: minmax(0, 6rem) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 6rem) minmax(0, 1fr) var(--size-badge-dot);
   align-items: center;
   gap: var(--spacing-sm);
 }
@@ -491,10 +493,17 @@
 }
 
 .part-link {
+  min-height: var(--size-touch-target);
+
+  > * {
+    grid-column: 2;
+  }
+}
+
+.part-link-inner {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  min-height: var(--size-touch-target);
 }
 
 .part-link-button.linked {
