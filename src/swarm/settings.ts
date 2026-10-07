@@ -83,7 +83,7 @@ export function defaultGateway(settings: SwarmSettings): GatewaySetting {
 
 /**
  * The gateway a saved or picked address means. A viewer's choice is kept as an address, which is what
- * the node picker shows and what a choice saved before `providers` existed holds, so an address an
+ * the control panel saves and what a choice saved before `providers` existed holds, so an address an
  * offered gateway has is that gateway, and any other is a Bee node of the viewer's own.
  */
 export function choiceForAddress(settings: SwarmSettings, address: string): GatewaySetting {

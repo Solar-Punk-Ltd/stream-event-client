@@ -1,11 +1,11 @@
 # stream-event-client
 
 A lightweight web app for watching the Devcon 8 streams over [Swarm](https://www.ethswarm.org):
-browse the event's streams, watch one, choose where the video loads from (the event gateway or your
-own Bee node), and chat with the other people watching.
+browse the event's streams, watch one, choose and test where the video loads from (the event gateway,
+another gateway the site offers, or your own Bee node), and chat with the other people watching.
 
-**Status: phase 3 of the plan, the chat.** The stream list, the watch page, the player and the Bee
-node picker work, in the Swarm Brand v3.0 look, and each stream has a chat beside the video, built and
+**Status: phase 3 of the plan, the chat.** The stream list, the watch page, the player and the
+control panel work, in the Swarm Brand v3.0 look, and each stream has a chat beside the video, built and
 tested against stand-ins until the chat's services are set up. The plan, its phases and its decisions
 are in [docs/PLAN.md](docs/PLAN.md).
 
@@ -173,8 +173,9 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   `config.json` is served `no-store`. The bundle under `/assets/` is named by content hash and kept
   for a year.
 - **Content security policy.** The page may reach its own origin, the gateway in direct mode, the chat
-  endpoint, and a Bee node on the viewer's own machine at any port, which is what the node picker
-  offers. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
+  endpoint, and a Bee node on the viewer's own machine at any port, which is what the control panel
+  offers. A further gateway named in `providers` is not in this policy yet, so the browser refuses it
+  until the image learns to allow it. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
   player plays through them.
 - **The proxy passes reads only.** `/bee` forwards `GET` and `HEAD`, so the site cannot be used to
   write to the gateway. The chat writes through its own endpoint, `CHAT_WRITE_URL`.
@@ -235,14 +236,41 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   to its first new playlist: one that finishes inside them means the broadcast ended, and only one
   that carries on through them is moved to. A quality the player was moved to that finishes before
   hls.js has switched to it runs the same check.
-- **Where the video loads from.** The Bee node picker offers the event gateway and a Bee node on the
-  viewer's own computer, `http://localhost:1633` filled in and the port editable. Only `localhost`,
-  `127.0.0.1` and `[::1]` are accepted. The node is checked before the switch through its provider's
-  probe, a failure is explained in plain words, and the choice is remembered in the browser. A switch
-  makes the Swarm client again on that node, and the player, the stream list and the previews read
-  through it from then on.
+- **Where the video loads from.** The control panel, the Gateway button in the header, is described
+  below.
 - **Diagnosing playback.** `?qoe=1` on a watch page shows a draggable playback quality overlay,
   toggled with `Q`. `?level=720p` pins one quality, which tells a bad quality apart from a bad switch.
+
+## The control panel
+
+The Gateway button in the header opens the control panel, built from the gateways `config.json` offers
+and the kinds of provider the build carries (`src/features/gateway/`).
+
+- **Choosing.** Every gateway the deployment offers is listed with where it is, the one in use marked
+  "In use" and the one behind it "Fallback". "Use" switches to it. Below them is the viewer's own Bee
+  node, `http://localhost:1633` filled in and the port editable. Only `localhost`, `127.0.0.1` and
+  `[::1]` are accepted, and the node is checked before the switch, a failure explained in plain words.
+  The choice is remembered in the browser as an address, under the key the node picker used, so a
+  choice saved before the panel still holds. A switch makes the Swarm client again on that gateway, and
+  the player, the stream list and the previews read through it from then on.
+- **Test.** Each gateway, and the address typed for a node of the viewer's own, has a Test that reads
+  this event's real content through a client of that gateway alone, with no fallback behind it, each
+  read given 5 s. The connection is Bee's health check. The stream list is its feed's head, checked to
+  be a stream list. The video is read as the player starts: the ladder's time marker on a live ladder,
+  otherwise a feed entry the list names, then one segment's URL is loaded. Previews read the playlist a
+  stream card reads. Pictures load one stream's picture. The chat reads its head and newest slot through
+  the chat's own reader. The checks after the list use the stream this gateway listed, or the list the
+  page already shows when it could not, a live stream first. Each check ends in one sentence, and a
+  failure says what the viewer can do: "this node does not allow this site" with the setting that
+  decides it, "this address is not a Swarm gateway", or "the gateway did not answer in 5 s". The
+  sentences are in `checkSentences.ts`, each with its test.
+- **Status.** Who answered each feature in the last minute, from the client's own counts: which
+  provider the feature reads from and which stands behind it, how many answers of each kind came from
+  each, how many came from the fallback, and which provider is paused and for how long. It refreshes
+  every 2 s while the panel is open.
+- **Report.** "Copy report" copies the last test's sentences, the status, the build and the browser.
+  It holds no address but the tested gateway's: every other provider is named, never addressed, and a
+  test fails if another address, a key or the viewer's saved node gets in.
 
 ## How the player reads Swarm
 
@@ -284,7 +312,7 @@ the two named exceptions, each with its reason in the test.
 - **Where each feature reads.** `AppProvider` makes one client at start from `config.json` and the
   viewer's node, and makes it again when the viewer picks another node. Components get it from the app
   context. The player reads through `reader('player')`, the stream list through `reader('stream-list')`,
-  the previews and pictures through `reader('previews')`, the node picker checks a node through the
+  the previews and pictures through `reader('previews')`, the control panel checks a node through the
   `probe()` of a client made for that node alone, and the chat reads through `reader('chat')`, which goes to `chat.readUrl`.
 - **The chat.** swarm-chat-js 7.2.0 is handed a source and a write in place of its own Bee client
   (`src/features/chat/chatParts.ts`). The source makes the library's own reads at the same URLs: the
@@ -358,7 +386,7 @@ src/
   features/
     catalog/    the stream list: feed reader, schema, polling, previews
     player/     the Swarm HLS player, its loaders and overlays, the watch page
-    gateway/    the Bee node picker and its health check
+    gateway/    the control panel: the gateways, Test, the status view and the report
     chat/       the chat panel, the display-name login, the chat library's lifecycle
   swarm/        the Swarm client, its providers and their answers, and the settings it is made from
   shared/       the stream list format and feed helpers copied from streaming-monorepo, the fetch
