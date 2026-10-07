@@ -2,6 +2,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import type { ChatSettings } from '@solarpunkltd/swarm-chat-js';
+
+import { chatSettings } from '../../src/features/chat/chatSettings';
+import { parseRuntimeConfig } from '../../src/config/runtimeConfig';
+
 /**
  * A Bee node that answers from the recording the browser smoke test replays, `e2e/recorded/viewer.har`,
  * matched by the whole URL as the replay matches it. So a provider that passes against this asks the
@@ -58,6 +63,20 @@ export function recordedCatalog(): { owner: string; topic: string } {
 /** The finished stream the recording published, whose first entry it read by index. */
 export function recordedStream(): { owner: string; topic: string } {
   return readRecordedJson<{ stream: { owner: string; topic: string } }>('published.json').stream;
+}
+
+/** The chat's settings for the recorded stream, as the watch page builds them from the recorded config. */
+export function recordedChatSettings(): ChatSettings {
+  const parsed = parseRuntimeConfig(readRecordedJson<unknown>('config.json'));
+  if (!parsed.ok || !parsed.config.chat?.enabled) {
+    throw new Error('the recorded config has no chat');
+  }
+  return chatSettings(parsed.config.chat, recordedStream().topic, null);
+}
+
+/** Every URL the recording answered a GET for. */
+export function recordedUrls(): string[] {
+  return [...RECORDED.keys()];
 }
 
 /** Bee path kinds the recording holds a served read of. */

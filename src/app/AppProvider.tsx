@@ -8,7 +8,7 @@ import { CatalogFeedReader } from '@/features/catalog/catalogFeed';
 import { type ChatConfig, enabledChat, type RuntimeConfig, selectedTheme } from '@/config/runtimeConfig';
 import { THEMES, type ThemeSettings } from '@/design/themes';
 import { gatewayClock } from '@/shared/gatewayClock';
-import type { SwarmClient } from '@/swarm/client';
+import type { SwarmClient, SwarmReader } from '@/swarm/client';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
 import { choiceForAddress, defaultGateway, type SwarmSettings, swarmSettingsFrom } from '@/swarm/settings';
 
@@ -40,6 +40,11 @@ type AppContextState = {
   fetchAppState: () => Promise<CatalogRead>;
   /** The one way the app reads Swarm, on the gateway the viewer chose with the deployment's fallback behind it. */
   swarm: SwarmClient;
+  /**
+   * The chat reader of the client in use when it is called, routed to the event's chat read address.
+   * The same function for the life of the page, so a running chat follows a rebuilt client.
+   */
+  chatReads: () => SwarmReader;
   /** The address of the gateway the viewer chose, which the node picker shows and the stream list is tagged with. */
   gatewayUrl: string;
   setGatewayUrl: (url: string) => void;
@@ -77,26 +82,37 @@ function loadGatewayUrl(defaultGatewayUrl: string): string {
   }
 }
 
+/** The id the event's chat read address goes by in the client's counts. */
+const CHAT_READ_GATEWAY_ID = 'chat-read';
+
 /**
  * The client for the gateway at `address`, sharing the one gateway clock the player's time markers
- * read, so every answer's server time corrects them and not only the stream list's.
+ * read, so every answer's server time corrects them and not only the stream list's. The chat reads
+ * from the event's chat read address whichever node the viewer picked, because the chat server
+ * writes its feed there.
  */
-function swarmClientFor(settings: SwarmSettings, address: string): SwarmClient {
-  return createSwarmClient(settings, { choice: choiceForAddress(settings, address), client: { clock: gatewayClock } });
+function swarmClientFor(settings: SwarmSettings, address: string, chat: ChatConfig | null): SwarmClient {
+  return createSwarmClient(settings, {
+    choice: choiceForAddress(settings, address),
+    routes: chat ? { chat: { id: CHAT_READ_GATEWAY_ID, kind: 'bee-http', url: chat.readUrl } } : {},
+    client: { clock: gatewayClock },
+  });
 }
 
 export const AppContextProvider = ({ config, children }: Props) => {
   const settings = useMemo(() => swarmSettingsFrom(config), [config]);
+  const chat = useMemo(() => enabledChat(config), [config]);
   const defaultGatewayUrl = defaultGateway(settings).url;
   const [catalog, setCatalog] = useState<StreamCatalog>({ streams: [], gateway: null, slot: null });
   const [isStreamListLoaded, setIsStreamListLoaded] = useState(false);
   const [gatewayUrl, setGatewayUrlState] = useState<string>(() => loadGatewayUrl(defaultGatewayUrl));
   const [swarm, setSwarm] = useState<SwarmClient>(() => {
-    const client = swarmClientFor(settings, gatewayUrl);
+    const client = swarmClientFor(settings, gatewayUrl, chat);
     manifestFetcher.useSwarm(client.reader('player'));
     return client;
   });
   const swarmRef = useRef(swarm);
+  const chatReads = useCallback(() => swarmRef.current.reader('chat'), []);
 
   const gatewayRef = useRef(gatewayUrl);
 
@@ -115,7 +131,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
       const trimmed = url.replace(/\/+$/, '');
       gatewayRef.current = trimmed;
       setGatewayUrlState(trimmed);
-      const client = swarmClientFor(settings, trimmed);
+      const client = swarmClientFor(settings, trimmed, chat);
       swarmRef.current = client;
       setSwarm(client);
       manifestFetcher.useSwarm(client.reader('player'));
@@ -130,7 +146,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
         // localStorage unavailable
       }
     },
-    [settings],
+    [settings, chat],
   );
 
   /**
@@ -190,10 +206,11 @@ export const AppContextProvider = ({ config, children }: Props) => {
         setNewStreamList,
         fetchAppState,
         swarm,
+        chatReads,
         gatewayUrl,
         setGatewayUrl,
         defaultGatewayUrl,
-        chat: enabledChat(config),
+        chat,
         theme: THEMES[selectedTheme(config)],
       }}
     >

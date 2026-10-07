@@ -1,4 +1,4 @@
-import type { ChatSettings, MessageData } from '@solarpunkltd/swarm-chat-js';
+import type { ChatParts, ChatSettings, MessageData } from '@solarpunkltd/swarm-chat-js';
 import { vi } from 'vitest';
 
 type Listener = (data: unknown) => void;
@@ -66,7 +66,11 @@ export class FakeSwarmChat {
   fetchPreviousMessages = vi.fn(async () => {});
   hasPreviousMessages = vi.fn(() => this.previousMessages);
 
-  constructor(readonly settings: ChatSettings) {
+  constructor(
+    readonly settings: ChatSettings,
+    /** The reads and the write the page handed the library in place of its own Bee client. */
+    readonly parts?: Partial<ChatParts>,
+  ) {
     FakeSwarmChat.instances.push(this);
     const nextStart = FakeSwarmChat.nextStart;
     if (nextStart) {

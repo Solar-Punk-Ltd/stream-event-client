@@ -10,6 +10,7 @@ import {
   SwarmChat,
 } from '@solarpunkltd/swarm-chat-js';
 
+import { type ChatReads, chatParts } from './chatParts';
 import { draftProblem } from './draftCheck';
 import { groupReactions, type ReactionsByMessage } from './reactions';
 
@@ -76,12 +77,17 @@ const START_DELAY_MS = 0;
  * A new name restarts the chat too, because the library takes its key once, when it is created. The
  * messages on screen stay through that restart, since it is the same chat read again, and only a
  * different stream's chat starts from an empty list.
+ *
+ * @param reads The Swarm client's chat reader as it is now. Called on every read rather than held, so
+ *   a client rebuilt for another node is followed without restarting the chat.
  */
-export function useSwarmChat(settings: ChatSettings, ownAddress: string | null) {
+export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, reads: () => ChatReads) {
   const settingsKey = JSON.stringify(settings);
   const chatKey = JSON.stringify(settings.infra);
   const chatRef = useRef<SwarmChat | null>(null);
   const shownChatKeyRef = useRef(chatKey);
+  const readsRef = useRef(reads);
+  readsRef.current = reads;
 
   const [restarts, setRestarts] = useState(0);
   const [messages, setMessages] = useState<VisibleMessage[]>([]);
@@ -111,7 +117,10 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null) 
     setFeedStatus(null);
 
     const timer = setTimeout(() => {
-      const started = new SwarmChat(current);
+      const started = new SwarmChat(
+        current,
+        chatParts(current, () => readsRef.current()),
+      );
       chat = started;
       chatRef.current = started;
 

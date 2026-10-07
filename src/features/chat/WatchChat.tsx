@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 
+import { useAppContext } from '@/app/AppProvider';
 import type { ChatConfig } from '@/config/runtimeConfig';
 
 import './WatchChat.scss';
@@ -25,9 +26,10 @@ function ChatPlaceholder() {
 }
 
 export function WatchChat({ chat, topic }: WatchChatProps) {
+  const { chatReads } = useAppContext();
   return (
     <Suspense fallback={<ChatPlaceholder />}>
-      <Chat chat={chat} topic={topic} />
+      <Chat chat={chat} topic={topic} reads={chatReads} />
     </Suspense>
   );
 }

@@ -5,6 +5,7 @@ import { FeedStatus } from '@solarpunkltd/swarm-chat-js';
 import type { ChatConfig } from '@/config/runtimeConfig';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 
+import type { ChatReads } from '../chatParts';
 import { chatSettings } from '../chatSettings';
 import { useChatUser } from '../User';
 import { CHAT_LOADING, CHAT_UNREACHABLE, useSwarmChat, type VisibleMessage } from '../useSwarmChat';
@@ -23,13 +24,15 @@ interface ChatProps {
   chat: ChatConfig;
   /** The stream's topic, which names the stream's chat. */
   topic: string;
+  /** The Swarm client's chat reader as it is now, which the chat reads through. */
+  reads: () => ChatReads;
 }
 
 /** The reaction being sent, one per message, keyed by message id. */
 type PendingReactions = Record<string, string>;
 
 /** The chat beside a stream: read by anyone, written to by a viewer who has chosen a name. */
-export function Chat({ chat, topic }: ChatProps) {
+export function Chat({ chat, topic, reads }: ChatProps) {
   const { session, setIsLoginModalOpen } = useChatUser();
   const settings = useMemo(() => chatSettings(chat, topic, session), [chat, topic, session]);
   const ownAddress = session?.address ?? null;
@@ -49,7 +52,7 @@ export function Chat({ chat, topic }: ChatProps) {
     fetchOlderMessages,
     retrySendMessage,
     restart,
-  } = useSwarmChat(settings, ownAddress);
+  } = useSwarmChat(settings, ownAddress, reads);
 
   const [threadId, setThreadId] = useState<string | null>(null);
   const [pendingReactions, setPendingReactions] = useState<PendingReactions>({});

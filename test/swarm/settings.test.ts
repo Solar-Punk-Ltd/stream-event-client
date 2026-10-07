@@ -142,6 +142,21 @@ describe('making the client from the settings', () => {
     expect(client.health().map(({ id }) => id)).toEqual(['primary', 'backup']);
   });
 
+  it("reads a feature from the gateway its route names, every other feature from the viewer's choice", async () => {
+    const asked: string[] = [];
+    const chatRead = { id: 'chat-read', kind: 'bee-http' as const, url: 'https://chat-read.example.com' };
+    const client = createSwarmClient(swarmSettingsFrom(TWO_GATEWAYS), {
+      choice: 'backup',
+      routes: { chat: chatRead },
+      environment: { fetcher: primaryDownFetch(asked) },
+    });
+
+    await client.reader('chat').readChunk(REFERENCE);
+    await client.reader('player').readBytes(REFERENCE);
+
+    expect(asked).toEqual([`https://chat-read.example.com/chunks/${REFERENCE}`, `${BACKUP}/bytes/${REFERENCE}`]);
+  });
+
   it("reads from a viewer's own gateway, with the deployment's fallback behind it", async () => {
     const asked: string[] = [];
     const own = { id: 'own-node', kind: 'bee-http' as const, url: 'http://localhost:1633' };

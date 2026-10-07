@@ -9,6 +9,7 @@ import { persistUserSession } from '../../src/features/chat/auth/persistence';
 import { Chat, READ_ONLY_PRIVATE_KEY } from '../../src/features/chat/Chat/Chat';
 import { LoginButton } from '../../src/features/chat/LoginButton/LoginButton';
 import { ChatUserProvider } from '../../src/features/chat/User';
+import type { ChatReads } from '../../src/features/chat/chatParts';
 import { FakeSwarmChat } from '../helpers/fakeSwarmChat';
 import {
   button,
@@ -71,12 +72,25 @@ function message(fields: Partial<MessageData> & Pick<MessageData, 'id'>): Messag
   };
 }
 
+/** What the panel reads the chat through, the Swarm client's chat reader in the app. */
+const CHAT_READS = {
+  asked: [] as string[],
+  reads: {
+    readFeedHead: async () => ({ kind: 'not-found', serverTimeMs: null }) as const,
+    readChunk: async (address: string) => {
+      CHAT_READS.asked.push(address);
+      return { kind: 'not-found', serverTimeMs: null } as const;
+    },
+    readBytes: async () => ({ kind: 'not-found', serverTimeMs: null }) as const,
+  } satisfies ChatReads,
+};
+
 function emit(event: string, data: unknown, chat = FakeSwarmChat.latest()) {
   act(() => chat.emitter.emit(event, data));
 }
 
 function panel(topic = 'stream-one', chat: ChatConfig = CHAT): ReactNode {
-  return createElement(ChatUserProvider, null, createElement(Chat, { chat, topic }));
+  return createElement(ChatUserProvider, null, createElement(Chat, { chat, topic, reads: () => CHAT_READS.reads }));
 }
 
 async function open(node: ReactNode = panel()) {
@@ -120,6 +134,16 @@ describe('the chat on a watch page', () => {
       pollingInterval: 750,
     });
     expect(infra.stamp).toBeUndefined();
+  });
+
+  it("hands the library a source over the Swarm client's chat reader and a write of its own", async () => {
+    await open();
+    CHAT_READS.asked.length = 0;
+
+    const parts = FakeSwarmChat.latest().parts;
+    expect(typeof parts?.write).toBe('function');
+    expect(await parts?.source?.readSlot(0)).toBeNull();
+    expect(CHAT_READS.asked).toHaveLength(1);
   });
 
   it('reads with a fixed placeholder key when the viewer has no name', async () => {
@@ -247,7 +271,7 @@ describe('the chat on a watch page', () => {
         ChatUserProvider,
         null,
         createElement(LoginButton),
-        createElement(Chat, { chat: CHAT, topic: 'stream-one' }),
+        createElement(Chat, { chat: CHAT, topic: 'stream-one', reads: () => CHAT_READS.reads }),
       ),
     );
     emit(EVENTS.CRITICAL_ERROR, new Error('unreachable'));
