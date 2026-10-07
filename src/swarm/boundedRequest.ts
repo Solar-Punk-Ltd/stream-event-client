@@ -1,3 +1,5 @@
+import { localNetworkRequestInit } from './addressSpace';
+
 /** How one bounded request ended. Never a rejection, so every caller sorts the same three endings. */
 export type BoundedOutcome =
   | { readonly kind: 'response'; readonly response: Response; readonly body: Uint8Array | null }
@@ -23,6 +25,9 @@ interface BoundedRequestOptions {
  * `AbortSignal.any` (Safari 17.4), so every read works on the build target's Safari 14. The chat's
  * write in `gsocWrite` does use `AbortSignal.timeout`, so below Safari 16 a viewer can read the chat
  * but not write to it.
+ *
+ * A plain http address on the local network is sent marked as such, which is what lets Chrome send it
+ * from an https page at all. Other browsers ignore the option.
  */
 export async function boundedRequest(url: string, options: BoundedRequestOptions): Promise<BoundedOutcome> {
   const { fetcher, timeoutMs, signal, readsBody } = options;
@@ -41,7 +46,7 @@ export async function boundedRequest(url: string, options: BoundedRequestOptions
   }, timeoutMs);
 
   try {
-    const response = await fetcher(url, { signal: controller.signal });
+    const response = await fetcher(url, { ...localNetworkRequestInit(url), signal: controller.signal });
     const body = readsBody(response.status) ? new Uint8Array(await response.arrayBuffer()) : null;
     return { kind: 'response', response, body };
   } catch (error) {
