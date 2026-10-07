@@ -203,6 +203,73 @@ describe('the chat settings', () => {
   });
 });
 
+describe('the providers settings', () => {
+  const EVENT = { id: 'event', kind: 'bee-http', label: 'Event gateway', url: '/bee' };
+  const BACKUP = { id: 'backup', kind: 'bee-http', url: 'https://backup.example.com' };
+  const PROVIDERS = { gateways: [EVENT, BACKUP], default: 'event', fallback: 'backup', kinds: ['bee-http'] };
+  const { gatewayUrl: _left, ...WITHOUT_GATEWAY } = VALID;
+  const withProviders = (providers: Record<string, unknown>) =>
+    parseRuntimeConfig({ ...WITHOUT_GATEWAY, providers: { ...PROVIDERS, ...providers } });
+
+  it('accepts the gateways offered, the default, the fallback and the kinds offered', () => {
+    const result = withProviders({});
+
+    expect(result).toEqual({ ok: true, config: { ...WITHOUT_GATEWAY, providers: PROVIDERS, gatewayUrl: '/bee' } });
+  });
+
+  it("gives the default gateway's address as gatewayUrl, so the app reads it until it reads providers", () => {
+    const result = withProviders({ default: 'backup', fallback: 'event' });
+
+    expect(result.ok && result.config.gatewayUrl).toBe('https://backup.example.com');
+  });
+
+  it('accepts no fallback and no list of kinds', () => {
+    const { fallback: _fallback, kinds: _kinds, ...bare } = PROVIDERS;
+
+    expect(parseRuntimeConfig({ ...WITHOUT_GATEWAY, providers: bare }).ok).toBe(true);
+  });
+
+  it('refuses gatewayUrl beside providers, which replaces it', () => {
+    expect(problemOf(parseRuntimeConfig({ ...VALID, providers: PROVIDERS }))).toContain('providers');
+  });
+
+  it('refuses a config with neither, naming gatewayUrl', () => {
+    expect(problemOf(parseRuntimeConfig(WITHOUT_GATEWAY))).toContain('gatewayUrl');
+  });
+
+  it('refuses a default or a fallback that names no gateway offered', () => {
+    expect(problemOf(withProviders({ default: 'elsewhere' }))).toContain('providers.default');
+    expect(problemOf(withProviders({ fallback: 'elsewhere' }))).toContain('providers.fallback');
+  });
+
+  it('refuses a fallback that is the default', () => {
+    expect(problemOf(withProviders({ fallback: 'event' }))).toContain('providers.fallback');
+  });
+
+  it('refuses two gateways under one id', () => {
+    expect(problemOf(withProviders({ gateways: [EVENT, { ...BACKUP, id: 'event' }] }))).toContain(
+      'providers.gateways.1.id',
+    );
+  });
+
+  it('refuses no gateways at all', () => {
+    expect(problemOf(withProviders({ gateways: [] }))).toContain('providers.gateways');
+  });
+
+  it('refuses a kind this build does not carry, in a gateway and in the kinds offered', () => {
+    expect(problemOf(withProviders({ gateways: [{ ...EVENT, kind: 'ipfs' }] }))).toContain('providers.gateways.0');
+    expect(problemOf(withProviders({ kinds: ['ipfs'] }))).toContain('providers.kinds');
+  });
+
+  it("refuses a gateway's address as gatewayUrl is refused, placeholder included", () => {
+    for (const url of ['bee', '//gateway.example.com', '<the event gateway>']) {
+      expect(problemOf(withProviders({ gateways: [{ ...EVENT, url }], fallback: undefined }))).toContain(
+        'providers.gateways.0.url',
+      );
+    }
+  });
+});
+
 describe('the example config the repository ships', () => {
   const example = JSON.parse(readFileSync(join(ROOT, 'public', 'config.json'), 'utf8')) as unknown;
 

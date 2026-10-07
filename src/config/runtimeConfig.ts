@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 // Imported by its file name, so Node reads this schema without the bundler, as the deployment's own tests do.
 import { DEFAULT_THEME, THEME_NAMES, type ThemeName } from '../design/themeNames.ts';
+import { PROVIDER_KINDS } from '../swarm/providerKinds.ts';
 
 /**
  * Served beside the page, so one build serves every deployment and a setting changes without a
@@ -64,13 +65,87 @@ const disabledChatSchema = z.looseObject({ enabled: z.literal(false) });
 
 const chatSchema = z.discriminatedUnion('enabled', [enabledChatSchema, disabledChatSchema]);
 
-const runtimeConfigSchema = z.object({
-  /** Which of this build's themes the page wears. Absent means the default. */
-  theme: z.enum(THEME_NAMES, { message: `must be one of ${THEME_NAMES.join(', ')}` }).optional(),
-  gatewayUrl: gatewayUrlSchema,
-  catalog: catalogSchema,
-  chat: chatSchema.optional(),
+const providerKindSchema = z.enum(PROVIDER_KINDS, { message: `must be one of ${PROVIDER_KINDS.join(', ')}` });
+
+/** A Bee node's HTTP API, the way the event gateway has always been read. */
+const beeHttpGatewaySchema = z.object({
+  /** What the default, the fallback and a viewer's saved choice name it by. */
+  id: notEmpty,
+  kind: z.literal('bee-http'),
+  /** What a viewer is shown it as. */
+  label: notEmpty.optional(),
+  url: gatewayUrlSchema,
 });
+
+const gatewaySchema = z.discriminatedUnion('kind', [beeHttpGatewaySchema], {
+  message: `must be one of ${PROVIDER_KINDS.join(', ')}`,
+});
+
+const providersSchema = z
+  .object({
+    /** The gateways a viewer is offered. */
+    gateways: z.array(gatewaySchema).min(1, { message: 'must offer at least one gateway' }),
+    /** The gateway every reader starts on. */
+    default: notEmpty,
+    /** The gateway asked when the one in use fails. Absent means none. */
+    fallback: notEmpty.optional(),
+    /** The kinds of provider a viewer may add one of their own of. Absent means every kind this build carries. */
+    kinds: z.array(providerKindSchema).min(1, { message: 'must offer at least one kind' }).optional(),
+  })
+  .superRefine((providers, context) => {
+    const ids = new Set<string>();
+    providers.gateways.forEach((gateway, at) => {
+      if (ids.has(gateway.id)) {
+        context.addIssue({ code: 'custom', path: ['gateways', at, 'id'], message: 'is used by another gateway' });
+      }
+      ids.add(gateway.id);
+    });
+    if (!ids.has(providers.default)) {
+      context.addIssue({ code: 'custom', path: ['default'], message: 'must name one of the gateways' });
+    }
+    if (providers.fallback !== undefined && !ids.has(providers.fallback)) {
+      context.addIssue({ code: 'custom', path: ['fallback'], message: 'must name one of the gateways' });
+    } else if (providers.fallback === providers.default) {
+      context.addIssue({ code: 'custom', path: ['fallback'], message: 'must name a gateway other than the default' });
+    }
+  });
+
+export type ProvidersConfig = z.infer<typeof providersSchema>;
+
+export type GatewayConfig = ProvidersConfig['gateways'][number];
+
+/** The default gateway's address. The providers check has already made sure the default names one. */
+function defaultGatewayUrl(providers: ProvidersConfig): string {
+  return providers.gateways.find((gateway) => gateway.id === providers.default)?.url ?? '';
+}
+
+const runtimeConfigSchema = z
+  .object({
+    /** Which of this build's themes the page wears. Absent means the default. */
+    theme: z.enum(THEME_NAMES, { message: `must be one of ${THEME_NAMES.join(', ')}` }).optional(),
+    /** The one Bee gateway of before `providers`, still read as the only gateway and the default. */
+    gatewayUrl: gatewayUrlSchema.optional(),
+    providers: providersSchema.optional(),
+    catalog: catalogSchema,
+    chat: chatSchema.optional(),
+  })
+  .superRefine((config, context) => {
+    if (config.gatewayUrl !== undefined && config.providers !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['providers'],
+        message: 'replaces gatewayUrl, so set only one of them',
+      });
+    } else if (config.gatewayUrl === undefined && config.providers === undefined) {
+      context.addIssue({ code: 'custom', path: ['gatewayUrl'], message: 'is missing, and so is providers' });
+    }
+  })
+  // The app still reads `gatewayUrl` until its features read through the Swarm client, so a config
+  // that names providers gets the default gateway's address under the old name.
+  .transform(({ gatewayUrl, ...config }) => ({
+    ...config,
+    gatewayUrl: gatewayUrl ?? (config.providers ? defaultGatewayUrl(config.providers) : ''),
+  }));
 
 export type ChatConfig = z.infer<typeof enabledChatSchema>;
 
