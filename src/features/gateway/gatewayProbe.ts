@@ -6,17 +6,9 @@
  * those had happened. Everything here is pure or takes an injected prober, because this package runs
  * vitest without a DOM and a rule left inside the component is a rule nothing covers.
  */
-import type { ProbeResult, ReadOptions } from '@/swarm/provider';
+import { PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
 import { PROVIDER_REGISTRY } from '@/swarm/registry';
 import { OWN_GATEWAY_ID } from '@/swarm/settings';
-
-/**
- * Long enough for a cold local node, short enough that a wrong port does not feel like a hang.
- *
- * Exported so the test asserts the window the picker actually uses. Asserting only that it is above
- * zero passes for ten minutes, which is a picker held open rather than a bounded wait.
- */
-export const PROBE_TIMEOUT_MS = 5_000;
 
 /** Both a viewer's typing and a saved address, since every caller joins with a path of its own. */
 function withoutTrailingSlash(url: string): string {

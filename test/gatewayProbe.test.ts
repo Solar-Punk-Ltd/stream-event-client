@@ -6,10 +6,9 @@ import {
   gatewayLabel,
   isBlockedAsMixedContent,
   isDefaultGateway,
-  PROBE_TIMEOUT_MS,
   probeGateway,
 } from '@/features/gateway/gatewayProbe';
-import type { ProbeResult, ReadOptions } from '@/swarm/provider';
+import { PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
 import { BeeHttpProvider } from '@/swarm/providers/bee-http/beeHttpProvider';
 
 /**

@@ -4,6 +4,7 @@ import { makeFeedIdentifier, nextFeedRequest, resolvedFeedIndex } from '@/shared
 import { ABORTED, type SwarmAnswer, UNSUPPORTED } from '../../answers';
 import {
   DEFAULT_READ_TIMEOUT_MS,
+  PROBE_TIMEOUT_MS,
   type ProbeResult,
   type ProviderCapabilities,
   type ProviderStatus,
@@ -12,9 +13,6 @@ import {
   type UrlUse,
 } from '../../provider';
 import { boundedRequest } from './boundedRequest';
-
-/** Long enough for a cold local node, short enough that a wrong port does not feel like a hang. */
-export const BEE_PROBE_TIMEOUT_MS = 5_000;
 
 /** Bee answers this with `{"status":"ok",...}` in every version this viewer has targeted. */
 const HEALTH_PATH = 'health';
@@ -175,7 +173,7 @@ export class BeeHttpProvider implements SwarmProvider {
     const startedAt = Date.now();
     const outcome = await boundedRequest(`${this.baseUrl}/${HEALTH_PATH}`, {
       fetcher: this.fetcher,
-      timeoutMs: options.timeoutMs ?? BEE_PROBE_TIMEOUT_MS,
+      timeoutMs: options.timeoutMs ?? PROBE_TIMEOUT_MS,
       signal: options.signal,
       readsBody: isSuccess,
     });

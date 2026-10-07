@@ -8,6 +8,13 @@ import type { SwarmAnswer } from './answers';
  */
 export const DEFAULT_READ_TIMEOUT_MS = 10_000;
 
+/**
+ * How long a probe waits for a node before calling it timed out: long enough for a cold local node,
+ * short enough that a wrong port does not feel like a hang. The node picker and every provider's
+ * own default use this one window.
+ */
+export const PROBE_TIMEOUT_MS = 5_000;
+
 /** What every read takes. */
 export interface ReadOptions {
   /** The caller's own cancellation, for example a React effect's unmount. Ends the read as aborted. */
