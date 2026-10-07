@@ -82,11 +82,8 @@ export async function unreachableCause(
   if (found.kind === 'refuses-this-site') {
     return { kind: 'cors-refused' };
   }
-  const {
-    pageUrl = currentPageUrl(),
-    localNetworkRequests = supportsLocalNetworkRequests(),
-    permission = askPermissionsApi,
-  } = options;
+  const { pageUrl = currentPageUrl(), permission = askPermissionsApi } = options;
+  const localNetworkRequests = options.localNetworkRequests ?? (await supportsLocalNetworkRequests());
   const target = addressSpaceOf(baseUrl);
   const page = addressSpaceOf(pageUrl) ?? 'public';
   if (!localNetworkRequests || target === null || target === 'public' || PRIVACY[target] <= PRIVACY[page]) {

@@ -60,24 +60,64 @@ export function addressSpaceOf(url: string): AddressSpace | null {
 }
 
 /**
- * The option that tells Chrome a plain http request is meant for the local network, which is what lets
- * an https page make it at all. Only for such a request: the draft fails a request whose mark does not
- * match where the address really is, and a loopback or https address needs none.
+ * The draft's option that marks a plain http request as meant for the local network, which the draft
+ * needs before an https page may make it to a name it cannot place. Chrome 152 places a private IP
+ * address and a `.local` name by itself and ignores the option, so it is sent for a browser that reads
+ * it and changes nothing where none does. Only for such a request: the draft fails a request whose mark
+ * does not match where the address really is, and a loopback or https address needs none.
  */
 export function localNetworkRequestInit(url: string): LocalNetworkRequestInit {
   return url.startsWith('http://') && addressSpaceOf(url) === 'local' ? { targetAddressSpace: 'local' } : {};
 }
 
-/** The page's `Request`, or undefined where there is none. */
-function pageRequest(): typeof Request | undefined {
-  return typeof Request === 'undefined' ? undefined : Request;
+/** Asks the browser about one permission by name, as `navigator.permissions.query` does. */
+export type PermissionQuery = (descriptor: { name: string }) => Promise<unknown>;
+
+/**
+ * The names Chrome and the draft give the Local Network Access permission. Chrome 152 knows all three,
+ * while a browser without Local Network Access rejects each as a name it does not have.
+ */
+const LOCAL_NETWORK_PERMISSION_NAMES = ['local-network-access', 'local-network', 'loopback-network'];
+
+/** The page's Permissions API, or undefined where there is none. */
+function pagePermissionQuery(): PermissionQuery | undefined {
+  if (typeof navigator === 'undefined' || navigator.permissions === undefined) {
+    return undefined;
+  }
+  const { permissions } = navigator;
+  return (descriptor) => permissions.query(descriptor as unknown as PermissionDescriptor);
 }
 
 /**
- * Whether this browser implements Local Network Access, which is also what lets an https page reach a
- * plain http node on the local network. The draft adds `targetAddressSpace` to `Request`, so its
- * presence answers the question without reading the browser's name.
+ * Whether the browser behind `query` implements Local Network Access, which is also what lets an https
+ * page reach a plain http node on the local network.
+ *
+ * Read off the Permissions API, because that is the part of the draft Chrome exposes: Chrome 152 has no
+ * `targetAddressSpace` on `Request` and never reads it from a request's options, yet answers a query
+ * for the permission. Without one it still exempts a private IP address and a `.local` name from the
+ * mixed content block, which are the only plain http addresses the picker lets through.
  */
-export function supportsLocalNetworkRequests(request: typeof Request | undefined = pageRequest()): boolean {
-  return request !== undefined && 'targetAddressSpace' in request.prototype;
+export async function detectLocalNetworkAccess(
+  query: PermissionQuery | undefined = pagePermissionQuery(),
+): Promise<boolean> {
+  if (query === undefined) {
+    return false;
+  }
+  for (const name of LOCAL_NETWORK_PERMISSION_NAMES) {
+    try {
+      await query({ name });
+      return true;
+    } catch {
+      // A name this browser does not know. The next one may be the one it ships.
+    }
+  }
+  return false;
+}
+
+let localNetworkAccess: Promise<boolean> | undefined;
+
+/** {@link detectLocalNetworkAccess} for this page, asked once, since a browser does not gain it while a page is open. */
+export function supportsLocalNetworkRequests(): Promise<boolean> {
+  localNetworkAccess ??= detectLocalNetworkAccess();
+  return localNetworkAccess;
 }

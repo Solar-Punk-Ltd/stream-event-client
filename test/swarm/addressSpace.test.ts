@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { addressSpaceOf, localNetworkRequestInit, supportsLocalNetworkRequests } from '@/swarm/addressSpace';
+import {
+  addressSpaceOf,
+  detectLocalNetworkAccess,
+  localNetworkRequestInit,
+  supportsLocalNetworkRequests,
+} from '@/swarm/addressSpace';
 
 describe('which network an address is on', () => {
   it.each([
@@ -60,14 +65,33 @@ describe('what a request to a local network node is sent with', () => {
   });
 });
 
-describe('whether the browser can be told a request goes to the local network', () => {
-  it('reads it off the Request interface rather than the browser’s name', () => {
-    class WithTarget {
-      get targetAddressSpace() {
-        return 'public';
+describe('whether the browser has Local Network Access', () => {
+  /** A Permissions API that knows only `known`, and refuses every other name as Chrome refuses an unknown one. */
+  const knowing =
+    (...known: string[]) =>
+    async ({ name }: { name: string }) => {
+      if (!known.includes(name)) {
+        throw new TypeError(`The provided value '${name}' is not a valid enum value of type PermissionName.`);
       }
-    }
-    expect(supportsLocalNetworkRequests(WithTarget as unknown as typeof Request)).toBe(true);
-    expect(supportsLocalNetworkRequests(class {} as unknown as typeof Request)).toBe(false);
+      return { state: 'prompt' };
+    };
+
+  it.each(['local-network-access', 'local-network', 'loopback-network'])(
+    'reads it off the Permissions API knowing %s, which Chrome does while Request has no targetAddressSpace',
+    async (name) => {
+      expect(await detectLocalNetworkAccess(knowing(name))).toBe(true);
+    },
+  );
+
+  it('finds none where the Permissions API knows none of the names', async () => {
+    expect(await detectLocalNetworkAccess(knowing('geolocation'))).toBe(false);
+  });
+
+  it('finds none where there is no Permissions API', async () => {
+    expect(await detectLocalNetworkAccess(undefined)).toBe(false);
+  });
+
+  it('asks once per page', () => {
+    expect(supportsLocalNetworkRequests()).toBe(supportsLocalNetworkRequests());
   });
 });

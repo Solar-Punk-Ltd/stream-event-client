@@ -147,14 +147,15 @@ function isLoopbackHost(hostname: string): boolean {
  * the deployed site is blocked as mixed content. The `fetch` rejects with the same `TypeError` a closed
  * port and a CORS refusal produce, which is why this has to be decided before the request rather than
  * read off the failure. A browser with Local Network Access, Chrome and Edge today, lets such a page
- * reach a plain http node on the local network, and the provider marks those requests for it.
+ * reach a plain http node on the local network. Whether this one does is asked of the browser
+ * beforehand, with {@link supportsLocalNetworkRequests}, because the answer comes back asynchronously.
  *
  * Exported because it is the one failure this module can name exactly rather than guess at.
  */
 export function isBlockedAsMixedContent(
   gatewayUrl: string,
   pageProtocol: string,
-  localNetworkRequests: boolean = supportsLocalNetworkRequests(),
+  localNetworkRequests: boolean,
 ): boolean {
   if (pageProtocol !== 'https:') {
     return false;
@@ -248,10 +249,11 @@ export async function probeGateway(
   {
     prober = beeHttpProber,
     pageProtocol = currentPageProtocol(),
-    localNetworkRequests = supportsLocalNetworkRequests(),
+    localNetworkRequests: injectedLocalNetworkRequests,
     reachability = {},
   }: GatewayProbeOptions = {},
 ): Promise<GatewayProbeOutcome> {
+  const localNetworkRequests = injectedLocalNetworkRequests ?? (await supportsLocalNetworkRequests());
   // Asked before the fetch, because this is the one failure that is knowable without one and the
   // only one whose cause survives: once the browser has refused it, what reaches this code is
   // indistinguishable from a closed port.

@@ -129,7 +129,7 @@ function currentPageProtocol(): string {
  */
 export async function testProvider(context: ProviderTestContext): Promise<CheckResult[]> {
   const pageProtocol = context.pageProtocol ?? currentPageProtocol();
-  const localNetworkRequests = context.localNetworkRequests ?? supportsLocalNetworkRequests();
+  const localNetworkRequests = context.localNetworkRequests ?? (await supportsLocalNetworkRequests());
   if (isBlockedAsMixedContent(context.address, pageProtocol, localNetworkRequests)) {
     const sentence = isLocalHttp(context.address) ? LOCAL_HTTP_UNSUPPORTED : MIXED_CONTENT;
     return CHECKS.map((check) => failed(check, sentence));

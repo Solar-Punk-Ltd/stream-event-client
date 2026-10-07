@@ -227,12 +227,12 @@ describe('a plain http node named from an https page', () => {
   });
 
   it('leaves an https node and a page served over http alone', () => {
-    expect(isBlockedAsMixedContent('https://node.example:1633', 'https:')).toBe(false);
-    expect(isBlockedAsMixedContent('http://192.168.1.20:1633', 'http:')).toBe(false);
+    expect(isBlockedAsMixedContent('https://node.example:1633', 'https:', false)).toBe(false);
+    expect(isBlockedAsMixedContent('http://192.168.1.20:1633', 'http:', false)).toBe(false);
   });
 
   it("leaves the deployed default alone, which is a path on this page's own origin", () => {
-    expect(isBlockedAsMixedContent('/bee', 'https:')).toBe(false);
+    expect(isBlockedAsMixedContent('/bee', 'https:', false)).toBe(false);
   });
 });
 
