@@ -22,6 +22,7 @@ import { TimedResponse } from '../src/shared/fetchWithTimeout.js';
 import { RequestJitter } from '../src/shared/requestJitter.js';
 
 import { fastClock } from './helpers/fastClock.js';
+import { headLookupFinder } from './helpers/headLookupFinder.js';
 import { waitFor } from './helpers/waiting.js';
 
 const OWNER = 'aabbcc';
@@ -136,12 +137,19 @@ class FakeGateway {
   };
 }
 
-/** The poller with its follower on a clock a test can outrun, which nothing in this file is about. */
+/**
+ * The poller with its follower on a clock a test can outrun, and finding a rung through the fake's feed
+ * head, since this file is about the walk once a rung is found rather than about the search.
+ */
 class FastPoller extends LadderFeedPoller {
   constructor(
     ...[state, fetch, interval, health, backoff, returnWait, options]: ConstructorParameters<typeof LadderFeedPoller>
   ) {
-    super(state, fetch, interval, health, backoff, returnWait, { followClock: fastClock(), ...options });
+    super(state, fetch, interval, health, backoff, returnWait, {
+      followClock: fastClock(),
+      finder: headLookupFinder(fetch),
+      ...options,
+    });
   }
 }
 

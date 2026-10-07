@@ -94,6 +94,20 @@ function readsPerMinute(gateway: LadderGateway, rung: RungName, sinceMs: number,
   return Math.round((reads * 60_000) / (untilMs - sinceMs));
 }
 
+/**
+ * The most times one published index of a quality was read since a moment. A quality found once and then followed
+ * reads each of its slots once. A quality started over is searched again, which reads slots it already holds.
+ */
+function mostReadsOfOneSlot(gateway: LadderGateway, rung: RungName, sinceMs: number): number {
+  const reads = new Map<number, number>();
+  for (const request of gateway.requests) {
+    if (request.rung === rung && request.kind === 'slot' && request.atMs >= sinceMs && request.index !== null) {
+      reads.set(request.index, (reads.get(request.index) ?? 0) + 1);
+    }
+  }
+  return Math.max(0, ...reads.values());
+}
+
 /** Waits for the video to move on by {@link PLAYS_ON_S} seconds from where it is now. */
 async function expectPlaysOn(page: Page, why: string): Promise<void> {
   const from = await videoTime(page);
@@ -141,6 +155,7 @@ test('start: the master feed is never read and only the starting quality is', as
     warnings,
   });
   expect(gateway.count('master'), 'nothing is read for the master feed (decision 33)').toBe(0);
+  expect(gateway.count('head', rung!), 'the starting quality is found by its slots, never the head lookup').toBe(0);
   expect(gateway.feedReads(rung!), 'the starting quality is read').toBeGreaterThan(0);
   for (const other of RUNGS.filter((candidate) => candidate.name !== rung)) {
     expect(gateway.feedReads(other.name), `${other.name} is not read`).toBe(0);
@@ -173,7 +188,7 @@ test('a forced switch moves the reads to the new quality and keeps playing', asy
     requestsSinceAsk: gateway.tally(askedAtMs),
     warnings,
   });
-  expect(gateway.count('head', target, askedAtMs), `${target} is found by one head lookup`).toBe(1);
+  expect(gateway.count('head', target), `${target} is found by its slots, never the head lookup`).toBe(0);
   expect(gateway.count('segment', target, askedAtMs), `${target} segments are fetched`).toBeGreaterThan(0);
   expect(gateway.feedReads(TOP, quietFromMs), `${TOP} is no longer read after the switch`).toBe(0);
   for (const other of RUNGS.filter((candidate) => candidate.name !== TOP && candidate.name !== target)) {
@@ -191,8 +206,7 @@ test('a switch asked before hls.js reports the starting quality reads the new qu
   // Known failure, found by this journey on 2026-10-07. hls.js reports the quality it started on with
   // LEVEL_SWITCHED once that quality's first fragment plays. A switch asked before then is under way when the report
   // arrives, and `LadderFeedPoller.followOnly` stops every other quality, the switch target included, and forgets what
-  // it read. hls.js then asks for the target again, which starts it over with a second head lookup, the slowest read
-  // on a real node. Asked here at the first buffered fragment, so the order is the same every run. On a live stream
+  // it read. hls.js then asks for the target again, which starts it over with a second search for its newest index. Asked here at the first buffered fragment, so the order is the same every run. On a live stream
   // the same order arises when ABR moves off the starting quality before its first fragment plays.
   test.fail(true, 'the poller drops a switch target when hls.js reports the quality it is leaving');
   const gateway = new LadderGateway();
@@ -211,7 +225,7 @@ test('a switch asked before hls.js reports the starting quality reads the new qu
     requestsSinceAsk: gateway.tally(askedAtMs),
     warnings,
   });
-  expect(gateway.count('head', target, askedAtMs), `${target} is found by one head lookup`).toBe(1);
+  expect(mostReadsOfOneSlot(gateway, target, askedAtMs), `${target} is found once and never started over`).toBe(1);
 });
 
 test('the playing quality stops publishing: the player fails over to a sibling and keeps playing', async ({

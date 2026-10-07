@@ -16,6 +16,11 @@ const WINDOW_SEGMENTS = 5;
 const RUNNING_FOR_MS = 60_000;
 /** Feed indexes whose addresses are worked out ahead, far more than any journey reaches. */
 const INDEXES_PER_FEED = 1_000;
+/**
+ * Indexes past those that the player's search from nothing reads in its first round, every power of four less one,
+ * so its reads of them are answered as misses rather than logged as unknown.
+ */
+const FIRST_ROUND_FAR_INDEXES = [1_023, 4_095, 16_383];
 
 /** The fake publisher's account. Made up, so nothing it names exists on any real node. */
 export const LADDER_OWNER = 'a1'.repeat(20);
@@ -147,7 +152,10 @@ export class LadderGateway {
     for (const feed of feeds) {
       const topic = Topic.fromString(name(feed));
       this.byTopicHex.set(topic.toString(), feed);
-      for (let index = 0; index < INDEXES_PER_FEED; index++) {
+      for (const index of [
+        ...Array.from({ length: INDEXES_PER_FEED }, (_, index) => index),
+        ...FIRST_ROUND_FAR_INDEXES,
+      ]) {
         const id = makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))).toString();
         this.bySlotId.set(id, { feed, index });
       }

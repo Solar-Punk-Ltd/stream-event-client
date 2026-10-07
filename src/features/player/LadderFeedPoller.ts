@@ -8,7 +8,7 @@ import { FeedHealthTracker, UNSERVED_SLOT_STALL_MS } from './feedState';
 import type { FeedEntry, FeedReader, FollowClock } from './following/feedReader';
 import { followPredicted } from './following/followPredicted';
 import { ManifestStateManager } from './ManifestManagement';
-import { HeadLookupFinder, NewestIndex, NewestIndexFinder } from './newestIndexFinder';
+import { IndexSearchFinder, NewestIndex, NewestIndexFinder, SwitchHint } from './newestIndexFinder';
 import { parseManifest } from './playlist';
 import { isSlotNotWrittenYet } from './refusedSlot';
 import { feedEntryOf, RungFeedReader } from './rungFeedReader';
@@ -99,6 +99,10 @@ interface Walk {
   markReady: () => void;
   /** The newest slot this walk has taken, or null before it has found one. */
   current: FeedEntry | null;
+  /** When `current` was taken, on the follow clock, which a switch's search is hinted with. */
+  currentSeenAtMs: number;
+  /** The last search found the feed empty, so the walk waits for its first slot before searching again. */
+  waitingForFirstSlot: boolean;
   misses: number;
   /** Set while the walk is waiting out a pause, so stopping does not have to wait for it. */
   wake?: () => void;
@@ -175,8 +179,8 @@ export class LadderFeedPoller {
     private readonly returnWatchWaitMs?: () => number,
     options: LadderFeedPollerOptions = {},
   ) {
-    this.finder = options.finder ?? new HeadLookupFinder(fetchResource);
     this.followClock = options.followClock ?? WALL_CLOCK;
+    this.finder = options.finder ?? new IndexSearchFinder(fetchResource, this.followClock);
     this.now = options.now ?? (() => performance.now());
     this.progressBoundMs = options.progressBoundMs ?? RUNG_PROGRESS_BOUND_MS;
     this.playheadMs = options.playheadMs ?? (() => null);
@@ -335,6 +339,8 @@ export class LadderFeedPoller {
       ready,
       markReady,
       current: null,
+      currentSeenAtMs: 0,
+      waitingForFirstSlot: false,
       misses: 0,
       seed,
       isCandidate,
@@ -474,6 +480,7 @@ export class LadderFeedPoller {
       return;
     }
     walk.current = found;
+    walk.currentSeenAtMs = this.followClock.now();
     this.stateManager.setIndex(entry.hexTopic, index);
     // A slot actually arrived, which is the only thing that ends an unserved run.
     this.feedHealth.recordGatewayResponse(entry.hexTopic);
@@ -539,15 +546,30 @@ export class LadderFeedPoller {
    */
   private async bootstrap(entry: RungEntry, walk: Walk): Promise<boolean> {
     const playing = this.playingBeside(entry);
-    const hint = playing ? this.stateManager.getIndex(playing.hexTopic) : null;
+    const rung = { owner: entry.owner, topic: entry.topic };
 
-    const found = walk.seed ?? (await this.finder.findNewest({ owner: entry.owner, topic: entry.topic }, hint));
+    // A feed found empty gains slot 0 first, so one read says when to search again, where a search
+    // from nothing would cost a round of eight each time.
+    if (walk.waitingForFirstSlot && walk.seed === null) {
+      const first = await new RungFeedReader(this.fetchResource, rung.owner, rung.topic, this.followClock.now).read(0);
+      if (walk.stopped) {
+        return false;
+      }
+      if (!first.found) {
+        this.recordMiss(entry, walk, null);
+        this.feedHealth.recordUnservedSlot(entry.hexTopic);
+        return false;
+      }
+    }
+
+    const found = walk.seed ?? (await this.finder.findNewest(rung, playing ? this.hintFrom(playing) : null));
     walk.seed = null;
     if (walk.stopped) {
       return false;
     }
+    walk.waitingForFirstSlot = found === null;
     if (found === null) {
-      // The feed holds nothing yet, the head's own form of a slot not written yet.
+      // The feed holds nothing yet, the search's own form of a slot not written yet.
       this.recordMiss(entry, walk, null);
       this.feedHealth.recordUnservedSlot(entry.hexTopic);
       return false;
@@ -580,6 +602,7 @@ export class LadderFeedPoller {
 
     this.stateManager.setIndex(entry.hexTopic, found.index);
     walk.current = feedEntryOf(Number(found.index.toBigInt()), found.playlist, this.followClock.now());
+    walk.currentSeenAtMs = this.followClock.now();
     // This session's first read found the rung open, so an end still recorded against it or its group
     // was left by an earlier session and is over. See `FeedHealthTracker.forgetStaleEnd`.
     this.feedHealth.forgetStaleEnd(entry.hexTopic);
@@ -587,6 +610,19 @@ export class LadderFeedPoller {
       this.feedHealth.forgetStaleEnd(entry.ladder.group);
     }
     return true;
+  }
+
+  /** Where the playing rung stands, for a search of another rung to start from, or null before it has a slot. */
+  private hintFrom(playing: RungEntry): SwitchHint | null {
+    const current = playing.walk?.current;
+    if (!playing.walk || !current) {
+      return null;
+    }
+    return {
+      index: current.index,
+      newestSegmentEndMs: current.newestSegmentEndMs,
+      seenAtMs: playing.walk.currentSeenAtMs,
+    };
   }
 
   /** The rung the viewer is playing beside this one, when it holds a playlist. */
@@ -692,7 +728,8 @@ export class LadderFeedPoller {
     }
 
     if (parsed.isFinalized && entry.ladder.playing === entry && !walk.isCandidate) {
-      void this.confirmEnd(entry, index);
+      const finished = feedEntryOf(Number(index.toBigInt()), text, this.followClock.now());
+      void this.confirmEnd(entry, index, { ...finished, seenAtMs: this.followClock.now() });
     }
 
     return shouldContinue;
@@ -753,7 +790,7 @@ export class LadderFeedPoller {
    * broadcast ended, one that shows a new index inside the bound means this rung alone stopped and the
    * player fails over to it.
    */
-  private async confirmEnd(entry: RungEntry, finishedAt: FeedIndex): Promise<void> {
+  private async confirmEnd(entry: RungEntry, finishedAt: FeedIndex, hint: SwitchHint): Promise<void> {
     const sibling = this.siblingOf(entry);
     if (!sibling) {
       this.recordEnded(entry, finishedAt);
@@ -762,7 +799,7 @@ export class LadderFeedPoller {
 
     let found: NewestIndex | null;
     try {
-      found = await this.finder.findNewest({ owner: sibling.owner, topic: sibling.topic }, finishedAt);
+      found = await this.finder.findNewest({ owner: sibling.owner, topic: sibling.topic }, hint);
     } catch {
       // Nothing to confirm with. The playing rung's own ENDLIST is the stronger evidence.
       found = null;
