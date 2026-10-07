@@ -183,6 +183,11 @@ The last level is weaker than it sounds. A policy can name schemes and hosts but
 ranges, so allowing plain http on the local network means allowing every plain http address on the
 internet too. Choose it only for a deployment that means to offer local network nodes.
 
+The page tells the local network from the internet by the address as written, which has two known
+limits. A link-local address, in 169.254.0.0/16 or fe80::/10, counts as an internet address. A name
+that resolves to the local network, such as `bee.lan`, counts as an internet address too, so name such
+a node by its numeric address.
+
 Any other value stops the container at start and names the three levels. Blob URLs stay media, image
 and worker sources at every level and are never added to what the page connects to.
 
