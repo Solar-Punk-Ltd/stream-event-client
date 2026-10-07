@@ -111,7 +111,11 @@ pnpm preview   # serve dist/ locally
 it, or run the image below, which does both.
 
 The other scripts: `pnpm test` (vitest), `pnpm lint` (oxlint), `pnpm typecheck`, `pnpm format` and
-`pnpm format:check` (oxfmt). Continuous integration runs the format check, lint, typecheck, tests and
+`pnpm format:check` (oxfmt). `pnpm e2e` builds the app and runs the browser journeys in Playwright:
+a replayed recording, and real hls.js against a fake gateway publishing a live stream in four
+qualities, each answer held back 650 ms. The first run downloads the Chromium build Playwright pins.
+Beyond that they need no Bee node and no network, and they print their timings and read rates
+without asserting them. Continuous integration runs the format check, lint, typecheck, tests and
 build on every pull request, and reports what the first page load downloads.
 
 ## Run the image
@@ -183,14 +187,23 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 - **The quality ladder.** A stream published in several qualities is one feed per quality plus a
   master playlist on a feed of its own. When the stream list names the stream's renditions, the
   player builds the master from the list and never reads the master feed. hls.js chooses the
-  quality, and the player reads only the feed of the quality it plays. A switch finds the new
-  quality's newest playlist, and reads it further back when the viewer is behind the live edge, at
-  most ten reads. The old quality stops being read once hls.js has switched.
+  quality, and the player reads only the feed of the quality it plays.
+- **How it times its reads.** The player asks for the next playlist when it is due: the newest
+  segment's end, plus one segment, plus a delay it learns from its own reads, set so that about one
+  ask in four comes too early. A second ask covers that one, then one ask per segment, then asks
+  every 2 seconds rising to 4 while nothing comes. A playlist 4 seconds late is looked past, one
+  slot further on. One viewer costs about 40 reads a minute.
+- **How it finds the newest playlist.** It reads slots by their number, never Bee's feed lookup. At
+  the start it reads eight slots at once, spread out to the feed's length, and closes in on the
+  newest in a few rounds. At a switch it starts from the playing quality's newest slot, which is
+  usually one round of eight. The new quality is read further back when the viewer is behind the
+  live edge, at most ten reads, and the old one stops being read once hls.js has switched. A switch
+  asked before hls.js has reported its first quality is kept.
 - **A quality that stops.** A quality is judged by its own progress, never by comparing it with
   another, because the qualities' feeds drift apart. A switch to a quality that has finished while
   the playing one is live, or sits more than 30 seconds behind it, is refused. When the playing
-  quality has had nothing new for 8 seconds, or finishes, the next lower quality is read for 6
-  seconds: if it moves on, the player moves to it and drops the stopped one, at most one per stream.
+  quality has had nothing new for 8 seconds, or finishes, the next lower quality is found and then
+  read for 6 seconds: if it moves on, the player moves to it and drops the stopped one, at most one per stream.
   If it does not, the broadcast paused or ended, and the player says so.
 - **Where the video loads from.** The Bee node picker offers the event gateway and a Bee node on the
   viewer's own computer, `http://localhost:1633` filled in and the port editable. Only `localhost`,
@@ -210,10 +223,11 @@ so the player brings its own loaders:
   segment bytes are fetched, where another source can plug in.
 - **ManifestStateManager** merges each live playlist into a growing EVENT playlist, so segments stay
   playable longer than the publisher's sliding window.
-- **LadderFeedPoller** walks the feed of the quality hls.js plays, on its own clock, plus the one
-  being switched to during a switch. A quality left behind forgets where it was, so coming back to
-  it starts at its newest playlist. Where a walk starts comes from a `NewestIndexFinder` and how
-  often it asks from a `PollPacing`, both injected so they can be swapped.
+- **LadderFeedPoller** follows the feed of the quality hls.js plays, plus the one being switched to
+  during a switch. A quality left behind forgets where it was, so coming back to it starts at its
+  newest playlist. Where it starts comes from a `NewestIndexFinder`, injected so it can be swapped,
+  and how it follows is `followPredicted` in `src/features/player/following/`, the polling study's
+  choice. The study's simulator and the strategies it was compared with are in `test/feedModel/`.
 
 Feed URIs use a `swarm://<owner>/<topic>` scheme, because hls.js resolves every playlist URI against
 the playlist's own URL and a URI with a scheme is the one case it leaves untouched.
