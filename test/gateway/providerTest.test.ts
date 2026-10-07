@@ -7,6 +7,7 @@ import {
   CHAT_FEED_NOT_FOUND,
   COULD_NOT_REACH,
   MIXED_CONTENT,
+  NO_SEGMENT,
   NOT_A_SWARM_GATEWAY,
   SKIPPED,
 } from '../../src/features/gateway/checkSentences';
@@ -295,6 +296,38 @@ describe("the control panel's Test, on a live ladder and pictures", () => {
       outcome: 'passed',
       sentence: 'The video loaded: the time marker of “Main stage”, a playlist and one segment.',
     });
+  });
+
+  it('follows a master playlist that names another master at most three levels deep', async () => {
+    const LOOP = 'test-loop-master';
+    const entryOfLoop = `${GW}/soc/${OWNER}/${makeFeedIdentifier(Topic.fromString(LOOP), FeedIndex.fromBigInt(0n)).toString()}`;
+    const master = ['#EXTM3U', '#EXT-X-STREAM-INF:BANDWIDTH=400000', `swarm://${OWNER}/${LOOP}`].join('\n');
+    let masterReads = 0;
+    const loops = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === `${GW}/health`) {
+        return Response.json({ status: 'ok' });
+      }
+      // Answers a few dozen times only, so a reader with no limit ends rather than running forever.
+      if (url === entryOfLoop && masterReads < 30) {
+        masterReads += 1;
+        return new Response(master);
+      }
+      return new Response('', { status: 404 });
+    }) as typeof fetch;
+    const stream: Stream = {
+      owner: OWNER,
+      topic: LOOP,
+      title: 'Loop',
+      timestamp: NOW,
+      mediatype: 'video',
+      state: 'vod',
+    };
+
+    const results = await run({ fetcher: loops, address: GW, knownStreams: [stream], chat: null, now: () => NOW });
+
+    expect(masterReads).toBe(4);
+    expect(results.player).toEqual({ check: 'player', outcome: 'failed', sentence: NO_SEGMENT('Loop') });
   });
 
   it("loads a stream's picture, and says when the gateway refused it", async () => {
