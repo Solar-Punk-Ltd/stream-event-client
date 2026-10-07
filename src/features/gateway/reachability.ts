@@ -70,6 +70,32 @@ async function permissionFor(
 }
 
 /**
+ * The network of the node when reaching it from this page needs the viewer's leave, or null when the
+ * browser has no Local Network Access or the node is no more private than the page.
+ */
+async function guardedSpace(
+  baseUrl: string,
+  options: ReachabilityOptions,
+): Promise<Exclude<AddressSpace, 'public'> | null> {
+  const localNetworkRequests = options.localNetworkRequests ?? (await supportsLocalNetworkRequests());
+  const target = addressSpaceOf(baseUrl);
+  const page = addressSpaceOf(options.pageUrl ?? currentPageUrl()) ?? 'public';
+  if (!localNetworkRequests || target === null || target === 'public' || PRIVACY[target] <= PRIVACY[page]) {
+    return null;
+  }
+  return target;
+}
+
+/**
+ * Whether the browser has yet to ask the viewer about reaching this node. Chrome holds the request
+ * while it asks, so a node behind an unanswered question looks like one that went quiet.
+ */
+export async function awaitsLocalNetworkAnswer(baseUrl: string, options: ReachabilityOptions = {}): Promise<boolean> {
+  const space = await guardedSpace(baseUrl, options);
+  return space !== null && (await permissionFor(space, options.permission ?? askPermissionsApi)) === 'prompt';
+}
+
+/**
  * Why a probe that found nothing readable found it. Never rejects. A node that answered and refused
  * this site is named by the probe itself, and an address that answered nothing is asked about the
  * browser's local network permission when reaching it needs one.
@@ -82,14 +108,11 @@ export async function unreachableCause(
   if (found.kind === 'refuses-this-site') {
     return { kind: 'cors-refused' };
   }
-  const { pageUrl = currentPageUrl(), permission = askPermissionsApi } = options;
-  const localNetworkRequests = options.localNetworkRequests ?? (await supportsLocalNetworkRequests());
-  const target = addressSpaceOf(baseUrl);
-  const page = addressSpaceOf(pageUrl) ?? 'public';
-  if (!localNetworkRequests || target === null || target === 'public' || PRIVACY[target] <= PRIVACY[page]) {
+  const space = await guardedSpace(baseUrl, options);
+  if (space === null) {
     return { kind: 'unreachable' };
   }
-  switch (await permissionFor(target, permission)) {
+  switch (await permissionFor(space, options.permission ?? askPermissionsApi)) {
     case 'denied':
       return { kind: 'local-network-refused' };
     case 'granted':

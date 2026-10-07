@@ -20,7 +20,12 @@ import {
   unreachableHelp,
   unreachableSentence,
 } from './checkSentences';
-import { type ReachabilityOptions, unreachableCause, type UnreachableCause } from './reachability';
+import {
+  awaitsLocalNetworkAnswer,
+  type ReachabilityOptions,
+  unreachableCause,
+  type UnreachableCause,
+} from './reachability';
 
 /** Both a viewer's typing and a saved address, since every caller joins with a path of its own. */
 function withoutTrailingSlash(url: string): string {
@@ -191,7 +196,11 @@ type GatewayProbeOutcome =
    * check waves through.
    */
   | { kind: 'not-bee' }
-  | { kind: 'timed-out' }
+  /**
+   * Nothing came back in the window. `awaitingLocalNetwork` is whether the browser has yet to ask the
+   * viewer about reaching the node, which holds the request just as a quiet node does.
+   */
+  | { kind: 'timed-out'; awaitingLocalNetwork: boolean }
   /** A Bee node answered its health and cannot serve this viewer yet. */
   | { kind: 'not-ready'; reason: NotReadyReason }
   /** No readable answer, and what a second look at the address found: nothing, CORS, or the browser. */
@@ -274,7 +283,10 @@ export async function probeGateway(
     case 'rejected':
       return { kind: 'rejected', status: found.status };
     case 'timed-out':
-      return { kind: 'timed-out' };
+      return {
+        kind: 'timed-out',
+        awaitingLocalNetwork: await awaitsLocalNetworkAnswer(gatewayUrl, { localNetworkRequests, ...reachability }),
+      };
     case 'unreachable':
     case 'refuses-this-site':
       return {
@@ -309,6 +321,9 @@ export function describeProbeFailure(failure: GatewayProbeFailure): string {
     case 'mixed-content':
       return 'This site is served over https, and a browser refuses to load anything over plain http from it, so the request never leaves this page. Give the node an https address, or open this site over http.';
     case 'timed-out':
+      if (failure.awaitingLocalNetwork) {
+        return unreachableSentence({ kind: 'unreachable-local' });
+      }
       return 'The node accepted the connection and then stopped answering. Check that it has finished starting up, then try again.';
     case 'unreachable':
       return unreachableSentence(failure.cause);
@@ -317,7 +332,14 @@ export function describeProbeFailure(failure: GatewayProbeFailure): string {
 
 /** The help a failure needs beyond its sentence, for this page's origin, or null when the sentence is enough. */
 export function probeFailureHelp(failure: GatewayProbeFailure, origin: string): Help | null {
-  return failure.kind === 'unreachable' ? unreachableHelp(failure.cause, origin) : null;
+  switch (failure.kind) {
+    case 'unreachable':
+      return unreachableHelp(failure.cause, origin);
+    case 'timed-out':
+      return failure.awaitingLocalNetwork ? unreachableHelp({ kind: 'unreachable-local' }, origin) : null;
+    default:
+      return null;
+  }
 }
 
 /**

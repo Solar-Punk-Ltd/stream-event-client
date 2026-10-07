@@ -172,7 +172,27 @@ describe('probeGateway', () => {
   });
 
   it('keeps a node that never answered apart from one that could not be reached', async () => {
-    expect(await probeGateway('http://localhost:1633', { prober: silent() })).toEqual({ kind: 'timed-out' });
+    expect(await probeGateway('http://localhost:1633', { prober: silent(), reachability: NO_LOCAL_NETWORK })).toEqual({
+      kind: 'timed-out',
+      awaitingLocalNetwork: false,
+    });
+  });
+
+  it("finds a node that never answered may be held by the browser's unanswered local network question", async () => {
+    const reachability = { pageUrl: 'https://viewer.example.com/', permission: async () => 'prompt' as const };
+    expect(
+      await probeGateway('http://localhost:1633', { prober: silent(), localNetworkRequests: true, reachability }),
+    ).toEqual({ kind: 'timed-out', awaitingLocalNetwork: true });
+  });
+
+  it('does not blame the local network question once it is answered, or where it is not asked', async () => {
+    const granted = { pageUrl: 'https://viewer.example.com/', permission: async () => 'granted' as const };
+    const samePlace = { pageUrl: 'http://localhost:5173/', permission: async () => 'prompt' as const };
+    for (const reachability of [granted, samePlace]) {
+      expect(
+        await probeGateway('http://localhost:1633', { prober: silent(), localNetworkRequests: true, reachability }),
+      ).toEqual({ kind: 'timed-out', awaitingLocalNetwork: false });
+    }
   });
 });
 
@@ -315,10 +335,20 @@ describe('describeProbeFailure', () => {
   });
 
   it('sends a viewer whose node never answered to the node rather than to its CORS settings', () => {
-    const timedOut = describeProbeFailure({ kind: 'timed-out' });
+    const timedOut = describeProbeFailure({ kind: 'timed-out', awaitingLocalNetwork: false });
 
     expect(timedOut).not.toContain('cors-allowed-origins');
     expect(timedOut).not.toBe(describeProbeFailure({ kind: 'unreachable', cause: { kind: 'unreachable' } }));
+    expect(
+      probeFailureHelp({ kind: 'timed-out', awaitingLocalNetwork: false }, 'https://viewer.example.com'),
+    ).toBeNull();
+  });
+
+  it("sends a viewer whose node never answered to the browser's local network question while it is unanswered", () => {
+    const failure = { kind: 'timed-out', awaitingLocalNetwork: true } as const;
+
+    expect(describeProbeFailure(failure)).toBe(UNREACHABLE_SENTENCES['unreachable-local']);
+    expect(probeFailureHelp(failure, 'https://viewer.example.com')).toBe(LOCAL_NETWORK_HELP);
   });
 
   it('names the status when something answered with an error', () => {
