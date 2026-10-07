@@ -73,6 +73,14 @@ export const SKIPPED = {
   noChat: 'Not tested: this site has no chat.',
 } as const;
 
+/**
+ * Why the chat was not passed when the gateway found no feed for it. The stream list does not say which
+ * streams have a chat, so a feed that is not there may be a chat nobody wrote in or one this gateway has
+ * not found, and neither proves the gateway can read the chat.
+ */
+export const CHAT_FEED_NOT_FOUND = (title: string) =>
+  `Not tested: this gateway found no chat feed for ${titled(title)}. Nobody may have written in it yet, or the gateway has not found it on the network. Test again once the chat has messages.`;
+
 /** The quoted title a sentence names a stream by. */
 export const titled = (title: string) => `“${title}”`;
 
@@ -85,7 +93,6 @@ export const PASSED = {
   previews: (title: string) => `Previews loaded: the preview playlist of ${titled(title)}.`,
   picture: (title: string) => `Pictures loaded: the picture of ${titled(title)}.`,
   chat: (title: string) => `The chat loaded: the newest message of ${titled(title)}.`,
-  chatEmpty: (title: string) => `The chat answered: ${titled(title)} has no messages yet.`,
 } as const;
 
 /** A playlist that names no segment proves the gateway answered and nothing about whether video loads. */

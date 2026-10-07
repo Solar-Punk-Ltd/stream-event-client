@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { parseRuntimeConfig, type ChatConfig } from '../../src/config/runtimeConfig';
 import type { Stream } from '../../src/features/catalog/stream';
 import {
+  CHAT_FEED_NOT_FOUND,
   COULD_NOT_REACH,
   MIXED_CONTENT,
   NOT_A_SWARM_GATEWAY,
@@ -181,16 +182,20 @@ describe("the control panel's Test, on the event's recorded content", () => {
     });
   });
 
-  it('says the chat has no messages yet when its feed has none', async () => {
+  it('does not pass the chat when this gateway cannot find its feed, and says why', async () => {
+    // Nothing in the stream list says a stream has a chat, so a feed this gateway cannot find proves nothing.
     const results = await run({
       fetcher: gateway((url) => (url.includes('/feeds/c1ba847e') ? new Response('', { status: 404 }) : undefined)),
     });
 
     expect(results.chat).toEqual({
       check: 'chat',
-      outcome: 'passed',
-      sentence: `The chat answered: ${RECORDED_TITLE} has no messages yet.`,
+      outcome: 'skipped',
+      sentence: CHAT_FEED_NOT_FOUND(RECORDED_TITLE.slice(1, -1)),
     });
+    expect(results.chat.sentence).toBe(
+      `Not tested: this gateway found no chat feed for ${RECORDED_TITLE}. Nobody may have written in it yet, or the gateway has not found it on the network. Test again once the chat has messages.`,
+    );
   });
 
   it('skips the chat on a site that has none, and every stream check on an empty list', async () => {

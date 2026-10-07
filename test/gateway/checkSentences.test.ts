@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CHAT_FEED_NOT_FOUND,
   COULD_NOT_REACH,
   failedReadSentence,
   NOT_A_SWARM_GATEWAY,
@@ -71,7 +72,6 @@ describe('the sentences a passed or skipped check ends in', () => {
     expect(PASSED.previews('Main stage')).toBe('Previews loaded: the preview playlist of “Main stage”.');
     expect(PASSED.picture('Main stage')).toBe('Pictures loaded: the picture of “Main stage”.');
     expect(PASSED.chat('Main stage')).toBe('The chat loaded: the newest message of “Main stage”.');
-    expect(PASSED.chatEmpty('Main stage')).toBe('The chat answered: “Main stage” has no messages yet.');
   });
 
   it('say why a check was not run', () => {
@@ -88,6 +88,7 @@ describe('the sentences a passed or skipped check ends in', () => {
       COULD_NOT_REACH,
       NOT_A_SWARM_GATEWAY,
       ...Object.values(SKIPPED),
+      CHAT_FEED_NOT_FOUND('x'),
       PASSED.streamList(2, 3),
       PASSED.playerByMarker('x'),
       failedReadSentence('x', { kind: 'unsupported' }),

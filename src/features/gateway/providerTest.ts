@@ -21,6 +21,7 @@ import { loadUrl as loadUrlOverHttp, type SwarmClient, type SwarmReader, type Ur
 import { PROBE_TIMEOUT_MS, type ReadOptions } from '@/swarm/provider';
 
 import {
+  CHAT_FEED_NOT_FOUND,
   failedReadSentence,
   MIXED_CONTENT,
   NO_SEGMENT,
@@ -388,7 +389,7 @@ async function checkChat(context: ProviderTestContext, streams: readonly Stream[
   try {
     const head = await source.readHead();
     if (head === null) {
-      return passed('chat', PASSED.chatEmpty(stream.title));
+      return skipped('chat', CHAT_FEED_NOT_FOUND(stream.title));
     }
     const newest = await source.readSlot(head.index);
     return newest === null

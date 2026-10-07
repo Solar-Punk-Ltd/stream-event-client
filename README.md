@@ -264,7 +264,8 @@ and the kinds of provider the build carries (`src/features/gateway/`).
   be a stream list. The video is read as the player starts: the ladder's time marker on a live ladder,
   otherwise a feed entry the list names, then one segment's URL is loaded. Previews read the playlist a
   stream card reads. Pictures load one stream's picture. The chat reads its head and newest slot through
-  the chat's own reader. The checks after the list use the stream this gateway listed, or the list the
+  the chat's own reader, and passes only when the head is found: the stream list does not say which
+  streams have a chat, so a head that is not there is "Not tested" with the reason. The checks after the list use the stream this gateway listed, or the list the
   page already shows when it could not, a live stream first. Each check ends in one sentence, and a
   failure says what the viewer can do: "this node does not allow this site" with the setting that
   decides it, "this address is not a Swarm gateway", or "the gateway did not answer in 5 s". The
