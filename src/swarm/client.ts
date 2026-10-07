@@ -3,7 +3,7 @@ import type { Topic } from '@ethersphere/bee-js';
 import { GatewayClock } from '@/shared/gatewayClock';
 
 import { type AnswerKind, serverTimeOf, type SwarmAnswer } from './answers';
-import type { ReadOptions, SwarmProvider, UrlUse } from './provider';
+import { DEFAULT_READ_TIMEOUT_MS, type ReadOptions, type SwarmProvider, type UrlUse } from './provider';
 
 /** The parts of the app that read Swarm, each of which the client may send to a provider of its own. */
 export const SWARM_FEATURES = ['player', 'stream-list', 'previews', 'chat'] as const;
@@ -79,7 +79,7 @@ interface HealthState {
   nextPauseMs: number;
 }
 
-type Ask = (provider: SwarmProvider) => Promise<SwarmAnswer>;
+type Ask = (provider: SwarmProvider, options: ReadOptions) => Promise<SwarmAnswer>;
 
 /** Answers after which another provider may know better. Not found and aborted are final. */
 const ASK_ANOTHER: ReadonlySet<AnswerKind> = new Set<AnswerKind>(['unavailable', 'rate-limited', 'unsupported']);
@@ -115,14 +115,17 @@ export class SwarmClient {
   reader(feature: SwarmFeature): SwarmReader {
     return {
       readFeedHead: (owner, topic, options) =>
-        this.read(feature, 'feed-head', (provider) => provider.readFeedHead(owner, topic, options)),
+        this.read(feature, 'feed-head', options, (provider, windowed) => provider.readFeedHead(owner, topic, windowed)),
       readFeedEntry: (owner, topic, index, options) =>
-        this.read(feature, 'feed-entry', (provider) => provider.readFeedEntry(owner, topic, index, options)),
+        this.read(feature, 'feed-entry', options, (provider, windowed) =>
+          provider.readFeedEntry(owner, topic, index, windowed),
+        ),
       readSoc: (owner, identifier, options) =>
-        this.read(feature, 'soc', (provider) => provider.readSoc(owner, identifier, options)),
-      readChunk: (address, options) => this.read(feature, 'chunk', (provider) => provider.readChunk(address, options)),
+        this.read(feature, 'soc', options, (provider, windowed) => provider.readSoc(owner, identifier, windowed)),
+      readChunk: (address, options) =>
+        this.read(feature, 'chunk', options, (provider, windowed) => provider.readChunk(address, windowed)),
       readBytes: (reference, options) =>
-        this.read(feature, 'bytes', (provider) => provider.readBytes(reference, options)),
+        this.read(feature, 'bytes', options, (provider, windowed) => provider.readBytes(reference, windowed)),
       urlFor: (reference, use) => this.urlFor(feature, reference, use),
     };
   }
@@ -151,10 +154,25 @@ export class SwarmClient {
     await Promise.all(this.providers().map(({ provider }) => provider.stop()));
   }
 
-  private async read(feature: SwarmFeature, read: ReadKind, ask: Ask): Promise<SwarmAnswer> {
+  /**
+   * The caller's window covers the whole read, the fallback included, so a later provider is given
+   * only what the earlier ones left and is not asked once nothing is left.
+   */
+  private async read(
+    feature: SwarmFeature,
+    read: ReadKind,
+    options: ReadOptions | undefined,
+    ask: Ask,
+  ): Promise<SwarmAnswer> {
+    const windowMs = options?.timeoutMs ?? DEFAULT_READ_TIMEOUT_MS;
+    const startedAtMs = this.now();
     let answer: SwarmAnswer | null = null;
     for (const { id, provider } of this.candidatesFor(feature)) {
-      answer = await ask(provider);
+      const leftMs = windowMs - (this.now() - startedAtMs);
+      if (answer !== null && leftMs <= 0) {
+        return answer;
+      }
+      answer = await ask(provider, { ...options, timeoutMs: leftMs });
       this.count(feature, read, id, answer.kind);
       this.noteHealth(id, answer);
       const serverTimeMs = serverTimeOf(answer);

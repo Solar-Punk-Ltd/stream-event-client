@@ -1,5 +1,5 @@
 import type { SwarmAnswer } from '../../src/swarm/answers';
-import type { ProviderCapabilities, SwarmProvider, UrlUse } from '../../src/swarm/provider';
+import type { ProviderCapabilities, ReadOptions, SwarmProvider, UrlUse } from '../../src/swarm/provider';
 
 export type ScriptedRead = 'feed-head' | 'feed-entry' | 'soc' | 'chunk' | 'bytes';
 
@@ -19,29 +19,33 @@ export class ScriptedProvider implements SwarmProvider {
   answer: SwarmAnswer = { kind: 'content', bytes: new Uint8Array([1]), feedIndex: null, serverTimeMs: null };
 
   readonly asked: ScriptedRead[] = [];
+  /** The window each read was given, in the order asked, undefined where the caller named none. */
+  readonly windows: (number | undefined)[] = [];
+  /** Run as each read is asked, which is how a test makes a read take time on the client's clock. */
+  onAsk: () => void = () => {};
   started = 0;
   stopped = 0;
 
   constructor(readonly name: string) {}
 
-  async readFeedHead(): Promise<SwarmAnswer> {
-    return this.ask('feed-head');
+  async readFeedHead(_owner: string, _topic: unknown, options?: ReadOptions): Promise<SwarmAnswer> {
+    return this.ask('feed-head', options);
   }
 
-  async readFeedEntry(): Promise<SwarmAnswer> {
-    return this.ask('feed-entry');
+  async readFeedEntry(_owner: string, _topic: unknown, _index: number, options?: ReadOptions): Promise<SwarmAnswer> {
+    return this.ask('feed-entry', options);
   }
 
-  async readSoc(): Promise<SwarmAnswer> {
-    return this.ask('soc');
+  async readSoc(_owner: string, _identifier: string, options?: ReadOptions): Promise<SwarmAnswer> {
+    return this.ask('soc', options);
   }
 
-  async readChunk(): Promise<SwarmAnswer> {
-    return this.ask('chunk');
+  async readChunk(_address: string, options?: ReadOptions): Promise<SwarmAnswer> {
+    return this.ask('chunk', options);
   }
 
-  async readBytes(): Promise<SwarmAnswer> {
-    return this.ask('bytes');
+  async readBytes(_reference: string, options?: ReadOptions): Promise<SwarmAnswer> {
+    return this.ask('bytes', options);
   }
 
   urlFor(reference: string, use: UrlUse): string | null {
@@ -64,8 +68,10 @@ export class ScriptedProvider implements SwarmProvider {
     this.stopped += 1;
   }
 
-  private ask(read: ScriptedRead): SwarmAnswer {
+  private ask(read: ScriptedRead, options?: ReadOptions): SwarmAnswer {
     this.asked.push(read);
+    this.windows.push(options?.timeoutMs);
+    this.onAsk();
     return this.answer;
   }
 }

@@ -306,6 +306,8 @@ there that builds a Bee URL, calls fetch, or makes a Bee client of its own (`tes
   through its own provider with the fallback behind it. A provider that faults three times in a row is
   left alone for 15 seconds, twice that each time it faults again at once, up to two minutes, and a
   rate-limited one for as long as it asked. A paused provider is still asked when nothing else can be.
+  A read's window covers the fallback too: the fallback gets only what the first provider left of it,
+  and is not asked once nothing is left.
   Every read is counted by feature, kind, provider and answer, and every answer's server time keeps the
   gateway clock.
 - **The contract** (`test/swarm/providerContract.ts`) is the suite every provider kind must pass, run

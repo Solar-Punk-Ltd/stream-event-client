@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { GatewayClock } from '../../src/shared/gatewayClock';
 import { SwarmClient, type SwarmClientOptions } from '../../src/swarm/client';
+import { DEFAULT_READ_TIMEOUT_MS } from '../../src/swarm/provider';
 import { BeeHttpProvider } from '../../src/swarm/providers/bee-http/beeHttpProvider';
 import { answeringFetch } from '../helpers/recordedBeeGateway';
 import { content, fault, notFound, ScriptedProvider } from '../helpers/scriptedProvider';
@@ -124,6 +125,42 @@ describe('the Swarm client', () => {
       expect(await client.reader('chat').readChunk(REFERENCE)).toMatchObject({ kind: 'not-found' });
       expect(fallback.asked).toEqual([]);
       expect(client.health()).toContainEqual({ id: 'event', faultsInARow: 0, pausedUntilMs: null });
+    });
+  });
+
+  describe("keeping a read inside the caller's window", () => {
+    const WINDOW_MS = 1_000;
+    const readInWindow = (client: SwarmClient) => client.reader('player').readBytes(REFERENCE, { timeoutMs: WINDOW_MS });
+
+    it('gives the fallback only what is left of the window after the chosen provider hung', async () => {
+      const { chosen, fallback, client, advance } = world();
+      chosen.answer = { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: WINDOW_MS } };
+      chosen.onAsk = () => advance(600);
+      fallback.answer = content();
+
+      expect(await readInWindow(client)).toBe(fallback.answer);
+      expect(chosen.windows).toEqual([WINDOW_MS]);
+      expect(fallback.windows).toEqual([400]);
+    });
+
+    it('does not ask the fallback once the chosen provider used the whole window', async () => {
+      const { chosen, fallback, client, advance } = world();
+      chosen.answer = { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: WINDOW_MS } };
+      chosen.onAsk = () => advance(WINDOW_MS);
+
+      expect(await readInWindow(client)).toBe(chosen.answer);
+      expect(fallback.asked).toEqual([]);
+    });
+
+    it('takes the default window as the whole budget when the caller names none', async () => {
+      const { chosen, fallback, client, advance } = world();
+      chosen.answer = fault;
+      chosen.onAsk = () => advance(DEFAULT_READ_TIMEOUT_MS - 250);
+
+      await readBytes(client);
+
+      expect(chosen.windows).toEqual([DEFAULT_READ_TIMEOUT_MS]);
+      expect(fallback.windows).toEqual([250]);
     });
   });
 
