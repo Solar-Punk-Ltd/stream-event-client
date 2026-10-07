@@ -1,6 +1,14 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
-import { installHlsProbe, levelUris, playingUri, probeState, switchTo, videoTime } from './hlsProbe';
+import {
+  installHlsProbe,
+  levelUris,
+  playingUri,
+  probeState,
+  switchAtFirstFragment,
+  switchTo,
+  videoTime,
+} from './hlsProbe';
 import { refuseOtherOrigins, serveConfig } from './journey';
 import { LadderGateway, RUNGS, rungUri, type RungName } from './ladderGateway';
 
@@ -25,10 +33,22 @@ function report(journey: string, numbers: Record<string, unknown>): void {
   console.log(`[ladder] ${journey} ${JSON.stringify(numbers)}`);
 }
 
-/** Serves the page through the fake gateway and opens the stream's watch page, without waiting for anything. */
-async function openPage(page: Page, context: BrowserContext, gateway: LadderGateway): Promise<string[]> {
+/**
+ * Serves the page through the fake gateway and opens the stream's watch page, without waiting for anything.
+ *
+ * @param switchAtFirstFragmentTo A quality hls.js is asked to switch to the moment its first fragment is buffered.
+ */
+async function openPage(
+  page: Page,
+  context: BrowserContext,
+  gateway: LadderGateway,
+  switchAtFirstFragmentTo?: RungName,
+): Promise<string[]> {
   await refuseOtherOrigins(context);
   await installHlsProbe(page);
+  if (switchAtFirstFragmentTo) {
+    await switchAtFirstFragment(page, rungUri(switchAtFirstFragmentTo));
+  }
   await serveConfig(page, gateway.config());
   await gateway.attach(page);
   const warnings: string[] = [];
@@ -172,15 +192,16 @@ test('a switch asked before hls.js reports the starting quality reads the new qu
   // LEVEL_SWITCHED once that quality's first fragment plays. A switch asked before then is under way when the report
   // arrives, and `LadderFeedPoller.followOnly` stops every other quality, the switch target included, and forgets what
   // it read. hls.js then asks for the target again, which starts it over with a second head lookup, the slowest read
-  // on a real node. On a live stream this is the down-switch ABR makes while a slow top-quality fragment still loads.
+  // on a real node. Asked here at the first buffered fragment, so the order is the same every run. On a live stream
+  // the same order arises when ABR moves off the starting quality before its first fragment plays.
   test.fail(true, 'the poller drops a switch target when hls.js reports the quality it is leaving');
   const gateway = new LadderGateway();
-  const warnings = await openPage(page, context, gateway);
-  await expect.poll(() => levelUris(page), { message: 'hls.js holds the four qualities' }).toHaveLength(RUNGS.length);
-
   const target: RungName = '360p';
-  const askedAtMs = Date.now();
-  await switchTo(page, rungUri(target));
+  const warnings = await openPage(page, context, gateway, target);
+  await expect
+    .poll(async () => (await probeState(page)).switchAskedAtMs, { message: 'the switch is asked' })
+    .not.toBeNull();
+  const askedAtMs = (await probeState(page)).switchAskedAtMs!;
   const switchedAtMs = await waitForSwitchTo(page, target, askedAtMs, 30_000);
 
   report('early switch', {

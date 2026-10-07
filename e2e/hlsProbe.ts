@@ -9,6 +9,9 @@ interface ProbeWindow {
     created: number;
     switches: { level: number; uri: string; atMs: number }[];
     fatalErrors: { type: string; details: string; atMs: number }[];
+    /** A level URI to switch to once the first fragment is buffered, and when that switch was asked. */
+    switchAtFirstFragment: string | null;
+    switchAskedAtMs: number | null;
   };
 }
 
@@ -27,11 +30,18 @@ interface ProbedHls {
  * `subtititleStreamController`, a misspelt field no other object carries, after its event emitter exists, so a
  * setter for that name on `Object.prototype` is handed every new player once and can subscribe to it. The setter
  * then defines the field on the player itself, so the player behaves exactly as it would without the probe.
- * hls.js names its events by these strings: `hlsLevelSwitched` and `hlsError`.
+ * hls.js names its events by these strings: `hlsLevelSwitched`, `hlsFragBuffered` and `hlsError`.
  */
 export async function installHlsProbe(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const probe: ProbeWindow['__ladderProbe'] = { hls: null, created: 0, switches: [], fatalErrors: [] };
+    const probe: ProbeWindow['__ladderProbe'] = {
+      hls: null,
+      created: 0,
+      switches: [],
+      fatalErrors: [],
+      switchAtFirstFragment: null,
+      switchAskedAtMs: null,
+    };
     (window as unknown as ProbeWindow).__ladderProbe = probe;
     // Extending the prototype is the point here, and only in the test's own page. See above.
     // oxlint-disable-next-line no-extend-native
@@ -49,6 +59,14 @@ export async function installHlsProbe(page: Page): Promise<void> {
         this.on('hlsLevelSwitched', (_event, data) => {
           const level = data.level as number;
           probe.switches.push({ level, uri: this.levels[level]?.uri ?? '', atMs: Date.now() });
+        });
+        this.on('hlsFragBuffered', () => {
+          const index = this.levels.findIndex((level) => level.uri === probe.switchAtFirstFragment);
+          if (index >= 0) {
+            this.nextLevel = index;
+            probe.switchAskedAtMs = Date.now();
+          }
+          probe.switchAtFirstFragment = null;
         });
         this.on('hlsError', (_event, data) => {
           if (data.fatal) {
@@ -88,10 +106,20 @@ export async function switchTo(page: Page, uri: string): Promise<void> {
   }
 }
 
+/**
+ * Asks hls.js to switch to the level with this URI the moment its first fragment is buffered, which is before
+ * hls.js reports the quality it started on. A journey sets it before opening the page.
+ */
+export async function switchAtFirstFragment(page: Page, uri: string): Promise<void> {
+  await page.addInitScript((target) => {
+    (window as unknown as ProbeWindow).__ladderProbe.switchAtFirstFragment = target;
+  }, uri);
+}
+
 export function probeState(page: Page): Promise<Omit<ProbeWindow['__ladderProbe'], 'hls'>> {
   return page.evaluate(() => {
-    const { created, switches, fatalErrors } = (window as unknown as ProbeWindow).__ladderProbe;
-    return { created, switches, fatalErrors };
+    const { hls: _hls, ...state } = (window as unknown as ProbeWindow).__ladderProbe;
+    return state;
   });
 }
 
