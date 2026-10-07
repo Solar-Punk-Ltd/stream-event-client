@@ -111,6 +111,8 @@ export function ControlPanel() {
       controller.abort();
     }
     running.current.clear();
+    // A stopped Test never reaches its result, so its row would stay "Testing..." with Test disabled.
+    setTests((current) => Object.fromEntries(Object.entries(current).filter(([, test]) => test.state === 'done')));
     setIsOpen(false);
   };
 

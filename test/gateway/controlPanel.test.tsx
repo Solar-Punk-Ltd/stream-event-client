@@ -139,6 +139,29 @@ describe('the control panel', () => {
     expect(results).toContain('Not tested: the stream list has no stream to test with.');
   });
 
+  it('forgets a Test the viewer stopped by closing the panel, so it can be run again', async () => {
+    // Every read but the health check waits until it is stopped, so the Test is still running at close.
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/health')) {
+        return Response.json({ status: 'ok' });
+      }
+      return new Promise<Response>((_, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('stopped', 'AbortError')));
+      });
+    }) as typeof fetch;
+    await open();
+    click(buttonIn(row('Backup gateway'), 'Test'));
+    expect(row('Backup gateway').textContent).toContain('Testing...');
+
+    click(document.querySelector('.dialog-backdrop') as HTMLElement);
+    await settle();
+    expect(dialog()).toBeNull();
+    click(button(/^Gateway/));
+
+    expect(row('Backup gateway').textContent).not.toContain('Testing');
+    expect(buttonIn(row('Backup gateway'), 'Test').disabled).toBe(false);
+  });
+
   it('copies a report of the last test and the status', async () => {
     await open();
     click(buttonIn(row('Backup gateway'), 'Test'));
