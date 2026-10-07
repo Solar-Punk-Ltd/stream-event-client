@@ -4,6 +4,7 @@
  * and a new way of failing cannot ship without its words.
  */
 import type { SwarmAnswer } from '@/swarm/answers';
+import type { BeeNodeAccess } from '@/swarm/beeNodeAccess';
 import type { ProbeResult } from '@/swarm/provider';
 
 /** Every way a read can end that is not the content it asked for. */
@@ -108,3 +109,31 @@ export const PASSED = {
 /** A playlist that names no segment proves the gateway answered and nothing about whether video loads. */
 export const NO_SEGMENT = (title: string) =>
   `The playlist of ${titled(title)} names no segment, so no video could be loaded from it. Test again in a minute.`;
+
+/** The address the picker suggests for a node on this computer, as Swarm Desktop runs it. */
+const THIS_COMPUTER_EXAMPLE = 'http://localhost:1633';
+
+const THIS_COMPUTER_HOSTS = 'localhost or 127.0.0.1';
+
+/** What the picker says a node of the viewer's own may be, for each level the deployment may set. */
+export const OWN_NODE_DESCRIPTION: Readonly<Record<BeeNodeAccess, string>> = {
+  off: 'A Bee node on this computer, for example Swarm Desktop. Change the port if yours is not 1633.',
+  https:
+    'A Bee node on this computer, for example Swarm Desktop, or one on another machine at an https address. Change the port if yours is not 1633.',
+  'https-and-local-http':
+    'A Bee node on this computer, for example Swarm Desktop, one on another machine at an https address, or one on your local network over plain http in Chrome or Edge. Change the port if yours is not 1633.',
+};
+
+/** Why the picker will not use what a viewer typed, each with what to type instead. */
+export const ADDRESS_REFUSED = {
+  notHttp: 'The address has to start with http:// or https://.',
+  empty: `Enter the address of your Bee node, for example ${THIS_COMPUTER_EXAMPLE}.`,
+  notAnAddress: `That is not an address. Enter one such as ${THIS_COMPUTER_EXAMPLE}.`,
+  notJustTheOrigin: `Enter only the scheme, host and port, such as ${THIS_COMPUTER_EXAMPLE}.`,
+  thisComputerOnly: `Only a Bee node on this computer can be used here, at ${THIS_COMPUTER_HOSTS}.`,
+  ipv6Loopback: `This site cannot use the address [::1]. Use localhost or 127.0.0.1 with your node's port instead, such as ${THIS_COMPUTER_EXAMPLE}.`,
+  otherLoopbackHost: `A node on this computer has to be named ${THIS_COMPUTER_HOSTS}, because this site allows only those. Use ${THIS_COMPUTER_EXAMPLE} with your node's port.`,
+  localHttpNotAllowed: `This site does not allow plain http to a node on your local network. Enter the node's https address instead, or run the node on this computer and use ${THIS_COMPUTER_EXAMPLE}.`,
+  plainHttpInternet:
+    "A browser blocks plain http to a node on the internet from a site served over https. Enter the node's address starting with https:// instead.",
+} as const;

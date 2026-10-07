@@ -20,6 +20,7 @@ import {
   OWN_NODE_DEFAULT_ADDRESS,
   probeGateway,
 } from './gatewayProbe';
+import { OWN_NODE_DESCRIPTION } from './checkSentences';
 import { isServingFromFallback, statusRows } from './providerStatus';
 import { CHECK_LABELS, type CheckResult, testProvider } from './providerTest';
 import { reportText, type TestedGateway } from './report';
@@ -144,7 +145,7 @@ export function ControlPanel() {
   };
 
   const testOwnNode = () => {
-    const address = checkOwnNodeAddress(ownAddress);
+    const address = checkOwnNodeAddress(ownAddress, settings.beeNodes);
     if (!address.ok) {
       setOwnStatus({ kind: 'error', text: address.text });
       return;
@@ -157,7 +158,7 @@ export function ControlPanel() {
     if (ownStatus.kind === 'checking') {
       return;
     }
-    const address = checkOwnNodeAddress(ownAddress);
+    const address = checkOwnNodeAddress(ownAddress, settings.beeNodes);
     if (!address.ok) {
       setOwnStatus({ kind: 'error', text: address.text });
       return;
@@ -284,7 +285,7 @@ export function ControlPanel() {
                 isFallback={false}
               />
               <p className="panel-description" id={descriptionId}>
-                A Bee node on this computer, for example Swarm Desktop. Change the port if yours is not 1633.
+                {OWN_NODE_DESCRIPTION[settings.beeNodes]}
               </p>
               <label className="panel-input-label" htmlFor={inputId}>
                 Address of your own Bee node

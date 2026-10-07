@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { ADDRESS_REFUSED } from '../src/features/gateway/checkSentences';
 import { checkOwnNodeAddress, gatewayLabel, OWN_NODE_DEFAULT_ADDRESS } from '../src/features/gateway/gatewayProbe';
 
 function acceptedUrl(input: string): string {
@@ -28,9 +29,26 @@ describe('the address of a Bee node on the viewer’s own machine', () => {
     expect(acceptedUrl('http://localhost:1733')).toBe('http://localhost:1733');
   });
 
-  it('accepts 127.0.0.1 and [::1]', () => {
+  it('accepts 127.0.0.1', () => {
     expect(acceptedUrl('http://127.0.0.1:1633')).toBe('http://127.0.0.1:1633');
-    expect(acceptedUrl('http://[::1]:1633')).toBe('http://[::1]:1633');
+  });
+
+  /**
+   * A content security policy cannot name `[::1]`: Chrome 153 rejects `http://[::1]:*` as an invalid
+   * source and blocks the request anyway, so only a policy allowing every plain http address lets it
+   * through, which is the local http level alone.
+   */
+  it('refuses [::1] unless the site allows plain http, and says to use localhost or 127.0.0.1', () => {
+    for (const access of ['off', 'https'] as const) {
+      const result = checkOwnNodeAddress('http://[::1]:1633', access);
+      expect(result).toEqual({ ok: false, text: ADDRESS_REFUSED.ipv6Loopback });
+    }
+    expect(ADDRESS_REFUSED.ipv6Loopback).toContain('localhost');
+    expect(ADDRESS_REFUSED.ipv6Loopback).toContain('127.0.0.1');
+    expect(checkOwnNodeAddress('http://[::1]:1633', 'https-and-local-http')).toEqual({
+      ok: true,
+      url: 'http://[::1]:1633',
+    });
   });
 
   it('accepts https on the same hosts', () => {
@@ -50,7 +68,6 @@ describe('the address of a Bee node on the viewer’s own machine', () => {
       const text = refusal(input);
       expect(text).toContain('localhost');
       expect(text).toContain('127.0.0.1');
-      expect(text).toContain('[::1]');
     }
   });
 

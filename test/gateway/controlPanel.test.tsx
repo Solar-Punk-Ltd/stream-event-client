@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { AppContextProvider, useAppContext } from '../../src/app/AppProvider';
 import { parseRuntimeConfig, type RuntimeConfig } from '../../src/config/runtimeConfig';
-import { CONNECTED_BY_CONTENT } from '../../src/features/gateway/checkSentences';
+import { ADDRESS_REFUSED, CONNECTED_BY_CONTENT } from '../../src/features/gateway/checkSentences';
 import { ControlPanel } from '../../src/features/gateway/ControlPanel';
 import type { SwarmClient } from '../../src/swarm/client';
 import { button, click, dialog, input, mount, settle, text, type, waitFor, type Mounted } from '../helpers/dom';
@@ -23,7 +23,7 @@ const CHAT = {
   pollIntervalMs: 1_000,
 };
 
-function config(extra: Record<string, unknown> = {}): RuntimeConfig {
+function config({ beeNodes, ...extra }: Record<string, unknown> = {}): RuntimeConfig {
   const result = parseRuntimeConfig({
     ...extra,
     catalog: { owner: '0x' + '1'.repeat(40), topic: 'event-streams' },
@@ -33,6 +33,7 @@ function config(extra: Record<string, unknown> = {}): RuntimeConfig {
         { id: 'backup', kind: 'bee-http', label: 'Backup gateway', url: BACKUP },
       ],
       default: 'event',
+      ...(beeNodes === undefined ? {} : { beeNodes }),
     },
   });
   if (!result.ok) {
@@ -149,6 +150,24 @@ describe('the control panel', () => {
     click(button('Check and use'));
     await waitFor(() => (gatewayUrl === 'http://localhost:1633' ? true : null));
     expect(localStorage.getItem(GATEWAY_STORAGE_KEY)).toBe('http://localhost:1633');
+  });
+
+  it('takes a node on another machine at an https address where the deployment allows it', async () => {
+    await open({ beeNodes: 'https' });
+    expect(row('Your own node').textContent).toContain('another machine');
+    type(input('Address of your own Bee node'), 'https://bee.example.com');
+    click(button('Check and use'));
+    await waitFor(() => (gatewayUrl === 'https://bee.example.com' ? true : null));
+  });
+
+  it('refuses plain http to the internet even where other machines are allowed, and says what to type', async () => {
+    await open({ beeNodes: 'https-and-local-http' });
+    type(input('Address of your own Bee node'), 'http://bee.example.com:1633');
+    click(button('Check and use'));
+    await settle();
+
+    expect(text()).toContain(ADDRESS_REFUSED.plainHttpInternet);
+    expect(gatewayUrl).toBe(EVENT);
   });
 
   it('tests a gateway on every feature and shows each sentence', async () => {

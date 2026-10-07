@@ -6,10 +6,13 @@
  * those had happened. Everything here is pure or takes an injected prober, because this package runs
  * vitest without a DOM and a rule left inside the component is a rule nothing covers.
  */
-import { DEFAULT_BEE_NODE_ACCESS } from '@/swarm/beeNodeAccess';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
 import { PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
+import { addressSpaceOf } from '@/swarm/addressSpace';
+import { type BeeNodeAccess, DEFAULT_BEE_NODE_ACCESS } from '@/swarm/beeNodeAccess';
 import { type GatewaySetting, OWN_GATEWAY_ID, type SwarmSettings } from '@/swarm/settings';
+
+import { ADDRESS_REFUSED } from './checkSentences';
 
 /** Both a viewer's typing and a saved address, since every caller joins with a path of its own. */
 function withoutTrailingSlash(url: string): string {
@@ -35,47 +38,84 @@ export function beeBaseUrlFromTypedAddress(input: string): string {
 export const OWN_NODE_DEFAULT_ADDRESS = 'http://localhost:1633';
 
 /**
- * The hosts a viewer's own node may be on, exactly. The page's content security policy allows these
- * and nothing wider, and a browser lets an `https` page reach a plain `http` node only on them.
+ * The hosts a node on this computer may be named by at every level. The page's content security policy
+ * allows these and nothing wider, so another loopback name such as `127.0.0.2` would pass here and then
+ * be refused by the page.
  */
-const OWN_MACHINE_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+const OWN_MACHINE_HOSTS = ['localhost', '127.0.0.1'];
 
-const OWN_MACHINE_HOSTS_TEXT = 'localhost, 127.0.0.1 or [::1]';
+/**
+ * A policy cannot name `[::1]`: Chrome 153 rejects `http://[::1]:*` as an invalid source and blocks the
+ * request, so only a policy allowing every plain http address lets it through, which is what the local
+ * http level writes.
+ */
+const IPV6_LOOPBACK = '[::1]';
 
 type OwnNodeAddressCheck = { ok: true; url: string } | { ok: false; text: string };
 
-/** Whether what a viewer typed names a Bee node on their own machine, and the base URL it means. */
-export function checkOwnNodeAddress(input: string): OwnNodeAddressCheck {
+const refused = (text: string): OwnNodeAddressCheck => ({ ok: false, text });
+
+/**
+ * Whether what a viewer typed names a Bee node this site lets them use, and the base URL it means.
+ *
+ * A node on this computer is always allowed, over http or https. Beyond it, `access` decides: an https
+ * address on any host from `https` up, and a plain http address on the local network only at
+ * `https-and-local-http`. Plain http to the internet is never allowed, because a browser blocks it
+ * from an https page.
+ */
+export function checkOwnNodeAddress(input: string, access: BeeNodeAccess = 'off'): OwnNodeAddressCheck {
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(input.trim()) && !/^https?:\/\//i.test(input.trim())) {
-    return { ok: false, text: 'The address has to start with http:// or https://.' };
+    return refused(ADDRESS_REFUSED.notHttp);
   }
 
   const typed = beeBaseUrlFromTypedAddress(input);
   if (!typed) {
-    return { ok: false, text: `Enter the address of your Bee node, for example ${OWN_NODE_DEFAULT_ADDRESS}.` };
+    return refused(ADDRESS_REFUSED.empty);
   }
 
   let url: URL;
   try {
     url = new URL(typed);
   } catch {
-    return { ok: false, text: `That is not an address. Enter one such as ${OWN_NODE_DEFAULT_ADDRESS}.` };
+    return refused(ADDRESS_REFUSED.notAnAddress);
   }
 
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    return { ok: false, text: 'The address has to start with http:// or https://.' };
+    return refused(ADDRESS_REFUSED.notHttp);
   }
-  if (!OWN_MACHINE_HOSTS.includes(url.hostname)) {
-    return {
-      ok: false,
-      text: `Only a Bee node on this computer can be used here, at ${OWN_MACHINE_HOSTS_TEXT}.`,
-    };
+  const hostRefusal = refusalOfHost(url, access);
+  if (hostRefusal !== null) {
+    return refused(hostRefusal);
   }
   if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
-    return { ok: false, text: `Enter only the scheme, host and port, such as ${OWN_NODE_DEFAULT_ADDRESS}.` };
+    return refused(ADDRESS_REFUSED.notJustTheOrigin);
   }
 
   return { ok: true, url: url.origin };
+}
+
+/** Why this site will not let a viewer use a node at this host and scheme, or null when it will. */
+function refusalOfHost(url: URL, access: BeeNodeAccess): string | null {
+  if (OWN_MACHINE_HOSTS.includes(url.hostname)) {
+    return null;
+  }
+  if (url.hostname === IPV6_LOOPBACK) {
+    return access === 'https-and-local-http' ? null : ADDRESS_REFUSED.ipv6Loopback;
+  }
+  const space = addressSpaceOf(url.href);
+  if (access === 'off') {
+    return ADDRESS_REFUSED.thisComputerOnly;
+  }
+  if (space === 'loopback') {
+    return ADDRESS_REFUSED.otherLoopbackHost;
+  }
+  if (url.protocol === 'https:') {
+    return null;
+  }
+  if (space === 'local') {
+    return access === 'https-and-local-http' ? null : ADDRESS_REFUSED.localHttpNotAllowed;
+  }
+  return ADDRESS_REFUSED.plainHttpInternet;
 }
 
 /**

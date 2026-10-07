@@ -256,8 +256,13 @@ and the kinds of provider the build carries (`src/features/gateway/`).
 
 - **Choosing.** Every gateway the deployment offers is listed with where it is, the one in use marked
   "In use" and the one behind it "Fallback". "Use" switches to it. Below them is the viewer's own Bee
-  node, `http://localhost:1633` filled in and the port editable. Only `localhost`, `127.0.0.1` and
-  `[::1]` are accepted, and the node is checked before the switch, a failure explained in plain words.
+  node, `http://localhost:1633` filled in and the port editable. `localhost` and `127.0.0.1` are
+  always accepted. `providers.beeNodes` decides the rest: `https` adds an https address on any host, and
+  `https-and-local-http` adds plain http on the local network (10/8, 172.16/12, 192.168/16, `.local`
+  names, IPv6 unique local addresses) and `[::1]`, which a content security policy can only allow by
+  allowing every plain http address. Plain http to the internet is never accepted, because a browser
+  blocks it from an https page. Each refusal says why and what to type instead, and the node is
+  checked before the switch, a failure explained in plain words.
   The choice is remembered in the browser as an address, under the key the node picker used, so a
   choice saved before the panel still holds. A switch makes the Swarm client again on that gateway, and
   the player, the stream list and the previews read through it from then on.
