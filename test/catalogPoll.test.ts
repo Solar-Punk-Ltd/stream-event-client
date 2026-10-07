@@ -7,6 +7,7 @@ import { catalogUpdater, StreamCatalog, toCatalogRead } from '../src/features/ca
 import { Stream, STREAM_STATUS_LIVE, STREAM_STATUS_SCHEDULED } from '../src/features/catalog/stream';
 import { CatalogFeedReader } from '../src/features/catalog/catalogFeed';
 import type { TimedResponse } from '../src/shared/fetchWithTimeout';
+import { readerOverPaths } from './helpers/playerReader';
 import {
   isWaitingForStart,
   WATCH_VIEW_LOADING,
@@ -89,8 +90,9 @@ const NOTHING_HELD: StreamCatalog = { streams: [], gateway: null, slot: null };
  */
 function pollerAnswering(answers: TimedResponse[]): (held: StreamCatalog) => Promise<StreamCatalog> {
   const selectedGateway = { current: GATEWAY };
-  const reader = new CatalogFeedReader(announced.owner, Topic.fromString('catalog-test'), gatewayAnswering(answers));
-  return async (held) => catalogUpdater(toCatalogRead(GATEWAY, await reader.read(GATEWAY)), selectedGateway)(held);
+  const reader = new CatalogFeedReader(announced.owner, Topic.fromString('catalog-test'));
+  const gateway = readerOverPaths(gatewayAnswering(answers));
+  return async (held) => catalogUpdater(toCatalogRead(GATEWAY, await reader.read(gateway)), selectedGateway)(held);
 }
 
 /** The announced stream's entry in the list, the way the watch page finds it. */

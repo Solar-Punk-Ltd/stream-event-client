@@ -96,6 +96,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
     manifestFetcher.useSwarm(client.reader('player'));
     return client;
   });
+  const swarmRef = useRef(swarm);
 
   const gatewayRef = useRef(gatewayUrl);
 
@@ -115,6 +116,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
       gatewayRef.current = trimmed;
       setGatewayUrlState(trimmed);
       const client = swarmClientFor(settings, trimmed);
+      swarmRef.current = client;
       setSwarm(client);
       manifestFetcher.useSwarm(client.reader('player'));
       // The new node has its own view of the feed, so a position established against the old one would
@@ -147,7 +149,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
    */
   const fetchAppState = useCallback(async (): Promise<CatalogRead> => {
     const gateway = gatewayRef.current;
-    return toCatalogRead(gateway, await catalogReader.current.read(gateway));
+    return toCatalogRead(gateway, await catalogReader.current.read(swarmRef.current.reader('stream-list')));
   }, []);
 
   /**

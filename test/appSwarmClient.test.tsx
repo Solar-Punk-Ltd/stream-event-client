@@ -116,6 +116,22 @@ describe("the app's Swarm client", () => {
     expect(await readThrough(current().swarm)).toBe(`${EVENT_GATEWAY}/bytes/${REFERENCE}`);
   });
 
+  it("reads the stream list through the client's stream-list reader, on the node picked", async () => {
+    start();
+    await settle();
+    current().setGatewayUrl(OWN_NODE);
+    await settle();
+    await current().fetchAppState();
+
+    const streamList = current()
+      .swarm.counts()
+      .filter(({ feature }) => feature === 'stream-list');
+    expect(streamList).toEqual([
+      { feature: 'stream-list', read: 'feed-head', provider: 'own-node', answer: 'not-found', count: 1 },
+    ]);
+    expect(asked[0]).toBe(`${EVENT_GATEWAY}/feeds/${OWNER}/${Topic.fromString('event-streams').toString()}`);
+  });
+
   it("hands the player the client's player reader, at start and on every node picked", async () => {
     start();
     await settle();

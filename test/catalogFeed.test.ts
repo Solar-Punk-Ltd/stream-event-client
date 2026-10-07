@@ -1,8 +1,10 @@
-import { Topic } from '@ethersphere/bee-js';
+import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import { describe, expect, it } from 'vitest';
 
-import { CatalogFeedReader } from '@/features/catalog/catalogFeed';
+import { CatalogFeedReader, type CatalogSource } from '@/features/catalog/catalogFeed';
+import { feedSlotPath, nextFeedRequest, resolvedFeedIndex } from '@/shared/feedFollow';
 import type { TimedResponse } from '@/shared/fetchWithTimeout';
+import type { SwarmAnswer } from '@/swarm/answers';
 
 /**
  * That the catalog is followed by walking rather than by resolving its head on every poll.
@@ -43,7 +45,7 @@ function stubFetcher(replies: (TimedResponse | Error)[]) {
     }
     return reply;
   };
-  return { urls, fetcher: fetcher as never };
+  return { urls, fetcher };
 }
 
 /** Every request is held until the test answers it, so two reads can be in flight at once. */
@@ -53,7 +55,42 @@ function deferredFetcher() {
     new Promise<TimedResponse>((resolve) => {
       pending.push({ url, answer: resolve });
     });
-  return { pending, fetcher: fetcher as never };
+  return { pending, fetcher };
+}
+
+type Fetcher = (url: string) => Promise<TimedResponse>;
+
+async function answerOf(fetcher: Fetcher, url: string): Promise<SwarmAnswer> {
+  let response: TimedResponse;
+  try {
+    response = await fetcher(url);
+  } catch (error) {
+    return { kind: 'unavailable', cause: { kind: 'network', error } };
+  }
+  if (response.status === 404) {
+    return { kind: 'not-found', serverTimeMs: null };
+  }
+  if (!response.ok) {
+    return { kind: 'unavailable', cause: { kind: 'status', status: response.status } };
+  }
+  return {
+    kind: 'content',
+    bytes: new TextEncoder().encode(response.text),
+    feedIndex: resolvedFeedIndex(response.headers),
+    serverTimeMs: null,
+  };
+}
+
+/**
+ * The stream list's reads of the gateway at `base`, each answered by the stub at the URL the Bee
+ * provider would ask, so the tests below still read which request was made.
+ */
+function via(fetcher: Fetcher, base: string): CatalogSource {
+  return {
+    readFeedHead: (owner, topic) => answerOf(fetcher, `${base}/${nextFeedRequest(owner, topic, null).path}`),
+    readFeedEntry: (owner, topic, index) =>
+      answerOf(fetcher, `${base}/${feedSlotPath(owner, topic, FeedIndex.fromBigInt(BigInt(index)))}`),
+  };
 }
 
 function headerFor(index: number): Headers {
@@ -69,11 +106,11 @@ describe('CatalogFeedReader', () => {
       respond({ ok: false, status: 404 }),
       respond({ ok: false, status: 404 }),
     ]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    await reader.read('http://gw');
-    await reader.read('http://gw');
-    await reader.read('http://gw');
+    await reader.read(via(fetcher, 'http://gw'));
+    await reader.read(via(fetcher, 'http://gw'));
+    await reader.read(via(fetcher, 'http://gw'));
 
     expect(urls.filter((url) => url.includes('/feeds/'))).toHaveLength(1);
     expect(urls[0]).toContain(`/feeds/${OWNER}/`);
@@ -85,9 +122,9 @@ describe('CatalogFeedReader', () => {
     // 0x22 is 34. A reader that parsed this as decimal would walk from 23 and ask for slots that were
     // written long ago, which reads as a catalog frozen eleven broadcasts in the past.
     const { fetcher } = stubFetcher([respond({ headers: new Headers({ 'swarm-feed-index': '0000000000000022' }) })]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    const read = await reader.read('http://gw');
+    const read = await reader.read(via(fetcher, 'http://gw'));
 
     expect(reader.getIndex()?.toBigInt()).toBe(34n);
     expect(read?.slot).toBe(34n);
@@ -98,10 +135,10 @@ describe('CatalogFeedReader', () => {
       respond({ headers: headerFor(3), text: '[{"live":true}]' }),
       respond({ ok: false, status: 404 }),
     ]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    expect(await reader.read('http://gw')).toEqual({ body: '[{"live":true}]', slot: 3n });
-    expect(await reader.read('http://gw')).toBeNull();
+    expect(await reader.read(via(fetcher, 'http://gw'))).toEqual({ body: '[{"live":true}]', slot: 3n });
+    expect(await reader.read(via(fetcher, 'http://gw'))).toBeNull();
   });
 
   /**
@@ -118,14 +155,35 @@ describe('CatalogFeedReader', () => {
       respond({ text: '[3]' }),
       respond({ ok: false, status: 404 }),
     ]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    await reader.read('http://gw');
-    const caughtUp = await reader.read('http://gw');
+    await reader.read(via(fetcher, 'http://gw'));
+    const caughtUp = await reader.read(via(fetcher, 'http://gw'));
 
     expect(caughtUp).toEqual({ body: '[3]', slot: 3n });
     expect(reader.getIndex()?.toBigInt()).toBe(3n);
     expect(urls).toHaveLength(5);
+  });
+
+  it("passes its caller's signal to every read, so an unmount still stops a read in flight", async () => {
+    const signals: (AbortSignal | undefined)[] = [];
+    const source: CatalogSource = {
+      readFeedHead: async (_owner, _topic, options) => {
+        signals.push(options?.signal);
+        return { kind: 'content', bytes: new TextEncoder().encode('[]'), feedIndex: 4, serverTimeMs: null };
+      },
+      readFeedEntry: async (_owner, _topic, _index, options) => {
+        signals.push(options?.signal);
+        return { kind: 'not-found', serverTimeMs: null };
+      },
+    };
+    const controller = new AbortController();
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
+
+    await reader.read(source, controller.signal);
+    await reader.read(source, controller.signal);
+
+    expect(signals).toEqual([controller.signal, controller.signal]);
   });
 
   it('stops walking at the bound rather than holding the page open', async () => {
@@ -134,10 +192,10 @@ describe('CatalogFeedReader', () => {
       replies.push(respond({ text: `[${i}]` }));
     }
     const { urls, fetcher } = stubFetcher(replies);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    await reader.read('http://gw');
-    await reader.read('http://gw');
+    await reader.read(via(fetcher, 'http://gw'));
+    await reader.read(via(fetcher, 'http://gw'));
 
     // One head plus the walk bound, and it resumes from there on the next poll rather than looping.
     expect(urls).toHaveLength(33);
@@ -148,22 +206,22 @@ describe('CatalogFeedReader', () => {
       respond({ headers: new Headers(), text: '[{"a":1}]' }),
       respond({ headers: headerFor(7), text: '[{"a":2}]' }),
     ]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    expect(await reader.read('http://gw')).toEqual({ body: '[{"a":1}]', slot: null });
+    expect(await reader.read(via(fetcher, 'http://gw'))).toEqual({ body: '[{"a":1}]', slot: null });
     expect(reader.getIndex()).toBeNull();
-    await reader.read('http://gw');
+    await reader.read(via(fetcher, 'http://gw'));
 
     expect(urls[1]).toContain('/feeds/');
   });
 
   it('forgets its position on reset, since another gateway has its own view of the feed', async () => {
     const { urls, fetcher } = stubFetcher([respond({ headers: headerFor(5) }), respond({ headers: headerFor(9) })]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    await reader.read('http://gw-a');
+    await reader.read(via(fetcher, 'http://gw-a'));
     reader.reset();
-    await reader.read('http://gw-b');
+    await reader.read(via(fetcher, 'http://gw-b'));
 
     expect(urls[1]).toContain('/feeds/');
     expect(reader.getIndex()?.toBigInt()).toBe(9n);
@@ -171,9 +229,9 @@ describe('CatalogFeedReader', () => {
 
   it('treats a head lookup the gateway has nothing for as an empty catalog rather than a position', async () => {
     const { fetcher } = stubFetcher([respond({ ok: false, status: 404 })]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    expect(await reader.read('http://gw')).toBeNull();
+    expect(await reader.read(via(fetcher, 'http://gw'))).toBeNull();
     expect(reader.getIndex()).toBeNull();
   });
 
@@ -191,19 +249,19 @@ describe('CatalogFeedReader', () => {
    */
   it('raises on a head lookup the gateway refused, so a broken gateway is not shown as an empty catalog', async () => {
     const { fetcher } = stubFetcher([respond({ ok: false, status: 500 })]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    await expect(reader.read('http://gw')).rejects.toThrow('500');
+    await expect(reader.read(via(fetcher, 'http://gw'))).rejects.toThrow('500');
     expect(reader.getIndex()).toBeNull();
   });
 
   it('raises when the first step of a walk is refused with a server error', async () => {
     const { fetcher } = stubFetcher([respond({ headers: headerFor(7) }), respond({ ok: false, status: 502 })]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    await reader.read('http://gw');
+    await reader.read(via(fetcher, 'http://gw'));
 
-    await expect(reader.read('http://gw')).rejects.toThrow('502');
+    await expect(reader.read(via(fetcher, 'http://gw'))).rejects.toThrow('502');
     // The walk read nothing, so the position it starts from next time is the one it already held.
     expect(reader.getIndex()?.toBigInt()).toBe(7n);
   });
@@ -216,11 +274,11 @@ describe('CatalogFeedReader', () => {
       respond({ text: '[{"live":true}]' }),
       respond({ ok: false, status: 503 }),
     ]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    await reader.read('http://gw');
+    await reader.read(via(fetcher, 'http://gw'));
 
-    expect(await reader.read('http://gw')).toEqual({ body: '[{"live":true}]', slot: 8n });
+    expect(await reader.read(via(fetcher, 'http://gw'))).toEqual({ body: '[{"live":true}]', slot: 8n });
     expect(reader.getIndex()?.toBigInt()).toBe(8n);
   });
 
@@ -242,22 +300,22 @@ describe('CatalogFeedReader', () => {
       // here would pass against the version this covers.
       new Error('socket hang up') as never,
     ]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    await reader.read('http://gw');
+    await reader.read(via(fetcher, 'http://gw'));
 
     // The position and the body have to agree: index 8 is the slot the returned body came from.
-    expect(await reader.read('http://gw')).toEqual({ body: '[{"live":true}]', slot: 8n });
+    expect(await reader.read(via(fetcher, 'http://gw'))).toEqual({ body: '[{"live":true}]', slot: 8n });
     expect(reader.getIndex()?.toBigInt()).toBe(8n);
   });
 
   it('still raises when the first step of a walk throws, so a dead gateway is not read as an idle catalog', async () => {
     const { fetcher } = stubFetcher([respond({ headers: headerFor(7) }), new Error('socket hang up') as never]);
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    await reader.read('http://gw');
+    await reader.read(via(fetcher, 'http://gw'));
 
-    await expect(reader.read('http://gw')).rejects.toThrow('socket hang up');
+    await expect(reader.read(via(fetcher, 'http://gw'))).rejects.toThrow('socket hang up');
     expect(reader.getIndex()?.toBigInt()).toBe(7n);
   });
 });
@@ -277,11 +335,11 @@ describe('CatalogFeedReader', () => {
 describe('CatalogFeedReader when a gateway switch lands mid-read', () => {
   it('keeps the position the new gateway resolved when the old gateway answers after the switch', async () => {
     const { pending, fetcher } = deferredFetcher();
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    const beforeSwitch = reader.read('http://gw-old');
+    const beforeSwitch = reader.read(via(fetcher, 'http://gw-old'));
     reader.reset();
-    const afterSwitch = reader.read('http://gw-new');
+    const afterSwitch = reader.read(via(fetcher, 'http://gw-new'));
 
     pending[1].answer(respond({ headers: headerFor(7), text: '[{"new":true}]' }));
     await afterSwitch;
@@ -295,13 +353,13 @@ describe('CatalogFeedReader when a gateway switch lands mid-read', () => {
 
   it('writes no position at all from a walk the switch interrupted, so the next poll resolves the head', async () => {
     const { pending, fetcher } = deferredFetcher();
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    const head = reader.read('http://gw-old');
+    const head = reader.read(via(fetcher, 'http://gw-old'));
     pending[0].answer(respond({ headers: headerFor(5), text: '[{"old":true}]' }));
     await head;
 
-    const walk = reader.read('http://gw-old');
+    const walk = reader.read(via(fetcher, 'http://gw-old'));
     reader.reset();
     pending[1].answer(respond({ text: '[{"old":true,"more":true}]' }));
     await walk;
@@ -319,9 +377,9 @@ describe('CatalogFeedReader when a gateway switch lands mid-read', () => {
    */
   it('still names the slot of a head the old gateway resolved, though it keeps no position from it', async () => {
     const { pending, fetcher } = deferredFetcher();
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    const beforeSwitch = reader.read('http://gw-old');
+    const beforeSwitch = reader.read(via(fetcher, 'http://gw-old'));
     reader.reset();
     pending[0].answer(respond({ headers: headerFor(40), text: '[{"old":true}]' }));
 
@@ -342,10 +400,10 @@ describe('CatalogFeedReader when a gateway switch lands mid-read', () => {
 describe('CatalogFeedReader when two reads overlap on one gateway', () => {
   it('hands back each body with the slot it was read from, the older one landing last', async () => {
     const { pending, fetcher } = deferredFetcher();
-    const reader = new CatalogFeedReader(OWNER, TOPIC, fetcher);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
 
-    const first = reader.read('http://gw');
-    const second = reader.read('http://gw');
+    const first = reader.read(via(fetcher, 'http://gw'));
+    const second = reader.read(via(fetcher, 'http://gw'));
     pending[1].answer(respond({ headers: headerFor(8), text: '[8]' }));
     const newer = await second;
     pending[0].answer(respond({ headers: headerFor(7), text: '[7]' }));
