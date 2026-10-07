@@ -96,7 +96,8 @@ describe('how far a Bee node of the viewer may be', () => {
 
   it('is what providers names', () => {
     expect(
-      swarmSettingsFrom(config({ providers: { ...TWO_GATEWAYS.providers!, beeNodes: 'https-and-local-http' } })).beeNodes,
+      swarmSettingsFrom(config({ providers: { ...TWO_GATEWAYS.providers!, beeNodes: 'https-and-local-http' } }))
+        .beeNodes,
     ).toBe('https-and-local-http');
   });
 });
