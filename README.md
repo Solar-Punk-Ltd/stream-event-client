@@ -286,8 +286,8 @@ once and is kept in the browser.
   source picked, and the chat from `chat.readUrl`. Per part gives the video, the stream list, the
   previews and the chat a source each. The video and the stream list are linked until the viewer
   unlinks them, because the player's live markers come from the clock of whoever serves the stream
-  list, and the screen then notes that live timing may slip. A bracket joins their two rows, with the
-  link at its middle, and on a phone the link is a "Same as video" toggle on the stream list's line.
+  list, and the screen then notes that live timing may slip. The link is a "Same as video" toggle on the
+  stream list's label line.
   Chat messages are always sent to `chat.writeUrl`. The list of sources stays reachable in per part,
   folded under a Sources row with their count, so a source can still be tested, renamed, removed or
   added there.
@@ -302,7 +302,8 @@ once and is kept in the browser.
   pictures and the chat. Each shows as a badge, passed, failed or not applicable, under one status
   line. The sentences, and the steps for a node that refuses this site's origin or a browser that
   blocks the local network, show only for a failure, behind How to fix, where checks that failed for
-  the same reason share one fix headed by the parts it applies to. Every sentence is in
+  the same reason share one fix headed by the parts it applies to. With one such fix the badges and
+  its heading say what failed, so no status line repeats it. Every sentence is in
   `checkSentences.ts` with its test. The actions that apply sit on the status line's right: Use for a
   source not in use, Retest, and Rename and Remove for a source the viewer added, since an offered
   source cannot be renamed or removed.
