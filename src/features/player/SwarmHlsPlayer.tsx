@@ -17,7 +17,7 @@ import { attachPlaybackStallReporter } from './playbackHealth';
 import { buildPlayerConfig, HLS_TUNING } from './playerConfig';
 import { buildSwarmUri } from './playlist';
 import { attachReturningBroadcastRejoin } from './returningBroadcast';
-import { attachRungFailover, attachWatchedRungReporter } from './rungHealth';
+import { attachActiveRungFollower, attachRungFailover, attachWatchedRungReporter } from './rungHealth';
 
 import './SwarmHlsPlayer.scss';
 
@@ -447,24 +447,30 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
     // during the seconds before it does. A single-rendition stream gets neither, because there is
     // no second rung to move to and nothing for a group's health to be folded from.
     //
-    // ⛔⛔⛔ Read this before switching it off. Earlier versions of the rule judged a rung by how long
-    // it had been quiet, and three of them dropped healthy rungs during the settle, before any fault,
-    // because the publishing side itself was losing segments at the time. With the publisher on 1.0s
-    // segments and the rule judging a dead rung by segments the ladder delivered that this rung did
-    // not, never by a clock (`RUNG_DEATH_LAG_SEGMENTS` in `feedState.ts`), it was measured live on
-    // 2026-09-01: a viewer watching a rung that stopped was on a live one 7.1 seconds later with no
-    // freeze, and no healthy rung was dropped. `test/rungHealth.test.ts` and `test/feedState.test.ts`
-    // hold the faults the earlier versions shipped. The one to watch for is the old failure: rungs
-    // dropped during the settle with no fault injected.
+    // ⛔⛔⛔ Read this before switching it off. Earlier versions of the rule judged a rung by comparing
+    // it with its siblings, and three of them dropped healthy rungs during the settle, before any
+    // fault. The poller now judges the playing rung by its own progress and confirms with one sibling's
+    // (`LadderFeedPoller`), so a rung is only ever dropped on evidence that a sibling is moving.
     //
-    // The reporter stays on either way. It is measured and it works: a viewer on a dead rung is
-    // told the feed has stalled rather than being shown `live`.
+    // The reporter stays on either way: a viewer on a dead rung is told the feed has stalled rather
+    // than being shown `live`.
     const RUNG_FAILOVER_ENABLED = true;
     const ladderTopic = isLadder ? toHexTopic(topicString) : null;
     const detachRungFailover =
       hls && RUNG_FAILOVER_ENABLED ? attachRungFailover(hls, manifestFetcher.feedHealth) : null;
     const detachWatchedRung =
       hls && ladderTopic ? attachWatchedRungReporter(hls, ladderTopic, manifestFetcher.feedHealth) : null;
+
+    // The poller follows only the rung hls.js plays, so it is told when that changes, and reads the
+    // playhead at a switch so a viewer behind the live edge keeps their place. Both for any ladder,
+    // including one the catalog never named, which only the published master revealed.
+    const detachRungFollower = hls
+      ? attachActiveRungFollower(hls, (rung) => manifestFetcher.followOnlyRung(rung))
+      : null;
+    const playingHls = hls;
+    const detachPlayhead = playingHls
+      ? manifestFetcher.attachPlayhead(sourceUrl, () => playingHls.playingDate?.getTime() ?? null)
+      : null;
 
     // Attached with the player rather than with the subscription above, because it is the player
     // that stalls: a restart builds a fresh media pipeline and the stalls of the one before it are
@@ -499,8 +505,10 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
       detachReturnRejoin?.();
       detachRungFailover?.();
       detachWatchedRung?.();
+      detachRungFollower?.();
+      detachPlayhead?.();
 
-      // Stops every rung's walk and discards its accumulated playlist, including rungs discovered
+      // Stops every rung this source registered and discards its accumulated playlist, including rungs discovered
       // from a published master that this component never saw.
       manifestFetcher.unregisterLadder(sourceUrl);
 
