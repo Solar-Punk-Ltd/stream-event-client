@@ -15,13 +15,11 @@ import { button, click, input, mount, text, type, type Mounted } from './helpers
 
 const context = vi.hoisted(() => ({ streamList: [] as Stream[] }));
 
-vi.mock('@/app/AppProvider', () => ({
-  useAppContext: () => ({
-    streamList: context.streamList,
-    gatewayUrl: 'http://gateway.example.com',
-    theme: THEMES.swarm,
-  }),
-}));
+vi.mock('@/app/AppProvider', async () => {
+  const { gatewaySwarm } = await import('./helpers/gatewaySwarm');
+  const swarm = gatewaySwarm('http://gateway.example.com');
+  return { useAppContext: () => ({ streamList: context.streamList, swarm, theme: THEMES.swarm }) };
+});
 
 const NOW = Date.parse('2026-11-04T12:00:00Z');
 let mounted: Mounted | null = null;

@@ -12,10 +12,14 @@ const TOPIC = 'stream-one';
 const DAY = 24 * 60 * 60 * 1000;
 
 const appContext = vi.hoisted(() => ({
-  value: { streamList: [] as unknown[], isStreamListLoaded: true, chat: null, gatewayUrl: '/bee' },
+  value: { streamList: [] as unknown[], isStreamListLoaded: true, chat: null },
 }));
 
-vi.mock('../src/app/AppProvider', () => ({ useAppContext: () => appContext.value }));
+vi.mock('../src/app/AppProvider', async () => {
+  const { gatewaySwarm } = await import('./helpers/gatewaySwarm');
+  const swarm = gatewaySwarm('/bee');
+  return { useAppContext: () => ({ ...appContext.value, swarm }) };
+});
 vi.mock('../src/features/catalog/useCatalogPoll', () => ({ useCatalogPoll: () => {} }));
 vi.mock('../src/features/player/SwarmHlsPlayer', () => ({
   SwarmHlsPlayer: () => createElement('video', { 'data-testid': 'player' }),

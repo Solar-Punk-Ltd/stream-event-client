@@ -2,13 +2,13 @@ import { Link, useParams, useSearchParams } from 'react-router';
 
 import { SwarmHlsPlayer } from '@/features/player/SwarmHlsPlayer';
 import { useAppContext } from '@/app/AppProvider';
+import type { SwarmClient } from '@/swarm/client';
 import { watchPageCatalogPollMs } from '@/features/catalog/catalogPoll';
 import { useCatalogPoll } from '@/features/catalog/useCatalogPoll';
 import { ROUTES } from '@/app/routes';
 import { MEDIA_TYPE_AUDIO, MEDIA_TYPE_VIDEO, MediaType } from '@/features/catalog/stream';
 import { playableRenditions } from '@/features/player/playableRenditions';
 import { scheduledStartMs } from '@/features/catalog/scheduledStart';
-import { thumbnailImageUrl } from '@/features/catalog/StreamPreview/previewMode';
 import { WATCH_VIEW_PLAYER, watchPageDescription, watchPageView } from '@/features/catalog/watchPageView';
 import { WatchChat } from '@/features/chat/WatchChat';
 
@@ -25,8 +25,10 @@ function isMediaType(value: string): value is MediaType {
 }
 
 /** The picture a publisher gave the stream, where the gateway serves it. Absent and empty mean none. */
-function streamPictureUrl(gatewayUrl: string, thumbnail: string | undefined): string | null {
-  return typeof thumbnail === 'string' && thumbnail.trim() !== '' ? thumbnailImageUrl(gatewayUrl, thumbnail) : null;
+function streamPictureUrl(swarm: SwarmClient, thumbnail: string | undefined): string | null {
+  return typeof thumbnail === 'string' && thumbnail.trim() !== ''
+    ? swarm.reader('previews').urlFor(thumbnail, 'thumbnail')
+    : null;
 }
 
 export function StreamWatcher() {
@@ -36,7 +38,7 @@ export function StreamWatcher() {
     topic: string;
   }>();
   const [searchParams] = useSearchParams();
-  const { streamList, isStreamListLoaded, chat, gatewayUrl } = useAppContext();
+  const { streamList, isStreamListLoaded, chat, swarm } = useAppContext();
 
   // The ladder lives in the catalog, keyed by the primary feed the browser links to. Current
   // entries name the master, older ones the lowest rung. Waiting for the first catalog read
@@ -96,7 +98,7 @@ export function StreamWatcher() {
           <WatchPlaceholder
             view={view}
             scheduledStart={scheduledStartMs(stream?.scheduledStartTime)}
-            thumbnailUrl={streamPictureUrl(gatewayUrl, stream?.thumbnail)}
+            thumbnailUrl={streamPictureUrl(swarm, stream?.thumbnail)}
           />
         )
       }

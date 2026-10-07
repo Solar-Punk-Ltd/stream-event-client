@@ -12,7 +12,7 @@ import Hls, { Events } from 'hls.js';
 import Pqueue from 'p-queue';
 
 import { fetchPreviewManifest, rungSlotsKey } from '@/features/catalog/StreamPreview/previewManifest';
-import { previewMode, thumbnailFailed, thumbnailImageUrl } from '@/features/catalog/StreamPreview/previewMode';
+import { previewMode, thumbnailFailed } from '@/features/catalog/StreamPreview/previewMode';
 import { previewSourceFrom } from '@/features/catalog/StreamPreview/previewSource';
 import { CustomFragmentLoader } from '@/features/player/CustomManifestLoader';
 import { useAppContext } from '@/app/AppProvider';
@@ -73,7 +73,8 @@ export const StreamPreview = ({
   renditions,
   thumbnail,
 }: StreamPreviewProps) => {
-  const { gatewayUrl } = useAppContext();
+  const { swarm } = useAppContext();
+  const previews = swarm.reader('previews');
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDataAvailable, setIsDataAvailable] = useState(false);
@@ -126,7 +127,7 @@ export const StreamPreview = ({
 
       try {
         const { res, segments } = await fetchPreviewManifest(
-          gatewayUrl,
+          previews,
           { owner, topic, index, state, renditions: renditionsRef.current },
           abort.signal,
         );
@@ -146,7 +147,12 @@ export const StreamPreview = ({
         }
 
         const seg = source.firstSegment;
-        const segUrl = previewSegmentUrl(seg.uri, gatewayUrl, window.location.origin);
+        const segUrl = previewSegmentUrl(seg.uri, (reference) => previews.urlFor(reference, 'preview-segment'));
+        if (segUrl === null) {
+          console.warn(`Thumbnail unavailable for ${topic}: no provider gives a URL for its segment`);
+          setIsLoading(false);
+          return;
+        }
 
         // Spelled from the shared constants rather than by hand, so a tag rename cannot leave the
         // preview player asking for a playlist no decoder accepts.
@@ -220,7 +226,7 @@ export const StreamPreview = ({
         blobUrl = null;
       }
     };
-  }, [owner, topic, gatewayUrl, index, state, slotsKey, mode]);
+  }, [owner, topic, swarm, index, state, slotsKey, mode]);
 
   const showsPlaceholder = mode === 'placeholder' || (mode === 'probe' && !isLoading && !isDataAvailable);
 
@@ -247,7 +253,7 @@ export const StreamPreview = ({
             // new reference, demoting a card for a failure that was never its own.
             key={thumbnail}
             className="stream-thumbnail-picture"
-            src={thumbnailImageUrl(gatewayUrl, thumbnail)}
+            src={previews.urlFor(thumbnail, 'thumbnail') ?? undefined}
             // Empty because the title names the stream, and the link reads it out.
             alt=""
             onError={() => setFailedThumbnail(thumbnail)}
