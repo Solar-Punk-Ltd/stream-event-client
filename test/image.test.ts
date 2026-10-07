@@ -118,6 +118,75 @@ describe('the image start-up script', () => {
     expect(started.stdout).toContain(`extra gateways ${extras}`);
   });
 
+  describe('BEE_NODES, which Bee nodes a viewer may pick', () => {
+    const OWN_MACHINE = 'http://localhost:* http://127.0.0.1:*';
+    const sources = (csp: string, directive: string) =>
+      (csp.split('; ').find((part) => part.startsWith(`${directive} `)) ?? '').split(' ').slice(1);
+
+    it.each([
+      ['unset', {}],
+      ['off', { BEE_NODES: 'off' }],
+    ])('allows only nodes on the viewer own machine when %s', (_, settings) => {
+      const started = start({ GATEWAY_MODE: 'direct', BEE_GATEWAY_URL: 'https://gateway.example.com', ...settings });
+      expect(started.status).toBe(0);
+      const csp = policy(started.headers);
+      for (const directive of ['img-src', 'connect-src']) {
+        expect(csp).toMatch(new RegExp(`${directive} [^;]*${escape(OWN_MACHINE)};`));
+        expect(sources(csp, directive)).not.toContain('https:');
+        expect(sources(csp, directive)).not.toContain('http:');
+      }
+      expect(started.stdout).not.toContain('Bee nodes');
+    });
+
+    it.each([
+      ['https', ['https:']],
+      ['https-and-local-http', ['https:', 'http:']],
+    ])('at %s adds the scheme sources to img-src and connect-src, and nowhere else', (level, schemes) => {
+      const started = start({ BEE_GATEWAY_URL: 'https://gateway.example.com', BEE_NODES: level });
+      expect(started.status).toBe(0);
+      const csp = policy(started.headers);
+      for (const directive of ['img-src', 'connect-src']) {
+        expect(csp).toMatch(new RegExp(`${directive} [^;]*${escape(OWN_MACHINE)} ${escape(schemes.join(' '))};`));
+      }
+      for (const directive of [
+        'default-src',
+        'script-src',
+        'style-src',
+        'font-src',
+        'manifest-src',
+        'media-src',
+        'worker-src',
+      ]) {
+        expect(sources(csp, directive)).not.toContain('https:');
+        expect(sources(csp, directive)).not.toContain('http:');
+      }
+      expect(sources(csp, 'connect-src')).not.toContain('blob:');
+      expect(started.stdout).toContain(`Bee nodes ${level}`);
+    });
+
+    it('writes no file when the level is unknown', () => {
+      const started = start({ BEE_GATEWAY_URL: 'https://gateway.example.com', BEE_NODES: 'lan' });
+      expect(started.status).not.toBe(0);
+      expect(started.gateway).toBe('');
+      expect(started.headers).toBe('');
+    });
+
+    it('writes exactly this policy at https-and-local-http', () => {
+      const started = start({
+        GATEWAY_MODE: 'direct',
+        BEE_GATEWAY_URL: 'https://gateway.example.com',
+        BEE_NODES: 'https-and-local-http',
+      });
+      expect(policy(started.headers)).toBe(
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'" +
+          "; img-src 'self' data: blob: https://gateway.example.com http://localhost:* http://127.0.0.1:* https: http:" +
+          "; media-src 'self' blob:; worker-src 'self' blob:" +
+          "; connect-src 'self' https://gateway.example.com http://localhost:* http://127.0.0.1:* https: http:" +
+          "; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'",
+      );
+    });
+  });
+
   it.each([
     [{}, 'BEE_GATEWAY_URL is not set'],
     [{ BEE_GATEWAY_URL: 'gateway.example.com' }, 'BEE_GATEWAY_URL must be an address'],
@@ -135,6 +204,11 @@ describe('the image start-up script', () => {
       'CHAT_BEE_URL is replaced by CHAT_READ_URL and CHAT_WRITE_URL',
     ],
     [{ BEE_GATEWAY_URL: 'https://gateway.example.com', GATEWAY_MODE: 'both' }, 'GATEWAY_MODE must be proxy or direct'],
+    [
+      { BEE_GATEWAY_URL: 'https://gateway.example.com', BEE_NODES: 'lan' },
+      'BEE_NODES must be off, https or https-and-local-http. It is "lan".',
+    ],
+    [{ BEE_GATEWAY_URL: 'https://gateway.example.com', BEE_NODES: 'HTTPS' }, 'BEE_NODES must be off, https'],
     [
       { BEE_GATEWAY_URL: 'https://gateway.example.com', EXTRA_GATEWAY_URLS: 'https://second.example.com second' },
       'EXTRA_GATEWAY_URLS must be an address such as https://gateway.example.com, with no path. It is "second".',

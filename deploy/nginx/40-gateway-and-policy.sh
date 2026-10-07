@@ -13,10 +13,17 @@
 # CHAT_WRITE_URL  The chat's write endpoint, which config.json names as chat.writeUrl. The same.
 # EXTRA_GATEWAY_URLS  Optional. The addresses of the further gateways config.json offers in providers.gateways,
 #                 separated by spaces. The policy lets the page reach each of them, in either mode.
+# BEE_NODES       Which Bee nodes of their own a viewer may watch through, beside the gateways above.
+#                 off (default): only a node on the viewer's own machine, at localhost or 127.0.0.1.
+#                 https: also a node on any https address, such as one on another machine behind TLS.
+#                 https-and-local-http: also a node at a plain http address, which is how a node on the viewer's
+#                 local network is reached. A policy cannot name private address ranges, so this lets the page reach
+#                 every plain http address, and Chrome then asks the viewer before the page reaches their network.
 set -eu
 
 OUT_DIR="${STREAM_CLIENT_NGINX_DIR:-/etc/nginx/stream-event-client}"
 MODE="${GATEWAY_MODE:-proxy}"
+BEE_NODES="${BEE_NODES:-off}"
 
 refuse() {
   echo "stream-event-client: $1" >&2
@@ -50,6 +57,14 @@ for value in ${EXTRA_GATEWAY_URLS:-}; do
   EXTRA_SOURCE="$EXTRA_SOURCE $(origin_of EXTRA_GATEWAY_URLS "$value")"
 done
 set +f
+
+# The scheme sources a node a viewer picks may be reached under, beyond their own machine.
+case "$BEE_NODES" in
+  off) BEE_NODE_SOURCE="" ;;
+  https) BEE_NODE_SOURCE=" https:" ;;
+  https-and-local-http) BEE_NODE_SOURCE=" https: http:" ;;
+  *) refuse "BEE_NODES must be off, https or https-and-local-http. It is \"$BEE_NODES\"." ;;
+esac
 
 mkdir -p "$OUT_DIR"
 
@@ -92,9 +107,9 @@ OWN_NODE="http://localhost:* http://127.0.0.1:*"
 # Inline styles are allowed because the emoji picker writes its own style element. hls.js runs in a worker it builds
 # from a blob, and plays through blob URLs.
 POLICY="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'"
-POLICY="$POLICY; img-src 'self' data: blob:$GATEWAY_SOURCE$EXTRA_SOURCE $OWN_NODE"
+POLICY="$POLICY; img-src 'self' data: blob:$GATEWAY_SOURCE$EXTRA_SOURCE $OWN_NODE$BEE_NODE_SOURCE"
 POLICY="$POLICY; media-src 'self' blob:; worker-src 'self' blob:"
-POLICY="$POLICY; connect-src 'self'$GATEWAY_SOURCE$EXTRA_SOURCE$CHAT_SOURCE $OWN_NODE"
+POLICY="$POLICY; connect-src 'self'$GATEWAY_SOURCE$EXTRA_SOURCE$CHAT_SOURCE $OWN_NODE$BEE_NODE_SOURCE"
 POLICY="$POLICY; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
 
 cat > "$OUT_DIR/headers.conf" <<CONF
@@ -105,4 +120,4 @@ add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "no-referrer" always;
 CONF
 
-echo "stream-event-client: gateway $MODE at $GATEWAY${EXTRA_SOURCE:+, extra gateways$EXTRA_SOURCE}${CHAT_SOURCE:+, chat endpoints$CHAT_SOURCE}"
+echo "stream-event-client: gateway $MODE at $GATEWAY${EXTRA_SOURCE:+, extra gateways$EXTRA_SOURCE}${CHAT_SOURCE:+, chat endpoints$CHAT_SOURCE}${BEE_NODE_SOURCE:+, Bee nodes $BEE_NODES}"

@@ -161,17 +161,38 @@ docker run -p 8080:80 \
 | `CHAT_READ_URL`      | The chat's read endpoint, the same as `chat.readUrl` in `config.json`, which the page is then allowed to reach. Leave it out when there is no chat                                                              |
 | `CHAT_WRITE_URL`     | The chat's write endpoint, the same as `chat.writeUrl`, allowed the same way. The one `CHAT_BEE_URL` of before stops the container                                                                              |
 | `EXTRA_GATEWAY_URLS` | Optional. The addresses of the further gateways `config.json` offers in `providers.gateways`, separated by spaces, each with no path. The page is allowed to reach each of them, in either mode                 |
+| `BEE_NODES`          | Optional. Which Bee nodes of their own a viewer may watch through: `off`, the default, `https` or `https-and-local-http`. See below                                                                             |
 | `config.json`        | Mounted over the image's example at `/usr/share/nginx/html/config.json`. Without it the page shows the example's placeholders as a configuration problem                                                        |
 
 A setting that is missing or malformed stops the container at start, and its log says which one.
+
+### Watching through a Bee node of the viewer's own
+
+`BEE_NODES` decides which addresses the page may read a viewer's own Bee node at, beside the gateways
+above. It sets the page's content security policy and nothing else. The page itself is not told the
+level, so a deployment that raises it also has to let the control panel offer such addresses.
+
+| Level                  | What the page may reach                                                                                                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `off`, the default     | A node on the viewer's own machine at `localhost` or `127.0.0.1`, any port, over plain http. This is what the image did before the setting existed                                      |
+| `https`                | Also a node at any https address, such as a node on another machine behind TLS                                                                                                          |
+| `https-and-local-http` | Also a node at any plain http address, which is how a node on the viewer's local network is reached. Chrome is the browser that allows this from an https page, after asking the viewer |
+
+The last level is weaker than it sounds. A policy can name schemes and hosts but not private address
+ranges, so allowing plain http on the local network means allowing every plain http address on the
+internet too. Choose it only for a deployment that means to offer local network nodes.
+
+Any other value stops the container at start and names the three levels. Blob URLs stay media, image
+and worker sources at every level and are never added to what the page connects to.
 
 A `v*` tag publishes the image, built for amd64, as `ghcr.io/solar-punk-ltd/stream-event-client:<tag>`
 (`.github/workflows/image.yml`). A deployment pins it by the digest that tag resolves to. No tag ever
 moves `latest`.
 
 `pnpm test:image` builds the image and checks it running, in both modes: `nginx -t`, the cache
-headers and the policy on each kind of answer, reads and refused writes at `/bee`, and the refusal to
-start without `BEE_GATEWAY_URL`. It needs a Docker daemon, so it is not part of `pnpm test`. `pnpm test:docker` runs it and then
+headers and the policy on each kind of answer, reads and refused writes at `/bee`, the policy at
+`BEE_NODES=https-and-local-http`, and the refusal to start without `BEE_GATEWAY_URL` or with an unknown
+`BEE_NODES`. It needs a Docker daemon, so it is not part of `pnpm test`. `pnpm test:docker` runs it and then
 records the browser smoke test's answers, which is what a job with a Docker daemon runs.
 
 - **Caching.** The page is served `no-cache`, so a browser asks before reusing it after a deploy.
@@ -179,7 +200,7 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   for a year.
 - **Content security policy.** The page may reach its own origin, the gateway in direct mode, the chat
   endpoint, and a Bee node on the viewer's own machine at any port, which is what the control panel
-  offers, and every address named in `EXTRA_GATEWAY_URLS`. A gateway in `providers.gateways` is reached
+  offers, and every address named in `EXTRA_GATEWAY_URLS`. `BEE_NODES` widens it for nodes elsewhere. A gateway in `providers.gateways` is reached
   only when the policy allows it: a path on this site such as `/bee` always is, the gateway in direct mode
   is, and every other address must be named in `EXTRA_GATEWAY_URLS`, or the browser refuses it. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
   player plays through them, which is also why no gateway is named as a media source. Blob URLs are
