@@ -121,6 +121,30 @@ describe('a dialog', () => {
     assert.equal(onClose.mock.calls.length, 1);
   });
 
+  it('draws a hairline under the title once the body is scrolled, and over the footer while more is below', () => {
+    act(() => {
+      root.render(createElement(Dialog, { title: 'Pick one', onClose: vi.fn(), footer: 'end' }, 'body'));
+    });
+    const body = document.querySelector('.dialog-body') as HTMLElement;
+    const header = document.querySelector('.dialog-header') as HTMLElement;
+    const footer = document.querySelector('.dialog-footer') as HTMLElement;
+    Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 600 });
+    Object.defineProperty(body, 'clientHeight', { configurable: true, value: 300 });
+
+    act(() => {
+      body.dispatchEvent(new Event('scroll'));
+    });
+    assert.equal(header.classList.contains('scrolled'), false);
+    assert.equal(footer.classList.contains('more-below'), true);
+
+    body.scrollTop = 300;
+    act(() => {
+      body.dispatchEvent(new Event('scroll'));
+    });
+    assert.equal(header.classList.contains('scrolled'), true);
+    assert.equal(footer.classList.contains('more-below'), false);
+  });
+
   it('has no close button unless asked for one', () => {
     renderDialog(true);
     assert.equal(document.querySelectorAll('[role="dialog"] button').length, 1);

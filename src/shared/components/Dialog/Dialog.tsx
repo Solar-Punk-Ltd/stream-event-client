@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useId, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import './Dialog.scss';
@@ -43,6 +43,24 @@ export function Dialog({ title, onClose, closeLabel, footer, children }: DialogP
   // Taken on the first render, before anything inside with `autoFocus` has moved focus in, which
   // happens before any effect runs.
   const [previouslyFocused] = useState(() => document.activeElement as HTMLElement | null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState<ScrollEdges>(AT_REST);
+
+  const readEdges = useCallback(() => {
+    const body = bodyRef.current;
+    if (body) {
+      const next = scrollEdges(body);
+      setEdges((current) => (sameEdges(current, next) ? current : next));
+    }
+  }, []);
+
+  // After every render, because what the body holds, and so whether it scrolls, changes with it.
+  useLayoutEffect(readEdges);
+
+  useEffect(() => {
+    window.addEventListener('resize', readEdges);
+    return () => window.removeEventListener('resize', readEdges);
+  }, [readEdges]);
 
   useEffect(() => {
     const panel = panelRef.current;
@@ -82,7 +100,7 @@ export function Dialog({ title, onClose, closeLabel, footer, children }: DialogP
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="dialog-header">
+        <div className={`dialog-header${edges.scrolled ? ' scrolled' : ''}`}>
           <h2 id={titleId} className="dialog-title">
             {title}
           </h2>
@@ -92,12 +110,34 @@ export function Dialog({ title, onClose, closeLabel, footer, children }: DialogP
             </button>
           )}
         </div>
-        <div className="dialog-body">{children}</div>
-        {footer !== undefined && <div className="dialog-footer">{footer}</div>}
+        <div className="dialog-body" ref={bodyRef} onScroll={readEdges}>
+          {children}
+        </div>
+        {footer !== undefined && <div className={`dialog-footer${edges.moreBelow ? ' more-below' : ''}`}>{footer}</div>}
       </div>
     </div>,
     document.body,
   );
+}
+
+/** Where the body's scroll stands, which decides the hairlines under the title and over the footer. */
+interface ScrollEdges {
+  readonly scrolled: boolean;
+  readonly moreBelow: boolean;
+}
+
+const AT_REST: ScrollEdges = { scrolled: false, moreBelow: false };
+
+function scrollEdges(body: HTMLElement): ScrollEdges {
+  return {
+    scrolled: body.scrollTop > 0,
+    // A pixel of slack, because a zoomed page reports fractional heights.
+    moreBelow: body.scrollTop + body.clientHeight < body.scrollHeight - 1,
+  };
+}
+
+function sameEdges(a: ScrollEdges, b: ScrollEdges): boolean {
+  return a.scrolled === b.scrolled && a.moreBelow === b.moreBelow;
 }
 
 function focusableIn(panel: HTMLElement): HTMLElement[] {
