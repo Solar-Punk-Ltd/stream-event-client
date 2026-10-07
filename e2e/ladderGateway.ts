@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import type { Page, Route } from '@playwright/test';
@@ -8,6 +9,12 @@ import { makeFeedIdentifier } from '../src/shared/feedFollow';
 import { buildSwarmUri } from '../src/shared/masterPlaylist';
 import { GATEWAY_PATH, PREVIEW_ORIGIN, RECORDED_DIR, RecordingFile } from './recording';
 
+/**
+ * How long every request waits for its answer, the median round trip of a feed read through the gateway in phase 0
+ * (profile A). With no wait the player's reads came back at once and the rates the journeys print measured the fake
+ * rather than the player.
+ */
+const ROUND_TRIP_MS = 650;
 /** The publisher writes a new index this often, and every segment is this long. */
 const SEGMENT_MS = 2_000;
 /** Segments in each published playlist, as a sliding window over the broadcast. */
@@ -78,6 +85,9 @@ interface SlotAddress {
   readonly feed: 'catalog' | 'master' | RungName;
   readonly index: number;
 }
+
+/** The reply to one request, sent once its round trip is over. */
+type Reply = () => Promise<void>;
 
 interface RecordedSegment {
   readonly body: Buffer;
@@ -180,7 +190,11 @@ export class LadderGateway {
   }
 
   async attach(page: Page): Promise<void> {
-    await page.route(`${PREVIEW_ORIGIN}${GATEWAY_PATH}/**`, (route) => this.answer(route));
+    await page.route(`${PREVIEW_ORIGIN}${GATEWAY_PATH}/**`, async (route) => {
+      const reply = this.decide(route);
+      await sleep(ROUND_TRIP_MS);
+      await reply();
+    });
   }
 
   /** The newest index this quality has published by now. */
@@ -255,62 +269,73 @@ export class LadderGateway {
     this.requests.push({ atMs: Date.now(), kind, rung, index, path });
   }
 
-  private async answer(route: Route): Promise<void> {
+  /**
+   * Works out the answer to a request when it arrives, and hands back the reply to send once the round trip is over.
+   * Whether a slot is there is decided on arrival, as a node decides it early in its own round trip.
+   */
+  private decide(route: Route): Reply {
     const path = new URL(route.request().url()).pathname.slice(GATEWAY_PATH.length);
     const [, resource, owner, id] = path.split('/');
 
     if (resource === 'bytes' && owner) {
-      return this.answerSegment(route, path, owner);
+      return this.decideSegment(route, path, owner);
     }
     if (owner === LADDER_OWNER && resource === 'feeds' && id) {
       const feed = this.byTopicHex.get(id);
       if (feed === 'catalog') {
         this.log('catalog', null, path);
-        return this.fulfillFeed(route, 0, JSON.stringify([this.catalogEntry()]));
+        const body = JSON.stringify([this.catalogEntry()]);
+        return () => this.fulfillFeed(route, 0, body);
       }
       if (feed === 'master') {
         this.log('master', null, path);
-        return notFound(route);
+        return () => notFound(route);
       }
       if (feed) {
         const newest = this.newestIndex(feed);
         this.log('head', feed, path, newest);
-        return newest < 0 ? notFound(route) : this.fulfillFeed(route, newest, this.playlist(feed, newest));
+        if (newest < 0) {
+          return () => notFound(route);
+        }
+        const body = this.playlist(feed, newest);
+        return () => this.fulfillFeed(route, newest, body);
       }
     }
     if (owner === LADDER_OWNER && resource === 'soc' && id) {
       const slot = this.bySlotId.get(id);
       if (slot?.feed === 'catalog') {
         this.log('catalog', null, path);
-        return slot.index === 0 ? fulfill(route, JSON.stringify([this.catalogEntry()])) : notFound(route);
+        const body = JSON.stringify([this.catalogEntry()]);
+        return () => (slot.index === 0 ? fulfill(route, body) : notFound(route));
       }
       if (slot?.feed === 'master') {
         this.log('master', null, path);
-        return notFound(route);
+        return () => notFound(route);
       }
       if (slot) {
         if (slot.index > this.newestIndex(slot.feed)) {
           this.log('miss', slot.feed, path, slot.index);
-          return notFound(route);
+          return () => notFound(route);
         }
         this.log('slot', slot.feed, path, slot.index);
-        return fulfill(route, this.playlist(slot.feed, slot.index));
+        const body = this.playlist(slot.feed, slot.index);
+        return () => fulfill(route, body);
       }
     }
     this.log('unknown', null, path);
-    return notFound(route);
+    return () => notFound(route);
   }
 
-  private answerSegment(route: Route, path: string, ref: string): Promise<void> {
+  private decideSegment(route: Route, path: string, ref: string): Reply {
     const match = SEGMENT_REF.exec(ref);
     const rung = match ? RUNGS[Number.parseInt(match[1], 16)] : undefined;
     if (!match || !rung) {
       this.log('unknown', null, path);
-      return notFound(route);
+      return () => notFound(route);
     }
     this.log('segment', rung.name, path);
     const segment = this.segments[Number.parseInt(match[2], 16) % this.segments.length];
-    return route.fulfill({ status: 200, contentType: segment.contentType, body: segment.body });
+    return () => route.fulfill({ status: 200, contentType: segment.contentType, body: segment.body });
   }
 
   private fulfillFeed(route: Route, index: number, body: string): Promise<void> {

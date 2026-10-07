@@ -21,8 +21,11 @@ import { LadderGateway, RUNGS, rungUri, type RungName } from './ladderGateway';
 const TOP: RungName = '720p';
 /** Seconds the video must move on by for playback to count as carrying on. */
 const PLAYS_ON_S = 3;
-/** How long a quality left behind is watched for further reads. */
-const QUIET_WATCH_MS = 6_000;
+/**
+ * How long a quality left behind is watched for further reads, and the quality playing is watched for its read rate.
+ * Fifteen seconds is about seven segments, so a rate printed from it moves in steps of four reads a minute.
+ */
+const QUIET_WATCH_MS = 15_000;
 /** Longer than a failover can take: 8 s unserved, then up to 6 s of the sibling, then hls.js's switch. */
 const FAILOVER_WAIT_MS = 45_000;
 
@@ -85,13 +88,28 @@ async function openStream(
   return { firstFrameMs, warnings };
 }
 
-/** Reads per minute of one quality's feed over a stretch, which is what one viewer costs the gateway. */
-function readsPerMinute(gateway: LadderGateway, rung: RungName, sinceMs: number, untilMs: number): number {
-  const reads = gateway.requests.filter(
-    (request) =>
-      request.rung === rung && request.kind !== 'segment' && request.atMs >= sinceMs && request.atMs < untilMs,
-  ).length;
-  return Math.round((reads * 60_000) / (untilMs - sinceMs));
+/** Reads per minute of one quality's feed over a stretch, in all and by kind, which is what one viewer costs the gateway. */
+function readRates(
+  gateway: LadderGateway,
+  rung: RungName,
+  sinceMs: number,
+  untilMs: number,
+): { all: number; slot: number; miss: number; head: number } {
+  const perMinute = (kinds: readonly string[]) =>
+    Math.round(
+      (gateway.requests.filter(
+        (request) =>
+          request.rung === rung && kinds.includes(request.kind) && request.atMs >= sinceMs && request.atMs < untilMs,
+      ).length *
+        60_000) /
+        (untilMs - sinceMs),
+    );
+  return {
+    all: perMinute(['slot', 'miss', 'head']),
+    slot: perMinute(['slot']),
+    miss: perMinute(['miss']),
+    head: perMinute(['head']),
+  };
 }
 
 /**
@@ -150,7 +168,7 @@ test('start: the master feed is never read and only the starting quality is', as
   report('start', {
     firstFrameMs,
     startingQuality: rung,
-    readsPerMinute: readsPerMinute(gateway, rung!, watchFromMs, Date.now()),
+    readsPerMinute: readRates(gateway, rung!, watchFromMs, Date.now()),
     requests: gateway.tally(),
     warnings,
   });
@@ -183,7 +201,7 @@ test('a forced switch moves the reads to the new quality and keeps playing', asy
     from: TOP,
     to: target,
     switchMs: switchedAtMs - askedAtMs,
-    targetReadsPerMinute: readsPerMinute(gateway, target, quietFromMs, Date.now()),
+    targetReadsPerMinute: readRates(gateway, target, quietFromMs, Date.now()),
     requestsBeforeAsk: gateway.tally(0, askedAtMs),
     requestsSinceAsk: gateway.tally(askedAtMs),
     warnings,
@@ -216,10 +234,12 @@ test('a switch asked before hls.js reports the starting quality reads the new qu
     .not.toBeNull();
   const askedAtMs = (await probeState(page)).switchAskedAtMs!;
   const switchedAtMs = await waitForSwitchTo(page, target, askedAtMs, 30_000);
+  await page.waitForTimeout(QUIET_WATCH_MS);
 
   report('early switch', {
     to: target,
     switchMs: switchedAtMs - askedAtMs,
+    targetReadsPerMinute: readRates(gateway, target, switchedAtMs, Date.now()),
     switches: (await probeState(page)).switches.map((s) => ({ uri: s.uri, afterAskMs: s.atMs - askedAtMs })),
     requestsSinceAsk: gateway.tally(askedAtMs),
     warnings,
@@ -247,6 +267,7 @@ test('the playing quality stops publishing: the player fails over to a sibling a
     stopped: TOP,
     to: sibling,
     failoverMs: switchedAtMs - stoppedAtMs,
+    siblingReadsPerMinute: readRates(gateway, sibling, quietFromMs, Date.now()),
     requestsSinceStop: gateway.tally(stoppedAtMs),
     warnings,
   });
@@ -285,6 +306,7 @@ for (const { why, rung, leave } of UNUSABLE) {
     report(`refused ${why}`, {
       quality: rung,
       refusedMs,
+      playingReadsPerMinute: readRates(gateway, TOP, quietFromMs, Date.now()),
       requestsSinceAsk: gateway.tally(askedAtMs),
       requestsOnceSettled: gateway.tally(quietFromMs),
       warnings,
