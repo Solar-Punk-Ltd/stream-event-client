@@ -181,9 +181,17 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   the finished playlist, about every 30 seconds and spread per viewer. When the broadcast returns and
   the viewer has reached the end of what they were playing, the player rejoins it live.
 - **The quality ladder.** A stream published in several qualities is one feed per quality plus a
-  master playlist on a feed of its own. The player walks every quality's feed itself, so a switch
-  costs nothing, and hls.js chooses the quality. A quality that stops being produced while the others
-  carry on is dropped within seconds, at most one per stream.
+  master playlist on a feed of its own. When the stream list names the stream's renditions, the
+  player builds the master from the list and never reads the master feed. hls.js chooses the
+  quality, and the player reads only the feed of the quality it plays. A switch finds the new
+  quality's newest playlist, and reads it further back when the viewer is behind the live edge, at
+  most ten reads. The old quality stops being read once hls.js has switched.
+- **A quality that stops.** A quality is judged by its own progress, never by comparing it with
+  another, because the qualities' feeds drift apart. A switch to a quality that has finished while
+  the playing one is live, or sits more than 30 seconds behind it, is refused. When the playing
+  quality has had nothing new for 8 seconds, or finishes, the next lower quality is read for 6
+  seconds: if it moves on, the player moves to it and drops the stopped one, at most one per stream.
+  If it does not, the broadcast paused or ended, and the player says so.
 - **Where the video loads from.** The Bee node picker offers the event gateway and a Bee node on the
   viewer's own computer, `http://localhost:1633` filled in and the port editable. Only `localhost`,
   `127.0.0.1` and `[::1]` are accepted. The node is checked before the switch, a failure is explained
@@ -202,8 +210,10 @@ so the player brings its own loaders:
   segment bytes are fetched, where another source can plug in.
 - **ManifestStateManager** merges each live playlist into a growing EVENT playlist, so segments stay
   playable longer than the publisher's sliding window.
-- **LadderFeedPoller** walks every quality's feed on its own clock, because hls.js refreshes only the
-  quality it is playing.
+- **LadderFeedPoller** walks the feed of the quality hls.js plays, on its own clock, plus the one
+  being switched to during a switch. A quality left behind forgets where it was, so coming back to
+  it starts at its newest playlist. Where a walk starts comes from a `NewestIndexFinder` and how
+  often it asks from a `PollPacing`, both injected so they can be swapped.
 
 Feed URIs use a `swarm://<owner>/<topic>` scheme, because hls.js resolves every playlist URI against
 the playlist's own URL and a URI with a scheme is the one case it leaves untouched.
