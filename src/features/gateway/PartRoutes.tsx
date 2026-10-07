@@ -20,7 +20,8 @@ interface PartRoutesProps {
 
 /**
  * Per part: a source for the video, the stream list, the previews and the chat, each from the same
- * list of sources, with the video and the stream list linked until the viewer unlinks them.
+ * list of sources, with the video and the stream list linked until the viewer unlinks them. The link is
+ * a bracket joining those two rows, so every row keeps the same columns.
  */
 export function PartRoutes({ sources, routing, parts, statuses, hasChat, onChange }: PartRoutesProps) {
   const noteId = useId();
@@ -40,12 +41,13 @@ export function PartRoutes({ sources, routing, parts, statuses, hasChat, onChang
 
   return (
     <div className="part-routes" aria-label="Source per part" role="group">
-      {row('player')}
-      <div className="part-link">
-        <div className="part-link-inner">
+      <div className={`part-pair${routing.linked ? ' linked' : ''}`}>
+        {row('player')}
+        {row('stream-list')}
+        <div className="part-link">
           <button
             type="button"
-            className={`sources-icon-button part-link-button${routing.linked ? ' linked' : ''}`}
+            className="part-link-button"
             aria-label={linkLabel}
             aria-pressed={routing.linked}
             title={linkLabel}
@@ -53,15 +55,14 @@ export function PartRoutes({ sources, routing, parts, statuses, hasChat, onChang
           >
             <LinkIcon broken={!routing.linked} />
           </button>
-          {!routing.linked && <span className="sources-muted">{UNLINKED_NOTE}</span>}
         </div>
       </div>
-      {row('stream-list')}
+      {!routing.linked && <p className="sources-muted part-note">{UNLINKED_NOTE}</p>}
       {row('previews')}
       {hasChat && (
         <>
           {row('chat')}
-          <p className="sources-muted" id={noteId}>
+          <p className="sources-muted part-note" id={noteId}>
             {CHAT_SEND_NOTE}
           </p>
         </>
@@ -79,6 +80,7 @@ interface PartRowProps {
   readonly onPick: (id: string) => void;
 }
 
+/** A part's label, and its select with the dot of the source it reads from inside the field. */
 function PartRow({ part, sources, value, status, describedBy, onPick }: PartRowProps) {
   const selectId = useId();
   return (
@@ -86,25 +88,23 @@ function PartRow({ part, sources, value, status, describedBy, onPick }: PartRowP
       <label className="part-row-label" htmlFor={selectId}>
         {PART_LABELS[part]}
       </label>
-      <select
-        id={selectId}
-        className="sources-input part-row-select"
-        value={value}
-        aria-describedby={describedBy}
-        onChange={(event) => onPick(event.target.value)}
-      >
-        {part === 'chat' && <option value={CHAT_SERVICE_ID}>{CHAT_SERVICE_NAME}</option>}
-        {sources.map((source) => (
-          <option key={source.id} value={source.id}>
-            {source.name}
-          </option>
-        ))}
-      </select>
-      {value === CHAT_SERVICE_ID ? (
-        <span className="part-row-status" />
-      ) : (
-        <StatusDot status={status} withWords={false} />
-      )}
+      <span className="part-row-field">
+        <select
+          id={selectId}
+          className="sources-input part-row-select"
+          value={value}
+          aria-describedby={describedBy}
+          onChange={(event) => onPick(event.target.value)}
+        >
+          {part === 'chat' && <option value={CHAT_SERVICE_ID}>{CHAT_SERVICE_NAME}</option>}
+          {sources.map((source) => (
+            <option key={source.id} value={source.id}>
+              {source.name}
+            </option>
+          ))}
+        </select>
+        <StatusDot status={value === CHAT_SERVICE_ID ? undefined : status} withWords={false} />
+      </span>
     </div>
   );
 }

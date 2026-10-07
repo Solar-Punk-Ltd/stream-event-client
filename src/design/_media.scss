@@ -24,3 +24,12 @@ $wide-phone: 560px;
     @content;
   }
 }
+
+// Wide enough to set a form's labels beside their fields rather than above them.
+$large-phone: 480px;
+
+@mixin large-phone-up {
+  @media (min-width: $large-phone) {
+    @content;
+  }
+}

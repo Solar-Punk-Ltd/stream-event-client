@@ -310,7 +310,9 @@ describe('the Sources screen', () => {
       click(button('Use Backup gateway'));
       await settle();
       expect(app!.parts.player).toBe('backup');
-      expect(button('Backup gateway is in use').disabled).toBe(true);
+      // In use is the row's tag, never a disabled button.
+      expect(queryButton('Use Backup gateway')).toBeNull();
+      expect(row('Backup gateway').querySelector('.source-tag.in-use')?.textContent).toBe('In use');
     });
 
     it('forget a Test the viewer stopped by closing the screen, so it can be run again', async () => {
@@ -464,9 +466,9 @@ describe('the Sources screen', () => {
       await waitFor(() => (app!.sources.length === 3 ? true : null));
     }
 
-    it('is renamed from its menu, and Escape leaves the name as it was', async () => {
+    it('is renamed from its details, and Escape leaves the name as it was', async () => {
       await withDeskNode();
-      click(button('Actions for Desk node'));
+      click(button('Details of Desk node'));
       click(button('Rename Desk node'));
       type(input('New name for Desk node'), 'Laptop');
       press(input('New name for Desk node'), 'Enter');
@@ -475,7 +477,6 @@ describe('the Sources screen', () => {
       expect(row('Laptop')).toBeDefined();
       expect(saved(SOURCE_STORAGE_KEYS.sources)[0].name).toBe('Laptop');
 
-      click(button('Actions for Laptop'));
       click(button('Rename Laptop'));
       type(input('New name for Laptop'), 'Never');
       press(input('New name for Laptop'), 'Escape');
@@ -484,10 +485,10 @@ describe('the Sources screen', () => {
       expect(dialog()).not.toBeNull();
     });
 
-    it('is removed from its menu, the parts reading from it moving to the event gateway', async () => {
+    it('is removed from its details, the parts reading from it moving to the event gateway', async () => {
       await withDeskNode();
       expect(app!.parts.player).toBe('added-1');
-      click(button('Actions for Desk node'));
+      click(button('Details of Desk node'));
       click(button('Remove Desk node'));
       await settle();
 
@@ -517,6 +518,17 @@ describe('the Sources screen', () => {
       }
       expect(select('Chat').value).toBe('chat-read');
       expect(dialog()?.textContent).toContain("Messages are always sent through the event's chat service");
+    });
+
+    it('keeps the sources reachable under a row with their count, Add source included', async () => {
+      await perPart();
+      expect(document.querySelector('[data-source-row]')).toBeNull();
+
+      click(button(/^Sources\s*2$/));
+
+      expect(row('Backup gateway').querySelector('input[type="radio"]')).toBeNull();
+      expect(button('Details of Backup gateway')).toBeDefined();
+      expect(button('Add source')).toBeDefined();
     });
 
     it('leaves the chat out on a site with no chat', async () => {
@@ -604,6 +616,12 @@ describe('the Sources screen', () => {
       await open();
 
       expect(queryButton('Edit order')).toBeNull();
+    });
+
+    it('names the source in use alone when nothing stands behind it', async () => {
+      await open({ gateways: [GATEWAYS[0]] });
+
+      expect(section('Fallback').textContent).toBe('FallbackEvent gateway only');
     });
   });
 

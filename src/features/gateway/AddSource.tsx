@@ -1,6 +1,9 @@
-import { useId, useRef, useState } from 'react';
+import { type ReactNode, useId, useRef, useState } from 'react';
 
-import { Button, ButtonVariant } from '@/shared/components/Button/Button';
+import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
+import { GlobeIcon } from '@/shared/components/Icons/GlobeIcon';
+import { HexagonIcon } from '@/shared/components/Icons/HexagonIcon';
+import { PlusIcon } from '@/shared/components/Icons/PlusIcon';
 import type { BeeNodeAccess } from '@/swarm/beeNodeAccess';
 import type { SwarmSettings } from '@/swarm/settings';
 import { SOURCE_NAME_MAX_LENGTH, SOURCE_TYPES, type SourceType } from '@/swarm/sources';
@@ -22,6 +25,11 @@ export type AddCheck =
 type Status = { kind: 'idle' } | { kind: 'checking' } | { kind: 'refused'; text: string; help: Help | null };
 
 const IDLE: Status = { kind: 'idle' };
+
+const TYPE_ICONS: Readonly<Record<SourceType, ReactNode>> = {
+  gateway: <GlobeIcon />,
+  'bee-node': <HexagonIcon />,
+};
 
 interface AddSourceProps {
   readonly access: BeeNodeAccess;
@@ -54,6 +62,11 @@ export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
     generation.current += 1;
     setType(null);
     setStatus(IDLE);
+  };
+
+  const close = () => {
+    reset();
+    setIsOpen(false);
   };
 
   const pick = (picked: SourceType) => {
@@ -92,106 +105,115 @@ export function AddSource({ access, kinds, check, onAdd }: AddSourceProps) {
       return;
     }
     onAdd({ type, name, url: allowed.url }, found.results);
-    reset();
-    setIsOpen(false);
+    close();
   };
 
-  if (!isOpen) {
-    return (
-      <button type="button" className="sources-text-button" aria-expanded={false} onClick={() => setIsOpen(true)}>
+  return (
+    <div className="add-source-area">
+      <button
+        type="button"
+        className="sources-small-button with-icon"
+        aria-expanded={isOpen}
+        onClick={() => (isOpen ? close() : setIsOpen(true))}
+      >
+        <PlusIcon />
         Add source
       </button>
-    );
-  }
-
-  return (
-    <section className="add-source" aria-label="Add source">
-      <div className="add-source-tiles">
-        {SOURCE_TYPES.map((tile) => {
-          const reason = unavailableTypeReason(tile, access, kinds);
-          return (
-            <button
-              key={tile}
-              type="button"
-              className={`add-source-tile${type === tile ? ' picked' : ''}`}
-              disabled={reason !== null}
-              aria-pressed={type === tile}
-              onClick={() => pick(tile)}
-            >
-              <span className="add-source-tile-name">{TYPE_LABELS[tile]}</span>
-              {reason !== null && <span className="add-source-tile-reason">{reason}</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      {type !== null && (
-        <div className="add-source-form">
-          <label className="sources-label" htmlFor={nameId}>
-            Name
-          </label>
-          <input
-            id={nameId}
-            className="sources-input"
-            type="text"
-            autoComplete="off"
-            maxLength={SOURCE_NAME_MAX_LENGTH}
-            placeholder={TYPE_LABELS[type]}
-            value={name}
-            onChange={(event) => typed(setName)(event.target.value)}
-            aria-label="Name"
-          />
-          <label className="sources-label" htmlFor={addressId}>
-            Address
-          </label>
-          <input
-            id={addressId}
-            className="sources-input"
-            type="text"
-            inputMode="url"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={ADDRESS_PLACEHOLDERS[type]}
-            value={address}
-            onChange={(event) => typed(setAddress)(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === KEY_ENTER) {
-                void checkAndAdd();
-              }
-            }}
-            aria-label="Address"
-            aria-describedby={`${hintId} ${statusId}`}
-            aria-invalid={status.kind === 'refused'}
-          />
-          <p className="sources-muted" id={hintId}>
-            {addressHint(type, access)}
-          </p>
-          <p className={`sources-message${status.kind === 'refused' ? ' error' : ''}`} id={statusId} role="status">
-            {status.kind === 'checking' && 'Checking'}
-            {status.kind === 'refused' && status.text}
-          </p>
-          {status.kind === 'refused' && status.help && (
-            <details className="source-fix">
-              <summary>How to fix</summary>
-              <HelpSteps help={status.help} />
-            </details>
-          )}
-          <div className="source-actions">
-            <Button onClick={() => void checkAndAdd()} disabled={status.kind === 'checking'}>
-              {status.kind === 'checking' ? 'Checking' : 'Check and add'}
-            </Button>
-            <Button
-              variant={ButtonVariant.SECONDARY}
-              onClick={() => {
-                reset();
-                setIsOpen(false);
-              }}
-            >
-              Cancel
-            </Button>
+      {isOpen && (
+        <section className="add-source" aria-label="Add source">
+          <div className="add-source-tiles">
+            {SOURCE_TYPES.map((tile) => {
+              const reason = unavailableTypeReason(tile, access, kinds);
+              return (
+                <button
+                  key={tile}
+                  type="button"
+                  className={`add-source-tile${type === tile ? ' picked' : ''}`}
+                  disabled={reason !== null}
+                  aria-pressed={type === tile}
+                  onClick={() => pick(tile)}
+                >
+                  <span className="add-source-tile-head">
+                    {TYPE_ICONS[tile]}
+                    <span className="add-source-tile-name">{TYPE_LABELS[tile]}</span>
+                  </span>
+                  {reason !== null && <span className="add-source-tile-reason">{reason}</span>}
+                </button>
+              );
+            })}
           </div>
-        </div>
+
+          {type !== null && (
+            <div className="add-source-form">
+              <label className="sources-label" htmlFor={nameId}>
+                Name
+              </label>
+              <input
+                id={nameId}
+                className="sources-input"
+                type="text"
+                autoComplete="off"
+                maxLength={SOURCE_NAME_MAX_LENGTH}
+                placeholder={TYPE_LABELS[type]}
+                value={name}
+                onChange={(event) => typed(setName)(event.target.value)}
+                aria-label="Name"
+              />
+              <label className="sources-label" htmlFor={addressId}>
+                Address
+              </label>
+              <input
+                id={addressId}
+                className="sources-input"
+                type="text"
+                inputMode="url"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={ADDRESS_PLACEHOLDERS[type]}
+                value={address}
+                onChange={(event) => typed(setAddress)(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === KEY_ENTER) {
+                    void checkAndAdd();
+                  }
+                }}
+                aria-label="Address"
+                aria-describedby={`${hintId} ${statusId}`}
+                aria-invalid={status.kind === 'refused'}
+              />
+              <p className="sources-muted" id={hintId}>
+                {addressHint(type, access)}
+              </p>
+              <p className={`sources-message${status.kind === 'refused' ? ' error' : ''}`} id={statusId} role="status">
+                {status.kind === 'checking' && 'Checking'}
+                {status.kind === 'refused' && status.text}
+              </p>
+              {status.kind === 'refused' && status.help && (
+                <details className="source-fix">
+                  <summary>
+                    How to fix
+                    <ChevronIcon />
+                  </summary>
+                  <HelpSteps help={status.help} />
+                </details>
+              )}
+              <div className="source-actions">
+                <button type="button" className="sources-small-button ghost" onClick={close}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="sources-small-button primary"
+                  onClick={() => void checkAndAdd()}
+                  disabled={status.kind === 'checking'}
+                >
+                  {status.kind === 'checking' ? 'Checking' : 'Check and add'}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       )}
-    </section>
+    </div>
   );
 }

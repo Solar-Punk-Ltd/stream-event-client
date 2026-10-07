@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 
-import { Button, ButtonVariant } from '@/shared/components/Button/Button';
+import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
 import { SOURCE_NAME_MAX_LENGTH, type Source } from '@/swarm/sources';
 
 import { HelpSteps } from './HelpSteps';
@@ -20,8 +20,11 @@ export type SourceTest =
 interface SourceRowProps {
   readonly source: Source;
   readonly isInUse: boolean;
-  /** The name every row's radio shares, so the list is one group. */
-  readonly radioName: string;
+  /**
+   * The name every row's radio shares, so the list is one group, or null where a row cannot be put in
+   * use from the list, as in per part, where each part picks its own.
+   */
+  readonly radioName: string | null;
   readonly status?: SourceStatus;
   readonly test?: SourceTest;
   readonly isExpanded: boolean;
@@ -42,22 +45,15 @@ export function whereIs(url: string): string {
 }
 
 /**
- * One source in the list: a radio that puts it in use, its name and where it is, its tags, its status
- * dot, and for a source the viewer added, a menu to rename or remove it. The row opens its details,
- * where the Test's result shows as badges and one line, and a failure's sentences and fix only behind
- * "How to fix".
+ * One source in the list: a radio that puts it in use, its name with its tags and where it is, and its
+ * status dot. The rest of the row opens its details, where the Test's result shows as badges and one
+ * line, the actions that apply, and a failure's sentences and fix only behind "How to fix".
  */
 export function SourceRow(props: SourceRowProps) {
   const { source, isInUse, radioName, status, isExpanded, onToggle } = props;
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const detailsId = useId();
-  const menuId = useId();
 
-  const startRename = () => {
-    setIsMenuOpen(false);
-    setDraft(source.name);
-  };
   const finishRename = () => {
     if (draft !== null) {
       props.onRename(draft);
@@ -67,77 +63,64 @@ export function SourceRow(props: SourceRowProps) {
 
   return (
     <li className={`source-row${isExpanded ? ' expanded' : ''}`} data-source-row={source.id}>
-      <div className="source-row-main">
-        <input
-          type="radio"
-          className="source-row-radio"
-          name={radioName}
-          checked={isInUse}
-          onChange={props.onUse}
-          aria-label={source.name}
-        />
-        {draft === null ? (
-          <button
-            type="button"
-            className="source-row-toggle"
-            onClick={onToggle}
-            aria-expanded={isExpanded}
-            aria-controls={detailsId}
-            aria-label={`Details of ${source.name}`}
-          >
-            <span className="source-row-name">{source.name}</span>
-            <span className="source-row-address">{whereIs(source.url)}</span>
-          </button>
-        ) : (
-          <input
-            className="sources-input source-row-rename"
-            type="text"
-            value={draft}
-            maxLength={SOURCE_NAME_MAX_LENGTH}
-            autoFocus
-            aria-label={`New name for ${source.name}`}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={finishRename}
-            onKeyDown={(event) => {
-              if (event.key === KEY_ENTER) {
-                finishRename();
-              } else if (event.key === KEY_ESCAPE) {
-                // Escape here leaves the name as it was rather than closing the whole screen.
-                event.stopPropagation();
-                setDraft(null);
-              }
-            }}
-          />
+      <div className={`source-row-main${radioName === null ? ' no-pick' : ''}`}>
+        {radioName !== null && (
+          <span className="source-row-pick">
+            <input
+              type="radio"
+              className="source-row-radio"
+              name={radioName}
+              checked={isInUse}
+              onChange={props.onUse}
+              aria-label={source.name}
+            />
+          </span>
         )}
-        <span className="source-row-tags">
-          {source.offered && <span className="source-tag">Offered</span>}
-          {isInUse && <span className="source-tag in-use">In use</span>}
+        <span className="source-row-text">
+          <span className="source-row-title">
+            {draft === null ? (
+              <button
+                type="button"
+                className="source-row-toggle"
+                onClick={onToggle}
+                aria-expanded={isExpanded}
+                aria-controls={detailsId}
+                aria-label={`Details of ${source.name}`}
+              >
+                <span className="source-row-name">{source.name}</span>
+              </button>
+            ) : (
+              <input
+                className="sources-input source-row-rename"
+                type="text"
+                value={draft}
+                maxLength={SOURCE_NAME_MAX_LENGTH}
+                autoFocus
+                aria-label={`New name for ${source.name}`}
+                onChange={(event) => setDraft(event.target.value)}
+                onBlur={finishRename}
+                onKeyDown={(event) => {
+                  if (event.key === KEY_ENTER) {
+                    finishRename();
+                  } else if (event.key === KEY_ESCAPE) {
+                    // Escape here leaves the name as it was rather than closing the whole screen.
+                    event.stopPropagation();
+                    setDraft(null);
+                  }
+                }}
+              />
+            )}
+            {source.offered && <span className="source-tag">Offered</span>}
+            {isInUse && <span className="source-tag in-use">In use</span>}
+          </span>
+          <span className="source-row-address">{whereIs(source.url)}</span>
         </span>
         <StatusDot status={status} />
-        {!source.offered && (
-          <button
-            type="button"
-            className="sources-icon-button"
-            aria-label={`Actions for ${source.name}`}
-            aria-expanded={isMenuOpen}
-            aria-controls={menuId}
-            onClick={() => setIsMenuOpen((open) => !open)}
-          >
-            <span aria-hidden="true">⋯</span>
-          </button>
-        )}
+        <span className="source-row-chevron" aria-hidden="true">
+          <ChevronIcon />
+        </span>
       </div>
-      {isMenuOpen && (
-        <div className="source-row-menu" id={menuId}>
-          <Button variant={ButtonVariant.SECONDARY} onClick={startRename} aria-label={`Rename ${source.name}`}>
-            Rename
-          </Button>
-          <Button variant={ButtonVariant.SECONDARY} onClick={props.onRemove} aria-label={`Remove ${source.name}`}>
-            Remove
-          </Button>
-        </div>
-      )}
-      {isExpanded && <SourceDetails {...props} id={detailsId} onStartRename={startRename} />}
+      {isExpanded && <SourceDetails {...props} id={detailsId} onStartRename={() => setDraft(source.name)} />}
     </li>
   );
 }
@@ -146,6 +129,7 @@ function SourceDetails({
   id,
   source,
   isInUse,
+  radioName,
   test,
   onUse,
   onRetest,
@@ -169,40 +153,54 @@ function SourceDetails({
           ))}
         </ul>
       )}
-      <p className="source-status-line" role="status">
-        {isRunning && 'Testing every part'}
-        {!isRunning && test?.state === 'done' && testStatusLine(results)}
-      </p>
-      <div className="source-actions">
-        <Button
-          onClick={onUse}
-          disabled={isInUse}
-          aria-label={isInUse ? `${source.name} is in use` : `Use ${source.name}`}
-        >
-          {isInUse ? 'In use' : 'Use'}
-        </Button>
-        <Button
-          variant={ButtonVariant.SECONDARY}
-          onClick={onRetest}
-          disabled={isRunning}
-          aria-label={isRunning ? `Testing ${source.name}` : `Retest ${source.name}`}
-        >
-          {isRunning ? 'Testing' : 'Retest'}
-        </Button>
-        {!source.offered && (
-          <>
-            <Button variant={ButtonVariant.SECONDARY} onClick={onStartRename}>
-              Rename
-            </Button>
-            <Button variant={ButtonVariant.SECONDARY} onClick={onRemove}>
-              Remove
-            </Button>
-          </>
-        )}
+      <div className="source-details-bar">
+        <p className="source-status-line" role="status">
+          {isRunning && 'Testing every part'}
+          {!isRunning && test?.state === 'done' && testStatusLine(results)}
+        </p>
+        <div className="source-actions">
+          {radioName !== null && !isInUse && (
+            <button type="button" className="sources-small-button" onClick={onUse} aria-label={`Use ${source.name}`}>
+              Use
+            </button>
+          )}
+          <button
+            type="button"
+            className="sources-small-button"
+            onClick={onRetest}
+            disabled={isRunning}
+            aria-label={isRunning ? `Testing ${source.name}` : `Retest ${source.name}`}
+          >
+            {isRunning ? 'Testing' : 'Retest'}
+          </button>
+          {!source.offered && (
+            <>
+              <button
+                type="button"
+                className="sources-small-button"
+                onClick={onStartRename}
+                aria-label={`Rename ${source.name}`}
+              >
+                Rename
+              </button>
+              <button
+                type="button"
+                className="sources-small-button"
+                onClick={onRemove}
+                aria-label={`Remove ${source.name}`}
+              >
+                Remove
+              </button>
+            </>
+          )}
+        </div>
       </div>
       {failures.length > 0 && (
         <details className="source-fix">
-          <summary>How to fix</summary>
+          <summary>
+            How to fix
+            <ChevronIcon />
+          </summary>
           <ul className="source-fix-list" aria-label={`How to fix ${source.name}`}>
             {failures.map((failure) => (
               <li key={failure.check} className="source-fix-item">

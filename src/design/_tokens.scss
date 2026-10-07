@@ -130,8 +130,9 @@ $size: (
   'dropdown-min-width': 150px,
   'login-name-width': 96px,
   'login-name-width-desktop': 200px,
-  'gateway-name-width': 120px,
   'gateway-name-width-desktop': 260px,
+  // The Sources screen's status column, wide enough for its longest word, "Not answering", and its dot.
+  'source-status-width': 104px,
   'footer-max-width': 1152px,
   'footer-logo-height': 26px,
   'focus-ring': 2px,

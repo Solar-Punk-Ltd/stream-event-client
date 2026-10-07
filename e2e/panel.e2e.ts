@@ -34,15 +34,15 @@ async function screenshot(page: Page, name: string): Promise<void> {
   if (!SCREENSHOTS_DIR) {
     return;
   }
-  const dialog = page.getByRole('dialog');
+  const body = page.getByRole('dialog').locator('.dialog-body');
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: width > 800 ? 1000 : 844 });
-    // The screen scrolls inside itself, so its top and its end are two pictures.
+    // The screen's body scrolls between its title and its footer, so its top and its end are two pictures.
     for (const [part, top] of [
       ['top', 0],
       ['end', Number.MAX_SAFE_INTEGER],
     ] as const) {
-      await dialog.evaluate((element, scrollTop) => element.scrollTo({ top: scrollTop }), top);
+      await body.evaluate((element, scrollTop) => element.scrollTo({ top: scrollTop }), top);
       await page.screenshot({ path: join(SCREENSHOTS_DIR, `${name}-${width}-${part}.png`) });
     }
   }
@@ -93,7 +93,9 @@ for (const theme of THEME_NAMES) {
     expect(report, 'the report names no address but the tested one').not.toMatch(/[a-z][a-z0-9+.-]*:\/\//i);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    const overflow = await screen.evaluate((element) => element.scrollWidth - element.clientWidth);
+    const overflow = await screen
+      .locator('.dialog-body')
+      .evaluate((element) => element.scrollWidth - element.clientWidth);
     expect(overflow, 'the screen does not scroll sideways at phone width').toBeLessThanOrEqual(0);
 
     await screenshot(page, `sources-${theme}`);

@@ -5,12 +5,14 @@
 }
 
 // Text only, with the 44px height kept as an invisible target, because on a phone this is the only
-// way to log out.
+// way to log out. The line fills that height so the words sit at its middle, level with the Sources
+// button beside it.
 .login-button {
   display: block;
   max-width: var(--size-login-name-width);
   min-height: 44px;
   padding: 0;
+  line-height: var(--size-touch-target);
   border: none;
   background: none;
   font-size: var(--font-size-lg);

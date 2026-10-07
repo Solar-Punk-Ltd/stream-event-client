@@ -1,60 +1,23 @@
 @use '@/design/media';
+@use '@/design/touch';
 
-// As quiet as the login link beside it: text only, with a 44px target, since on a phone this is the
-// only way to pick where the video loads from.
-.sources-button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: center;
-  min-width: 0;
-  min-height: 44px;
-  padding: 0;
-  border: none;
-  background: none;
-  text-align: right;
-  cursor: pointer;
+// One spacing scale on the 8px grid: 8 inside a control group, 16 between rows and groups, 24 between
+// sections, which are the only places a rule is drawn.
 
-  &:hover .sources-button-current {
-    color: var(--color-text);
-    text-decoration: underline;
+// The width of a part's label beside its select, from the large phone up.
+$part-label-width: 104px;
+
+// The height of the screen's full-size controls, the switch, the fields and Done, with a finger's
+// worth on a touch screen.
+@mixin control-height {
+  height: var(--size-dialog-button-height);
+
+  @media (pointer: coarse) {
+    height: var(--size-touch-target);
   }
 }
 
-.sources-button-label,
-.sources-button-marker,
-.sources-group-title,
-.sources-line-label,
-.source-tag {
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  line-height: normal;
-  letter-spacing: var(--letter-spacing-label);
-  text-transform: uppercase;
-  color: var(--color-text-tertiary);
-}
-
-.sources-button-marker {
-  color: var(--color-primary);
-}
-
-.sources-button-current {
-  max-width: var(--size-gateway-name-width);
-  overflow: hidden;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  line-height: normal;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--color-text-secondary);
-  transition: color var(--duration-fast) ease;
-
-  @include media.tablet-up {
-    max-width: var(--size-gateway-name-width-desktop);
-  }
-}
-
-.sources-visually-hidden {
+@mixin visually-hidden {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -63,13 +26,84 @@
   white-space: nowrap;
 }
 
+// The header's trigger: an outlined button beside the chat's link, its text centred on the same line.
+.sources-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--spacing-sm);
+  height: var(--size-dialog-button-height);
+  min-width: 0;
+  padding: 0 var(--spacing-md);
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-none);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+
+  @media (pointer: coarse) {
+    height: var(--size-touch-target);
+  }
+
+  &:hover {
+    border-color: var(--color-border-strong);
+    background: var(--color-surface-hover);
+  }
+
+  svg {
+    flex: none;
+    color: var(--color-text-secondary);
+  }
+}
+
+// Named for a screen reader on a phone, and shown from the tablet up after a thin divider.
+.sources-button-current {
+  @include visually-hidden;
+
+  @include media.tablet-up {
+    position: static;
+    width: auto;
+    height: auto;
+    max-width: var(--size-gateway-name-width-desktop);
+    clip-path: none;
+    padding-left: var(--spacing-sm);
+    border-left: 1px solid var(--color-hairline-strong);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-normal);
+  }
+}
+
+.sources-button-marker {
+  flex: none;
+  width: var(--size-live-dot);
+  height: var(--size-live-dot);
+  border-radius: var(--radius-full);
+  background: var(--color-warning);
+}
+
+.sources-visually-hidden {
+  @include visually-hidden;
+}
+
 .sources-muted {
+  margin: 0;
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
   color: var(--color-text-tertiary);
 }
 
 .sources-message {
   min-height: 1.5em;
+  margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 
@@ -78,37 +112,89 @@
   }
 }
 
-// A link-like control in the body's type, for actions that should not compete with the buttons.
-.sources-text-button {
-  min-height: var(--size-touch-target);
-  padding: 0;
-  border: none;
-  background: none;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-
-  &:hover {
-    color: var(--color-text);
-    text-decoration: underline;
-  }
-}
-
-.sources-icon-button {
+// The screen's compact button: 32px drawn, a finger's worth of hit area on a touch screen. Secondary by
+// default, ghost for the quiet actions, primary for the one that commits.
+.sources-small-button {
+  position: relative;
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: var(--size-touch-target);
-  height: var(--size-touch-target);
+  gap: var(--spacing-xs-sm);
+  height: var(--spacing-xl);
+  padding: 0 var(--spacing-md);
+  border: none;
+  border-radius: var(--radius-base);
+  background: var(--color-button-secondary);
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-none);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease;
+
+  @include touch.touch-target;
+
+  &:hover:not(:disabled) {
+    background: var(--color-button-secondary-hover);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &.with-icon {
+    padding-left: var(--spacing-sm);
+  }
+
+  &[aria-expanded='true']:not(.ghost) {
+    background: var(--color-button-secondary-hover);
+  }
+
+  &.ghost {
+    background: none;
+    color: var(--color-text-secondary);
+
+    &:hover:not(:disabled) {
+      background: var(--color-surface-hover);
+      color: var(--color-text);
+    }
+  }
+
+  &.primary {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font-weight: var(--font-weight-bold);
+
+    &:hover:not(:disabled) {
+      background: var(--color-primary-hover);
+    }
+  }
+
+  svg {
+    flex: none;
+  }
+}
+
+.sources-icon-button {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
   padding: 0;
   border: none;
   border-radius: var(--radius-base);
   background: none;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-lg);
   cursor: pointer;
+
+  @include touch.touch-target;
 
   &:hover {
     background: var(--color-surface-hover);
@@ -122,13 +208,16 @@
 }
 
 .sources-input {
+  @include control-height;
+
   width: 100%;
-  min-height: var(--size-touch-target);
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: 0 var(--spacing-md);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-input);
+  border-radius: var(--radius-base);
   background: var(--color-input);
   color: var(--color-text);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
   transition:
     border-color var(--duration-base) ease,
     background-color var(--duration-base) ease;
@@ -149,25 +238,38 @@
 }
 
 .sources-report {
+  height: auto;
+  margin-top: var(--spacing-base);
+  padding: var(--spacing-sm) var(--spacing-md);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
 }
 
 .sources-label {
+  margin-top: var(--spacing-sm);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
 }
 
-// The segmented switch, the Swarm site's tab pair: the picked half filled, the other quiet.
+.sources-section + .sources-section {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+// The segmented switch: the picked half raised and lit over a sunken track, the other quiet.
 .sources-modes {
+  @include control-height;
+
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-2xs);
-  margin-bottom: var(--spacing-base);
-  padding: var(--spacing-2xs);
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-xs);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-button-secondary);
+  background: var(--color-input);
 }
 
 .sources-mode {
@@ -175,12 +277,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--size-dialog-button-height);
   border-radius: var(--radius-base);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary);
   cursor: pointer;
+  transition:
+    background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease;
 
   input {
     position: absolute;
@@ -188,8 +292,15 @@
     pointer-events: none;
   }
 
+  &:hover {
+    color: var(--color-text);
+  }
+
   &.picked {
-    background: var(--color-surface);
+    background: var(--color-button-secondary-hover);
+    box-shadow:
+      inset 0 0 0 1px var(--color-hairline-strong),
+      var(--shadow-icon);
     color: var(--color-text);
   }
 
@@ -203,7 +314,13 @@
 }
 
 .sources-group-title {
-  margin-bottom: var(--spacing-xs);
+  margin: 0 0 var(--spacing-xs);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+  letter-spacing: normal;
+  color: var(--color-text-tertiary);
 }
 
 .sources-list {
@@ -212,23 +329,48 @@
   list-style: none;
 }
 
+// A row bleeds 8px past the body's edge on each side, so its hover wash has room while its radio, its
+// name and the headings above it share one left edge.
 .source-row {
-  border-top: 1px solid var(--color-border);
+  margin: 0 calc(-1 * var(--spacing-sm));
+  padding: 0 var(--spacing-sm);
+  border-radius: var(--radius-base);
+  transition: background-color var(--duration-fast) ease;
 
-  &:last-child {
-    border-bottom: 1px solid var(--color-border);
+  &:hover {
+    background: var(--color-surface-hover);
+  }
+
+  &.expanded {
+    background: var(--color-surface-card);
   }
 }
 
+// Radio, name and address, status, chevron. The status column is fixed so dots and words line up from
+// row to row.
 .source-row-main {
-  display: flex;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--spacing-base) minmax(0, 1fr) var(--size-source-status-width) var(--spacing-base);
   align-items: center;
-  gap: var(--spacing-sm);
-  min-height: var(--size-touch-target);
+  column-gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+
+  &.no-pick {
+    grid-template-columns: minmax(0, 1fr) var(--size-source-status-width) var(--spacing-base);
+  }
+}
+
+// Above the row's own hit area, so the radio stays a control of its own.
+.source-row-pick {
+  position: relative;
+  z-index: 1;
+  display: flex;
+
+  @include touch.touch-target;
 }
 
 .source-row-radio {
-  flex: none;
   width: var(--spacing-base);
   height: var(--spacing-base);
   margin: 0;
@@ -236,29 +378,53 @@
   cursor: pointer;
 }
 
-.source-row-toggle {
+.source-row-text {
   display: flex;
-  flex: 1;
   flex-direction: column;
-  align-items: flex-start;
+  gap: var(--spacing-2xs);
   min-width: 0;
-  min-height: var(--size-touch-target);
-  justify-content: center;
-  padding: var(--spacing-xs) 0;
+}
+
+.source-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2xs) var(--spacing-xs-sm);
+  min-width: 0;
+}
+
+// The name is the details' button, and its hit area stretches over the whole row.
+.source-row-toggle {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
   border: none;
   background: none;
-  color: inherit;
+  color: var(--color-text);
+  font-family: var(--font-family-base);
   text-align: left;
   cursor: pointer;
 
-  &:hover .source-row-name {
-    text-decoration: underline;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-base);
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  &:focus-visible::after {
+    outline: var(--size-focus-ring) solid var(--color-primary);
   }
 }
 
 .source-row-name,
 .source-row-address {
-  max-width: 100%;
+  display: block;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -267,50 +433,67 @@
 .source-row-name {
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
 }
 
 .source-row-address {
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
   color: var(--color-text-tertiary);
 }
 
 .source-row-rename {
-  flex: 1;
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  height: var(--spacing-xl);
+  padding: 0 var(--spacing-sm);
 }
 
-.source-row-tags {
-  display: none;
-  gap: var(--spacing-xs);
-
-  @include media.wide-phone-up {
-    display: flex;
-  }
-}
-
-.source-tag.in-use {
-  color: var(--color-primary);
-}
-
-.source-row-menu {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--spacing-sm);
-  padding-bottom: var(--spacing-sm);
-}
-
-// The dot of a source's light check, with its time beside it in the readout type.
-.source-status {
+.source-tag {
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: var(--spacing-xs);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
+  padding: 0 var(--spacing-xs-sm);
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+
+  &.in-use {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}
+
+.source-row-chevron {
+  display: flex;
   color: var(--color-text-tertiary);
+  transition: transform var(--duration-fast) ease;
+
+  .expanded & {
+    transform: rotate(180deg);
+  }
+}
+
+// The dot of a source's light check, and its time or state in the body's type.
+.source-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs-sm);
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
 }
 
 .source-status-dot {
+  flex: none;
   width: var(--size-badge-dot);
   height: var(--size-badge-dot);
   border-radius: var(--radius-full);
@@ -329,30 +512,47 @@
   }
 }
 
+.source-status-words {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Under the name, from the same left edge, so the details read as the row's own.
 .source-details {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
-  padding: 0 0 var(--spacing-base) var(--spacing-lg);
+  gap: var(--spacing-md);
+  padding: var(--spacing-xs) 0 var(--spacing-base) calc(var(--spacing-base) + var(--spacing-md));
+
+  .no-pick + & {
+    padding-left: 0;
+  }
 }
 
+// Six checks wrap into even rows: two columns on a phone, three from the wide phone up.
 .source-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-xs);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-sm);
   margin: 0;
   padding: 0;
   list-style: none;
+
+  @include media.wide-phone-up {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .source-badge {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-2xs) var(--spacing-sm);
+  gap: var(--spacing-xs-sm);
+  min-width: 0;
+  padding: var(--spacing-xs) var(--spacing-sm);
   border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-base);
   font-size: var(--font-size-xs);
+  white-space: nowrap;
   color: var(--color-text-secondary);
 
   &.skipped {
@@ -367,8 +567,9 @@
 }
 
 .source-badge-mark {
-  width: var(--size-agenda-dot);
-  height: var(--size-agenda-dot);
+  flex: none;
+  width: var(--size-badge-dot);
+  height: var(--size-badge-dot);
   border-radius: var(--radius-full);
   background: var(--color-text-tertiary);
 
@@ -381,7 +582,18 @@
   }
 }
 
+// The status line, then the actions on the right of the same line where they fit.
+.source-details-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm) var(--spacing-base);
+}
+
 .source-status-line {
+  flex: 1 1 auto;
+  margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
@@ -389,44 +601,68 @@
 .source-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--spacing-sm);
-
-  > .button {
-    flex: 1;
-
-    @include media.tablet-up {
-      flex: none;
-    }
-  }
+  margin-left: auto;
 }
 
+// A disclosure, not a heading: quiet words and a chevron that turns when it opens.
 .source-fix {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 
   summary {
-    min-height: var(--size-touch-target);
-    display: flex;
+    position: relative;
+    display: inline-flex;
     align-items: center;
+    gap: var(--spacing-xs);
+    height: var(--spacing-xl);
+    list-style: none;
     font-weight: var(--font-weight-semibold);
-    color: var(--color-text);
+    color: var(--color-text-secondary);
     cursor: pointer;
+
+    @include touch.touch-target;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &:hover {
+      color: var(--color-text);
+    }
+
+    svg {
+      transition: transform var(--duration-fast) ease;
+    }
   }
+
+  &[open] summary svg {
+    transform: rotate(180deg);
+  }
+}
+
+.source-fix-list,
+.source-fix > .sources-help {
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-base);
+  background: var(--color-tint);
 }
 
 .source-fix-list {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
-  margin: 0;
-  padding: 0;
+  gap: var(--spacing-md);
+  margin-bottom: 0;
   list-style: none;
 }
 
 .source-fix-item {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-2xs);
+  gap: var(--spacing-xs);
 }
 
 .source-fix-name {
@@ -449,7 +685,7 @@
   flex-direction: column;
   gap: var(--spacing-sm);
   margin: 0;
-  padding-left: var(--spacing-md);
+  padding-left: var(--spacing-base);
 }
 
 .sources-help-label {
@@ -458,9 +694,10 @@
 
 .sources-help-code {
   display: block;
+  margin-top: var(--spacing-xs);
   padding: var(--spacing-xs) var(--spacing-sm);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-input);
+  border-radius: var(--radius-sm);
   background: var(--color-input);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
@@ -468,63 +705,188 @@
   user-select: all;
 }
 
+// Per part. Stacked label over select on a phone, side by side from the large phone up, every row
+// leaving a gutter on the right where the link joins the video and the stream list.
 .part-routes {
+  --part-control: var(--size-dialog-button-height);
+  --part-label-above: calc(var(--line-height-tagline) + var(--spacing-xs));
+
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
+
+  @media (pointer: coarse) {
+    --part-control: var(--size-touch-target);
+  }
+
+  @include media.large-phone-up {
+    --part-label-above: 0px;
+  }
 }
 
-// The label, the select and the dot, in columns the link between video and stream list shares.
-.part-row,
-.part-link {
-  display: grid;
-  grid-template-columns: minmax(0, 6rem) minmax(0, 1fr) var(--size-badge-dot);
-  align-items: center;
+.part-pair {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   gap: var(--spacing-sm);
+}
+
+.part-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-xs);
+  padding-right: var(--spacing-xl);
+
+  @include media.large-phone-up {
+    grid-template-columns: $part-label-width minmax(0, 1fr);
+    align-items: center;
+    gap: var(--spacing-md);
+  }
 }
 
 .part-row-label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tagline);
 }
 
-.part-row-status {
-  width: var(--size-badge-dot);
-}
+.part-row-field {
+  position: relative;
+  display: block;
+  min-width: 0;
 
-.part-link {
-  min-height: var(--size-touch-target);
-
-  > * {
-    grid-column: 2;
+  .source-status {
+    position: absolute;
+    top: 50%;
+    left: var(--spacing-md);
+    transform: translateY(-50%);
+    pointer-events: none;
   }
 }
 
-.part-link-inner {
+.part-row-select {
+  height: var(--part-control);
+  padding-left: calc(var(--spacing-md) + var(--size-badge-dot) + var(--spacing-sm));
+  text-overflow: ellipsis;
+}
+
+// A bracket in the gutter from the video's select to the stream list's, with the link at its middle.
+.part-link {
+  position: absolute;
+  top: calc(var(--part-label-above) + var(--part-control) / 2);
+  right: 0;
+  bottom: calc(var(--part-control) / 2);
+  width: var(--spacing-xl);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 50% 0 var(--spacing-xs);
+    border: 1px dashed var(--color-border-strong);
+    border-left: none;
+    border-radius: 0 var(--radius-base) var(--radius-base) 0;
+  }
+
+  .linked > &::before {
+    border-style: solid solid solid none;
+  }
+}
+
+.part-link-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-chat-quick-emoji);
+  height: var(--size-chat-quick-emoji);
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-tertiary);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+
+  @include touch.touch-target;
+
+  &:hover {
+    border-color: var(--color-text-tertiary);
+    color: var(--color-text);
+  }
+
+  .linked & {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}
+
+.part-note {
+  padding-right: var(--spacing-xl);
+
+  @include media.large-phone-up {
+    padding-left: calc(#{$part-label-width} + var(--spacing-md));
+  }
+}
+
+// Per part's own list of sources, folded under one row with their count.
+.sources-disclosure {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  width: 100%;
+  height: var(--spacing-xl);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+
+  svg {
+    margin-left: auto;
+    color: var(--color-text-tertiary);
+    transition: transform var(--duration-fast) ease;
+  }
+
+  &[aria-expanded='true'] svg {
+    transform: rotate(180deg);
+  }
 }
 
-.part-link-button.linked {
-  color: var(--color-primary);
+.sources-count {
+  min-width: var(--size-search-clear);
+  padding: 0 var(--spacing-xs-sm);
+  border-radius: var(--radius-full);
+  background: var(--color-button-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  text-align: center;
+  color: var(--color-text-secondary);
 }
 
-.add-source,
-.fallback,
-.sources-footer {
+.sources-disclosure-body {
+  margin-top: var(--spacing-sm);
+}
+
+.add-source-area {
   margin-top: var(--spacing-base);
 }
 
 .add-source {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-base);
+  margin-top: var(--spacing-base);
 }
 
+// Equal tiles, an icon and a name on one line, a reason under a tile that cannot be picked.
 .add-source-tiles {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--spacing-sm);
 }
 
@@ -532,23 +894,52 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--spacing-2xs);
-  min-height: var(--size-touch-target);
-  padding: var(--spacing-sm) var(--spacing-md);
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-base);
   background: var(--color-surface-card);
   color: var(--color-text);
+  font-family: var(--font-family-base);
   text-align: left;
   cursor: pointer;
+  transition:
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+
+  &:hover:not(:disabled) {
+    background: var(--color-surface-hover);
+  }
 
   &.picked {
     border-color: var(--color-primary);
+
+    svg {
+      color: var(--color-primary);
+    }
   }
 
   &:disabled {
+    border-style: dashed;
+    border-color: var(--color-border);
+    background: none;
     cursor: not-allowed;
-    opacity: 0.5;
+
+    .add-source-tile-name,
+    svg {
+      color: var(--color-text-tertiary);
+    }
+  }
+}
+
+.add-source-tile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+
+  svg {
+    flex: none;
+    color: var(--color-text-secondary);
   }
 }
 
@@ -559,31 +950,47 @@
 
 .add-source-tile-reason {
   font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 }
 
 .add-source-form {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
+
+  .source-actions {
+    margin-top: var(--spacing-sm);
+  }
 }
 
-.sources-line {
+// A setting: its name on the left, its value and its action on the right.
+.sources-setting {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-xs) var(--spacing-sm);
+  gap: var(--spacing-xs) var(--spacing-md);
+  min-height: var(--spacing-xl);
   font-size: var(--font-size-sm);
 }
 
-.fallback-order {
-  flex: 1;
+.sources-setting-label {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.sources-setting-value {
+  flex: 1 1 0;
   min-width: 0;
+  text-align: right;
+  text-wrap: balance;
   color: var(--color-text-secondary);
 }
 
 .fallback-list {
-  margin: var(--spacing-xs) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin: var(--spacing-sm) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -593,8 +1000,10 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-sm);
-  min-height: var(--size-touch-target);
-  border-top: 1px solid var(--color-border);
+  min-height: var(--size-dialog-button-height);
+  padding: var(--spacing-xs) var(--spacing-xs) var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-base);
+  background: var(--color-surface-card);
   font-size: var(--font-size-sm);
 }
 
@@ -607,13 +1016,36 @@
 
 .fallback-item-moves {
   display: flex;
+  gap: var(--spacing-xs);
 }
 
+.fallback-move {
+  display: flex;
+
+  &.up {
+    transform: rotate(180deg);
+  }
+}
+
+// Copy diagnostics and Done on one line, the copy's outcome between them.
 .sources-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--spacing-sm);
-  padding-top: var(--spacing-base);
-  border-top: 1px solid var(--color-border);
+}
+
+.sources-footer-message {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-secondary);
+}
+
+.button.sources-done {
+  @include control-height;
+
+  min-height: 0;
+  padding: 0 var(--spacing-lg);
 }

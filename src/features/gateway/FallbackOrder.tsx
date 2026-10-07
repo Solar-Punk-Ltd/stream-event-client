@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 
+import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
 import { canMoveFallback, moveFallback } from '@/swarm/fallbackOrder';
 
 interface FallbackOrderProps {
@@ -9,6 +10,17 @@ interface FallbackOrderProps {
   /** The source every part reads from, in one-source mode, which is never asked as its own fallback. */
   readonly inUseId: string | null;
   readonly onChange: (order: readonly string[]) => void;
+}
+
+/**
+ * What the fallback line says: off, the order asked, or with nothing behind the source in use, that
+ * source alone.
+ */
+function fallbackLine(order: readonly string[], asked: readonly string[], nameOf: (id: string) => string): string {
+  if (order.length === 0) {
+    return 'Off';
+  }
+  return asked.length === 0 ? `${nameOf(order[0])} only` : asked.map(nameOf).join(', then ');
 }
 
 /**
@@ -22,16 +34,14 @@ export function FallbackOrder({ order, nameOf, inUseId, onChange }: FallbackOrde
   const asked = order.filter((id) => id !== inUseId);
 
   return (
-    <section className="fallback" aria-label="Fallback">
-      <p className="sources-line">
-        <span className="sources-line-label">Fallback</span>
-        <span className="fallback-order">
-          {order.length === 0 ? 'Off' : asked.length === 0 ? 'None' : asked.map(nameOf).join(', then ')}
-        </span>
+    <section className="fallback sources-section" aria-label="Fallback">
+      <div className="sources-setting">
+        <span className="sources-setting-label">Fallback</span>
+        <span className="sources-setting-value">{fallbackLine(order, asked, nameOf)}</span>
         {canReorder && (
           <button
             type="button"
-            className="sources-text-button"
+            className="sources-small-button ghost"
             aria-expanded={isEditing}
             aria-controls={listId}
             onClick={() => setIsEditing((editing) => !editing)}
@@ -39,7 +49,7 @@ export function FallbackOrder({ order, nameOf, inUseId, onChange }: FallbackOrde
             {isEditing ? 'Close order' : 'Edit order'}
           </button>
         )}
-      </p>
+      </div>
       {isEditing && canReorder && (
         <ol className="fallback-list" id={listId} aria-label="Fallback order">
           {order.map((id, at) => {
@@ -88,7 +98,9 @@ function MoveButton({ name, direction, order, id, onChange }: MoveButtonProps) {
       aria-disabled={!canMove}
       onClick={() => canMove && onChange(moveFallback(order, id, by))}
     >
-      <span aria-hidden="true">{direction === 'up' ? '↑' : '↓'}</span>
+      <span className={`fallback-move ${direction}`} aria-hidden="true">
+        <ChevronIcon />
+      </span>
     </button>
   );
 }
