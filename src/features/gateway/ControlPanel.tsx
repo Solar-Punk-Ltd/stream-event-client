@@ -181,10 +181,17 @@ export function ControlPanel() {
     }
   };
 
+  /** The status view's rows, the chat's left out on a site that has no chat. */
+  function statusOf() {
+    return statusRows(swarm.activity(), swarm.health(), Date.now(), nameOf).filter(
+      ({ feature }) => feature !== 'chat' || chat !== null,
+    );
+  }
+
   const copyReport = async () => {
     const text = reportText({
       tested: lastTested,
-      status: statusRows(swarm.activity(), swarm.health(), Date.now(), nameOf),
+      status: statusOf(),
       build: BUILD_LABEL,
       browser: navigator.userAgent,
       atMs: Date.now(),
@@ -198,7 +205,7 @@ export function ControlPanel() {
   };
 
   const isOwnInUse = choice.id === OWN_GATEWAY_ID;
-  const status = statusRows(swarm.activity(), swarm.health(), Date.now(), nameOf);
+  const status = statusOf();
 
   return (
     <>
