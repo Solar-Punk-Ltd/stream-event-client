@@ -71,6 +71,9 @@ read as one Bee gateway, the default and the fallback, so a deployment written b
 change. The fallback is on by default: a viewer who picks another gateway or a node of their own reads from
 it with the fallback behind it, which is the default gateway unless the config names another, and a viewer
 who picks the named fallback itself has the default behind them. The chat reads from `chat.readUrl` whatever the viewer picks.
+Every gateway in `providers.gateways` whose `url` is an address rather than a path on this site must
+also be named in the image's `EXTRA_GATEWAY_URLS` (below), or the page's policy refuses it. The one
+exception is the image's own `BEE_GATEWAY_URL` in direct mode, which the policy already allows.
 
 | Field                       | What it is                                                                                                                     |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -150,13 +153,14 @@ docker run -p 8080:80 \
   stream-event-client
 ```
 
-| Setting           | What it is                                                                                                                                                                                                      |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GATEWAY_MODE`    | `proxy`, the default: the page reads the gateway at `/bee` on its own origin, so `config.json` names `/bee` as `gatewayUrl`. `direct`: the page reads the gateway at its own address, which `config.json` names |
-| `BEE_GATEWAY_URL` | Required. The gateway's address, with no path. In proxy mode `/bee` forwards to it. In direct mode the page is allowed to reach it                                                                              |
-| `CHAT_READ_URL`   | The chat's read endpoint, the same as `chat.readUrl` in `config.json`, which the page is then allowed to reach. Leave it out when there is no chat                                                              |
-| `CHAT_WRITE_URL`  | The chat's write endpoint, the same as `chat.writeUrl`, allowed the same way. The one `CHAT_BEE_URL` of before stops the container                                                                              |
-| `config.json`     | Mounted over the image's example at `/usr/share/nginx/html/config.json`. Without it the page shows the example's placeholders as a configuration problem                                                        |
+| Setting              | What it is                                                                                                                                                                                                      |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GATEWAY_MODE`       | `proxy`, the default: the page reads the gateway at `/bee` on its own origin, so `config.json` names `/bee` as `gatewayUrl`. `direct`: the page reads the gateway at its own address, which `config.json` names |
+| `BEE_GATEWAY_URL`    | Required. The gateway's address, with no path. In proxy mode `/bee` forwards to it. In direct mode the page is allowed to reach it                                                                              |
+| `CHAT_READ_URL`      | The chat's read endpoint, the same as `chat.readUrl` in `config.json`, which the page is then allowed to reach. Leave it out when there is no chat                                                              |
+| `CHAT_WRITE_URL`     | The chat's write endpoint, the same as `chat.writeUrl`, allowed the same way. The one `CHAT_BEE_URL` of before stops the container                                                                              |
+| `EXTRA_GATEWAY_URLS` | Optional. The addresses of the further gateways `config.json` offers in `providers.gateways`, separated by spaces, each with no path. The page is allowed to reach each of them, in either mode                 |
+| `config.json`        | Mounted over the image's example at `/usr/share/nginx/html/config.json`. Without it the page shows the example's placeholders as a configuration problem                                                        |
 
 A setting that is missing or malformed stops the container at start, and its log says which one.
 
@@ -174,8 +178,9 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   for a year.
 - **Content security policy.** The page may reach its own origin, the gateway in direct mode, the chat
   endpoint, and a Bee node on the viewer's own machine at any port, which is what the control panel
-  offers. A further gateway named in `providers` is not in this policy yet, so the browser refuses it
-  until the image learns to allow it. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
+  offers, and every address named in `EXTRA_GATEWAY_URLS`. A gateway in `providers.gateways` is reached
+  only when the policy allows it: a path on this site such as `/bee` always is, the gateway in direct mode
+  is, and every other address must be named in `EXTRA_GATEWAY_URLS`, or the browser refuses it. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
   player plays through them.
 - **The proxy passes reads only.** `/bee` forwards `GET` and `HEAD`, so the site cannot be used to
   write to the gateway. The chat writes through its own endpoint, `CHAT_WRITE_URL`.

@@ -12,6 +12,7 @@ const SERVER = readFileSync(join(ROOT, 'deploy/nginx/default.conf'), 'utf8');
 
 interface Start {
   status: number | null;
+  stdout: string;
   stderr: string;
   gateway: string;
   headers: string;
@@ -31,7 +32,17 @@ function start(settings: Record<string, string>): Start {
       return '';
     }
   };
-  return { status: result.status, stderr: result.stderr, gateway: read('gateway.conf'), headers: read('headers.conf') };
+  return {
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    gateway: read('gateway.conf'),
+    headers: read('headers.conf'),
+  };
+}
+
+function escape(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function policy(headers: string): string {
@@ -81,6 +92,31 @@ describe('the image start-up script', () => {
     expect(csp).toContain("script-src 'self';");
   });
 
+  it('keeps exactly the policy it had before when no extra gateway is named', () => {
+    expect(policy(start({ GATEWAY_MODE: 'direct', BEE_GATEWAY_URL: 'https://gateway.example.com' }).headers)).toBe(
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'" +
+        "; img-src 'self' data: blob: https://gateway.example.com http://localhost:* http://127.0.0.1:*" +
+        "; media-src 'self' blob:; worker-src 'self' blob:" +
+        "; connect-src 'self' https://gateway.example.com http://localhost:* http://127.0.0.1:*" +
+        "; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'",
+    );
+  });
+
+  it.each(['proxy', 'direct'])('lets the page reach every extra gateway in %s mode, by its origin', (mode) => {
+    const started = start({
+      GATEWAY_MODE: mode,
+      BEE_GATEWAY_URL: 'https://gateway.example.com',
+      EXTRA_GATEWAY_URLS: ' https://second.example.com/  http://third.example.com:1633 ',
+    });
+    expect(started.status).toBe(0);
+    const csp = policy(started.headers);
+    const extras = 'https://second.example.com http://third.example.com:1633';
+    expect(csp).toMatch(new RegExp(`connect-src [^;]*${escape(extras)}`));
+    expect(csp).toMatch(new RegExp(`img-src [^;]*${escape(extras)}`));
+    expect(csp).toContain(`media-src 'self' blob: ${extras};`);
+    expect(started.stdout).toContain(`extra gateways ${extras}`);
+  });
+
   it.each([
     [{}, 'BEE_GATEWAY_URL is not set'],
     [{ BEE_GATEWAY_URL: 'gateway.example.com' }, 'BEE_GATEWAY_URL must be an address'],
@@ -98,6 +134,18 @@ describe('the image start-up script', () => {
       'CHAT_BEE_URL is replaced by CHAT_READ_URL and CHAT_WRITE_URL',
     ],
     [{ BEE_GATEWAY_URL: 'https://gateway.example.com', GATEWAY_MODE: 'both' }, 'GATEWAY_MODE must be proxy or direct'],
+    [
+      { BEE_GATEWAY_URL: 'https://gateway.example.com', EXTRA_GATEWAY_URLS: 'https://second.example.com second' },
+      'EXTRA_GATEWAY_URLS must be an address such as https://gateway.example.com, with no path. It is "second".',
+    ],
+    [
+      { BEE_GATEWAY_URL: 'https://gateway.example.com', EXTRA_GATEWAY_URLS: 'https://second.example.com/bee' },
+      'EXTRA_GATEWAY_URLS must be an address',
+    ],
+    [
+      { BEE_GATEWAY_URL: 'https://gateway.example.com', EXTRA_GATEWAY_URLS: 'ftp://second.example.com' },
+      'EXTRA_GATEWAY_URLS must be an address',
+    ],
   ])('refuses to start on %j', (settings, reason) => {
     const started = start(settings);
     expect(started.status).not.toBe(0);

@@ -11,6 +11,8 @@
 # CHAT_READ_URL   The chat's read endpoint, which config.json names as chat.readUrl. Optional, and allowed by the
 #                 policy when set.
 # CHAT_WRITE_URL  The chat's write endpoint, which config.json names as chat.writeUrl. The same.
+# EXTRA_GATEWAY_URLS  Optional. The addresses of the further gateways config.json offers in providers.gateways,
+#                 separated by spaces. The policy lets the page reach each of them, in either mode.
 set -eu
 
 OUT_DIR="${STREAM_CLIENT_NGINX_DIR:-/etc/nginx/stream-event-client}"
@@ -40,6 +42,14 @@ for setting in CHAT_READ_URL CHAT_WRITE_URL; do
     CHAT_SOURCE="$CHAT_SOURCE $(origin_of "$setting" "$value")"
   fi
 done
+
+EXTRA_SOURCE=""
+# The list is split on spaces unquoted, so globbing is off while it is, or a stray * would expand to file names.
+set -f
+for value in ${EXTRA_GATEWAY_URLS:-}; do
+  EXTRA_SOURCE="$EXTRA_SOURCE $(origin_of EXTRA_GATEWAY_URLS "$value")"
+done
+set +f
 
 mkdir -p "$OUT_DIR"
 
@@ -82,9 +92,9 @@ OWN_NODE="http://localhost:* http://127.0.0.1:*"
 # Inline styles are allowed because the emoji picker writes its own style element. hls.js runs in a worker it builds
 # from a blob, and plays through blob URLs.
 POLICY="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'"
-POLICY="$POLICY; img-src 'self' data: blob:$GATEWAY_SOURCE $OWN_NODE"
-POLICY="$POLICY; media-src 'self' blob:; worker-src 'self' blob:"
-POLICY="$POLICY; connect-src 'self'$GATEWAY_SOURCE$CHAT_SOURCE $OWN_NODE"
+POLICY="$POLICY; img-src 'self' data: blob:$GATEWAY_SOURCE$EXTRA_SOURCE $OWN_NODE"
+POLICY="$POLICY; media-src 'self' blob:$EXTRA_SOURCE; worker-src 'self' blob:"
+POLICY="$POLICY; connect-src 'self'$GATEWAY_SOURCE$EXTRA_SOURCE$CHAT_SOURCE $OWN_NODE"
 POLICY="$POLICY; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
 
 cat > "$OUT_DIR/headers.conf" <<CONF
@@ -95,4 +105,4 @@ add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "no-referrer" always;
 CONF
 
-echo "stream-event-client: gateway $MODE at $GATEWAY${CHAT_SOURCE:+, chat endpoints$CHAT_SOURCE}"
+echo "stream-event-client: gateway $MODE at $GATEWAY${EXTRA_SOURCE:+, extra gateways$EXTRA_SOURCE}${CHAT_SOURCE:+, chat endpoints$CHAT_SOURCE}"
