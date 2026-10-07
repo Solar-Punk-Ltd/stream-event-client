@@ -20,6 +20,8 @@ interface DialogProps {
   onClose: () => void;
   /** Puts a close button beside the title, named this for a screen reader. */
   closeLabel?: string;
+  /** Kept in view under the body, which scrolls between it and the title when it is long. */
+  footer?: ReactNode;
   children: ReactNode;
 }
 
@@ -31,7 +33,7 @@ interface DialogProps {
  * Built by hand rather than on the `<dialog>` element because the declared browser floor includes
  * Safari 14, which has no `showModal`.
  */
-export function Dialog({ title, onClose, closeLabel, children }: DialogProps) {
+export function Dialog({ title, onClose, closeLabel, footer, children }: DialogProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   // Read through a ref so a parent passing a new function each render does not re-run the effect,
@@ -90,7 +92,8 @@ export function Dialog({ title, onClose, closeLabel, children }: DialogProps) {
             </button>
           )}
         </div>
-        {children}
+        <div className="dialog-body">{children}</div>
+        {footer !== undefined && <div className="dialog-footer">{footer}</div>}
       </div>
     </div>,
     document.body,
