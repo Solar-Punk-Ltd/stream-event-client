@@ -1,0 +1,200 @@
+import { FeedIndex, type Topic } from '@ethersphere/bee-js';
+
+import { feedSlotPath, nextFeedRequest, resolvedFeedIndex } from '@/shared/feedFollow';
+import { ABORTED, type SwarmAnswer } from '../../answers';
+import {
+  DEFAULT_READ_TIMEOUT_MS,
+  type ProbeResult,
+  type ProviderCapabilities,
+  type ProviderStatus,
+  type ReadOptions,
+  type SwarmProvider,
+  type UrlUse,
+} from '../../provider';
+import { boundedRequest } from './boundedRequest';
+
+/** Long enough for a cold local node, short enough that a wrong port does not feel like a hang. */
+export const BEE_PROBE_TIMEOUT_MS = 5_000;
+
+/** Bee answers this with `{"status":"ok",...}` in every version this viewer has targeted. */
+const HEALTH_PATH = 'health';
+
+const NOT_FOUND = 404;
+const TOO_MANY_REQUESTS = 429;
+
+const CAPABILITIES: ProviderCapabilities = {
+  feedHead: true,
+  feedEntry: true,
+  chunk: true,
+  bytes: true,
+  urls: true,
+  inTab: false,
+};
+
+const READY: ProviderStatus = { state: 'ready' };
+
+export interface BeeHttpProviderOptions {
+  /** A Bee API base: an http or https address, or a path on this site such as `/bee` that the site proxies to Bee. */
+  readonly baseUrl: string;
+  /** Injected by tests. The global `fetch` otherwise. */
+  readonly fetcher?: typeof fetch;
+  /** The page's own origin, which a gateway given as a path on this site is resolved against for a URL. */
+  readonly pageOrigin?: string;
+}
+
+const isSuccess = (status: number) => status >= 200 && status < 300;
+
+function dateOf(headers: Headers): number | null {
+  const date = headers.get('date');
+  const ms = date === null ? Number.NaN : Date.parse(date);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * The wait `Retry-After` asks for, as seconds or as an HTTP date. A date is read against the answer's
+ * own `Date` when it has one, because the two come from the same clock and the viewer's may be off.
+ */
+function retryAfterMsOf(headers: Headers, serverTimeMs: number | null): number | null {
+  const raw = headers.get('retry-after')?.trim();
+  if (!raw) {
+    return null;
+  }
+  if (/^\d+$/.test(raw)) {
+    return Number(raw) * 1000;
+  }
+  const until = Date.parse(raw);
+  return Number.isFinite(until) ? Math.max(0, until - (serverTimeMs ?? Date.now())) : null;
+}
+
+function looksLikeBeeHealth(body: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    return typeof parsed === 'object' && parsed !== null && typeof (parsed as { status?: unknown }).status === 'string';
+  } catch {
+    return false;
+  }
+}
+
+function currentPageOrigin(): string {
+  return typeof location === 'undefined' ? 'http://localhost' : location.origin;
+}
+
+/**
+ * A Bee node's HTTP API, the way the app has always read the event gateway: the same paths, so a
+ * recorded replay of the app's traffic still matches. A 404 is content that is not there and a 429 is
+ * the node asking to be left alone. Any other status that is not a success is a fault of the node,
+ * a 500 included, because Bee answers 500 for a chunk it failed to fetch from the network as well as
+ * for its own trouble, and the two cannot be told apart from here.
+ */
+export class BeeHttpProvider implements SwarmProvider {
+  readonly capabilities = CAPABILITIES;
+
+  private readonly baseUrl: string;
+  private readonly fetcher: typeof fetch;
+  private readonly pageOrigin: string;
+
+  constructor(options: BeeHttpProviderOptions) {
+    this.baseUrl = options.baseUrl.replace(/\/+$/, '');
+    // Bound so the browser's fetch is never called with this object as its receiver, which it refuses.
+    this.fetcher = options.fetcher ?? ((input, init) => fetch(input, init));
+    this.pageOrigin = options.pageOrigin ?? currentPageOrigin();
+  }
+
+  readFeedHead(owner: string, topic: Topic, options?: ReadOptions): Promise<SwarmAnswer> {
+    return this.read(nextFeedRequest(owner, topic, null).path, options);
+  }
+
+  readFeedEntry(owner: string, topic: Topic, index: number, options?: ReadOptions): Promise<SwarmAnswer> {
+    return this.read(feedSlotPath(owner, topic, FeedIndex.fromBigInt(BigInt(index))), options);
+  }
+
+  readChunk(address: string, options?: ReadOptions): Promise<SwarmAnswer> {
+    return this.read(`chunks/${address}`, options);
+  }
+
+  readBytes(reference: string, options?: ReadOptions): Promise<SwarmAnswer> {
+    return this.read(`bytes/${reference}`, options);
+  }
+
+  /**
+   * A segment's URL is absolute because it is written into a playlist, and hls.js resolves a playlist's
+   * lines against the playlist's own URL, which here is a blob or a `swarm://` URI. A picture's is left
+   * as the gateway was given, because the page itself loads it. Its reference is encoded because it
+   * comes from the stream list, external input, and its trailing slash makes Bee serve the uploaded
+   * file rather than redirect.
+   */
+  urlFor(reference: string, use: UrlUse): string | null {
+    if (use === 'thumbnail') {
+      return `${this.baseUrl}/bzz/${encodeURIComponent(reference.trim())}/`;
+    }
+    return new URL(`${this.baseUrl}/bytes/${reference}`, this.pageOrigin).href;
+  }
+
+  status(): ProviderStatus {
+    return READY;
+  }
+
+  async probe(options: ReadOptions = {}): Promise<ProbeResult> {
+    const startedAt = Date.now();
+    const outcome = await boundedRequest(`${this.baseUrl}/${HEALTH_PATH}`, {
+      fetcher: this.fetcher,
+      timeoutMs: options.timeoutMs ?? BEE_PROBE_TIMEOUT_MS,
+      signal: options.signal,
+      readsBody: isSuccess,
+    });
+    switch (outcome.kind) {
+      case 'response': {
+        const { response, body } = outcome;
+        if (!isSuccess(response.status)) {
+          return { kind: 'rejected', status: response.status };
+        }
+        return looksLikeBeeHealth(new TextDecoder().decode(body ?? new Uint8Array()))
+          ? { kind: 'ok', elapsedMs: Date.now() - startedAt }
+          : { kind: 'not-swarm' };
+      }
+      case 'timed-out':
+        return { kind: 'timed-out' };
+      case 'aborted':
+      case 'failed':
+        return { kind: 'unreachable' };
+    }
+  }
+
+  async start(): Promise<void> {}
+
+  async stop(): Promise<void> {}
+
+  private async read(path: string, options: ReadOptions = {}): Promise<SwarmAnswer> {
+    const timeoutMs = options.timeoutMs ?? DEFAULT_READ_TIMEOUT_MS;
+    const outcome = await boundedRequest(`${this.baseUrl}/${path}`, {
+      fetcher: this.fetcher,
+      timeoutMs,
+      signal: options.signal,
+      readsBody: isSuccess,
+    });
+    switch (outcome.kind) {
+      case 'aborted':
+        return ABORTED;
+      case 'timed-out':
+        return { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs } };
+      case 'failed':
+        return { kind: 'unavailable', cause: { kind: 'network', error: outcome.error } };
+      case 'response':
+        return answerOf(outcome.response, outcome.body);
+    }
+  }
+}
+
+function answerOf(response: Response, body: Uint8Array | null): SwarmAnswer {
+  const serverTimeMs = dateOf(response.headers);
+  if (response.status === NOT_FOUND) {
+    return { kind: 'not-found', serverTimeMs };
+  }
+  if (response.status === TOO_MANY_REQUESTS) {
+    return { kind: 'rate-limited', retryAfterMs: retryAfterMsOf(response.headers, serverTimeMs), serverTimeMs };
+  }
+  if (body === null) {
+    return { kind: 'unavailable', cause: { kind: 'status', status: response.status } };
+  }
+  return { kind: 'content', bytes: body, feedIndex: resolvedFeedIndex(response.headers), serverTimeMs };
+}
