@@ -214,7 +214,7 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   stops or finishes, the player reads the marker of the previous 10 seconds, and the one before if
   that is missing, then one round of eight slots from where it says. One marker read serves every
   quality for a few seconds, and a marker address found missing is never asked again. The clock is
-  the gateway's, taken from the `Date` header of every answer the Swarm client reads, so a viewer whose
+  the gateway's, taken from the `Date` header of every answer the Swarm client reads for the player and the stream list, so a viewer whose
   clock is wrong still finds the marker. With no marker, it searches as before: at the start eight slots at once,
   spread out to the feed's length, closing in on the newest in a few rounds, and at a switch from
   the playing quality's newest slot, usually one round. The new quality is read further back when the
@@ -310,8 +310,8 @@ there that builds a Bee URL, calls fetch, or makes a Bee client of its own (`tes
   rate-limited one for as long as it asked. A paused provider is still asked when nothing else can be.
   A read's window covers the fallback too: the fallback gets only what the first provider left of it,
   and is not asked once nothing is left.
-  Every read is counted by feature, kind, provider and answer, and every answer's server time keeps the
-  gateway clock.
+  Every read is counted by feature, kind, provider and answer. The server time of the player's and the
+  stream list's answers keeps the gateway clock, and the chat's, read from the chat's own host, does not.
 - **The contract** (`test/swarm/providerContract.ts`) is the suite every provider kind must pass, run
   for Bee over HTTP against the answers the browser smoke test replays.
 

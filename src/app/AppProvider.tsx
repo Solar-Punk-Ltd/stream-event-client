@@ -87,7 +87,7 @@ const CHAT_READ_GATEWAY_ID = 'chat-read';
 
 /**
  * The client for the gateway at `address`, sharing the one gateway clock the player's time markers
- * read, so every answer's server time corrects them and not only the stream list's. The chat reads
+ * read, so the player's answers correct it as well as the stream list's. The chat reads
  * from the event's chat read address whichever node the viewer picked, because the chat server
  * writes its feed there.
  */

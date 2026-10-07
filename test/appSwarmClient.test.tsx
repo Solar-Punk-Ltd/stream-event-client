@@ -180,14 +180,25 @@ describe("the app's Swarm client", () => {
     expect(asked.slice(before)).toEqual([`${CHAT_READ}/chunks/${REFERENCE}`, `${OWN_NODE}/bytes/${REFERENCE}`]);
   });
 
-  it("keeps the shared gateway clock from every answer's server time", async () => {
+  it("keeps the shared gateway clock from the player's answers' server time", async () => {
     const { swarm } = start();
     await settle();
     const before = gatewayClock.offsetMs();
 
     serverDate = 'Thu, 01 Jan 2099 00:00:00 GMT';
-    await swarm.reader('previews').readBytes(REFERENCE);
+    await swarm.reader('player').readBytes(REFERENCE);
 
     expect(gatewayClock.offsetMs()).toBeGreaterThan(before);
+  });
+
+  it("leaves the shared gateway clock alone on the chat's answers, which come from the chat's own host", async () => {
+    const { chatReads } = start({ chat: CHAT });
+    await settle();
+    const before = gatewayClock.offsetMs();
+
+    serverDate = 'Fri, 01 Jan 2100 00:00:00 GMT';
+    await chatReads().readChunk(REFERENCE);
+
+    expect(gatewayClock.offsetMs()).toBe(before);
   });
 });
