@@ -203,12 +203,11 @@ test('a switch asked before hls.js reports the starting quality reads the new qu
   page,
   context,
 }) => {
-  // Known failure, found by this journey on 2026-10-07. hls.js reports the quality it started on with
-  // LEVEL_SWITCHED once that quality's first fragment plays. A switch asked before then is under way when the report
-  // arrives, and `LadderFeedPoller.followOnly` stops every other quality, the switch target included, and forgets what
-  // it read. hls.js then asks for the target again, which starts it over with a second search for its newest index. Asked here at the first buffered fragment, so the order is the same every run. On a live stream
-  // the same order arises when ABR moves off the starting quality before its first fragment plays.
-  test.fail(true, 'the poller drops a switch target when hls.js reports the quality it is leaving');
+  // Found by this journey on 2026-10-07. hls.js reports the quality it started on with LEVEL_SWITCHED once that
+  // quality's first fragment plays. A switch asked before then is under way when the report arrives, so the poller is
+  // told the level hls.js is loading as well and keeps following it. Before that it stopped the target and searched for
+  // it again when hls.js next asked. Asked here at the first buffered fragment, so the order is the same every run. On
+  // a live stream the same order arises when ABR moves off the starting quality before its first fragment plays.
   const gateway = new LadderGateway();
   const target: RungName = '360p';
   const warnings = await openPage(page, context, gateway, target);
