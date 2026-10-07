@@ -68,31 +68,109 @@ export async function readRound(
   bracket.firstMissing = above.length === 0 ? null : Math.min(...above);
 }
 
+/** Where the head probably is, given what the search knows, or null when there is nothing to go on. */
+export type HeadEstimate = (bracket: Bracket) => number | null;
+
+/**
+ * Where a round reads around an estimate: dense near it, wider further out, so an estimate off by a
+ * dozen slots still leaves a gap of a few for the next round.
+ */
+export const ZOOM_CENTRED: readonly number[] = [-12, -6, -3, -1, 0, 1, 3, 6];
+
+/**
+ * The same leaning low, for an estimate projected over many slots, which runs high: coalesced
+ * playlists make fewer slots than segments.
+ */
+export const ZOOM_LEANING_LOW: readonly number[] = [-16, -9, -5, -3, -1, 0, 1, 3];
+
+/** An estimate this far above the lowest slot known missing is not a near miss but a wrong estimate. */
+const NEAR_MISS = 32;
+
+/**
+ * The reads of a round around `guess`, kept inside what the bracket still allows. A guess just above
+ * the lowest slot known missing is moved under it, since the head is then most likely just below.
+ */
+export function zoomAround(guess: number, bracket: Bracket, offsets: readonly number[] = ZOOM_CENTRED): number[] {
+  const low = newestIndexOf(bracket);
+  const high = bracket.firstMissing ?? Infinity;
+  if (guess - low <= MAX_PARALLEL_READS) {
+    // Close above the newest slot found, the eight slots after it are the best round there is.
+    return Array.from({ length: MAX_PARALLEL_READS }, (_, offset) => low + 1 + offset).filter((index) => index < high);
+  }
+  const top = Math.max(...offsets);
+  const centre = guess + top >= high && guess - high < NEAR_MISS ? high - 1 - top : guess;
+  return offsets.map((offset) => centre + offset).filter((index) => index > low && index < high);
+}
+
 /**
  * Close the bracket. With no miss known yet the search gallops, eight reads spaced by powers of two
- * and wider each round. With both ends known it cuts the gap into nine and reads the eight cuts,
- * which takes a gap of 60,000 to a single slot in five rounds.
+ * and wider each round. With both ends known it cuts the gap evenly and reads the cuts, which takes a
+ * gap of 60,000 to a single slot in five rounds. When an estimate is given and the gap is wide, the
+ * round reads around the estimate instead, which pins the head in one or two rounds when the estimate
+ * is good.
  */
-export async function narrowToNewest(reader: FeedReader, bracket: Bracket, tally: SearchTally): Promise<NewestFound> {
+export async function narrowToNewest(
+  reader: FeedReader,
+  bracket: Bracket,
+  tally: SearchTally,
+  estimate: HeadEstimate = () => null,
+  offsets: readonly number[] = ZOOM_CENTRED,
+  trusted = true,
+): Promise<NewestFound> {
   let scale = 1;
   while (!isPinned(bracket)) {
     const low = newestIndexOf(bracket);
     let wanted: number[];
+    let zoomed = false;
     if (bracket.firstMissing === null) {
       wanted = Array.from({ length: MAX_PARALLEL_READS }, (_, power) => low + scale * 2 ** power);
       scale *= 2 ** MAX_PARALLEL_READS;
     } else {
       const gap = bracket.firstMissing - low - 1;
-      wanted =
-        gap <= MAX_PARALLEL_READS
-          ? Array.from({ length: gap }, (_, offset) => low + 1 + offset)
-          : Array.from({ length: MAX_PARALLEL_READS }, (_, cut) =>
-              Math.round(low + ((cut + 1) * (gap + 1)) / (MAX_PARALLEL_READS + 1)),
-            );
+      const guess = trusted ? estimate(bracket) : null;
+      if (gap <= MAX_PARALLEL_READS) {
+        wanted = Array.from({ length: gap }, (_, offset) => low + 1 + offset);
+      } else if (guess !== null && zoomAround(guess, bracket, offsets).length >= MAX_PARALLEL_READS / 2) {
+        wanted = zoomAround(guess, bracket, offsets);
+        zoomed = true;
+      } else {
+        wanted = cuts(low, bracket.firstMissing, MAX_PARALLEL_READS);
+      }
     }
-    await readRound(reader, wanted, bracket, tally);
+    const outcome = await readZoomRound(reader, wanted, bracket, tally);
+    // An estimate whose reads all landed on one side of the head was wrong by more than they span,
+    // most often because a pause lies between the newest slot found and the head. The rest of the
+    // search cuts evenly.
+    if (zoomed) {
+      trusted = outcome === 'straddled';
+    }
   }
   return finished(bracket, tally);
+}
+
+/**
+ * Read a round and say whether the head fell among its reads or all of them landed on one side,
+ * which is how a search tells a good estimate from a wrong one.
+ */
+export async function readZoomRound(
+  reader: FeedReader,
+  wanted: readonly number[],
+  bracket: Bracket,
+  tally: SearchTally,
+): Promise<'straddled' | 'allFound' | 'allMissed'> {
+  const before = newestIndexOf(bracket);
+  const missingBefore = bracket.firstMissing;
+  await readRound(reader, wanted, bracket, tally);
+  if (newestIndexOf(bracket) === before) {
+    return 'allMissed';
+  }
+  return bracket.firstMissing === missingBefore ? 'allFound' : 'straddled';
+}
+
+/** `count` slots cutting the open gap between `low` and `high` into equal parts. */
+function cuts(low: number, high: number, count: number): number[] {
+  const gap = high - low - 1;
+  return Array.from({ length: count }, (_, cut) => Math.round(low + ((cut + 1) * (gap + 1)) / (count + 1)));
 }
 
 export function finished(bracket: Bracket, tally: SearchTally): NewestFound {

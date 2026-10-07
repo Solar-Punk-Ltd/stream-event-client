@@ -11,7 +11,7 @@ export interface FollowPredictedOptions {
   readonly secondEarlyRate: number;
   /** Unanswered asks a slot may take before the follower backs off it, since Bee skips peers for an address asked too early too often. */
   readonly earlyAskBudget: number;
-  /** The first wait once the budget is spent, doubled after every further miss up to `maxBackoffMs`. */
+  /** The wait after the last ask the budget allows, doubled after every further miss up to `maxBackoffMs`. */
   readonly firstBackoffMs: number;
   readonly maxBackoffMs: number;
   readonly trigger: RefusedSlotTrigger;
@@ -21,8 +21,8 @@ export const PREDICTED_DEFAULTS: FollowPredictedOptions = {
   earlyRate: 0.25,
   secondEarlyRate: 0.1,
   earlyAskBudget: 3,
-  firstBackoffMs: 2 * SEGMENT_MS,
-  maxBackoffMs: 8_000,
+  firstBackoffMs: SEGMENT_MS,
+  maxBackoffMs: 4_000,
   trigger: { kind: 'time', lateMs: 2 * SEGMENT_MS },
 };
 
@@ -34,6 +34,8 @@ const STEP_DECAY = 0.9;
 const ON_TIME_MS = 60;
 /** The least gap between the two asks planned for one segment step. */
 const MIN_RETRY_GAP_MS = 250;
+/** Looking past a late slot reads the one slot after it: of 74 refused slots with something behind them, 73 had it at +1. */
+const LOOK_PAST: readonly number[] = [1];
 
 /**
  * A quantile of "when a slot becomes readable, minus its newest segment's end", tracked online.
@@ -73,11 +75,12 @@ interface Ask {
  *
  * The next playlist follows the next segment's end, so it is predicted as the current entry's newest
  * segment end, plus a segment, plus a learned lag. The first ask goes at a lag that comes too early a
- * quarter of the time, a second at one that rarely does. A slot still missing after both is planned
- * one segment later, which is what a coalesced publish looks like: one playlist covering two segments.
- * After a small budget of unanswered asks the follower backs off, so a paused or stalled publisher
- * cannot pile early asks onto one address. A slot that is very late is looked past once, in case the
- * publisher moved on without it.
+ * quarter of the time, a second at one that rarely does. A slot still missing after both is asked once
+ * per segment after that, at the later lag, which is what a coalesced publish looks like: one playlist
+ * covering two segments. After a small budget of unanswered asks the follower backs off, so a paused
+ * or stalled publisher cannot pile early asks onto one address. A slot that is late is looked past by
+ * one, once when it is `lateMs` late and again on every backoff turn, in case the node is refusing it
+ * while the publisher has moved on.
  */
 export async function followPredicted(
   context: FollowContext,
@@ -100,36 +103,31 @@ export async function followPredicted(
     let kind: AskKind = 'first';
     let backoffMs = options.firstBackoffMs;
     let lastAskMs = -Infinity;
-    let lookedPast = false;
+    let lookedPastLate = false;
     let found: FeedEntry | null = null;
 
-    while (found === null && !isStopped()) {
-      const misses = asks.length;
-      let plannedMs: number;
-      if (misses >= options.earlyAskBudget) {
-        kind = 'backoff';
-        plannedMs = lastAskMs + backoffMs;
-      } else if (kind === 'first') {
-        plannedMs = baseMs + step * SEGMENT_MS + firstLag.valueMs;
-      } else {
-        plannedMs = Math.max(
-          baseMs + step * SEGMENT_MS + secondLag.valueMs,
-          baseMs + step * SEGMENT_MS + firstLag.valueMs + MIN_RETRY_GAP_MS,
-        );
+    const planFor = (): number => {
+      const stepMs = baseMs + step * SEGMENT_MS;
+      if (kind === 'backoff') {
+        return lastAskMs + backoffMs;
       }
-      plannedMs = Math.max(plannedMs, lastAskMs + MIN_RETRY_GAP_MS);
+      if (kind === 'first') {
+        return stepMs + firstLag.valueMs;
+      }
+      return Math.max(stepMs + secondLag.valueMs, stepMs + firstLag.valueMs + MIN_RETRY_GAP_MS);
+    };
+
+    while (found === null && !isStopped()) {
+      const plannedMs = Math.max(planFor(), lastAskMs + MIN_RETRY_GAP_MS);
 
       const lateLookMs = baseMs + SEGMENT_MS + secondLag.valueMs + lateMsOf(options.trigger);
-      if (!lookedPast && lateLookMs <= plannedMs) {
+      if (!lookedPastLate && lateLookMs <= plannedMs) {
         await sleepUntil(context, lateLookMs);
+        lookedPastLate = true;
         if (isStopped()) {
           return;
         }
-        lookedPast = true;
-        found = await probeAhead(reader, next);
-        if (found !== null) {
-          break;
-        }
+        found = await probeAhead(reader, next, LOOK_PAST);
         continue;
       }
 
@@ -144,24 +142,28 @@ export async function followPredicted(
         return;
       }
       asks.push({ kind, step, onTime: askedMs - plannedMs <= ON_TIME_MS, missed: !read.found });
-      if (kind === 'backoff') {
-        backoffMs = Math.min(options.maxBackoffMs, backoffMs * 2);
-      }
       if (read.found) {
         found = read.entry;
         break;
       }
-      if (!lookedPast && pollsTriggerFires(options.trigger, asks.length)) {
-        lookedPast = true;
-        found = await probeAhead(reader, next);
+
+      const pollsFired: boolean = pollsTriggerFires(options.trigger, asks.length) && !lookedPastLate;
+      if (kind === 'backoff' || pollsFired) {
+        lookedPastLate = lookedPastLate || pollsFired;
+        found = await probeAhead(reader, next, LOOK_PAST);
         if (found !== null) {
           break;
         }
       }
-      if (kind === 'first') {
+
+      if (asks.length >= options.earlyAskBudget) {
+        if (kind === 'backoff') {
+          backoffMs = Math.min(options.maxBackoffMs, backoffMs * 2);
+        }
+        kind = 'backoff';
+      } else if (kind === 'first') {
         kind = 'second';
-      } else if (kind === 'second') {
-        kind = 'first';
+      } else {
         step += 1;
       }
     }

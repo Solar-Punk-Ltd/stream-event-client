@@ -79,14 +79,16 @@ describe('finding the newest index from another quality as a hint', () => {
     const time = new VirtualTime();
     const nowMs = 100_000_000;
     await time.runUntil(nowMs);
-    // This quality started late and is far behind, and its segment times carry no warning of it.
+    // This quality is 1,800 slots behind the playing one, further than the round below the hint reaches.
     const feed = liveFeed(time, 1_200, nowMs);
     const hint = { index: 3_000, newestSegmentEndMs: nowMs - LAG_MS - 500, seenAtMs: nowMs };
     const result = await time.runToCompletion(findNewestFromHint(feed, time.clock(), hint));
 
     assert.equal(result.usedFallback, true);
-    assert.equal(result.newest?.index, 1_200);
-    assert.equal(result.firstMissing, 1_201);
+    // The head moves on while the search runs, so the answer is the head at the start or a newer one.
+    const found = result.newest?.index ?? -1;
+    assert.ok(found >= 1_200 && found <= feed.newestAt(time.trueNowMs), `found ${found}`);
+    assert.equal(result.firstMissing, found + 1);
     assert.ok(feed.maxInFlight <= MAX_PARALLEL_READS);
   });
 

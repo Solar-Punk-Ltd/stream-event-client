@@ -1,14 +1,17 @@
-import { FeedReader, FollowClock, SEGMENT_MS } from './feedReader';
+import { FeedReader, FollowClock, MAX_PARALLEL_READS, SEGMENT_MS } from './feedReader';
 import { findNewestFromScratch } from './findNewestFromScratch';
 import {
+  Bracket,
   emptyBracket,
   finished,
   isPinned,
   narrowToNewest,
   NewestFound,
+  newestIndexOf,
   readRound,
   roundAround,
   SearchTally,
+  zoomAround,
 } from './searchRounds';
 
 /** What the quality already playing says about where the one being switched to is. */
@@ -34,7 +37,8 @@ export interface NewestFoundFromHint extends NewestFound {
  * segment end, compared with the hint's on the same publisher clock, says how far ahead the head is,
  * and a round there usually pins it. Nothing here reads the viewer's clock against the publisher's,
  * so a viewer whose clock is wrong pays nothing. When every read around the hint misses, this quality
- * is behind by more than the round can see, and the search from nothing takes over.
+ * is behind, and one round reaching down from the hint by doubling steps finds it within 131 slots.
+ * Only when that misses too does the search from nothing take over.
  */
 export async function findNewestFromHint(
   reader: FeedReader,
@@ -45,19 +49,34 @@ export async function findNewestFromHint(
   const bracket = emptyBracket();
   const elapsedMs = Math.max(0, clock.now() - hint.seenAtMs);
   const centre = hint.index + Math.floor(elapsedMs / SEGMENT_MS);
+  // Where the head is by the publisher's clock: as many slots past the newest one found as the hint's
+  // newest segment, moved on by the time since it was read, is segments past that slot's.
+  const byHint = (known: Bracket): number | null =>
+    known.newest === null
+      ? null
+      : known.newest.index +
+        Math.round((hint.newestSegmentEndMs + elapsedMs - known.newest.newestSegmentEndMs) / SEGMENT_MS);
 
   await readRound(reader, roundAround(centre, bracket, 3), bracket, tally);
   if (bracket.newest === null) {
-    const fallback = await findNewestFromScratch(reader, clock, tally);
-    return { ...fallback, usedFallback: true };
+    // Behind the hint by more than the round could see: one round down from it, doubling the step.
+    const below = centre - 3;
+    await readRound(
+      reader,
+      Array.from({ length: MAX_PARALLEL_READS }, (_, power) => below - 2 ** power),
+      bracket,
+      tally,
+    );
+    if (bracket.newest === null) {
+      const fallback = await findNewestFromScratch(reader, clock, tally);
+      return { ...fallback, usedFallback: true };
+    }
   }
   if (isPinned(bracket)) {
     return { ...finished(bracket, tally), usedFallback: false };
   }
 
-  const newest = bracket.newest;
-  const aheadMs = hint.newestSegmentEndMs + elapsedMs - newest.newestSegmentEndMs;
-  const guess = newest.index + Math.max(1, Math.round(aheadMs / SEGMENT_MS));
-  await readRound(reader, roundAround(guess, bracket, 3), bracket, tally);
-  return { ...(await narrowToNewest(reader, bracket, tally)), usedFallback: false };
+  const guess = byHint(bracket)!;
+  await readRound(reader, zoomAround(Math.max(guess, newestIndexOf(bracket) + 1), bracket), bracket, tally);
+  return { ...(await narrowToNewest(reader, bracket, tally, byHint)), usedFallback: false };
 }

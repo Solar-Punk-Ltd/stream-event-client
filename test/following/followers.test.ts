@@ -99,9 +99,14 @@ describe('the predicted follower', () => {
     const times = feed.askTimes.get(41) ?? [];
     const afterBudget = times.slice(3);
     assert.ok(afterBudget.length > 0, 'the slot was given up on rather than backed off');
-    afterBudget.forEach((at, position) => {
-      const gap = at - times[position + 2];
-      assert.ok(gap >= 4_000, `ask ${position + 4} came ${gap} ms after the one before`);
-    });
+    const gaps = afterBudget.map((at, position) => at - times[position + 2]);
+    // A segment at first, doubling to four seconds: about thirty asks in two minutes, where today's
+    // cadence makes about eighty.
+    gaps.forEach((gap, position) => assert.ok(gap >= 2_000, `ask ${position + 4} came ${gap} ms after the one before`));
+    assert.ok(
+      gaps.slice(2).every((gap) => gap >= 4_000),
+      `gaps ${gaps.join(', ')}`,
+    );
+    assert.ok(times.length <= 35, `${times.length} asks in two minutes`);
   });
 });
