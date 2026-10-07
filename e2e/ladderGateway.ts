@@ -6,6 +6,12 @@ import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import type { Page, Route } from '@playwright/test';
 
 import { makeFeedIdentifier } from '../src/shared/feedFollow';
+import {
+  encodeLadderMarker,
+  ladderMarkerIdentifier,
+  markerPeriodAt,
+  markerPeriodStartMs,
+} from '../src/shared/ladderMarker';
 import { buildSwarmUri } from '../src/shared/masterPlaylist';
 import { GATEWAY_PATH, PREVIEW_ORIGIN, RECORDED_DIR, RecordingFile } from './recording';
 
@@ -28,6 +34,11 @@ const INDEXES_PER_FEED = 1_000;
  * so its reads of them are answered as misses rather than logged as unknown.
  */
 const FIRST_ROUND_FAR_INDEXES = [1_023, 4_095, 16_383];
+
+/** How long into its period the uploader writes a ladder's time marker. */
+const MARKER_WRITE_DELAY_MS = 250;
+/** How many periods either side of now a marker read is recognised in. */
+const MARKER_PERIODS_RECOGNISED = 6;
 
 /** The fake publisher's account. Made up, so nothing it names exists on any real node. */
 export const LADDER_OWNER = 'a1'.repeat(20);
@@ -58,6 +69,10 @@ export type RequestKind =
   | 'master'
   /** A read of the stream list. */
   | 'catalog'
+  /** A read of a ladder time marker that was written. */
+  | 'marker'
+  /** A read of a ladder time marker that was not written, answered 404. */
+  | 'markerMiss'
   /** Anything else, answered 404 so the journey fails on it rather than a real node being asked. */
   | 'unknown';
 
@@ -147,15 +162,22 @@ function recordedSegments(): RecordedSegment[] {
  * stream's, repeated behind a discontinuity each time round. Nothing reaches a real node: a path this does not know
  * is answered 404 and logged as `unknown`.
  */
+export interface LadderGatewayOptions {
+  /** Whether the uploader writes time markers, as it does unless they are switched off. */
+  readonly markers?: boolean;
+}
+
 export class LadderGateway {
   readonly startedAtMs = Date.now() - RUNNING_FOR_MS;
+  readonly markers: boolean;
   readonly requests: LoggedRequest[] = [];
   private readonly feeds = new Map<RungName, RungFeed>();
   private readonly byTopicHex = new Map<string, 'catalog' | 'master' | RungName>();
   private readonly bySlotId = new Map<string, SlotAddress>();
   private readonly segments = recordedSegments();
 
-  constructor() {
+  constructor(options: LadderGatewayOptions = {}) {
+    this.markers = options.markers ?? true;
     const name = (feed: 'catalog' | 'master' | RungName) =>
       feed === 'catalog' ? CATALOG_TOPIC : feed === 'master' ? MASTER_TOPIC : `ladder-test-${feed}`;
     const feeds: ('catalog' | 'master' | RungName)[] = ['catalog', 'master', ...RUNGS.map((rung) => rung.name)];
@@ -285,7 +307,7 @@ export class LadderGateway {
       if (feed === 'catalog') {
         this.log('catalog', null, path);
         const body = JSON.stringify([this.catalogEntry()]);
-        return () => this.fulfillFeed(route, 0, body);
+        return () => this.fulfillFeed(route, 0, body, { date: new Date().toUTCString() });
       }
       if (feed === 'master') {
         this.log('master', null, path);
@@ -312,6 +334,12 @@ export class LadderGateway {
         this.log('master', null, path);
         return () => notFound(route);
       }
+      const period = slot ? null : this.markerPeriodOf(id);
+      if (period !== null) {
+        const body = this.markerBody(period);
+        this.log(body === null ? 'markerMiss' : 'marker', null, path, period);
+        return () => (body === null ? notFound(route) : fulfill(route, body));
+      }
       if (slot) {
         if (slot.index > this.newestIndex(slot.feed)) {
           this.log('miss', slot.feed, path, slot.index);
@@ -326,6 +354,41 @@ export class LadderGateway {
     return () => notFound(route);
   }
 
+  /** The period whose time marker this identifier names, or null when it names none near now. */
+  private markerPeriodOf(id: string): number | null {
+    const group = Topic.fromString(MASTER_TOPIC);
+    const now = markerPeriodAt(Date.now());
+    for (let period = now - MARKER_PERIODS_RECOGNISED; period <= now + MARKER_PERIODS_RECOGNISED; period++) {
+      if (ladderMarkerIdentifier(group, period).toHex() === id) {
+        return period;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * The marker the uploader wrote for a period, as it encodes one: every quality's newest index when it was written,
+   * naming only the qualities that had published. Null for a period not written yet, from before the broadcast, or
+   * when markers are off.
+   */
+  private markerBody(period: number): string | null {
+    const writtenAt = markerPeriodStartMs(period) + MARKER_WRITE_DELAY_MS;
+    if (!this.markers || writtenAt > Date.now() || writtenAt < this.startedAtMs) {
+      return null;
+    }
+    const rungs: Record<string, number> = {};
+    for (const feed of this.feeds.values()) {
+      const newest = this.newestIndex(feed.name, writtenAt);
+      if (newest >= 0) {
+        rungs[feed.topic.toHex()] = newest;
+      }
+    }
+    if (Object.keys(rungs).length === 0) {
+      return null;
+    }
+    return new TextDecoder().decode(encodeLadderMarker({ v: 1, period, writtenAt, rungs }));
+  }
+
   private decideSegment(route: Route, path: string, ref: string): Reply {
     const match = SEGMENT_REF.exec(ref);
     const rung = match ? RUNGS[Number.parseInt(match[1], 16)] : undefined;
@@ -338,11 +401,15 @@ export class LadderGateway {
     return () => route.fulfill({ status: 200, contentType: segment.contentType, body: segment.body });
   }
 
-  private fulfillFeed(route: Route, index: number, body: string): Promise<void> {
+  private fulfillFeed(route: Route, index: number, body: string, headers: Record<string, string> = {}): Promise<void> {
     return route.fulfill({
       status: 200,
       contentType: 'application/octet-stream',
-      headers: { 'swarm-feed-index': feedIndexHeader(index), 'swarm-feed-index-next': feedIndexHeader(index + 1) },
+      headers: {
+        'swarm-feed-index': feedIndexHeader(index),
+        'swarm-feed-index-next': feedIndexHeader(index + 1),
+        ...headers,
+      },
       body,
     });
   }

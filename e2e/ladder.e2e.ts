@@ -72,20 +72,21 @@ async function openStream(
   page: Page,
   context: BrowserContext,
   gateway: LadderGateway,
-): Promise<{ firstFrameMs: number; warnings: string[] }> {
+): Promise<{ firstFrameMs: number; firstFrameAtMs: number; warnings: string[] }> {
   const openedAtMs = Date.now();
   const warnings = await openPage(page, context, gateway);
   await expect
     .poll(() => videoTime(page), { message: 'the stream plays past 1 s', timeout: 30_000 })
     .toBeGreaterThan(1);
-  const firstFrameMs = Date.now() - openedAtMs;
+  const firstFrameAtMs = Date.now();
+  const firstFrameMs = firstFrameAtMs - openedAtMs;
   await expect
     .poll(async () => (await probeState(page)).switches.length, {
       message: 'hls.js reports the quality it started on',
       timeout: 20_000,
     })
     .toBeGreaterThan(0);
-  return { firstFrameMs, warnings };
+  return { firstFrameMs, firstFrameAtMs, warnings };
 }
 
 /** Reads per minute of one quality's feed over a stretch, in all and by kind, which is what one viewer costs the gateway. */
@@ -156,32 +157,42 @@ function expectOnlyKnownRequests(gateway: LadderGateway): void {
   expect(gateway.unknownPaths(), 'every request was one the fake gateway knows').toEqual([]);
 }
 
-test('start: the master feed is never read and only the starting quality is', async ({ page, context }) => {
-  const gateway = new LadderGateway();
-  const { firstFrameMs, warnings } = await openStream(page, context, gateway);
-  const starting = await playingUri(page);
-  const rung = RUNGS.find((candidate) => rungUri(candidate.name) === starting)?.name;
-  expect(rung, `the player plays one of the four qualities, not ${starting}`).toBeDefined();
-  const watchFromMs = Date.now();
-  await page.waitForTimeout(QUIET_WATCH_MS);
+for (const markers of [true, false]) {
+  const journey = markers ? 'start' : 'start without markers';
+  test(`${journey}: the master feed is never read and only the starting quality is`, async ({ page, context }) => {
+    const gateway = new LadderGateway({ markers });
+    const { firstFrameMs, firstFrameAtMs, warnings } = await openStream(page, context, gateway);
+    const starting = await playingUri(page);
+    const rung = RUNGS.find((candidate) => rungUri(candidate.name) === starting)?.name;
+    expect(rung, `the player plays one of the four qualities, not ${starting}`).toBeDefined();
+    const watchFromMs = Date.now();
+    await page.waitForTimeout(QUIET_WATCH_MS);
 
-  report('start', {
-    firstFrameMs,
-    startingQuality: rung,
-    readsPerMinute: readRates(gateway, rung!, watchFromMs, Date.now()),
-    requests: gateway.tally(),
-    warnings,
+    report(journey, {
+      firstFrameMs,
+      startingQuality: rung,
+      requestsToFirstFrame: gateway.tally(0, firstFrameAtMs),
+      readsPerMinute: readRates(gateway, rung!, watchFromMs, Date.now()),
+      requests: gateway.tally(),
+      warnings,
+    });
+    expect(gateway.count('master'), 'nothing is read for the master feed (decision 33)').toBe(0);
+    expect(gateway.count('head', rung!), 'the starting quality is found by its slots, never the head lookup').toBe(0);
+    expect(gateway.feedReads(rung!), 'the starting quality is read').toBeGreaterThan(0);
+    if (markers) {
+      expect(gateway.count('marker'), 'the start read a time marker (decision 35)').toBeGreaterThan(0);
+    } else {
+      expect(gateway.count('marker'), 'no marker was there to read').toBe(0);
+      expect(gateway.count('markerMiss'), 'the two recent periods were asked once each').toBeLessThanOrEqual(2);
+    }
+    for (const other of RUNGS.filter((candidate) => candidate.name !== rung)) {
+      expect(gateway.feedReads(other.name), `${other.name} is not read`).toBe(0);
+      expect(gateway.count('segment', other.name), `no ${other.name} segment is fetched`).toBe(0);
+    }
+    await expectNoFatalErrorOrRestart(page);
+    expectOnlyKnownRequests(gateway);
   });
-  expect(gateway.count('master'), 'nothing is read for the master feed (decision 33)').toBe(0);
-  expect(gateway.count('head', rung!), 'the starting quality is found by its slots, never the head lookup').toBe(0);
-  expect(gateway.feedReads(rung!), 'the starting quality is read').toBeGreaterThan(0);
-  for (const other of RUNGS.filter((candidate) => candidate.name !== rung)) {
-    expect(gateway.feedReads(other.name), `${other.name} is not read`).toBe(0);
-    expect(gateway.count('segment', other.name), `no ${other.name} segment is fetched`).toBe(0);
-  }
-  await expectNoFatalErrorOrRestart(page);
-  expectOnlyKnownRequests(gateway);
-});
+}
 
 test('a forced switch moves the reads to the new quality and keeps playing', async ({ page, context }) => {
   const gateway = new LadderGateway();
