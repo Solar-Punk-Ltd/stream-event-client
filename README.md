@@ -68,7 +68,8 @@ otherwise. With `enabled` false the other fields are not read.
 
 The `providers` block names more than one way of reaching Swarm. A config that names only `gatewayUrl` is
 read as one Bee gateway, the default, with no fallback, so a deployment written before `providers` needs no
-change.
+change. The Bee node picker's "event gateway" is the default gateway, and a node the viewer picks is read
+in its place with the fallback still behind it. The chat reads from `chat.readUrl` whatever node is picked.
 
 | Field                       | What it is                                                                                                      |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -213,8 +214,8 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   stops or finishes, the player reads the marker of the previous 10 seconds, and the one before if
   that is missing, then one round of eight slots from where it says. One marker read serves every
   quality for a few seconds, and a marker address found missing is never asked again. The clock is
-  the gateway's, taken from the `Date` header on the stream list, so a viewer whose clock is wrong
-  still finds the marker. With no marker, it searches as before: at the start eight slots at once,
+  the gateway's, taken from the `Date` header of every answer the Swarm client reads, so a viewer whose
+  clock is wrong still finds the marker. With no marker, it searches as before: at the start eight slots at once,
   spread out to the feed's length, closing in on the newest in a few rounds, and at a switch from
   the playing quality's newest slot, usually one round. The new quality is read further back when the
   viewer is behind the live edge, at most ten reads, and the old one stops being read once hls.js has
@@ -235,8 +236,10 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   hls.js has switched to it runs the same check.
 - **Where the video loads from.** The Bee node picker offers the event gateway and a Bee node on the
   viewer's own computer, `http://localhost:1633` filled in and the port editable. Only `localhost`,
-  `127.0.0.1` and `[::1]` are accepted. The node is checked before the switch, a failure is explained
-  in plain words, and the choice is remembered in the browser.
+  `127.0.0.1` and `[::1]` are accepted. The node is checked before the switch through its provider's
+  probe, a failure is explained in plain words, and the choice is remembered in the browser. A switch
+  makes the Swarm client again on that node, and the player, the stream list and the previews read
+  through it from then on.
 - **Diagnosing playback.** `?qoe=1` on a watch page shows a draggable playback quality overlay,
   toggled with `Q`. `?level=720p` pins one quality, which tells a bad quality apart from a bad switch.
 
@@ -245,10 +248,15 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 hls.js expects playlists at fixed URLs. On Swarm every playlist update is new content under a feed,
 so the player brings its own loaders:
 
-- **CustomManifestLoader** reads the latest playlist from its feed instead of a fixed URL.
-- **CustomFragmentLoader** fetches each segment from the gateway, staggered by a bounded random delay
-  so a crowd at the live edge does not ask in the same instant. `fetchSegmentBytes` is the one place
-  segment bytes are fetched, where another source can plug in.
+- **CustomManifestLoader** reads the latest playlist from its feed instead of a fixed URL. Every feed
+  read the player makes goes through the Swarm client's player reader, which `AppProvider` hands the
+  shared `ManifestFetcher` at start and on every node switch (`useSwarm`). Not found is a slot not
+  written yet, and anything else is the gateway failing, backed off as before, a rate limit for at
+  least as long as it asked.
+- **CustomFragmentLoader** fetches each segment from the URL the client gives for it (`urlFor`),
+  written into the playlist, staggered by a bounded random delay so a crowd at the live edge does not
+  ask in the same instant. `fetchSegmentBytes` is the one place segment bytes are fetched, where a
+  provider without URLs can plug in.
 - **ManifestStateManager** merges each live playlist into a growing EVENT playlist, so segments stay
   playable longer than the publisher's sliding window.
 - **LadderFeedPoller** follows the feed of the quality hls.js plays, plus the one being switched to
@@ -263,9 +271,21 @@ the playlist's own URL and a URI with a scheme is the one case it leaves untouch
 
 ## The Swarm client
 
-`src/swarm/` is the one layer meant to read Swarm, plain TypeScript with no React, and it imports nothing
-from `src/app` or `src/features` (a test holds it to that). The features still read the gateway
-themselves and move onto it next.
+`src/swarm/` is the one layer that reads Swarm, plain TypeScript with no React, and it imports nothing
+from `src/app` or `src/features`. The features and the app read only through it: a test fails on a line
+there that builds a Bee URL, calls fetch, or makes a Bee client of its own (`test/swarm/boundary.test.ts`).
+
+- **Where each feature reads.** `AppProvider` makes one client at start from `config.json` and the
+  viewer's node, and makes it again when the viewer picks another node. Components get it from the app
+  context. The player reads through `reader('player')`, the stream list through `reader('stream-list')`,
+  the previews and pictures through `reader('previews')`, the node picker checks a node through its
+  provider's `probe()`, and the chat reads through `reader('chat')`, which goes to `chat.readUrl`.
+- **The chat.** swarm-chat-js 7.2.0 is handed a source and a write in place of its own Bee client
+  (`src/features/chat/chatParts.ts`). The source makes the library's own reads at the same URLs: the
+  feed head, each slot and note as a single-owner chunk checked to be the chat owner's
+  (`src/swarm/singleOwnerChunk.ts`), and history files as bytes. A 404 and a 500 both mean a chunk is
+  not there, as the library rules. A message is written exactly as the library writes it, to
+  `chat.writeUrl`, because it costs a stamp the viewer does not hold.
 
 - **A provider** is one way of reaching Swarm (`src/swarm/provider.ts`), holding only what the app reads:
   a feed's head, a feed entry by index, a single-owner chunk's payload by its owner and identifier (a
