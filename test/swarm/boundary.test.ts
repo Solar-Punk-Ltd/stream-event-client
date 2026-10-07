@@ -51,6 +51,43 @@ describe('the Swarm layer', () => {
   });
 });
 
+/**
+ * The modules of the Swarm layer the features and the app may import: the client and what it reads in.
+ * A provider's own files and the registry of kinds stay behind it, so a new kind of provider changes
+ * nothing outside `src/swarm`.
+ */
+const PUBLIC_SURFACE = ['client', 'answers', 'provider', 'settings', 'createSwarmClient'].map((name) =>
+  join(SWARM, name),
+);
+
+/** Each import past the public surface that is allowed, with the reason it cannot go through the client yet. */
+const ALLOWED_PAST_THE_SURFACE: readonly { readonly file: string; readonly target: string; readonly why: string }[] = [
+  {
+    file: 'src/features/chat/chatParts.ts',
+    target: 'providers/bee-http/gsocWrite',
+    why: 'the chat write: a message is a stamped write to the event chat write address, which no provider makes',
+  },
+  {
+    file: 'src/features/chat/chatParts.ts',
+    target: 'singleOwnerChunk',
+    why: "the chat checks each slot is the chat owner's single-owner chunk, a codec that reads nothing",
+  },
+];
+
+function importsPastTheSurface(file: string): string[] {
+  const source = readFileSync(file, 'utf8');
+  return [...source.matchAll(SPECIFIERS)]
+    .map(([, specifier]) => ({ specifier, target: resolvedPath(specifier, file) }))
+    .filter(({ target }) => target !== null && target.startsWith(`${SWARM}/`) && !PUBLIC_SURFACE.includes(target))
+    .filter(
+      ({ target }) =>
+        !ALLOWED_PAST_THE_SURFACE.some(
+          (allowed) => allowed.file === relative(ROOT, file) && join(SWARM, allowed.target) === target,
+        ),
+    )
+    .map(({ specifier }) => `${relative(ROOT, file)} imports ${specifier}`);
+}
+
 /** The folders the features and the app live in, which reach Swarm only through the client. */
 const READERS_OF_SWARM = ['app', 'features'].map((folder) => join(SRC, folder));
 
@@ -88,6 +125,15 @@ describe('the features and the app', () => {
 
     expect(files.length).toBeGreaterThan(0);
     expect(files.flatMap(directAccessIn)).toEqual([]);
+  });
+
+  it("import only the Swarm client's public surface, past it only where the reason is named here", () => {
+    const files = READERS_OF_SWARM.flatMap(sourceFiles);
+
+    expect(files.flatMap(importsPastTheSurface)).toEqual([]);
+    for (const allowed of ALLOWED_PAST_THE_SURFACE) {
+      expect(readFileSync(join(ROOT, allowed.file), 'utf8'), allowed.why).toContain(`@/swarm/${allowed.target}'`);
+    }
   });
 
   it.each([

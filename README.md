@@ -276,13 +276,16 @@ the playlist's own URL and a URI with a scheme is the one case it leaves untouch
 
 `src/swarm/` is the one layer that reads Swarm, plain TypeScript with no React, and it imports nothing
 from `src/app` or `src/features`. The features and the app read only through it: a test fails on a line
-there that builds a Bee URL, calls fetch, or makes a Bee client of its own (`test/swarm/boundary.test.ts`).
+there that builds a Bee URL, calls fetch, or makes a Bee client of its own, and on an import of anything
+in `src/swarm` beyond the client's public surface, `client`, `answers`, `provider`, `settings` and
+`createSwarmClient` (`test/swarm/boundary.test.ts`). The chat's write and its single-owner chunk codec are
+the two named exceptions, each with its reason in the test.
 
 - **Where each feature reads.** `AppProvider` makes one client at start from `config.json` and the
   viewer's node, and makes it again when the viewer picks another node. Components get it from the app
   context. The player reads through `reader('player')`, the stream list through `reader('stream-list')`,
-  the previews and pictures through `reader('previews')`, the node picker checks a node through its
-  provider's `probe()`, and the chat reads through `reader('chat')`, which goes to `chat.readUrl`.
+  the previews and pictures through `reader('previews')`, the node picker checks a node through the
+  `probe()` of a client made for that node alone, and the chat reads through `reader('chat')`, which goes to `chat.readUrl`.
 - **The chat.** swarm-chat-js 7.2.0 is handed a source and a write in place of its own Bee client
   (`src/features/chat/chatParts.ts`). The source makes the library's own reads at the same URLs: the
   feed head, each slot and note as a single-owner chunk checked to be the chat owner's
