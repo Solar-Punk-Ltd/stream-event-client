@@ -119,12 +119,26 @@ describe('the Bee HTTP provider', () => {
     expect(log.urls).toEqual([`/bee/bytes/${SEGMENT}`]);
   });
 
-  it('takes a 500 as a fault of the node, not as content that is missing', async () => {
+  it('answers not found for a chunk Bee answers 500 for, as it does for a chat slot never written', async () => {
     const answer = await provider(answeringFetch(500, {}, '{"code":500,"message":"read chunk failed"}')).readChunk(
       CHAT_CHUNK,
     );
 
-    expect(answer).toEqual({ kind: 'unavailable', cause: { kind: 'status', status: 500 } });
+    expect(answer).toEqual({ kind: 'not-found', serverTimeMs: null });
+  });
+
+  it('takes a 500 for a feed, a single-owner chunk or bytes as a fault of the node', async () => {
+    const bee = provider(answeringFetch(500));
+    const reads = [
+      bee.readFeedHead(CATALOG.owner, CATALOG_TOPIC),
+      bee.readFeedEntry(STREAM.owner, STREAM_TOPIC, 0),
+      bee.readSoc(STREAM.owner, FIRST_ENTRY_ID),
+      bee.readBytes(SEGMENT),
+    ];
+
+    for (const answer of await Promise.all(reads)) {
+      expect(answer).toEqual({ kind: 'unavailable', cause: { kind: 'status', status: 500 } });
+    }
   });
 
   it("reads a Retry-After given as a date against the answer's own clock", async () => {

@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import { GatewayClock } from '../../src/shared/gatewayClock';
 import { SwarmClient, type SwarmClientOptions } from '../../src/swarm/client';
+import { BeeHttpProvider } from '../../src/swarm/providers/bee-http/beeHttpProvider';
+import { answeringFetch } from '../helpers/recordedBeeGateway';
 import { content, fault, notFound, ScriptedProvider } from '../helpers/scriptedProvider';
 
 const OWNER = '1'.repeat(40);
@@ -109,6 +111,19 @@ describe('the Swarm client', () => {
 
       expect(await readBytes(client)).toBe(fault);
       expect(chosen.asked).toEqual(['bytes']);
+    });
+    it('takes a chat slot Bee answers 500 for as not there, so the fallback is not asked', async () => {
+      const bee = new BeeHttpProvider({ baseUrl: 'http://bee.example', fetcher: answeringFetch(500) });
+      const fallback = new ScriptedProvider('fallback');
+      const client = new SwarmClient({
+        chosen: { id: 'event', provider: bee },
+        fallback: { id: 'fallback', provider: fallback },
+        pausePolicy: { ...POLICY, faultsBeforePause: 1 },
+      });
+
+      expect(await client.reader('chat').readChunk(REFERENCE)).toMatchObject({ kind: 'not-found' });
+      expect(fallback.asked).toEqual([]);
+      expect(client.health()).toContainEqual({ id: 'event', faultsInARow: 0, pausedUntilMs: null });
     });
   });
 

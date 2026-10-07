@@ -24,6 +24,14 @@ export const LONGEST_RETRY_AFTER_MS = 60_000;
 
 const NOT_FOUND = 404;
 const TOO_MANY_REQUESTS = 429;
+/** What Bee answers `GET /chunks` with for a chunk it could not find, a chat slot never written among them. */
+const CHUNK_NOT_RETRIEVED = 500;
+
+/** The statuses a read takes as content that is not there. */
+type AbsentStatuses = ReadonlySet<number>;
+
+const ABSENT: AbsentStatuses = new Set([NOT_FOUND]);
+const ABSENT_CHUNK: AbsentStatuses = new Set([NOT_FOUND, CHUNK_NOT_RETRIEVED]);
 
 const CAPABILITIES: ProviderCapabilities = {
   feedHead: true,
@@ -95,7 +103,8 @@ function currentPageOrigin(): string {
  * recorded replay of the app's traffic still matches. A 404 is content that is not there and a 429 is
  * the node asking to be left alone. Any other status that is not a success is a fault of the node,
  * a 500 included, because Bee answers 500 for a chunk it failed to fetch from the network as well as
- * for its own trouble, and the two cannot be told apart from here.
+ * for its own trouble, and the two cannot be told apart from here. A chunk read is the one exception,
+ * see {@link BeeHttpProvider.readChunk}.
  */
 export class BeeHttpProvider implements SwarmProvider {
   readonly capabilities = CAPABILITIES;
@@ -125,8 +134,13 @@ export class BeeHttpProvider implements SwarmProvider {
     return this.read(`soc/${owner}/${identifier}`, options);
   }
 
+  /**
+   * A 500 here is not there rather than a fault, because an idle chat asks for its next slot before
+   * anyone writes it, and taking each of those as a fault would pause the node and send the chat to
+   * the fallback. The library the chat runs on reads the status the same way.
+   */
   readChunk(address: string, options?: ReadOptions): Promise<SwarmAnswer> {
-    return this.read(`chunks/${address}`, options);
+    return this.read(`chunks/${address}`, options, ABSENT_CHUNK);
   }
 
   readBytes(reference: string, options?: ReadOptions): Promise<SwarmAnswer> {
@@ -181,7 +195,7 @@ export class BeeHttpProvider implements SwarmProvider {
 
   async stop(): Promise<void> {}
 
-  private async read(path: string, options: ReadOptions = {}): Promise<SwarmAnswer> {
+  private async read(path: string, options: ReadOptions = {}, absent = ABSENT): Promise<SwarmAnswer> {
     const timeoutMs = options.timeoutMs ?? DEFAULT_READ_TIMEOUT_MS;
     const outcome = await boundedRequest(`${this.baseUrl}/${path}`, {
       fetcher: this.fetcher,
@@ -197,14 +211,14 @@ export class BeeHttpProvider implements SwarmProvider {
       case 'failed':
         return { kind: 'unavailable', cause: { kind: 'network', error: outcome.error } };
       case 'response':
-        return answerOf(outcome.response, outcome.body);
+        return answerOf(outcome.response, outcome.body, absent);
     }
   }
 }
 
-function answerOf(response: Response, body: Uint8Array | null): SwarmAnswer {
+function answerOf(response: Response, body: Uint8Array | null, absent: AbsentStatuses): SwarmAnswer {
   const serverTimeMs = dateOf(response.headers);
-  if (response.status === NOT_FOUND) {
+  if (absent.has(response.status)) {
     return { kind: 'not-found', serverTimeMs };
   }
   if (response.status === TOO_MANY_REQUESTS) {

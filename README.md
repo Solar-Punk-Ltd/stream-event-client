@@ -298,7 +298,8 @@ there that builds a Bee URL, calls fetch, or makes a Bee client of its own (`tes
   unsupported, unavailable with its cause (a timeout, a status or no answer at all), or aborted. Every
   read takes a signal and a window, ten seconds when none is given. Bee's 404 is not found, its 429 is
   rate limited with its `Retry-After` capped at a minute, and any other failing status, a 500 included,
-  is unavailable.
+  is unavailable. A chunk read is the exception: Bee answers 500 for a chat slot never written, which an
+  idle chat asks for on every poll, so there a 500 is not found and never pauses the node.
 - **The client** (`src/swarm/client.ts`) is made from the settings and the viewer's choice by
   `createSwarmClient`, which makes each gateway's provider through the registry of kinds
   (`src/swarm/registry.ts`). Each feature (the player, the stream list, the previews, the chat) reads
