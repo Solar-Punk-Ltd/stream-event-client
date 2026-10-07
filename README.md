@@ -287,12 +287,13 @@ once and is kept in the browser.
   previews and the chat a source each. The video and the stream list are linked until the viewer
   unlinks them, because the player's live markers come from the clock of whoever serves the stream
   list, and the screen then notes that live timing may slip. A bracket joins their two rows, with the
-  link at its middle. Chat messages are always sent to `chat.writeUrl`. The list of sources stays
-  reachable in per part, folded under a Sources row with their count, so a source can still be
-  tested, renamed, removed or added there.
-- **Sources.** The gateways `config.json` offers, marked Offered, then any number of gateways and Bee
-  nodes the viewer added, grouped by type, each with a name, its host, and a status dot with its
-  response time. While the screen is open each source gets a light check about every 10 s, the stream
+  link at its middle, and on a phone the link is a "Same as video" toggle on the stream list's line.
+  Chat messages are always sent to `chat.writeUrl`. The list of sources stays reachable in per part,
+  folded under a Sources row with their count, so a source can still be tested, renamed, removed or
+  added there.
+- **Sources.** The gateways `config.json` offers, then any number of gateways and Bee nodes the
+  viewer added, grouped by type, each with a name, its host, and a status dot with its response time.
+  Only the source in use carries a tag. While the screen is open each source gets a light check about every 10 s, the stream
   list's head for a gateway and Bee's `/health` with its version, `/readiness` and `/peers` for a Bee node, and nothing
   is checked while it is closed. The radio puts a source in use, and the rest of the row opens its
   details.
@@ -300,7 +301,8 @@ once and is kept in the browser.
   through a client of that source alone: the connection, the stream list, the video, previews,
   pictures and the chat. Each shows as a badge, passed, failed or not applicable, under one status
   line. The sentences, and the steps for a node that refuses this site's origin or a browser that
-  blocks the local network, show only for a failure, behind How to fix. Every sentence is in
+  blocks the local network, show only for a failure, behind How to fix, where checks that failed for
+  the same reason share one fix headed by the parts it applies to. Every sentence is in
   `checkSentences.ts` with its test. The actions that apply sit on the status line's right: Use for a
   source not in use, Retest, and Rename and Remove for a source the viewer added, since an offered
   source cannot be renamed or removed.
