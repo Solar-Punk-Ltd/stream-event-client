@@ -19,7 +19,7 @@ import { ManifestStateManager } from '../src/features/player/ManifestManagement.
 import type { PlayerReader } from '../src/features/player/playerReads.js';
 import { parseManifest } from '../src/features/player/playlist.js';
 import { ManifestFetchError } from '../src/features/player/refusedSlot.js';
-import { TimedResponse } from '../src/shared/fetchWithTimeout.js';
+import type { PathResponse } from './helpers/playerReader';
 import { RequestJitter } from '../src/shared/requestJitter.js';
 
 import { fastClock } from './helpers/fastClock.js';
@@ -61,7 +61,7 @@ function feedHeadPath(topic: Topic): string {
 class FakeGateway {
   public readonly responses = new Map<string, string>();
   public readonly requests: string[] = [];
-  /** Reproduces a proxy that drops the header extractFeedIndex needs, which makes it throw. */
+  /** Reproduces a proxy that drops the `swarm-feed-index` header, so a head lookup carries no index. */
   public stripFeedIndexHeader = false;
   /**
    * Status a missing path is refused with. Set to 404 to model a slot the publisher has not written
@@ -105,11 +105,11 @@ class FakeGateway {
     return () => release();
   }
 
-  /** The player's reads, answered by {@link fetchResource}. */
-  readonly reader: PlayerReader = readerOverPaths((path) => this.fetchResource(path));
+  /** The player's reads, answered by {@link answerPath}. */
+  readonly reader: PlayerReader = readerOverPaths((path) => this.answerPath(path));
 
   /** Answers one Bee path, as the gateway the player's reads are asked of. */
-  fetchResource = async (path: string): Promise<TimedResponse> => {
+  answerPath = async (path: string): Promise<PathResponse> => {
     this.requests.push(path);
 
     const blocked = this.held.get(path);

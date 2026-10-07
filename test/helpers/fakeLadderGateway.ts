@@ -3,7 +3,7 @@ import { makeFeedIdentifier } from '@/shared/feedFollow';
 
 import type { PlayerReader } from '../../src/features/player/playerReads.js';
 import { ManifestFetchError } from '../../src/features/player/refusedSlot.js';
-import { TimedResponse } from '../../src/shared/fetchWithTimeout.js';
+import type { PathResponse } from './playerReader';
 
 import { readerOverPaths } from './playerReader.js';
 
@@ -166,10 +166,10 @@ export class FakeLadderGateway {
     return this.slotOwners.get(path)?.index ?? null;
   }
 
-  /** The player's reads, answered by {@link fetchResource}. */
-  readonly reader: PlayerReader = readerOverPaths((path) => this.fetchResource(path));
+  /** The player's reads, answered by {@link answerPath}. */
+  readonly reader: PlayerReader = readerOverPaths((path) => this.answerPath(path));
 
-  fetchResource = async (path: string): Promise<TimedResponse> => {
+  answerPath = async (path: string): Promise<PathResponse> => {
     const head = /^feeds\/[^/]+\/([0-9a-f]+)$/.exec(path);
     if (head) {
       const hex = head[1];

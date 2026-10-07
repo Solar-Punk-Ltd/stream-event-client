@@ -4,7 +4,7 @@ import { makeFeedIdentifier } from '@/shared/feedFollow';
 import type { NewestIndexFinder } from '../../src/features/player/newestIndexFinder.js';
 import type { PlayerReader } from '../../src/features/player/playerReads.js';
 import { ManifestFetchError } from '../../src/features/player/refusedSlot.js';
-import { TimedResponse } from '../../src/shared/fetchWithTimeout.js';
+import type { PathResponse } from './playerReader';
 import {
   encodeLadderMarker,
   type LadderMarker,
@@ -179,10 +179,10 @@ export class TimedGateway {
     return Object.keys(rungs).length === 0 ? null : { v: 1, period, writtenAt, rungs };
   }
 
-  /** The player's reads, answered by {@link fetchResource}. */
-  readonly reader: PlayerReader = readerOverPaths((path) => this.fetchResource(path));
+  /** The player's reads, answered by {@link answerPath}. */
+  readonly reader: PlayerReader = readerOverPaths((path) => this.answerPath(path));
 
-  fetchResource = (path: string): Promise<TimedResponse> => {
+  answerPath = (path: string): Promise<PathResponse> => {
     const slot = this.slots.get(path);
     if (!slot) {
       return this.readMarker(path);
@@ -202,7 +202,7 @@ export class TimedGateway {
     });
   };
 
-  private readMarker(path: string): Promise<TimedResponse> {
+  private readMarker(path: string): Promise<PathResponse> {
     const askedAtMs = this.time.trueNowMs;
     const now = markerPeriodAt(askedAtMs);
     let period: number | null = null;
@@ -243,7 +243,7 @@ export class TimedGateway {
         if (head < 0) {
           return null;
         }
-        const response = await this.fetchResource(this.slotPath(rung.topic, head));
+        const response = await this.answerPath(this.slotPath(rung.topic, head));
         return { index: FeedIndex.fromBigInt(BigInt(head)), playlist: response.text };
       },
     };

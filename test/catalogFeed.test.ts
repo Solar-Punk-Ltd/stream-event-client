@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CatalogFeedReader, type CatalogSource } from '@/features/catalog/catalogFeed';
 import { feedSlotPath, nextFeedRequest, resolvedFeedIndex } from '@/shared/feedFollow';
-import type { TimedResponse } from '@/shared/fetchWithTimeout';
+import type { PathResponse } from './helpers/playerReader';
 import type { SwarmAnswer } from '@/swarm/answers';
 
 /**
@@ -22,7 +22,7 @@ import type { SwarmAnswer } from '@/swarm/answers';
 const OWNER = '1f6e0f8a9b7c3d5e2a4b6c8d0e1f2a3b4c5d6e7f';
 const TOPIC = Topic.fromString('catalog-test');
 
-function respond(overrides: Partial<TimedResponse> = {}): TimedResponse {
+function respond(overrides: Partial<PathResponse> = {}): PathResponse {
   return { ok: true, status: 200, headers: new Headers(), text: '[]', ...overrides };
 }
 
@@ -32,9 +32,9 @@ function respond(overrides: Partial<TimedResponse> = {}): TimedResponse {
  * A queued `Error` is thrown rather than returned, which is how a transport failure or a timeout
  * reaches the reader. That is a different path from `ok: false`, and only the latter was ever driven.
  */
-function stubFetcher(replies: (TimedResponse | Error)[]) {
+function stubFetcher(replies: (PathResponse | Error)[]) {
   const urls: string[] = [];
-  const fetcher = async (url: string): Promise<TimedResponse> => {
+  const fetcher = async (url: string): Promise<PathResponse> => {
     urls.push(url);
     const reply = replies.shift();
     if (!reply) {
@@ -50,18 +50,18 @@ function stubFetcher(replies: (TimedResponse | Error)[]) {
 
 /** Every request is held until the test answers it, so two reads can be in flight at once. */
 function deferredFetcher() {
-  const pending: { url: string; answer: (response: TimedResponse) => void }[] = [];
+  const pending: { url: string; answer: (response: PathResponse) => void }[] = [];
   const fetcher = (url: string) =>
-    new Promise<TimedResponse>((resolve) => {
+    new Promise<PathResponse>((resolve) => {
       pending.push({ url, answer: resolve });
     });
   return { pending, fetcher };
 }
 
-type Fetcher = (url: string) => Promise<TimedResponse>;
+type Fetcher = (url: string) => Promise<PathResponse>;
 
 async function answerOf(fetcher: Fetcher, url: string): Promise<SwarmAnswer> {
-  let response: TimedResponse;
+  let response: PathResponse;
   try {
     response = await fetcher(url);
   } catch (error) {
@@ -289,8 +289,9 @@ describe('CatalogFeedReader', () => {
    * carries the whole catalog rather than a delta, so the broadcast announced in the dropped slot was
    * never offered to this reader again.
    *
-   * `fetchWithTimeout` rejects on a transport failure and on its own timeout, and answers `ok: false`
-   * only for an HTTP status, so this is the ordinary shape of a gateway going slow mid-walk.
+   * The stub throws for a transport failure or a timeout, which reaches the reader as unavailable with
+   * no status, and answers `ok: false` only for an HTTP status, so this is the ordinary shape of a
+   * gateway going slow mid-walk.
    */
   it('keeps the slot it already read when a later step of the same walk throws', async () => {
     const { fetcher } = stubFetcher([

@@ -225,7 +225,7 @@ describe('Q1: only the rung that plays is walked', () => {
         async findNewest(rung, hint) {
           hints.push(hint === null ? null : { index: hint.index, newestSegmentEndMs: hint.newestSegmentEndMs });
           const head = gateway.head(rung.topic);
-          const response = await gateway.fetchResource(gateway.slotPath(rung.topic, head));
+          const response = await gateway.answerPath(gateway.slotPath(rung.topic, head));
           return { index: FeedIndex.fromBigInt(BigInt(head)), playlist: response.text };
         },
       }),

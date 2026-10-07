@@ -4,18 +4,25 @@ import type { SegmentUrl } from '../../src/features/player/ManifestManagement';
 import type { PlayerReader } from '../../src/features/player/playerReads';
 import { ManifestFetchError } from '../../src/features/player/refusedSlot';
 import { feedSlotPath, nextFeedRequest, resolvedFeedIndex } from '../../src/shared/feedFollow';
-import type { TimedResponse } from '../../src/shared/fetchWithTimeout';
 import type { SwarmAnswer } from '../../src/swarm/answers';
 import { SwarmClient, type SwarmReader } from '../../src/swarm/client';
 import { BeeHttpProvider } from '../../src/swarm/providers/bee-http/beeHttpProvider';
 
+/** What a fake gateway answers a path with: its status and headers, and the body as text. */
+export interface PathResponse {
+  ok: boolean;
+  status: number;
+  headers: Headers;
+  text: string;
+}
+
 /** A fake gateway that answers the player's Bee paths, as the fakes built before the Swarm client do. */
-export type PathGateway = (path: string) => Promise<TimedResponse>;
+export type PathGateway = (path: string) => Promise<PathResponse>;
 
 const UTF8 = new TextEncoder();
 
 async function answerOf(gateway: PathGateway, path: string): Promise<SwarmAnswer> {
-  let response: TimedResponse;
+  let response: PathResponse;
   try {
     response = await gateway(path);
   } catch (error) {

@@ -15,9 +15,9 @@ interface BoundedRequestOptions {
 
 /**
  * One GET whose window covers the headers and the body together, composing the caller's signal
- * rather than replacing it. The same rules as the app's `fetchWithTimeout`, answering instead of
- * throwing: a gateway that sends headers and withholds the body is still bounded, and a caller who
- * cancelled is told so even if the window ran out in the same tick.
+ * rather than replacing it, and answering instead of throwing: a gateway that sends headers and
+ * withholds the body is still bounded, and a caller who cancelled is told so even if the window ran
+ * out in the same tick.
  *
  * Built from `AbortController` and `setTimeout` rather than `AbortSignal.timeout` (Safari 16) and
  * `AbortSignal.any` (Safari 17.4), so every read works on the build target's Safari 14. The chat's

@@ -1,6 +1,6 @@
 import { FeedIndex } from '@ethersphere/bee-js';
 
-import { FetchTimeoutError } from '@/shared/fetchWithTimeout';
+import { FetchTimeoutError } from '@/shared/fetchTimeoutError';
 import { contentText, type SwarmAnswer } from '@/swarm/answers';
 import type { SwarmReader } from '@/swarm/client';
 

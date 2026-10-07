@@ -108,7 +108,7 @@ describe('the features and the app', () => {
   it.each([
     'async fetch(url: string): Promise<string> {',
     'manifestFetcher.fetch(context.url)',
-    "import { FetchTimeoutError } from '@/shared/fetchWithTimeout';",
+    "import { FetchTimeoutError } from '@/shared/fetchTimeoutError';",
     "if (uri.startsWith('/bytes/')) {",
   ])('leaves alone %s', (line) => {
     expect(DIRECT_SWARM_ACCESS.filter(({ pattern }) => pattern.test(codeOf(line)))).toEqual([]);

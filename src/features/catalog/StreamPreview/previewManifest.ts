@@ -2,7 +2,7 @@ import type { Segment } from '@/shared/manifest';
 
 import { isMasterPlaylist, masterVariants, parseManifest } from '@/features/player/playlist';
 import { Rendition, STREAM_STATUS_VOD, StreamState } from '@/features/catalog/stream';
-import { FetchTimeoutError } from '@/shared/fetchWithTimeout';
+import { FetchTimeoutError } from '@/shared/fetchTimeoutError';
 import { contentText, type SwarmAnswer } from '@/swarm/answers';
 import { type PreviewReads, readPreviewPlaylist } from '@/features/catalog/thumbnailManifest';
 

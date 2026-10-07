@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import { FeedReturnWatch, feedReturnWatchWaitMs } from '../src/features/player/feedReturn';
-import { TimedResponse } from '../src/shared/fetchWithTimeout';
+import type { PathResponse } from './helpers/playerReader';
 import { RequestJitter } from '../src/shared/requestJitter';
 
 import { readerOverPaths } from './helpers/playerReader';
@@ -52,7 +52,7 @@ describe('the wait before each ask for a broadcaster coming back', () => {
   it('is drawn again before every ask', async () => {
     const asked: string[] = [];
     let draws = 0;
-    const neverWritten = async (path: string): Promise<TimedResponse> => {
+    const neverWritten = async (path: string): Promise<PathResponse> => {
       asked.push(path);
       throw new Error(`Failed to fetch: ${path}`);
     };
