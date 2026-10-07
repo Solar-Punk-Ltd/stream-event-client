@@ -30,6 +30,20 @@ function world() {
 }
 
 describe('the status view', () => {
+  it('names every fallback in the order it is asked', () => {
+    const client = new SwarmClient({
+      chosen: { id: 'event', provider: new ScriptedProvider('event') },
+      fallbacks: [
+        { id: 'backup', provider: new ScriptedProvider('backup') },
+        { id: 'chat-read', provider: new ScriptedProvider('chat') },
+      ],
+    });
+
+    expect(statusRows(client.activity(), client.health(), 0, nameOf)[0].route).toBe(
+      "Reads from Event gateway. Falls back to Backup gateway, then The chat's gateway.",
+    );
+  });
+
   it('says, per feature, who it reads from, who stands behind, and what answered in the last minute', async () => {
     const { event, backup, client, now } = world();
     event.answer = content();
