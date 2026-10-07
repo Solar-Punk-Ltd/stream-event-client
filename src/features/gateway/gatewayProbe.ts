@@ -6,6 +6,7 @@
  * those had happened. Everything here is pure or takes an injected prober, because this package runs
  * vitest without a DOM and a rule left inside the component is a rule nothing covers.
  */
+import { DEFAULT_BEE_NODE_ACCESS } from '@/swarm/beeNodeAccess';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
 import { PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
 import { type GatewaySetting, OWN_GATEWAY_ID, type SwarmSettings } from '@/swarm/settings';
@@ -135,7 +136,13 @@ type Prober = (gatewayUrl: string) => { probe(options?: ReadOptions): Promise<Pr
 
 /** The settings of one gateway alone, with no fallback, so a test of it is a test of it and nothing else. */
 export function onlyGateway(gateway: GatewaySetting): SwarmSettings {
-  return { gateways: [gateway], defaultId: gateway.id, fallbackId: null, kinds: [gateway.kind] };
+  return {
+    gateways: [gateway],
+    defaultId: gateway.id,
+    fallbackId: null,
+    kinds: [gateway.kind],
+    beeNodes: DEFAULT_BEE_NODE_ACCESS,
+  };
 }
 
 /** A Bee node over HTTP at the address, which is the kind of node the picker offers to use. */

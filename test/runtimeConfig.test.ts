@@ -269,6 +269,17 @@ describe('the providers settings', () => {
     expect(problemOf(withProviders({ kinds: ['ipfs'] }))).toContain('providers.kinds');
   });
 
+  it.each(['off', 'https', 'https-and-local-http'])('accepts %s as how far a Bee node of the viewer may be', (beeNodes) => {
+    const result = withProviders({ beeNodes });
+
+    expect(result.ok && result.config.providers?.beeNodes).toBe(beeNodes);
+  });
+
+  it('refuses a Bee node level this build does not know, naming the key', () => {
+    expect(problemOf(withProviders({ beeNodes: 'everywhere' }))).toContain('providers.beeNodes');
+    expect(problemOf(withProviders({ beeNodes: true }))).toContain('providers.beeNodes');
+  });
+
   it("refuses a gateway's address as gatewayUrl is refused, placeholder included", () => {
     for (const url of ['bee', '//gateway.example.com', '<the event gateway>']) {
       expect(problemOf(withProviders({ gateways: [{ ...EVENT, url }], fallback: undefined }))).toContain(

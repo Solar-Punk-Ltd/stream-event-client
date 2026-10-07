@@ -58,6 +58,7 @@ describe('the Swarm settings', () => {
       defaultId: SINGLE_GATEWAY_ID,
       fallbackId: SINGLE_GATEWAY_ID,
       kinds: [...PROVIDER_KINDS],
+      beeNodes: 'off',
     });
   });
 
@@ -82,7 +83,21 @@ describe('the Swarm settings', () => {
       defaultId: 'primary',
       fallbackId: 'backup',
       kinds: [...PROVIDER_KINDS],
+      beeNodes: 'off',
     });
+  });
+});
+
+describe('how far a Bee node of the viewer may be', () => {
+  it('is this computer only when the config says nothing, as the viewer has always allowed', () => {
+    expect(swarmSettingsFrom(config({ gatewayUrl: '/bee' })).beeNodes).toBe('off');
+    expect(swarmSettingsFrom(TWO_GATEWAYS).beeNodes).toBe('off');
+  });
+
+  it('is what providers names', () => {
+    expect(
+      swarmSettingsFrom(config({ providers: { ...TWO_GATEWAYS.providers!, beeNodes: 'https-and-local-http' } })).beeNodes,
+    ).toBe('https-and-local-http');
   });
 });
 

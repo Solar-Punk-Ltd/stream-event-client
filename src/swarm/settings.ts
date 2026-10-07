@@ -1,5 +1,6 @@
 import type { GatewayConfig, RuntimeConfig } from '@/config/runtimeConfig';
 
+import { type BeeNodeAccess, DEFAULT_BEE_NODE_ACCESS } from './beeNodeAccess';
 import { PROVIDER_KINDS, type ProviderKindName } from './providerKinds';
 
 /** One gateway as the settings name it, which a provider kind in the registry makes a provider from. */
@@ -16,6 +17,8 @@ export interface SwarmSettings {
   readonly fallbackId: string | null;
   /** The kinds of provider a viewer may add one of their own of. */
   readonly kinds: readonly ProviderKindName[];
+  /** How far a Bee node of the viewer's own may be, which the control panel's picker holds to. */
+  readonly beeNodes: BeeNodeAccess;
 }
 
 /** The id the one gateway of a config that names only `gatewayUrl` goes by. */
@@ -40,6 +43,7 @@ export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'pr
       defaultId: SINGLE_GATEWAY_ID,
       fallbackId: SINGLE_GATEWAY_ID,
       kinds: [...PROVIDER_KINDS],
+      beeNodes: DEFAULT_BEE_NODE_ACCESS,
     };
   }
   return {
@@ -47,6 +51,7 @@ export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'pr
     defaultId: providers.default,
     fallbackId: providers.fallback === false ? null : (providers.fallback ?? providers.default),
     kinds: providers.kinds ?? [...PROVIDER_KINDS],
+    beeNodes: providers.beeNodes ?? DEFAULT_BEE_NODE_ACCESS,
   };
 }
 

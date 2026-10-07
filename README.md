@@ -75,14 +75,15 @@ Every gateway in `providers.gateways` whose `url` is an address rather than a pa
 also be named in the image's `EXTRA_GATEWAY_URLS` (below), or the page's policy refuses it. The one
 exception is the image's own `BEE_GATEWAY_URL` in direct mode, which the policy already allows.
 
-| Field                       | What it is                                                                                                                     |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `providers.gateways`        | The gateways offered, at least one. Each has an `id`, a `kind`, an optional `label` and its own settings                       |
-| `providers.gateways[].kind` | `bee-http`, a Bee node's HTTP API, the only kind this build carries. A kind the build does not carry is refused                |
-| `providers.gateways[].url`  | For `bee-http`: a path on this site such as `/bee`, or an http or https address, as `gatewayUrl` takes                         |
-| `providers.default`         | The `id` of the gateway every reader starts on                                                                                 |
-| `providers.fallback`        | Optional. The `id` of another gateway, asked when the one in use fails. The default gateway when absent, and none when `false` |
-| `providers.kinds`           | Optional. The kinds a viewer may add a gateway of their own of. Every kind the build carries when absent                       |
+| Field                       | What it is                                                                                                                                                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `providers.gateways`        | The gateways offered, at least one. Each has an `id`, a `kind`, an optional `label` and its own settings                                                                                                                      |
+| `providers.gateways[].kind` | `bee-http`, a Bee node's HTTP API, the only kind this build carries. A kind the build does not carry is refused                                                                                                               |
+| `providers.gateways[].url`  | For `bee-http`: a path on this site such as `/bee`, or an http or https address, as `gatewayUrl` takes                                                                                                                        |
+| `providers.default`         | The `id` of the gateway every reader starts on                                                                                                                                                                                |
+| `providers.fallback`        | Optional. The `id` of another gateway, asked when the one in use fails. The default gateway when absent, and none when `false`                                                                                                |
+| `providers.kinds`           | Optional. The kinds a viewer may add a gateway of their own of. Every kind the build carries when absent                                                                                                                      |
+| `providers.beeNodes`        | Optional. How far a Bee node of the viewer's own may be: `off`, this computer only, the default. `https`, also any https address. `https-and-local-http`, also plain http on the local network. Match the image's `BEE_NODES` |
 
 Serve `config.json` with `Cache-Control: no-store`, so a changed setting reaches every page opened
 after the change.

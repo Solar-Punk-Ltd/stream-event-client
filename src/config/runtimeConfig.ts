@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 // Imported by its file name, so Node reads this schema without the bundler, as the deployment's own tests do.
 import { DEFAULT_THEME, THEME_NAMES, type ThemeName } from '../design/themeNames.ts';
+import { BEE_NODE_ACCESS_LEVELS } from '../swarm/beeNodeAccess.ts';
 import { PROVIDER_KINDS } from '../swarm/providerKinds.ts';
 
 /**
@@ -96,6 +97,10 @@ const providersSchema = z
       .optional(),
     /** The kinds of provider a viewer may add one of their own of. Absent means every kind this build carries. */
     kinds: z.array(providerKindSchema).min(1, { message: 'must offer at least one kind' }).optional(),
+    /** How far a Bee node of the viewer's own may be. Absent means this computer only. */
+    beeNodes: z
+      .enum(BEE_NODE_ACCESS_LEVELS, { message: `must be one of ${BEE_NODE_ACCESS_LEVELS.join(', ')}` })
+      .optional(),
   })
   .superRefine((providers, context) => {
     const ids = new Set<string>();
