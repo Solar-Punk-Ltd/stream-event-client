@@ -10,7 +10,7 @@ export const SWARM_FEATURES = ['player', 'stream-list', 'previews', 'chat'] as c
 
 export type SwarmFeature = (typeof SWARM_FEATURES)[number];
 
-export type ReadKind = 'feed-head' | 'feed-entry' | 'chunk' | 'bytes';
+export type ReadKind = 'feed-head' | 'feed-entry' | 'soc' | 'chunk' | 'bytes';
 
 /** A provider with the name the counts and the health report give it, such as a gateway's id in the settings. */
 export interface NamedProvider {
@@ -51,6 +51,7 @@ export interface SwarmClientOptions {
 export interface SwarmReader {
   readFeedHead(owner: string, topic: Topic, options?: ReadOptions): Promise<SwarmAnswer>;
   readFeedEntry(owner: string, topic: Topic, index: number, options?: ReadOptions): Promise<SwarmAnswer>;
+  readSoc(owner: string, identifier: string, options?: ReadOptions): Promise<SwarmAnswer>;
   readChunk(address: string, options?: ReadOptions): Promise<SwarmAnswer>;
   readBytes(reference: string, options?: ReadOptions): Promise<SwarmAnswer>;
   /** A URL from the first provider that is not paused and gives URLs, or null when none does. */
@@ -117,6 +118,8 @@ export class SwarmClient {
         this.read(feature, 'feed-head', (provider) => provider.readFeedHead(owner, topic, options)),
       readFeedEntry: (owner, topic, index, options) =>
         this.read(feature, 'feed-entry', (provider) => provider.readFeedEntry(owner, topic, index, options)),
+      readSoc: (owner, identifier, options) =>
+        this.read(feature, 'soc', (provider) => provider.readSoc(owner, identifier, options)),
       readChunk: (address, options) => this.read(feature, 'chunk', (provider) => provider.readChunk(address, options)),
       readBytes: (reference, options) =>
         this.read(feature, 'bytes', (provider) => provider.readBytes(reference, options)),

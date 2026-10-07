@@ -19,6 +19,7 @@ export interface ContractWorld {
     readonly index: number;
     readonly bytes: Uint8Array;
   };
+  readonly soc: { readonly owner: string; readonly identifier: string; readonly bytes: Uint8Array };
   readonly chunk: { readonly address: string; readonly bytes: Uint8Array };
   readonly bytes: { readonly reference: string; readonly bytes: Uint8Array };
   /** Names for which nothing is stored. */
@@ -26,6 +27,7 @@ export interface ContractWorld {
     readonly owner: string;
     readonly topic: Topic;
     readonly index: number;
+    readonly identifier: string;
     readonly address: string;
     readonly reference: string;
   };
@@ -54,6 +56,7 @@ function readsOf(world: ContractWorld): Record<string, Read> {
     'a feed head': (provider, options) => provider.readFeedHead(world.feedHead.owner, world.feedHead.topic, options),
     'a feed entry': (provider, options) =>
       provider.readFeedEntry(world.feedEntry.owner, world.feedEntry.topic, world.feedEntry.index, options),
+    'a single-owner chunk': (provider, options) => provider.readSoc(world.soc.owner, world.soc.identifier, options),
     'a chunk': (provider, options) => provider.readChunk(world.chunk.address, options),
     bytes: (provider, options) => provider.readBytes(world.bytes.reference, options),
   };
@@ -64,6 +67,7 @@ function absentReadsOf(world: ContractWorld): Record<string, Read> {
   return {
     'a feed head': (provider) => provider.readFeedHead(absent.owner, absent.topic),
     'a feed entry': (provider) => provider.readFeedEntry(absent.owner, absent.topic, absent.index),
+    'a single-owner chunk': (provider) => provider.readSoc(absent.owner, absent.identifier),
     'a chunk': (provider) => provider.readChunk(absent.address),
     bytes: (provider) => provider.readBytes(absent.reference),
   };
@@ -97,6 +101,13 @@ export function describeProviderContract(name: string, harness: () => ContractHa
       const answer = contentOf(await provider('served').readFeedEntry(owner, topic, index));
 
       expect(answer.bytes).toEqual(world.feedEntry.bytes);
+    });
+
+    it("reads a single-owner chunk's payload by its owner and identifier", async () => {
+      const { world, provider } = harness();
+      const answer = contentOf(await provider('served').readSoc(world.soc.owner, world.soc.identifier));
+
+      expect(answer.bytes).toEqual(world.soc.bytes);
     });
 
     it('reads a chunk by its address', async () => {

@@ -1,7 +1,7 @@
 import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { feedSlotPath, nextFeedRequest } from '../../src/shared/feedFollow';
+import { feedSlotPath, makeFeedIdentifier, nextFeedRequest } from '../../src/shared/feedFollow';
 import { BeeHttpProvider } from '../../src/swarm/providers/bee-http/beeHttpProvider';
 import {
   answeringFetch,
@@ -25,6 +25,8 @@ const STREAM_TOPIC = Topic.fromString(STREAM.topic);
 const CHAT_CHUNK = firstRecordedPath('chunks').slice('chunks/'.length);
 /** The first segment the recording read. */
 const SEGMENT = firstRecordedPath('bytes').slice('bytes/'.length);
+/** The identifier of the recorded stream's first entry, a single-owner chunk the recording read. */
+const FIRST_ENTRY_ID = makeFeedIdentifier(STREAM_TOPIC, FeedIndex.fromBigInt(0n)).toString();
 /** The `Date` the recorded stream list head carries, Wed, 30 Sep 2026 07:16:57 GMT. */
 const CATALOG_HEAD_DATE_MS = Date.UTC(2026, 8, 30, 7, 16, 57);
 
@@ -54,12 +56,18 @@ function beeHarness(): ContractHarness {
         index: 0,
         bytes: recordedBody(urlOf(feedSlotPath(STREAM.owner, STREAM_TOPIC, FeedIndex.fromBigInt(0n)))),
       },
+      soc: {
+        owner: STREAM.owner,
+        identifier: FIRST_ENTRY_ID,
+        bytes: recordedBody(urlOf(`soc/${STREAM.owner}/${FIRST_ENTRY_ID}`)),
+      },
       chunk: { address: CHAT_CHUNK, bytes: recordedBody(urlOf(`chunks/${CHAT_CHUNK}`)) },
       bytes: { reference: SEGMENT, bytes: recordedBody(urlOf(`bytes/${SEGMENT}`)) },
       absent: {
         owner: CATALOG.owner,
         topic: Topic.fromString('nothing-was-published-here'),
         index: 7,
+        identifier: ABSENT_REFERENCE,
         address: ABSENT_ADDRESS,
         reference: ABSENT_REFERENCE,
       },
@@ -90,12 +98,14 @@ describe('the Bee HTTP provider', () => {
 
     await bee.readFeedHead(CATALOG.owner, CATALOG_TOPIC);
     await bee.readFeedEntry(STREAM.owner, STREAM_TOPIC, 3);
+    await bee.readSoc(STREAM.owner, FIRST_ENTRY_ID);
     await bee.readChunk(CHAT_CHUNK);
     await bee.readBytes(SEGMENT);
 
     expect(log.urls).toEqual([
       urlOf(nextFeedRequest(CATALOG.owner, CATALOG_TOPIC, null).path),
       urlOf(feedSlotPath(STREAM.owner, STREAM_TOPIC, FeedIndex.fromBigInt(3n))),
+      urlOf(`soc/${STREAM.owner}/${FIRST_ENTRY_ID}`),
       urlOf(`chunks/${CHAT_CHUNK}`),
       urlOf(`bytes/${SEGMENT}`),
     ]);
@@ -158,6 +168,7 @@ describe('the Bee HTTP provider', () => {
     expect(provider(recordedFetch()).capabilities).toEqual({
       feedHead: true,
       feedEntry: true,
+      soc: true,
       chunk: true,
       bytes: true,
       urls: true,

@@ -1,13 +1,14 @@
 import type { SwarmAnswer } from '../../src/swarm/answers';
 import type { ProviderCapabilities, SwarmProvider, UrlUse } from '../../src/swarm/provider';
 
-export type ScriptedRead = 'feed-head' | 'feed-entry' | 'chunk' | 'bytes';
+export type ScriptedRead = 'feed-head' | 'feed-entry' | 'soc' | 'chunk' | 'bytes';
 
 /** A provider whose every read answers what the test says it does now, and which logs what it was asked. */
 export class ScriptedProvider implements SwarmProvider {
   capabilities: ProviderCapabilities = {
     feedHead: true,
     feedEntry: true,
+    soc: true,
     chunk: true,
     bytes: true,
     urls: true,
@@ -29,6 +30,10 @@ export class ScriptedProvider implements SwarmProvider {
 
   async readFeedEntry(): Promise<SwarmAnswer> {
     return this.ask('feed-entry');
+  }
+
+  async readSoc(): Promise<SwarmAnswer> {
+    return this.ask('soc');
   }
 
   async readChunk(): Promise<SwarmAnswer> {

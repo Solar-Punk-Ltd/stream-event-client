@@ -1,6 +1,6 @@
 import { FeedIndex, type Topic } from '@ethersphere/bee-js';
 
-import { feedSlotPath, nextFeedRequest, resolvedFeedIndex } from '@/shared/feedFollow';
+import { makeFeedIdentifier, nextFeedRequest, resolvedFeedIndex } from '@/shared/feedFollow';
 import { ABORTED, type SwarmAnswer } from '../../answers';
 import {
   DEFAULT_READ_TIMEOUT_MS,
@@ -25,6 +25,7 @@ const TOO_MANY_REQUESTS = 429;
 const CAPABILITIES: ProviderCapabilities = {
   feedHead: true,
   feedEntry: true,
+  soc: true,
   chunk: true,
   bytes: true,
   urls: true,
@@ -105,8 +106,13 @@ export class BeeHttpProvider implements SwarmProvider {
     return this.read(nextFeedRequest(owner, topic, null).path, options);
   }
 
+  /** A feed entry is the single-owner chunk its owner wrote under the topic and index together. */
   readFeedEntry(owner: string, topic: Topic, index: number, options?: ReadOptions): Promise<SwarmAnswer> {
-    return this.read(feedSlotPath(owner, topic, FeedIndex.fromBigInt(BigInt(index))), options);
+    return this.readSoc(owner, makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))).toString(), options);
+  }
+
+  readSoc(owner: string, identifier: string, options?: ReadOptions): Promise<SwarmAnswer> {
+    return this.read(`soc/${owner}/${identifier}`, options);
   }
 
   readChunk(address: string, options?: ReadOptions): Promise<SwarmAnswer> {

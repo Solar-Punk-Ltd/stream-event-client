@@ -26,6 +26,7 @@ export type UrlUse = 'segment' | 'preview-segment' | 'thumbnail';
 export interface ProviderCapabilities {
   readonly feedHead: boolean;
   readonly feedEntry: boolean;
+  readonly soc: boolean;
   readonly chunk: boolean;
   readonly bytes: boolean;
   /** Whether {@link SwarmProvider.urlFor} gives URLs. A provider without them is read through `readBytes`. */
@@ -65,6 +66,12 @@ export interface SwarmProvider {
 
   /** One entry of a feed by its index, which is how a follower reads once it knows where it is. */
   readFeedEntry(owner: string, topic: Topic, index: number, options?: ReadOptions): Promise<SwarmAnswer>;
+
+  /**
+   * The payload of the single-owner chunk an owner wrote under an identifier, which is how the player
+   * reads a ladder's time markers. The identifier is 32 bytes as hex.
+   */
+  readSoc(owner: string, identifier: string, options?: ReadOptions): Promise<SwarmAnswer>;
 
   /** One chunk by its address, which is how the chat reads its slots and notes. */
   readChunk(address: string, options?: ReadOptions): Promise<SwarmAnswer>;

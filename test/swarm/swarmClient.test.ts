@@ -49,9 +49,10 @@ describe('the Swarm client', () => {
 
     expect(await client.reader('stream-list').readFeedHead(OWNER, TOPIC)).toBe(chosen.answer);
     expect(await client.reader('player').readFeedEntry(OWNER, TOPIC, 4)).toBe(chosen.answer);
+    expect(await client.reader('player').readSoc(OWNER, REFERENCE)).toBe(chosen.answer);
     expect(await client.reader('chat').readChunk(REFERENCE)).toBe(chosen.answer);
     expect(await client.reader('previews').readBytes(REFERENCE)).toBe(chosen.answer);
-    expect(chosen.asked).toEqual(['feed-head', 'feed-entry', 'chunk', 'bytes']);
+    expect(chosen.asked).toEqual(['feed-head', 'feed-entry', 'soc', 'chunk', 'bytes']);
     expect(fallback.asked).toEqual([]);
   });
 

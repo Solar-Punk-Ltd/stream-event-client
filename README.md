@@ -268,8 +268,9 @@ from `src/app` or `src/features` (a test holds it to that). The features still r
 themselves and move onto it next.
 
 - **A provider** is one way of reaching Swarm (`src/swarm/provider.ts`), holding only what the app reads:
-  a feed's head, a feed entry by index, a chunk, the bytes a reference names, and a URL for what the
-  browser or hls.js loads itself. It also says what it can do, its status, a probe, and start and stop
+  a feed's head, a feed entry by index, a single-owner chunk's payload by its owner and identifier (a
+  feed entry is one, and so is a ladder's time marker), a chunk, the bytes a reference names, and a URL
+  for what the browser or hls.js loads itself. It also says what it can do, its status, a probe, and start and stop
   for a node in the tab. `src/swarm/providers/bee-http/` is Bee's HTTP API, asking the paths the app has
   always asked.
 - **Every read answers and never throws** (`src/swarm/answers.ts`): the content, with the feed index
