@@ -164,6 +164,35 @@ test('a forced switch moves the reads to the new quality and keeps playing', asy
   expectOnlyKnownRequests(gateway);
 });
 
+test('a switch asked before hls.js reports the starting quality reads the new quality once', async ({
+  page,
+  context,
+}) => {
+  // Known failure, found by this journey on 2026-10-07. hls.js reports the quality it started on with
+  // LEVEL_SWITCHED once that quality's first fragment plays. A switch asked before then is under way when the report
+  // arrives, and `LadderFeedPoller.followOnly` stops every other quality, the switch target included, and forgets what
+  // it read. hls.js then asks for the target again, which starts it over with a second head lookup, the slowest read
+  // on a real node. On a live stream this is the down-switch ABR makes while a slow top-quality fragment still loads.
+  test.fail(true, 'the poller drops a switch target when hls.js reports the quality it is leaving');
+  const gateway = new LadderGateway();
+  const warnings = await openPage(page, context, gateway);
+  await expect.poll(() => levelUris(page), { message: 'hls.js holds the four qualities' }).toHaveLength(RUNGS.length);
+
+  const target: RungName = '360p';
+  const askedAtMs = Date.now();
+  await switchTo(page, rungUri(target));
+  const switchedAtMs = await waitForSwitchTo(page, target, askedAtMs, 30_000);
+
+  report('early switch', {
+    to: target,
+    switchMs: switchedAtMs - askedAtMs,
+    switches: (await probeState(page)).switches.map((s) => ({ uri: s.uri, afterAskMs: s.atMs - askedAtMs })),
+    requestsSinceAsk: gateway.tally(askedAtMs),
+    warnings,
+  });
+  expect(gateway.count('head', target, askedAtMs), `${target} is found by one head lookup`).toBe(1);
+});
+
 test('the playing quality stops publishing: the player fails over to a sibling and keeps playing', async ({
   page,
   context,
