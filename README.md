@@ -67,18 +67,19 @@ otherwise. With `enabled` false the other fields are not read.
 | `chat.pollIntervalMs` | How often an open chat reads its feed, in milliseconds. A positive whole number, raised under load without a rebuild                                             |
 
 The `providers` block names more than one way of reaching Swarm. A config that names only `gatewayUrl` is
-read as one Bee gateway, the default, with no fallback, so a deployment written before `providers` needs no
-change. The Bee node picker's "event gateway" is the default gateway, and a node the viewer picks is read
-in its place with the fallback still behind it. The chat reads from `chat.readUrl` whatever node is picked.
+read as one Bee gateway, the default and the fallback, so a deployment written before `providers` needs no
+change. The fallback is on by default: a viewer who picks another gateway or a node of their own reads from
+it with the fallback behind it, which is the default gateway unless the config names another, and a viewer
+who picks the named fallback itself has the default behind them. The chat reads from `chat.readUrl` whatever the viewer picks.
 
-| Field                       | What it is                                                                                                      |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `providers.gateways`        | The gateways offered, at least one. Each has an `id`, a `kind`, an optional `label` and its own settings        |
-| `providers.gateways[].kind` | `bee-http`, a Bee node's HTTP API, the only kind this build carries. A kind the build does not carry is refused |
-| `providers.gateways[].url`  | For `bee-http`: a path on this site such as `/bee`, or an http or https address, as `gatewayUrl` takes          |
-| `providers.default`         | The `id` of the gateway every reader starts on                                                                  |
-| `providers.fallback`        | Optional. The `id` of another gateway, asked when the one in use fails                                          |
-| `providers.kinds`           | Optional. The kinds a viewer may add a gateway of their own of. Every kind the build carries when absent        |
+| Field                       | What it is                                                                                                                     |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `providers.gateways`        | The gateways offered, at least one. Each has an `id`, a `kind`, an optional `label` and its own settings                       |
+| `providers.gateways[].kind` | `bee-http`, a Bee node's HTTP API, the only kind this build carries. A kind the build does not carry is refused                |
+| `providers.gateways[].url`  | For `bee-http`: a path on this site such as `/bee`, or an http or https address, as `gatewayUrl` takes                         |
+| `providers.default`         | The `id` of the gateway every reader starts on                                                                                 |
+| `providers.fallback`        | Optional. The `id` of another gateway, asked when the one in use fails. The default gateway when absent, and none when `false` |
+| `providers.kinds`           | Optional. The kinds a viewer may add a gateway of their own of. Every kind the build carries when absent                       |
 
 Serve `config.json` with `Cache-Control: no-store`, so a changed setting reaches every page opened
 after the change.

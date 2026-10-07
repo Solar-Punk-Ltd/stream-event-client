@@ -242,6 +242,14 @@ describe('the providers settings', () => {
     expect(problemOf(withProviders({ fallback: 'elsewhere' }))).toContain('providers.fallback');
   });
 
+  it('accepts a fallback switched off', () => {
+    expect(withProviders({ fallback: false }).ok).toBe(true);
+  });
+
+  it('refuses a fallback switched on by name only, since on is what leaving it out means', () => {
+    expect(problemOf(withProviders({ fallback: true }))).toContain('providers.fallback');
+  });
+
   it('refuses a fallback that is the default', () => {
     expect(problemOf(withProviders({ fallback: 'event' }))).toContain('providers.fallback');
   });

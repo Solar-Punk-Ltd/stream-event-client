@@ -9,7 +9,10 @@ export type GatewaySetting = GatewayConfig;
 export interface SwarmSettings {
   readonly gateways: readonly GatewaySetting[];
   readonly defaultId: string;
-  /** The gateway asked when the one in use fails, or null for none. */
+  /**
+   * The gateway asked when the one in use fails, or null when the deployment switched the fallback off.
+   * A viewer on this gateway itself has the default behind them instead.
+   */
   readonly fallbackId: string | null;
   /** The kinds of provider a viewer may add one of their own of. */
   readonly kinds: readonly ProviderKindName[];
@@ -20,8 +23,10 @@ export const SINGLE_GATEWAY_ID = 'gateway';
 
 /**
  * The settings a config describes. A config written before `providers` existed names one gateway,
- * `gatewayUrl`, and that is read as the only gateway offered and the default, with no fallback, so a
- * deployment needs no change to its settings.
+ * `gatewayUrl`, and that is read as the only gateway offered, the default and the fallback, so a
+ * deployment needs no change to its settings and a viewer on a node of their own still has the event
+ * gateway behind them. The fallback is the default gateway unless the config names another or
+ * switches it off.
  */
 export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'providers'>): SwarmSettings {
   const { providers, gatewayUrl } = config;
@@ -33,14 +38,14 @@ export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'pr
     return {
       gateways: [{ id: SINGLE_GATEWAY_ID, kind: 'bee-http', url: gatewayUrl }],
       defaultId: SINGLE_GATEWAY_ID,
-      fallbackId: null,
+      fallbackId: SINGLE_GATEWAY_ID,
       kinds: [...PROVIDER_KINDS],
     };
   }
   return {
     gateways: providers.gateways,
     defaultId: providers.default,
-    fallbackId: providers.fallback ?? null,
+    fallbackId: providers.fallback === false ? null : (providers.fallback ?? providers.default),
     kinds: providers.kinds ?? [...PROVIDER_KINDS],
   };
 }
