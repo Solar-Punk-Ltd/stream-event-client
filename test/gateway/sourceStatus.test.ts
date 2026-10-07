@@ -48,7 +48,14 @@ describe('the light check of a source', () => {
     expect(await checkSourceStatus(GATEWAY, context)).toEqual({ health: 'failing', elapsedMs: null });
 
     provider.answer = { kind: 'rate-limited', retryAfterMs: 1_000 };
-    expect((await checkSourceStatus(GATEWAY, context)).health).toBe('warning');
+    expect(await checkSourceStatus(GATEWAY, context)).toEqual({ health: 'warning', elapsedMs: null, words: 'Busy' });
+  });
+
+  it('warns about a gateway that answers with an error, which is there and not serving', async () => {
+    const { provider, context } = world();
+    provider.answer = { kind: 'unavailable', cause: { kind: 'status', status: 502 } };
+
+    expect(await checkSourceStatus(GATEWAY, context)).toEqual({ health: 'warning', elapsedMs: null, words: 'Errors' });
   });
 
   it('asks a Bee node the provider probe, and says it is starting while it is not ready', async () => {
@@ -56,9 +63,11 @@ describe('the light check of a source', () => {
       health: 'ok',
       elapsedMs: 42,
     });
-    expect(
-      (await checkSourceStatus(NODE, world({ kind: 'not-ready', reason: { kind: 'starting' } }).context)).health,
-    ).toBe('warning');
+    expect(await checkSourceStatus(NODE, world({ kind: 'not-ready', reason: { kind: 'starting' } }).context)).toEqual({
+      health: 'warning',
+      elapsedMs: null,
+      words: 'Starting',
+    });
     expect((await checkSourceStatus(NODE, world({ kind: 'unreachable' }).context)).health).toBe('failing');
   });
 
@@ -82,6 +91,7 @@ describe('the light check of a source', () => {
 describe('the words beside a status dot', () => {
   it('give the time for a source that answered, and the state for the rest', () => {
     expect(sourceStatusWords({ health: 'ok', elapsedMs: 118 })).toBe('118 ms');
+    expect(sourceStatusWords({ health: 'warning', elapsedMs: null, words: 'Busy' })).toBe('Busy');
     expect(sourceStatusWords({ health: 'warning', elapsedMs: null })).toBe('Not ready');
     expect(sourceStatusWords({ health: 'failing', elapsedMs: null })).toBe('Not answering');
     expect(sourceStatusWords({ health: 'unknown', elapsedMs: null })).toBe('Checking');

@@ -19,6 +19,8 @@ export interface SourceStatus {
   readonly health: SourceHealth;
   /** How long the source took to answer, for one that answered. */
   readonly elapsedMs: number | null;
+  /** What a warning is, in a word, where the health alone does not say. */
+  readonly words?: string;
 }
 
 export const UNCHECKED: SourceStatus = { health: 'unknown', elapsedMs: null };
@@ -41,6 +43,8 @@ export interface SourceCheckContext {
 }
 
 const failing: SourceStatus = { health: 'failing', elapsedMs: null };
+
+const warning = (words: string): SourceStatus => ({ health: 'warning', elapsedMs: null, words });
 
 const clientOf = (source: Pick<Source, 'type' | 'url'>) =>
   createSwarmClient(onlyGateway(gatewaySettingOf({ id: 'checked', ...source })));
@@ -73,7 +77,7 @@ export async function checkSourceStatus(
       case 'ok':
         return { health: 'ok', elapsedMs: found.elapsedMs };
       case 'not-ready':
-        return { health: 'warning', elapsedMs: null };
+        return warning('Starting');
       default:
         return context.signal?.aborted ? UNCHECKED : failing;
     }
@@ -87,10 +91,13 @@ export async function checkSourceStatus(
     case 'not-found':
       return { health: 'ok', elapsedMs: Math.round(now() - startedAtMs) };
     case 'rate-limited':
+      return warning('Busy');
     case 'unsupported':
-      return { health: 'warning', elapsedMs: null };
+      return warning('Limited');
     case 'unavailable':
-      return failing;
+      // An error status is a gateway that is there and not serving, which is a different next step
+      // from one that does not answer at all.
+      return answer.cause.kind === 'status' ? warning('Errors') : failing;
     case 'aborted':
       return UNCHECKED;
   }
@@ -105,7 +112,10 @@ const HEALTH_WORDS: Readonly<Record<SourceHealth, string>> = {
 
 /** What a status dot says in words: the time a source took, or its state. */
 export function sourceStatusWords(status: SourceStatus): string {
-  return status.health === 'ok' && status.elapsedMs !== null ? `${status.elapsedMs} ms` : HEALTH_WORDS[status.health];
+  if (status.health === 'ok' && status.elapsedMs !== null) {
+    return `${status.elapsedMs} ms`;
+  }
+  return status.words ?? HEALTH_WORDS[status.health];
 }
 
 /** A status dot's state alone, for a screen reader. */
