@@ -81,11 +81,6 @@ export function gatewayName(settings: SwarmSettings, id: string): string {
 
 const withoutTrailingSlash = (url: string) => url.replace(/\/+$/, '');
 
-/** The gateway every reader starts on. The config's own check makes sure the default names one. */
-export function defaultGateway(settings: SwarmSettings): GatewaySetting {
-  return settings.gateways.find((gateway) => gateway.id === settings.defaultId) ?? settings.gateways[0];
-}
-
 /**
  * The gateway a saved or picked address means. A viewer's choice is kept as an address, which is what
  * the control panel saves and what a choice saved before `providers` existed holds, so an address an

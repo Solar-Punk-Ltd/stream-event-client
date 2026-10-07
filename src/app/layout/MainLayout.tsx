@@ -2,7 +2,7 @@ import { Link } from 'react-router';
 
 import { useAppContext } from '@/app/AppProvider';
 import { LoginButton } from '@/features/chat/LoginButton/LoginButton';
-import { ControlPanel } from '@/features/gateway/ControlPanel';
+import { SourcesScreen } from '@/features/gateway/SourcesScreen';
 
 import './MainLayout.scss';
 
@@ -20,7 +20,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           <img src={theme.logoUrl} alt={theme.logoAlt} className="main-layout-logo" />
         </Link>
         <div className="main-layout-actions">
-          <ControlPanel />
+          <SourcesScreen />
           {chat && <LoginButton />}
         </div>
       </header>

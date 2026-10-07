@@ -58,6 +58,8 @@ $color: (
   'on-live': #fafafa,
   'error-text': #ff8a8a,
   'warning': #f28b0a,
+  // A source that answers, beside the orange of a warning. The palette's own green, name-15.
+  'success': #15803d,
   'spinner-track': rgba(250, 250, 250, 0.15),
   // A chat name's colour, behind its initial in light text. The chat picks one by hashing the name.
   // msrs-client's sixteen hues, each darkened only as far as light text on it needs to read at 4.5:1.

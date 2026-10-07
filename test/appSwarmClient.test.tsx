@@ -9,6 +9,7 @@ import { manifestFetcher } from '../src/features/player/CustomManifestLoader';
 import { buildSwarmUri } from '../src/features/player/playlist';
 import { gatewayClock } from '../src/shared/gatewayClock';
 import type { SwarmClient } from '../src/swarm/client';
+import { chooseSource, setMode, setPart } from '../src/swarm/routing';
 import { mount, settle, type Mounted } from './helpers/dom';
 
 const OWNER = '0x' + '1'.repeat(40);
@@ -19,8 +20,8 @@ const OWN_NODE = 'http://localhost:1633';
 const STREAM_OWNER = '2'.repeat(40);
 const STREAM_TOPIC_HEX = Topic.fromString('a-stream').toString();
 const SOURCE_URL = buildSwarmUri(STREAM_OWNER, 'a-stream');
-/** Where a viewer's chosen gateway survives a reload, as the provider keeps it. */
-const GATEWAY_STORAGE_KEY = 'swarm-gateway-url';
+/** Where the node picker kept a viewer's node before sources existed. */
+const LEGACY_STORAGE_KEY = 'swarm-gateway-url';
 
 const CHAT_READ = 'https://chat-read.example.com';
 
@@ -74,6 +75,21 @@ function start(extra: Record<string, unknown> = {}): Context {
 
 const current = (): Context => context!;
 
+/** Adds the viewer's own node as a source and reads every part from it, as the Sources screen does. */
+async function pickOwnNode(): Promise<string> {
+  const id = current().addSource({ type: 'bee-node', name: 'Desk node', url: OWN_NODE });
+  await settle();
+  current().setRouting(chooseSource(current().routing, id));
+  await settle();
+  return id;
+}
+
+/** Reads every part from the default gateway again. */
+async function pickEventGateway(): Promise<void> {
+  current().setRouting(chooseSource(current().routing, 'event'));
+  await settle();
+}
+
 async function readThrough(swarm: SwarmClient): Promise<string> {
   const before = asked.length;
   await swarm.reader('previews').readBytes(REFERENCE);
@@ -104,15 +120,27 @@ describe("the app's Swarm client", () => {
 
     expect(current().swarm).toBe(swarm);
     expect(await readThrough(swarm)).toBe(`${EVENT_GATEWAY}/bytes/${REFERENCE}`);
-    expect(current().gatewayUrl).toBe(EVENT_GATEWAY);
-    expect(current().defaultGatewayUrl).toBe(EVENT_GATEWAY);
+    expect(current().parts.player).toBe('event');
+    expect(current().streamListSourceId).toBe('event');
   });
 
-  it("starts on the viewer's saved choice", async () => {
-    localStorage.setItem(GATEWAY_STORAGE_KEY, OWN_NODE);
+  it("starts on the viewer's node saved before sources existed, moved into a source", async () => {
+    localStorage.setItem(LEGACY_STORAGE_KEY, OWN_NODE);
     const { swarm } = start();
     await settle();
 
+    expect(await readThrough(swarm)).toBe(`${OWN_NODE}/bytes/${REFERENCE}`);
+    expect(current().sources.map(({ name, offered }) => [name, offered])).toContainEqual(['My Bee node', false]);
+  });
+
+  it("starts on the viewer's saved sources and routing", async () => {
+    start();
+    await settle();
+    await pickOwnNode();
+    mounted?.unmount();
+
+    const { swarm } = start();
+    await settle();
     expect(await readThrough(swarm)).toBe(`${OWN_NODE}/bytes/${REFERENCE}`);
   });
 
@@ -120,27 +148,69 @@ describe("the app's Swarm client", () => {
     start();
     await settle();
 
-    current().setGatewayUrl(OWN_NODE);
-    await settle();
+    await pickOwnNode();
     expect(await readThrough(current().swarm)).toBe(`${OWN_NODE}/bytes/${REFERENCE}`);
 
-    current().setGatewayUrl(current().defaultGatewayUrl);
-    await settle();
+    await pickEventGateway();
     expect(await readThrough(current().swarm)).toBe(`${EVENT_GATEWAY}/bytes/${REFERENCE}`);
+  });
+
+  it('is not rebuilt for a rename, which changes nothing it reads', async () => {
+    start();
+    await settle();
+    const id = await pickOwnNode();
+    const before = current().swarm;
+
+    current().renameSource(id, 'Laptop');
+    await settle();
+
+    expect(current().swarm).toBe(before);
+    expect(current().sources.find((source) => source.id === id)?.name).toBe('Laptop');
+  });
+
+  it('reads each part from its own source per part', async () => {
+    start();
+    await settle();
+    const id = await pickOwnNode();
+    current().setRouting(setPart(setMode(current().routing, 'per-part'), 'previews', 'backup'));
+    await settle();
+
+    expect(await readThrough(current().swarm)).toBe(`${BACKUP_GATEWAY}/bytes/${REFERENCE}`);
+    expect(current().parts).toMatchObject({ player: id, 'stream-list': id, previews: 'backup' });
+  });
+
+  it('moves every part off a source the viewer removes, onto the event gateway', async () => {
+    start();
+    await settle();
+    const id = await pickOwnNode();
+
+    current().removeSource(id);
+    await settle();
+
+    expect(await readThrough(current().swarm)).toBe(`${EVENT_GATEWAY}/bytes/${REFERENCE}`);
+    expect(current().sources.map((source) => source.id)).not.toContain(id);
+  });
+
+  it("asks the fallbacks in the viewer's order", async () => {
+    start();
+    await settle();
+    expect(current().fallbackOrder).toEqual(['backup', 'event']);
+    await pickOwnNode();
+
+    expect(current().swarm.activity()[0].fallbackOrder).toEqual(['backup', 'event']);
   });
 
   it("reads the stream list through the client's stream-list reader, on the node picked", async () => {
     start();
     await settle();
-    current().setGatewayUrl(OWN_NODE);
-    await settle();
+    const id = await pickOwnNode();
     await current().fetchAppState();
 
     const streamList = current()
       .swarm.counts()
       .filter(({ feature }) => feature === 'stream-list');
     expect(streamList).toEqual([
-      { feature: 'stream-list', read: 'feed-head', provider: 'own-node', answer: 'not-found', count: 1 },
+      { feature: 'stream-list', read: 'feed-head', provider: id, answer: 'not-found', count: 1 },
     ]);
     expect(asked[0]).toBe(`${EVENT_GATEWAY}/feeds/${OWNER}/${Topic.fromString('event-streams').toString()}`);
   });
@@ -151,8 +221,7 @@ describe("the app's Swarm client", () => {
     const before = asked.length;
 
     await manifestFetcher.fetchSource(SOURCE_URL).catch(() => {});
-    current().setGatewayUrl(OWN_NODE);
-    await settle();
+    const id = await pickOwnNode();
     await manifestFetcher.fetchSource(SOURCE_URL).catch(() => {});
 
     expect(asked.slice(before)).toEqual([
@@ -163,14 +232,13 @@ describe("the app's Swarm client", () => {
       current()
         .swarm.counts()
         .filter(({ feature }) => feature === 'player'),
-    ).toEqual([{ feature: 'player', read: 'feed-head', provider: 'own-node', answer: 'not-found', count: 1 }]);
+    ).toEqual([{ feature: 'player', read: 'feed-head', provider: id, answer: 'not-found', count: 1 }]);
   });
 
   it("reads the chat from the event's chat read address, whichever node the viewer picked", async () => {
     const { chatReads } = start({ chat: CHAT });
     await settle();
-    current().setGatewayUrl(OWN_NODE);
-    await settle();
+    await pickOwnNode();
     const before = asked.length;
 
     await chatReads().readChunk(REFERENCE);
@@ -178,6 +246,18 @@ describe("the app's Swarm client", () => {
 
     expect(current().chatReads).toBe(chatReads);
     expect(asked.slice(before)).toEqual([`${CHAT_READ}/chunks/${REFERENCE}`, `${OWN_NODE}/bytes/${REFERENCE}`]);
+  });
+
+  it('reads the chat from a source the viewer picks for it per part', async () => {
+    const { chatReads } = start({ chat: CHAT });
+    await settle();
+    current().setRouting(setPart(setMode(current().routing, 'per-part'), 'chat', 'backup'));
+    await settle();
+    const before = asked.length;
+
+    await chatReads().readChunk(REFERENCE);
+
+    expect(asked.slice(before)[0]).toBe(`${BACKUP_GATEWAY}/chunks/${REFERENCE}`);
   });
 
   it("keeps the shared gateway clock from the player's answers' server time", async () => {

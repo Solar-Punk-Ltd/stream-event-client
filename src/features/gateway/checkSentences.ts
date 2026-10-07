@@ -4,7 +4,6 @@
  * and a new way of failing cannot ship without its words.
  */
 import type { SwarmAnswer } from '@/swarm/answers';
-import type { BeeNodeAccess } from '@/swarm/beeNodeAccess';
 import type { NotReadyReason, ProbeResult } from '@/swarm/provider';
 
 import type { UnreachableCause } from './reachability';
@@ -127,15 +126,6 @@ export const NO_SEGMENT = (title: string) =>
 const THIS_COMPUTER_EXAMPLE = 'http://localhost:1633';
 
 const THIS_COMPUTER_HOSTS = 'localhost or 127.0.0.1';
-
-/** What the picker says a node of the viewer's own may be, for each level the deployment may set. */
-export const OWN_NODE_DESCRIPTION: Readonly<Record<BeeNodeAccess, string>> = {
-  off: 'A Bee node on this computer, for example Swarm Desktop. Change the port if yours is not 1633.',
-  https:
-    'A Bee node on this computer, for example Swarm Desktop, or one on another machine at an https address. Change the port if yours is not 1633.',
-  'https-and-local-http':
-    'A Bee node on this computer, for example Swarm Desktop, one on another machine at an https address, or one on your local network over plain http in Chrome or Edge. Change the port if yours is not 1633.',
-};
 
 /** Why the picker will not use what a viewer typed, each with what to type instead. */
 export const ADDRESS_REFUSED = {

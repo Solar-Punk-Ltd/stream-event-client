@@ -5,13 +5,7 @@ import { createSwarmClient } from '../../src/swarm/createSwarmClient';
 import { PROVIDER_KINDS } from '../../src/swarm/providerKinds';
 import { BeeHttpProvider } from '../../src/swarm/providers/bee-http/beeHttpProvider';
 import { PROVIDER_REGISTRY } from '../../src/swarm/registry';
-import {
-  choiceForAddress,
-  defaultGateway,
-  OWN_GATEWAY_ID,
-  SINGLE_GATEWAY_ID,
-  swarmSettingsFrom,
-} from '../../src/swarm/settings';
+import { choiceForAddress, OWN_GATEWAY_ID, SINGLE_GATEWAY_ID, swarmSettingsFrom } from '../../src/swarm/settings';
 
 const OWNER = '0x' + '1'.repeat(40);
 const CATALOG = { owner: OWNER, topic: 'event-streams' };
@@ -146,10 +140,6 @@ describe('how far a Bee node of the viewer may be', () => {
 
 describe("the viewer's choice of gateway", () => {
   const settings = swarmSettingsFrom(TWO_GATEWAYS);
-
-  it('is the default gateway until the viewer picks another', () => {
-    expect(defaultGateway(settings)).toEqual({ id: 'primary', kind: 'bee-http', label: 'Event gateway', url: PRIMARY });
-  });
 
   it('names an offered gateway by its address, a trailing slash either side', () => {
     expect(choiceForAddress(settings, `${BACKUP}/`)).toEqual({ id: 'backup', kind: 'bee-http', url: BACKUP });
