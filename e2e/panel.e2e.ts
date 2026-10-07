@@ -89,3 +89,27 @@ for (const theme of THEME_NAMES) {
     expect(gateway.unknownPaths(), 'every request was one the fake gateway knows').toEqual([]);
   });
 }
+
+test('the Test passes a gateway the deployment offers that refuses /health and takes 6 s for the stream list head', async ({
+  page,
+  context,
+}) => {
+  const gateway = new LadderGateway({ servesMaster: true, catalogHeadExtraMs: 6_000, refusesHealth: true });
+  await refuseOtherOrigins(context);
+  await serveConfig(page, gateway.config());
+  await gateway.attach(page);
+  await page.goto('/');
+
+  await page.getByRole('button', { name: /^Gateway/ }).click();
+  const panel = page.getByRole('dialog', { name: 'Where the video loads from' });
+  const row = panel.locator('[data-gateway-row]', { hasText: 'Event gateway' });
+  await row.getByRole('button', { name: 'Test Event gateway', exact: true }).click();
+
+  const results = panel.getByRole('list', { name: 'Test of Event gateway' });
+  await expect(results.getByRole('listitem')).toHaveCount(EXPECTED.length, { timeout: 30_000 });
+  await expect(results.getByRole('listitem').nth(0).locator('.panel-result-sentence')).toHaveText(CONNECTED_BY_CONTENT);
+  await expect(results.getByRole('listitem').nth(1).locator('.panel-result-name')).toHaveText('Stream list: Passed');
+  await expect(results.getByRole('listitem').nth(2).locator('.panel-result-name')).toHaveText('Video: Passed');
+  expect(gateway.count('health'), 'an offered gateway is not asked for its health').toBe(0);
+  expect(gateway.unknownPaths(), 'every request was one the fake gateway knows').toEqual([]);
+});

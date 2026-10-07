@@ -176,6 +176,16 @@ export interface LadderGatewayOptions {
   readonly servesMaster?: boolean;
   /** The status the stream's picture is answered with. Without it the stream list names no picture. */
   readonly pictureStatus?: number;
+  /**
+   * How much longer than a round trip the stream list's head lookup takes, as Bee's walk of a long feed does on the
+   * event gateway. None by default.
+   */
+  readonly catalogHeadExtraMs?: number;
+  /**
+   * Whether `/health` is refused with no answer a page can read, as the event gateway, which serves stream paths
+   * only, refuses it without a CORS header. Off by default.
+   */
+  readonly refusesHealth?: boolean;
 }
 
 /** The reference the stream list names the stream's picture by, made up, 64 hex digits as a real one is. */
@@ -191,6 +201,8 @@ export class LadderGateway {
   readonly markers: boolean;
   readonly servesMaster: boolean;
   readonly pictureStatus: number | null;
+  readonly catalogHeadExtraMs: number;
+  readonly refusesHealth: boolean;
   readonly requests: LoggedRequest[] = [];
   private readonly feeds = new Map<RungName, RungFeed>();
   private readonly byTopicHex = new Map<string, 'catalog' | 'master' | RungName>();
@@ -201,6 +213,8 @@ export class LadderGateway {
     this.markers = options.markers ?? true;
     this.servesMaster = options.servesMaster ?? false;
     this.pictureStatus = options.pictureStatus ?? null;
+    this.catalogHeadExtraMs = options.catalogHeadExtraMs ?? 0;
+    this.refusesHealth = options.refusesHealth ?? false;
     const name = (feed: 'catalog' | 'master' | RungName) =>
       feed === 'catalog' ? CATALOG_TOPIC : feed === 'master' ? MASTER_TOPIC : `ladder-test-${feed}`;
     const feeds: ('catalog' | 'master' | RungName)[] = ['catalog', 'master', ...RUNGS.map((rung) => rung.name)];
@@ -327,6 +341,9 @@ export class LadderGateway {
     }
     if (resource === 'health' && owner === undefined) {
       this.log('health', null, path);
+      if (this.refusesHealth) {
+        return () => route.abort('failed');
+      }
       return () => route.fulfill({ status: 200, contentType: 'application/json', body: '{"status":"ok"}' });
     }
     if (resource === 'bzz' && owner === PICTURE_REF && this.pictureStatus !== null) {
@@ -339,7 +356,10 @@ export class LadderGateway {
       if (feed === 'catalog') {
         this.log('catalog', null, path);
         const body = JSON.stringify([this.catalogEntry()]);
-        return () => this.fulfillFeed(route, 0, body, { date: new Date().toUTCString() });
+        return async () => {
+          await sleep(this.catalogHeadExtraMs);
+          await this.fulfillFeed(route, 0, body, { date: new Date().toUTCString() });
+        };
       }
       if (feed === 'master') {
         this.log('master', null, path);
