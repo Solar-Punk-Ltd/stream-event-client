@@ -29,6 +29,9 @@ const QUIET_WATCH_MS = 15_000;
 /** Longer than a failover can take: 8 s unserved, then up to 6 s of the sibling, then hls.js's switch. */
 const FAILOVER_WAIT_MS = 45_000;
 
+/** How long after the playing quality the others finish, as uploads that drain at their own pace do. */
+const STAGGERED_END_MS = 3_000;
+
 test.describe.configure({ timeout: 120_000 });
 
 /** Prints one journey's numbers on a line of its own, where the run's output keeps them. */
@@ -343,6 +346,37 @@ test('every quality ends with ENDLIST: the ended overlay shows', async ({ page, 
   });
 
   report('ended', { overlayMs: Date.now() - endedAtMs, requestsSinceEnd: gateway.tally(endedAtMs), warnings });
+  expect(gateway.count('master'), 'nothing is read for the master feed').toBe(0);
+  await expectNoFatalErrorOrRestart(page);
+  expectOnlyKnownRequests(gateway);
+});
+
+test('the qualities finish seconds apart: the ended overlay shows and nothing is failed over', async ({
+  page,
+  context,
+}) => {
+  const gateway = new LadderGateway();
+  const { warnings } = await openStream(page, context, gateway);
+  expect(await playingUri(page), `the player starts on ${TOP}`).toBe(rungUri(TOP));
+
+  const endedAtMs = Date.now();
+  gateway.finish(TOP);
+  await page.waitForTimeout(STAGGERED_END_MS);
+  for (const rung of RUNGS.filter((candidate) => candidate.name !== TOP)) {
+    gateway.finish(rung.name);
+  }
+  await expect(page.getByRole('status').filter({ hasText: 'This broadcast has ended' })).toBeVisible({
+    timeout: 60_000,
+  });
+
+  report('staggered end', {
+    staggerMs: STAGGERED_END_MS,
+    overlayMs: Date.now() - endedAtMs,
+    switches: (await probeState(page)).switches.filter((s) => s.atMs >= endedAtMs).map((s) => s.uri),
+    requestsSinceEnd: gateway.tally(endedAtMs),
+    warnings,
+  });
+  expect(await levelUris(page), `${TOP} was not taken out as a quality that stopped alone`).toContain(rungUri(TOP));
   expect(gateway.count('master'), 'nothing is read for the master feed').toBe(0);
   await expectNoFatalErrorOrRestart(page);
   expectOnlyKnownRequests(gateway);
