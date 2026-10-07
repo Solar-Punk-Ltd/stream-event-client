@@ -3,32 +3,32 @@ import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
 import { THEME_NAMES } from '../src/design/themeNames';
-import { CONNECTED_BY_CONTENT } from '../src/features/gateway/checkSentences';
 import { refuseOtherOrigins, serveConfig } from './journey';
 import { LadderGateway } from './ladderGateway';
 import { GATEWAY_PATH, PREVIEW_ORIGIN } from './recording';
 
 /**
- * The control panel against the fake gateway: Test reads every feature of a live ladder from it, the picture is
- * refused so one feature fails, and the report holds the sentences and no other address. Set
- * `PANEL_SCREENSHOTS_DIR` to a folder outside the repository to keep a picture of the panel at 1440 and 390 wide.
+ * The Sources screen against the fake gateway: opening the event gateway's details runs the Test on every part of a
+ * live ladder, the picture is refused so one part fails, its sentence waits behind How to fix, and the diagnostics
+ * hold the sentences and no other address. Set `PANEL_SCREENSHOTS_DIR` to a folder outside the repository to keep a
+ * picture of the screen at 1440 and 390 wide.
  */
 
 const SCREENSHOTS_DIR = process.env.PANEL_SCREENSHOTS_DIR;
 const WIDTHS = [1440, 390] as const;
 
-/** What each check says against this gateway, in the order the panel lists them. */
-const EXPECTED: readonly (readonly [string, RegExp | string])[] = [
-  ['Connection: Passed', CONNECTED_BY_CONTENT],
-  ['Stream list: Passed', 'The stream list loaded: 1 stream, entry 0.'],
-  ['Video: Passed', 'The video loaded: the time marker of “Ladder test stream”, a playlist and one segment.'],
-  ['Previews: Passed', 'Previews loaded: the preview playlist of “Ladder test stream”.'],
-  [
-    'Pictures: Failed',
-    'The gateway answered with an error (HTTP 500). Test again in a minute, or pick another gateway.',
-  ],
-  ['Chat feed on this gateway: Not tested', 'Not tested: this site has no chat.'],
+/** Each part's badge against this gateway, in the order the screen lists them. */
+const EXPECTED_BADGES = [
+  'Connection: passed',
+  'Stream list: passed',
+  'Video: passed',
+  'Previews: passed',
+  'Pictures: failed',
+  'Chat: not applicable',
 ];
+
+const PICTURE_FAILURE =
+  'The gateway answered with an error (HTTP 500). Test again in a minute, or pick another gateway.';
 
 async function screenshot(page: Page, name: string): Promise<void> {
   if (!SCREENSHOTS_DIR) {
@@ -37,7 +37,7 @@ async function screenshot(page: Page, name: string): Promise<void> {
   const dialog = page.getByRole('dialog');
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: width > 800 ? 1000 : 844 });
-    // The panel scrolls inside itself, so its top and its end are two pictures.
+    // The screen scrolls inside itself, so its top and its end are two pictures.
     for (const [part, top] of [
       ['top', 0],
       ['end', Number.MAX_SAFE_INTEGER],
@@ -48,8 +48,17 @@ async function screenshot(page: Page, name: string): Promise<void> {
   }
 }
 
+/** Opens the Sources screen and the event gateway's details, which runs its Test. */
+async function openEventGateway(page: Page) {
+  await page.getByRole('button', { name: /^Sources/ }).click();
+  const screen = page.getByRole('dialog', { name: 'Sources' });
+  const row = screen.locator('[data-source-row]', { hasText: 'Event gateway' });
+  await row.getByRole('button', { name: 'Details of Event gateway', exact: true }).click();
+  return { screen, row };
+}
+
 for (const theme of THEME_NAMES) {
-  test(`${theme}: the control panel tests the gateway on every feature, one failing, and copies a report`, async ({
+  test(`${theme}: the Sources screen tests the gateway on every part, one failing, and copies diagnostics`, async ({
     page,
     context,
   }) => {
@@ -60,32 +69,34 @@ for (const theme of THEME_NAMES) {
     await gateway.attach(page);
     await page.goto('/');
 
-    await page.getByRole('button', { name: /^Gateway/ }).click();
-    const panel = page.getByRole('dialog', { name: 'Where the video loads from' });
-    const row = panel.locator('[data-gateway-row]', { hasText: 'Event gateway' });
-    await expect(row, 'the one gateway this config offers is in use').toContainText('In use');
-    await row.getByRole('button', { name: 'Test Event gateway', exact: true }).click();
+    const { screen, row } = await openEventGateway(page);
+    await expect(row.getByRole('radio', { name: 'Event gateway' }), 'the one gateway offered is in use').toBeChecked();
+    await expect(row.locator('[data-health="ok"]'), 'the light check found the gateway answering').toBeVisible({
+      timeout: 15_000,
+    });
 
-    const results = panel.getByRole('list', { name: 'Test of Event gateway' });
-    await expect(results.getByRole('listitem')).toHaveCount(EXPECTED.length, { timeout: 30_000 });
-    for (const [at, [name, sentence]] of EXPECTED.entries()) {
-      const item = results.getByRole('listitem').nth(at);
-      await expect(item.locator('.panel-result-name')).toHaveText(name);
-      await expect(item.locator('.panel-result-sentence')).toHaveText(sentence);
-    }
-    await expect(panel.getByRole('region', { name: 'Status' })).toContainText('Reads from Event gateway');
+    const badges = row.getByRole('list', { name: 'Checks of Event gateway' }).getByRole('listitem');
+    await expect(badges).toHaveText(EXPECTED_BADGES, { timeout: 30_000 });
+    await expect(row.locator('.source-status-line')).toHaveText('Pictures failed');
 
-    await panel.getByRole('button', { name: 'Copy report', exact: true }).click();
-    await expect(panel.getByText('Report copied.')).toBeVisible();
+    const fix = row.locator('details.source-fix');
+    await expect(fix.getByText(PICTURE_FAILURE), 'the sentence waits behind How to fix').toBeHidden();
+    await fix.locator('summary').click();
+    await expect(fix.getByText(PICTURE_FAILURE)).toBeVisible();
+
+    await screen.getByRole('button', { name: 'Copy diagnostics', exact: true }).click();
+    await expect(screen.getByText('Diagnostics copied')).toBeVisible();
     const report = await page.evaluate(() => navigator.clipboard.readText());
     expect(report).toContain(`Test of Event gateway (${GATEWAY_PATH})`);
-    expect(report).toContain(
-      'Pictures: failed. The gateway answered with an error (HTTP 500). Test again in a minute, or pick another gateway.',
-    );
+    expect(report).toContain(`Pictures: failed. ${PICTURE_FAILURE}`);
     expect(report).toContain('Status, the last minute');
     expect(report, 'the report names no address but the tested one').not.toMatch(/[a-z][a-z0-9+.-]*:\/\//i);
 
-    await screenshot(page, `panel-${theme}`);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const overflow = await screen.evaluate((element) => element.scrollWidth - element.clientWidth);
+    expect(overflow, 'the screen does not scroll sideways at phone width').toBeLessThanOrEqual(0);
+
+    await screenshot(page, `sources-${theme}`);
     expect(gateway.unknownPaths(), 'every request was one the fake gateway knows').toEqual([]);
   });
 }
@@ -100,16 +111,13 @@ test('the Test passes a gateway the deployment offers that refuses /health and t
   await gateway.attach(page);
   await page.goto('/');
 
-  await page.getByRole('button', { name: /^Gateway/ }).click();
-  const panel = page.getByRole('dialog', { name: 'Where the video loads from' });
-  const row = panel.locator('[data-gateway-row]', { hasText: 'Event gateway' });
-  await row.getByRole('button', { name: 'Test Event gateway', exact: true }).click();
+  const { row } = await openEventGateway(page);
 
-  const results = panel.getByRole('list', { name: 'Test of Event gateway' });
-  await expect(results.getByRole('listitem')).toHaveCount(EXPECTED.length, { timeout: 30_000 });
-  await expect(results.getByRole('listitem').nth(0).locator('.panel-result-sentence')).toHaveText(CONNECTED_BY_CONTENT);
-  await expect(results.getByRole('listitem').nth(1).locator('.panel-result-name')).toHaveText('Stream list: Passed');
-  await expect(results.getByRole('listitem').nth(2).locator('.panel-result-name')).toHaveText('Video: Passed');
+  const badges = row.getByRole('list', { name: 'Checks of Event gateway' }).getByRole('listitem');
+  await expect(badges).toHaveCount(EXPECTED_BADGES.length, { timeout: 30_000 });
+  await expect(badges.nth(0)).toHaveText('Connection: passed');
+  await expect(badges.nth(1)).toHaveText('Stream list: passed');
+  await expect(badges.nth(2)).toHaveText('Video: passed');
   expect(gateway.count('health'), 'an offered gateway is not asked for its health').toBe(0);
   expect(gateway.unknownPaths(), 'every request was one the fake gateway knows').toEqual([]);
 });

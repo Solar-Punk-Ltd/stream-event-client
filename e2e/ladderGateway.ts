@@ -73,7 +73,7 @@ export type RequestKind =
   | 'marker'
   /** A read of a ladder time marker that was not written, answered 404. */
   | 'markerMiss'
-  /** Bee's health check, which the control panel asks a node of the viewer's own. */
+  /** Bee's health check, which the Sources screen asks a Bee node of the viewer's own. */
   | 'health'
   /** A stream's picture. */
   | 'picture'
