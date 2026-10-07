@@ -144,3 +144,12 @@ export const ADDRESS_REFUSED = {
   plainHttpInternet:
     "A browser blocks plain http to a node on the internet from a site served over https. Enter the node's address starting with https:// instead.",
 } as const;
+
+/** A Bee node that answers and cannot serve this viewer yet, each with what to do about it. */
+export const NODE_NOT_READY = {
+  starting: 'The Bee node at this address is still starting. Wait a minute, then try again.',
+  noPeers:
+    'The Bee node at this address is running but has no peers yet, so it cannot fetch anything from Swarm. Wait a minute for it to connect, then try again.',
+  tooOld: (version: string, needed: string) =>
+    `This Bee node runs version ${version}, and this viewer needs ${needed} or newer. Update the node, then try again.`,
+} as const;

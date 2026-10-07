@@ -262,7 +262,10 @@ and the kinds of provider the build carries (`src/features/gateway/`).
   names, IPv6 unique local addresses) and `[::1]`, which a content security policy can only allow by
   allowing every plain http address. Plain http to the internet is never accepted, because a browser
   blocks it from an https page. Each refusal says why and what to type instead, and the node is
-  checked before the switch, a failure explained in plain words.
+  checked before the switch, a failure explained in plain words: its `/health`, its `/readiness` (400
+  while it starts), its `/peers` (503 while it starts, none when it has no peers yet), and a version of
+  at least 2.3.0, the release that added the `GET /soc` every feed entry is read through. The Test's
+  connection check of the viewer's own node asks the same.
   The choice is remembered in the browser as an address, under the key the node picker used, so a
   choice saved before the panel still holds. A switch makes the Swarm client again on that gateway, and
   the player, the stream list and the previews read through it from then on.

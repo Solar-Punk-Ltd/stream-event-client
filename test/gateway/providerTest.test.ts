@@ -9,11 +9,13 @@ import {
   COULD_NOT_REACH,
   LOCAL_HTTP_UNSUPPORTED,
   MIXED_CONTENT,
+  NODE_NOT_READY,
   NO_SEGMENT,
   NOT_A_SWARM_GATEWAY,
   SKIPPED,
 } from '../../src/features/gateway/checkSentences';
 import { onlyGateway } from '../../src/features/gateway/gatewayProbe';
+import { inspectBeeNode, MINIMUM_BEE_VERSION } from '../../src/features/gateway/nodeReadiness';
 import { CHECKS, type CheckResult, testProvider } from '../../src/features/gateway/providerTest';
 import { makeFeedIdentifier } from '../../src/shared/feedFollow';
 import { encodeLadderMarker, ladderMarkerIdentifier, markerPeriodAt } from '../../src/shared/ladderMarker';
@@ -101,6 +103,7 @@ async function run({
     now,
     isOwnNode,
     loadUrl: (url, options) => loadUrl(url, { ...options, fetcher }),
+    inspectNode: (url, options) => inspectBeeNode(url, { ...options, fetcher }),
   });
   expect(results.map(({ check }) => check)).toEqual([...CHECKS]);
   return Object.fromEntries(results.map((result) => [result.check, result]));
@@ -327,6 +330,23 @@ describe('the window the Test gives each read', () => {
       sentence:
         'The gateway did not answer in 5 s. It may be busy or still starting. Test again in a minute, or pick another gateway.',
     });
+  });
+
+  it("fails the connection of the viewer's own node while it is still starting, and says to wait", async () => {
+    const starting = (url: string) =>
+      url.endsWith('/readiness') ? Response.json({ status: 'notReady' }, { status: 400 }) : undefined;
+    const results = await run({ fetcher: gateway(starting) });
+
+    expect(results.connection).toEqual({ check: 'connection', outcome: 'failed', sentence: NODE_NOT_READY.starting });
+  });
+
+  it("fails the connection of the viewer's own node when it is older than the viewer needs", async () => {
+    const old = (url: string) =>
+      url.endsWith('/health') ? Response.json({ status: 'ok', version: '2.2.0' }) : undefined;
+    const results = await run({ fetcher: gateway(old) });
+
+    expect(results.connection.outcome).toBe('failed');
+    expect(results.connection.sentence).toBe(NODE_NOT_READY.tooOld('2.2.0', MINIMUM_BEE_VERSION));
   });
 });
 

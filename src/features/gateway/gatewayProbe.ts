@@ -13,6 +13,7 @@ import { type BeeNodeAccess, DEFAULT_BEE_NODE_ACCESS } from '@/swarm/beeNodeAcce
 import { type GatewaySetting, OWN_GATEWAY_ID, type SwarmSettings } from '@/swarm/settings';
 
 import { ADDRESS_REFUSED, LOCAL_HTTP_UNSUPPORTED } from './checkSentences';
+import { describeNodeState, inspectBeeNode, type NodeState } from './nodeReadiness';
 
 /** Both a viewer's typing and a saved address, since every caller joins with a path of its own. */
 function withoutTrailingSlash(url: string): string {
@@ -183,6 +184,8 @@ type GatewayProbeOutcome =
    */
   | { kind: 'not-bee' }
   | { kind: 'timed-out' }
+  /** A Bee node answered its health and cannot serve this viewer yet. */
+  | { kind: 'not-ready'; state: Exclude<NodeState, { kind: 'ready' }> }
   /** No answer at all: connection refused, wrong port, DNS miss, or the node blocked this site. */
   | { kind: 'unreachable' };
 
@@ -215,6 +218,8 @@ interface GatewayProbeOptions {
   pageProtocol?: string;
   /** Whether this browser can mark a request as meant for the local network. Read from the page when absent. */
   localNetworkRequests?: boolean;
+  /** Injected only by tests. Production asks the node's readiness, peers and version. */
+  inspect?: (gatewayUrl: string) => Promise<NodeState>;
 }
 
 /** Empty off a browser, where nothing is being loaded into a page and nothing can be blocked. */
@@ -237,6 +242,7 @@ export async function probeGateway(
     prober = beeHttpProber,
     pageProtocol = currentPageProtocol(),
     localNetworkRequests = supportsLocalNetworkRequests(),
+    inspect = inspectBeeNode,
   }: GatewayProbeOptions = {},
 ): Promise<GatewayProbeOutcome> {
   // Asked before the fetch, because this is the one failure that is knowable without one and the
@@ -250,8 +256,10 @@ export async function probeGateway(
   // with no status, so the probe finds every one of them unreachable.
   const found = await prober(gatewayUrl).probe({ timeoutMs: PROBE_TIMEOUT_MS });
   switch (found.kind) {
-    case 'ok':
-      return { kind: 'ok' };
+    case 'ok': {
+      const state = await inspect(gatewayUrl);
+      return state.kind === 'ready' ? { kind: 'ok' } : { kind: 'not-ready', state };
+    }
     case 'not-swarm':
       return { kind: 'not-bee' };
     case 'rejected':
@@ -282,6 +290,8 @@ export function describeProbeFailure(failure: GatewayProbeFailure): string {
       return `Something answered at this address, but it is not a Bee node. ${CHECK_THE_PORT}`;
     case 'local-http-unsupported':
       return LOCAL_HTTP_UNSUPPORTED;
+    case 'not-ready':
+      return describeNodeState(failure.state);
     case 'mixed-content':
       return 'This site is served over https, and a browser refuses to load anything over plain http from it, so the request never leaves this page. Give the node an https address, or open this site over http.';
     case 'timed-out':

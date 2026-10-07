@@ -195,7 +195,12 @@ describe('the control panel', () => {
 
     click(button('Test your own node'));
     await waitFor(() => (row('Your own node').textContent?.includes('The gateway answered in') ? true : null));
-    expect(asked.filter((url) => url.endsWith('/health'))).toEqual(['http://localhost:1633/health']);
+    // Twice: the probe, then the version check beside readiness and peers.
+    expect(asked.filter((url) => url.endsWith('/health'))).toEqual([
+      'http://localhost:1633/health',
+      'http://localhost:1633/health',
+    ]);
+    expect(asked).toContain('http://localhost:1633/readiness');
   });
 
   it('forgets a Test the viewer stopped by closing the panel, so it can be run again', async () => {

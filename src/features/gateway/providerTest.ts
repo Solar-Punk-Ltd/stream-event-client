@@ -41,6 +41,7 @@ import {
   SKIPPED,
 } from './checkSentences';
 import { isBlockedAsMixedContent, isLocalHttp } from './gatewayProbe';
+import { describeNodeState, inspectBeeNode, type InspectOptions, type NodeState } from './nodeReadiness';
 
 /** What the Test checks, in the order the panel shows them. */
 export const CHECKS = ['connection', 'stream-list', 'player', 'previews', 'thumbnails', 'chat'] as const;
@@ -95,6 +96,8 @@ export interface ProviderTestContext {
   readonly pageProtocol?: string;
   /** Whether this browser can mark a request as meant for the local network. Injected by tests. */
   readonly localNetworkRequests?: boolean;
+  /** Injected by tests. Asks the node's readiness, peers and version otherwise. */
+  readonly inspectNode?: (address: string, options: InspectOptions) => Promise<NodeState>;
 }
 
 const passed = (check: CheckName, sentence: string): CheckResult => ({ check, outcome: 'passed', sentence });
@@ -193,7 +196,12 @@ async function checkConnection(context: ProviderTestContext): Promise<CheckResul
   // The picker's window for a node of the viewer's own, short so a wrong port does not feel like a hang.
   const found = await context.client.probe({ timeoutMs: PROBE_TIMEOUT_MS, signal: context.signal });
   const sentence = probeSentence(found, PROBE_TIMEOUT_MS);
-  return found.kind === 'ok' ? passed('connection', sentence) : failed('connection', sentence);
+  if (found.kind !== 'ok') {
+    return failed('connection', sentence);
+  }
+  const inspect = context.inspectNode ?? inspectBeeNode;
+  const state = await inspect(context.address, { signal: context.signal });
+  return state.kind === 'ready' ? passed('connection', sentence) : failed('connection', describeNodeState(state));
 }
 
 async function checkStreamList(

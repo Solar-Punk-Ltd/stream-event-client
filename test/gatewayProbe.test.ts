@@ -9,6 +9,7 @@ import {
   probeGateway,
 } from '@/features/gateway/gatewayProbe';
 import { LOCAL_HTTP_UNSUPPORTED } from '@/features/gateway/checkSentences';
+import { describeNodeState } from '@/features/gateway/nodeReadiness';
 import { PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
 import { BeeHttpProvider } from '@/swarm/providers/bee-http/beeHttpProvider';
 
@@ -35,6 +36,9 @@ const SPA_INDEX = '<!doctype html><html><head><title>Multimedia Streaming over S
 function beeAnsweredBy(fetcher: typeof fetch) {
   return (url: string) => new BeeHttpProvider({ baseUrl: url, fetcher });
 }
+
+/** A node whose readiness and peers raise no objection. */
+const ready = async () => ({ kind: 'ready' }) as const;
 
 function answering(status: number, text = BEE_HEALTH) {
   return beeAnsweredBy((async () => new Response(text, { status })) as typeof fetch);
@@ -83,7 +87,7 @@ describe('probeGateway', () => {
       return new Response(BEE_HEALTH);
     }) as typeof fetch);
 
-    await probeGateway('http://localhost:1633', { prober });
+    await probeGateway('http://localhost:1633', { prober, inspect: ready });
 
     // Bee's health document, which a /bee proxy on this site forwards unchanged.
     expect(asked).toBe('http://localhost:1633/health');
@@ -98,7 +102,7 @@ describe('probeGateway', () => {
       },
     });
 
-    await probeGateway('http://localhost:1633', { prober });
+    await probeGateway('http://localhost:1633', { prober, inspect: ready });
 
     // The constant itself, not a lower bound. Above zero is satisfied by ten minutes, which is the
     // picker held open rather than a wait with an end.
@@ -115,7 +119,9 @@ describe('probeGateway', () => {
   });
 
   it('accepts an address that answers with a Bee health document', async () => {
-    expect(await probeGateway('http://localhost:1633', { prober: answering(200) })).toEqual({ kind: 'ok' });
+    expect(await probeGateway('http://localhost:1633', { prober: answering(200), inspect: ready })).toEqual({
+      kind: 'ok',
+    });
   });
 
   it('refuses a single-page app that answers 200 with its index page', async () => {
@@ -125,7 +131,9 @@ describe('probeGateway', () => {
   });
 
   it('accepts a Bee node whose health says nok, because it is still a Bee node', async () => {
-    expect(await probeGateway('http://localhost:1633', { prober: answering(200, '{"status":"nok"}') })).toEqual({
+    expect(
+      await probeGateway('http://localhost:1633', { prober: answering(200, '{"status":"nok"}'), inspect: ready }),
+    ).toEqual({
       kind: 'ok',
     });
   });
@@ -187,8 +195,12 @@ describe('a plain http node named from an https page', () => {
       return new Response(BEE_HEALTH);
     }) as typeof fetch);
 
-    expect(await probeGateway('http://localhost:1633', { pageProtocol: 'https:', prober })).toEqual({ kind: 'ok' });
-    expect(await probeGateway('http://127.0.0.1:1633', { pageProtocol: 'https:', prober })).toEqual({ kind: 'ok' });
+    expect(await probeGateway('http://localhost:1633', { pageProtocol: 'https:', prober, inspect: ready })).toEqual({
+      kind: 'ok',
+    });
+    expect(await probeGateway('http://127.0.0.1:1633', { pageProtocol: 'https:', prober, inspect: ready })).toEqual({
+      kind: 'ok',
+    });
     expect(asked).toHaveLength(2);
   });
 
@@ -220,6 +232,7 @@ describe('a plain http node on the local network named from an https page', () =
         pageProtocol: 'https:',
         localNetworkRequests: true,
         prober: answering(200),
+        inspect: ready,
       }),
     ).toEqual({ kind: 'ok' });
   });
@@ -240,6 +253,30 @@ describe('a plain http node on the local network named from an https page', () =
     expect(isBlockedAsMixedContent('http://192.0.2.10:1633', 'https:', true)).toBe(true);
     expect(isBlockedAsMixedContent('http://192.168.1.20:1633', 'https:', true)).toBe(false);
     expect(isBlockedAsMixedContent('http://192.168.1.20:1633', 'https:', false)).toBe(true);
+  });
+});
+
+describe('a Bee node that answers but cannot serve this viewer yet', () => {
+  it.each([
+    [{ kind: 'starting' } as const],
+    [{ kind: 'no-peers' } as const],
+    [{ kind: 'too-old', version: '2.2.0' } as const],
+  ])('is not switched to when it is %o, and says so', async (state) => {
+    const outcome = await probeGateway('http://localhost:1633', { prober: answering(200), inspect: async () => state });
+
+    expect(outcome).toEqual({ kind: 'not-ready', state });
+    expect(describeProbeFailure({ kind: 'not-ready', state })).toBe(describeNodeState(state));
+  });
+
+  it('is asked only once its health has shown a Bee node is there', async () => {
+    let inspected = false;
+    const inspect = async () => {
+      inspected = true;
+      return { kind: 'ready' } as const;
+    };
+    await probeGateway('http://localhost:1633', { prober: answering(200, SPA_INDEX), inspect });
+
+    expect(inspected).toBe(false);
   });
 });
 
