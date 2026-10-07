@@ -294,6 +294,50 @@ test('the playing quality stops publishing: the player fails over to a sibling a
   expectOnlyKnownRequests(gateway);
 });
 
+test('two qualities stop one after the other: the player drops both and keeps playing on the third', async ({
+  page,
+  context,
+}) => {
+  // Decision 37: any number of drops, until the player is on a quality that moves. A cap of one per stream left the
+  // viewer frozen on the second quality to stop.
+  const gateway = new LadderGateway();
+  const { warnings } = await openStream(page, context, gateway);
+  expect(await playingUri(page), `the player starts on ${TOP}`).toBe(rungUri(TOP));
+
+  const first: RungName = '480p';
+  const second: RungName = '360p';
+  const stoppedAtMs = Date.now();
+  gateway.stop(TOP);
+  const firstSwitchAtMs = await waitForSwitchTo(page, first, stoppedAtMs, FAILOVER_WAIT_MS);
+  await expectPlaysOn(page, `after the failover to ${first}`);
+
+  const secondStopAtMs = Date.now();
+  gateway.stop(first);
+  const secondSwitchAtMs = await waitForSwitchTo(page, second, secondStopAtMs, FAILOVER_WAIT_MS);
+  await expectPlaysOn(page, `after the failover to ${second}`);
+  const quietFromMs = secondSwitchAtMs + 1_000;
+  await page.waitForTimeout(QUIET_WATCH_MS);
+
+  report('two failovers', {
+    stopped: [TOP, first],
+    to: second,
+    firstFailoverMs: firstSwitchAtMs - stoppedAtMs,
+    secondFailoverMs: secondSwitchAtMs - secondStopAtMs,
+    playingReadsPerMinute: readRates(gateway, second, quietFromMs, Date.now()),
+    requestsSinceStop: gateway.tally(stoppedAtMs),
+    warnings,
+  });
+  const levels = await levelUris(page);
+  expect(levels, `${TOP} is taken out of the ladder`).not.toContain(rungUri(TOP));
+  expect(levels, `${first} is taken out of the ladder`).not.toContain(rungUri(first));
+  expect(await playingUri(page), `the player plays ${second}`).toBe(rungUri(second));
+  for (const gone of [TOP, first]) {
+    expect(gateway.feedReads(gone, quietFromMs), `${gone} is no longer read`).toBe(0);
+  }
+  await expectNoFatalErrorOrRestart(page);
+  expectOnlyKnownRequests(gateway);
+});
+
 /** A quality that cannot be switched to, and how the fake leaves it so. */
 const UNUSABLE: { why: string; rung: RungName; leave: (gateway: LadderGateway, rung: RungName) => void }[] = [
   { why: 'finished', rung: '360p', leave: (gateway, rung) => gateway.finish(rung, 20_000) },
