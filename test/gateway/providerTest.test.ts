@@ -8,6 +8,7 @@ import {
   CONNECTED_BY_CONTENT,
   COULD_NOT_REACH,
   LOCAL_HTTP_UNSUPPORTED,
+  LOCAL_NETWORK_HELP,
   MIXED_CONTENT,
   NODE_NOT_READY,
   UNREACHABLE_SENTENCES,
@@ -18,6 +19,7 @@ import {
 } from '../../src/features/gateway/checkSentences';
 import { onlyGateway } from '../../src/features/gateway/gatewayProbe';
 import { CHECKS, type CheckResult, testProvider } from '../../src/features/gateway/providerTest';
+import type { ReachabilityOptions } from '../../src/features/gateway/reachability';
 import { MINIMUM_BEE_VERSION } from '../../src/swarm/providers/bee-http/beeNodeState';
 import { makeFeedIdentifier } from '../../src/shared/feedFollow';
 import { encodeLadderMarker, ladderMarkerIdentifier, markerPeriodAt } from '../../src/shared/ladderMarker';
@@ -75,6 +77,8 @@ interface Run {
   readonly address?: string;
   readonly pageProtocol?: string;
   readonly localNetworkRequests?: boolean;
+  /** The browser's answer for its local network permission. The Permissions API when absent. */
+  readonly permission?: ReachabilityOptions['permission'];
   readonly now?: () => number;
   /** Whether the gateway is the viewer's own node rather than one the deployment offers. Own by default. */
   readonly isOwnNode?: boolean;
@@ -88,6 +92,7 @@ async function run({
   address = RECORDED_GATEWAY,
   pageProtocol = 'http:',
   localNetworkRequests = false,
+  permission,
   now,
   isOwnNode = true,
 }: Run): Promise<Record<string, CheckResult>> {
@@ -105,7 +110,7 @@ async function run({
     now,
     isOwnNode,
     loadUrl: (url, options) => loadUrl(url, { ...options, fetcher }),
-    reachability: { pageUrl: `${PAGE_ORIGIN}/` },
+    reachability: { pageUrl: `${PAGE_ORIGIN}/`, permission },
     pageOrigin: PAGE_ORIGIN,
   });
   expect(results.map(({ check }) => check)).toEqual([...CHECKS]);
@@ -372,6 +377,36 @@ describe('the window the Test gives each read', () => {
 
   it("asks the viewer's own node for its health for 5 s, as the picker does", async () => {
     const results = await runOnTestClock({ fetcher: gateway((url) => (url === HEALTH ? 'hang' : undefined)) });
+
+    expect(results.connection).toEqual({
+      check: 'connection',
+      outcome: 'failed',
+      sentence:
+        'The gateway did not answer in 5 s. It may be busy or still starting. Test again in a minute, or pick another gateway.',
+    });
+  });
+
+  it("sends a viewer whose own node never answered to the browser's unanswered local network question", async () => {
+    const results = await runOnTestClock({
+      fetcher: gateway((url) => (url === HEALTH ? 'hang' : undefined)),
+      localNetworkRequests: true,
+      permission: async () => 'prompt',
+    });
+
+    expect(results.connection).toEqual({
+      check: 'connection',
+      outcome: 'failed',
+      sentence: UNREACHABLE_SENTENCES['unreachable-local'],
+      help: LOCAL_NETWORK_HELP,
+    });
+  });
+
+  it('calls a node that never answered slow once the local network question is answered', async () => {
+    const results = await runOnTestClock({
+      fetcher: gateway((url) => (url === HEALTH ? 'hang' : undefined)),
+      localNetworkRequests: true,
+      permission: async () => 'granted',
+    });
 
     expect(results.connection).toEqual({
       check: 'connection',

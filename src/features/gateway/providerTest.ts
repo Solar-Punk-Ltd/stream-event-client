@@ -44,7 +44,12 @@ import {
   unreachableSentence,
 } from './checkSentences';
 import { isBlockedAsMixedContent, isLocalHttp } from './gatewayProbe';
-import { type ReachabilityOptions, unreachableCause } from './reachability';
+import {
+  awaitsLocalNetworkAnswer,
+  type ReachabilityOptions,
+  unreachableCause,
+  type UnreachableCause,
+} from './reachability';
 
 /** What the Test checks, in the order the panel shows them. */
 export const CHECKS = ['connection', 'stream-list', 'player', 'previews', 'thumbnails', 'chat'] as const;
@@ -203,17 +208,22 @@ function connectionByContent(answers: readonly SwarmAnswer[], list: CheckResult)
   return failedRead('connection', "the event's content", timedOut ?? failures[0] ?? { kind: 'aborted' });
 }
 
+/** The connection's failure for a cause the page could tell, with its help when the fix takes more than a sentence. */
+function unreachableConnection(context: ProviderTestContext, cause: UnreachableCause): CheckResult {
+  const help = unreachableHelp(cause, context.pageOrigin ?? currentPageOrigin());
+  const result = failed('connection', unreachableSentence(cause));
+  return help === null ? result : { ...result, help };
+}
+
 async function checkConnection(context: ProviderTestContext): Promise<CheckResult> {
   // The picker's window for a node of the viewer's own, short so a wrong port does not feel like a hang.
   const found = await context.client.probe({ timeoutMs: PROBE_TIMEOUT_MS, signal: context.signal });
+  const reachability = { localNetworkRequests: context.localNetworkRequests, ...context.reachability };
   if (found.kind === 'unreachable' || found.kind === 'refuses-this-site') {
-    const cause = await unreachableCause(context.address, found, {
-      localNetworkRequests: context.localNetworkRequests,
-      ...context.reachability,
-    });
-    const help = unreachableHelp(cause, context.pageOrigin ?? currentPageOrigin());
-    const result = failed('connection', unreachableSentence(cause));
-    return help === null ? result : { ...result, help };
+    return unreachableConnection(context, await unreachableCause(context.address, found, reachability));
+  }
+  if (found.kind === 'timed-out' && (await awaitsLocalNetworkAnswer(context.address, reachability))) {
+    return unreachableConnection(context, { kind: 'unreachable-local' });
   }
   const sentence = probeSentence(found, PROBE_TIMEOUT_MS);
   return found.kind === 'ok' ? passed('connection', sentence) : failed('connection', sentence);

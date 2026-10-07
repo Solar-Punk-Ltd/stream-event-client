@@ -300,7 +300,7 @@ and the kinds of provider the build carries (`src/features/gateway/`).
   the browser's question and how to undo a refusal in Chrome, Edge and Firefox. A node that never
   answers while the browser has yet to ask that question gets the same explanation rather than being
   called slow, because Chrome holds the request while it asks. The Test's connection check of the
-  viewer's own node asks the same for a node where nothing answered.
+  viewer's own node asks the same.
   The choice is remembered in the browser as an address, under the key the node picker used, so a
   choice saved before the panel still holds. A switch makes the Swarm client again on that gateway, and
   the player, the stream list and the previews read through it from then on.
