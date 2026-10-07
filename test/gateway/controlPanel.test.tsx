@@ -114,6 +114,15 @@ describe('the control panel', () => {
     expect(row('Your own node').textContent).toContain('Not in use');
   });
 
+  it("names every row's buttons with that row's gateway, for a screen reader", async () => {
+    await open();
+
+    expect(button('Test Backup gateway')).toBe(buttonIn(row('Backup gateway'), 'Test'));
+    expect(button('Use Backup gateway')).toBe(buttonIn(row('Backup gateway'), 'Use'));
+    expect(button('Event gateway is in use').disabled).toBe(true);
+    expect(button('Test your own node')).toBe(buttonIn(row('Your own node'), 'Test'));
+  });
+
   it("switches to another gateway and remembers it, with the event gateway as that one's fallback", async () => {
     await open();
     click(buttonIn(row('Backup gateway'), 'Use'));

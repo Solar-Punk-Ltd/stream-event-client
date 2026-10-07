@@ -63,7 +63,7 @@ for (const theme of THEME_NAMES) {
     const panel = page.getByRole('dialog', { name: 'Where the video loads from' });
     const row = panel.locator('[data-gateway-row]', { hasText: 'Event gateway' });
     await expect(row, 'the one gateway this config offers is in use').toContainText('In use');
-    await row.getByRole('button', { name: 'Test', exact: true }).click();
+    await row.getByRole('button', { name: 'Test Event gateway', exact: true }).click();
 
     const results = panel.getByRole('list', { name: 'Test of Event gateway' });
     await expect(results.getByRole('listitem')).toHaveCount(EXPECTED.length, { timeout: 30_000 });

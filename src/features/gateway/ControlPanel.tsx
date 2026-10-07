@@ -55,6 +55,11 @@ function whereIs(url: string): string {
   }
 }
 
+/** A row's Test button as a screen reader names it, since every row has one. */
+function testButtonName(name: string, test: GatewayTest | undefined): string {
+  return test?.state === 'running' ? `Testing ${name}` : `Test ${name}`;
+}
+
 /** What the header shows beside the panel's button: the gateway's name, or the host of a node of the viewer's own. */
 function headerName(settings: SwarmSettings, choice: GatewaySetting): string {
   return choice.id === OWN_GATEWAY_ID ? whereIs(choice.url) : gatewayName(settings, choice.id);
@@ -250,6 +255,7 @@ export function ControlPanel() {
                       variant={ButtonVariant.SECONDARY}
                       onClick={() => void runTest(gateway.id, gateway, name)}
                       disabled={tests[gateway.id]?.state === 'running'}
+                      aria-label={testButtonName(name, tests[gateway.id])}
                     >
                       {tests[gateway.id]?.state === 'running' ? 'Testing...' : 'Test'}
                     </Button>
@@ -259,6 +265,7 @@ export function ControlPanel() {
                         close();
                       }}
                       disabled={isInUse}
+                      aria-label={isInUse ? `${name} is in use` : `Use ${name}`}
                     >
                       {isInUse ? 'In use' : 'Use'}
                     </Button>
@@ -309,6 +316,7 @@ export function ControlPanel() {
                   variant={ButtonVariant.SECONDARY}
                   onClick={testOwnNode}
                   disabled={tests[OWN_GATEWAY_ID]?.state === 'running'}
+                  aria-label={testButtonName('your own node', tests[OWN_GATEWAY_ID])}
                 >
                   {tests[OWN_GATEWAY_ID]?.state === 'running' ? 'Testing...' : 'Test'}
                 </Button>
