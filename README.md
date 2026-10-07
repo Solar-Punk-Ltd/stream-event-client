@@ -313,7 +313,8 @@ there that builds a Bee URL, calls fetch, or makes a Bee client of its own (`tes
   and is not asked once nothing is left. URLs come from the first provider that is not paused, and a
   playlist the player already holds names its segments again whenever that provider changes, at a pause,
   at its end, or at a switch of node.
-  Every read is counted by feature, kind, provider and answer. The server time of the player's and the
+  Every read is counted by feature, kind, provider and answer, and `activity()` gives the last minute's
+  answers per feature with how many came from the fallback, which the control panel's status view shows. The server time of the player's and the
   stream list's answers keeps the gateway clock, and the chat's, read from the chat's own host, does not.
 - **The contract** (`test/swarm/providerContract.ts`) is the suite every provider kind must pass, run
   for Bee over HTTP against the answers the browser smoke test replays.
