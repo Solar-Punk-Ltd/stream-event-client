@@ -28,7 +28,7 @@ export const NOT_A_SWARM_GATEWAY =
   'This address is not a Swarm gateway: something answered, but not with Swarm content. Check the address and the port.';
 
 export const MIXED_CONTENT =
-  'This site is served over https, and a browser refuses to load anything over plain http from it. Give the node an https address, or open this site over http.';
+  'This site is served over https, and a browser refuses to load anything over plain http from it, so the request never leaves this page. Give the node an https address, or open this site over http.';
 
 /**
  * A plain http node on the local network, from an https page, in a browser that blocks it before any

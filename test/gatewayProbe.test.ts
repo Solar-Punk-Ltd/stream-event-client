@@ -13,6 +13,7 @@ import {
   corsHelp,
   LOCAL_HTTP_UNSUPPORTED,
   LOCAL_NETWORK_HELP,
+  MIXED_CONTENT,
   notReadySentence,
   UNREACHABLE_SENTENCES,
 } from '@/features/gateway/checkSentences';
@@ -227,7 +228,7 @@ describe('a plain http node named from an https page', () => {
     const message = describeProbeFailure({ kind: 'mixed-content' });
 
     expect(message).not.toContain('cors-allowed-origins');
-    expect(message).toContain('http');
+    expect(message).toBe(MIXED_CONTENT);
   });
 
   it("still asks loopback, which browsers exempt, so a node on the viewer's own machine works", async () => {

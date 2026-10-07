@@ -16,6 +16,7 @@ import {
   ADDRESS_REFUSED,
   type Help,
   LOCAL_HTTP_UNSUPPORTED,
+  MIXED_CONTENT,
   notReadySentence,
   unreachableHelp,
   unreachableSentence,
@@ -319,7 +320,7 @@ export function describeProbeFailure(failure: GatewayProbeFailure): string {
     case 'not-ready':
       return notReadySentence(failure.reason);
     case 'mixed-content':
-      return 'This site is served over https, and a browser refuses to load anything over plain http from it, so the request never leaves this page. Give the node an https address, or open this site over http.';
+      return MIXED_CONTENT;
     case 'timed-out':
       if (failure.awaitingLocalNetwork) {
         return unreachableSentence({ kind: 'unreachable-local' });
