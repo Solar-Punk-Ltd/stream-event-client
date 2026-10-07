@@ -95,8 +95,9 @@ export class BeeHttpProvider implements SwarmProvider {
 
   constructor(options: BeeHttpProviderOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
-    // Bound so the browser's fetch is never called with this object as its receiver, which it refuses.
-    this.fetcher = options.fetcher ?? ((input, init) => fetch(input, init));
+    // Handed on as a value and called bare by `boundedRequest`, never as this object's method, which the
+    // browser's fetch would refuse as an illegal invocation.
+    this.fetcher = options.fetcher ?? fetch;
     this.pageOrigin = options.pageOrigin ?? currentPageOrigin();
   }
 

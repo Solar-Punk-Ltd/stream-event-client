@@ -1,5 +1,5 @@
 import { FeedIndex, Topic } from '@ethersphere/bee-js';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { feedSlotPath, nextFeedRequest } from '../../src/shared/feedFollow';
 import { BeeHttpProvider } from '../../src/swarm/providers/bee-http/beeHttpProvider';
@@ -172,6 +172,27 @@ describe('the Bee HTTP provider', () => {
     await bee.start();
     await bee.stop();
     expect(bee.status()).toEqual({ state: 'ready' });
+  });
+
+  describe('with no fetcher injected', () => {
+    const realFetch = globalThis.fetch;
+
+    afterEach(() => {
+      globalThis.fetch = realFetch;
+    });
+
+    it('reads through the global fetch, called bare as the browser requires', async () => {
+      const global = vi.fn(function (this: unknown) {
+        expect(this).toBeUndefined();
+        return Promise.resolve(new Response(new Uint8Array([9])));
+      });
+      globalThis.fetch = global as unknown as typeof fetch;
+
+      const answer = await new BeeHttpProvider({ baseUrl: '/bee', pageOrigin: PAGE_ORIGIN }).readBytes(SEGMENT);
+
+      expect(global).toHaveBeenCalledTimes(1);
+      expect(answer).toMatchObject({ kind: 'content', bytes: new Uint8Array([9]) });
+    });
   });
 
   describe('probing the node', () => {
