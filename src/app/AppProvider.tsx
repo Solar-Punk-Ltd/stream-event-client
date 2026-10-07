@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Topic } from '@ethersphere/bee-js';
 
 import { manifestFetcher } from '@/features/player/CustomManifestLoader';
@@ -7,6 +7,10 @@ import { Stream } from '@/features/catalog/stream';
 import { CatalogFeedReader } from '@/features/catalog/catalogFeed';
 import { type ChatConfig, enabledChat, type RuntimeConfig, selectedTheme } from '@/config/runtimeConfig';
 import { THEMES, type ThemeSettings } from '@/design/themes';
+import { gatewayClock } from '@/shared/gatewayClock';
+import type { SwarmClient } from '@/swarm/client';
+import { createSwarmClient } from '@/swarm/createSwarmClient';
+import { choiceForAddress, defaultGateway, type SwarmSettings, swarmSettingsFrom } from '@/swarm/settings';
 
 import { CatalogRead, catalogUpdater, StreamCatalog, toCatalogRead } from '@/features/catalog/catalogState';
 
@@ -34,9 +38,12 @@ type AppContextState = {
   isStreamListFromCurrentGateway: boolean;
   setNewStreamList: (read: CatalogRead) => void;
   fetchAppState: () => Promise<CatalogRead>;
+  /** The one way the app reads Swarm, on the gateway the viewer chose with the deployment's fallback behind it. */
+  swarm: SwarmClient;
+  /** The address of the gateway the viewer chose, which the node picker shows and the stream list is tagged with. */
   gatewayUrl: string;
   setGatewayUrl: (url: string) => void;
-  /** The gateway this deployment's config names, which the picker offers as the way back. */
+  /** The address of the gateway this deployment reads by default, which the picker offers as the way back. */
   defaultGatewayUrl: string;
   /** The chat's settings, or null when this deployment has chat switched off. */
   chat: ChatConfig | null;
@@ -70,14 +77,25 @@ function loadGatewayUrl(defaultGatewayUrl: string): string {
   }
 }
 
+/**
+ * The client for the gateway at `address`, sharing the one gateway clock the player's time markers
+ * read, so every answer's server time corrects them and not only the stream list's.
+ */
+function swarmClientFor(settings: SwarmSettings, address: string): SwarmClient {
+  return createSwarmClient(settings, { choice: choiceForAddress(settings, address), client: { clock: gatewayClock } });
+}
+
 export const AppContextProvider = ({ config, children }: Props) => {
+  const settings = useMemo(() => swarmSettingsFrom(config), [config]);
+  const defaultGatewayUrl = defaultGateway(settings).url;
   const [catalog, setCatalog] = useState<StreamCatalog>({ streams: [], gateway: null, slot: null });
   const [isStreamListLoaded, setIsStreamListLoaded] = useState(false);
   const [gatewayUrl, setGatewayUrlState] = useState<string>(() => {
-    const url = loadGatewayUrl(config.gatewayUrl);
+    const url = loadGatewayUrl(defaultGatewayUrl);
     manifestFetcher.beeUrl = url;
     return url;
   });
+  const [swarm, setSwarm] = useState<SwarmClient>(() => swarmClientFor(settings, gatewayUrl));
 
   const gatewayRef = useRef(gatewayUrl);
 
@@ -91,22 +109,26 @@ export const AppContextProvider = ({ config, children }: Props) => {
    * nothing polls the catalog to put one back: the viewer's own node would cost them the ladder, the
    * playback position, or the whole player.
    */
-  const setGatewayUrl = useCallback((url: string) => {
-    const trimmed = url.replace(/\/+$/, '');
-    gatewayRef.current = trimmed;
-    setGatewayUrlState(trimmed);
-    manifestFetcher.beeUrl = trimmed;
-    // The new node has its own view of the feed, so a position established against the old one would
-    // ask it for slots it may not hold, which reads as a catalog that stopped rather than one being
-    // followed from the wrong place.
-    catalogReader.current.reset();
-    ManifestStateManager.getInstance().markAllDirty();
-    try {
-      localStorage.setItem(GATEWAY_STORAGE_KEY, trimmed);
-    } catch {
-      // localStorage unavailable
-    }
-  }, []);
+  const setGatewayUrl = useCallback(
+    (url: string) => {
+      const trimmed = url.replace(/\/+$/, '');
+      gatewayRef.current = trimmed;
+      setGatewayUrlState(trimmed);
+      setSwarm(swarmClientFor(settings, trimmed));
+      manifestFetcher.beeUrl = trimmed;
+      // The new node has its own view of the feed, so a position established against the old one would
+      // ask it for slots it may not hold, which reads as a catalog that stopped rather than one being
+      // followed from the wrong place.
+      catalogReader.current.reset();
+      ManifestStateManager.getInstance().markAllDirty();
+      try {
+        localStorage.setItem(GATEWAY_STORAGE_KEY, trimmed);
+      } catch {
+        // localStorage unavailable
+      }
+    },
+    [settings],
+  );
 
   /**
    * Kept in a ref rather than rebuilt per call, because its whole value is the position it remembers
@@ -164,9 +186,10 @@ export const AppContextProvider = ({ config, children }: Props) => {
         isStreamListFromCurrentGateway: catalog.gateway === gatewayUrl,
         setNewStreamList,
         fetchAppState,
+        swarm,
         gatewayUrl,
         setGatewayUrl,
-        defaultGatewayUrl: config.gatewayUrl,
+        defaultGatewayUrl,
         chat: enabledChat(config),
         theme: THEMES[selectedTheme(config)],
       }}

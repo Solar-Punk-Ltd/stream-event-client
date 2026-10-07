@@ -114,11 +114,6 @@ export type ProvidersConfig = z.infer<typeof providersSchema>;
 
 export type GatewayConfig = ProvidersConfig['gateways'][number];
 
-/** The default gateway's address. The providers check has already made sure the default names one. */
-function defaultGatewayUrl(providers: ProvidersConfig): string {
-  return providers.gateways.find((gateway) => gateway.id === providers.default)?.url ?? '';
-}
-
 const runtimeConfigSchema = z
   .object({
     /** Which of this build's themes the page wears. Absent means the default. */
@@ -139,13 +134,7 @@ const runtimeConfigSchema = z
     } else if (config.gatewayUrl === undefined && config.providers === undefined) {
       context.addIssue({ code: 'custom', path: ['gatewayUrl'], message: 'is missing, and so is providers' });
     }
-  })
-  // The app still reads `gatewayUrl` until its features read through the Swarm client, so a config
-  // that names providers gets the default gateway's address under the old name.
-  .transform(({ gatewayUrl, ...config }) => ({
-    ...config,
-    gatewayUrl: gatewayUrl ?? (config.providers ? defaultGatewayUrl(config.providers) : ''),
-  }));
+  });
 
 export type ChatConfig = z.infer<typeof enabledChatSchema>;
 

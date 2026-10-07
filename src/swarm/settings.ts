@@ -24,10 +24,14 @@ export const SINGLE_GATEWAY_ID = 'gateway';
  * deployment needs no change to its settings.
  */
 export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'providers'>): SwarmSettings {
-  const { providers } = config;
+  const { providers, gatewayUrl } = config;
   if (!providers) {
+    if (gatewayUrl === undefined) {
+      // The config's own check refuses a config with neither, so only a caller that skipped it lands here.
+      throw new Error('a config names its gateways in providers or in gatewayUrl');
+    }
     return {
-      gateways: [{ id: SINGLE_GATEWAY_ID, kind: 'bee-http', url: config.gatewayUrl }],
+      gateways: [{ id: SINGLE_GATEWAY_ID, kind: 'bee-http', url: gatewayUrl }],
       defaultId: SINGLE_GATEWAY_ID,
       fallbackId: null,
       kinds: [...PROVIDER_KINDS],
@@ -39,4 +43,30 @@ export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'pr
     fallbackId: providers.fallback ?? null,
     kinds: providers.kinds ?? [...PROVIDER_KINDS],
   };
+}
+
+/** The id a Bee node of the viewer's own goes by, one the settings do not offer. */
+export const OWN_GATEWAY_ID = 'own-node';
+
+const withoutTrailingSlash = (url: string) => url.replace(/\/+$/, '');
+
+/** The gateway every reader starts on. The config's own check makes sure the default names one. */
+export function defaultGateway(settings: SwarmSettings): GatewaySetting {
+  return settings.gateways.find((gateway) => gateway.id === settings.defaultId) ?? settings.gateways[0];
+}
+
+/**
+ * The gateway a saved or picked address means. A viewer's choice is kept as an address, which is what
+ * the node picker shows and what a choice saved before `providers` existed holds, so an address an
+ * offered gateway has is that gateway, and any other is a Bee node of the viewer's own.
+ */
+export function choiceForAddress(settings: SwarmSettings, address: string): GatewaySetting {
+  const wanted = withoutTrailingSlash(address);
+  return (
+    settings.gateways.find((gateway) => withoutTrailingSlash(gateway.url) === wanted) ?? {
+      id: OWN_GATEWAY_ID,
+      kind: 'bee-http',
+      url: wanted,
+    }
+  );
 }

@@ -214,13 +214,13 @@ describe('the providers settings', () => {
   it('accepts the gateways offered, the default, the fallback and the kinds offered', () => {
     const result = withProviders({});
 
-    expect(result).toEqual({ ok: true, config: { ...WITHOUT_GATEWAY, providers: PROVIDERS, gatewayUrl: '/bee' } });
+    expect(result).toEqual({ ok: true, config: { ...WITHOUT_GATEWAY, providers: PROVIDERS } });
   });
 
-  it("gives the default gateway's address as gatewayUrl, so the app reads it until it reads providers", () => {
+  it('leaves gatewayUrl out of a config that names providers, since nothing reads it there', () => {
     const result = withProviders({ default: 'backup', fallback: 'event' });
 
-    expect(result.ok && result.config.gatewayUrl).toBe('https://backup.example.com');
+    expect(result.ok && 'gatewayUrl' in result.config).toBe(false);
   });
 
   it('accepts no fallback and no list of kinds', () => {
