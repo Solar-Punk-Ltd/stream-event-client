@@ -181,7 +181,9 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   offers, and every address named in `EXTRA_GATEWAY_URLS`. A gateway in `providers.gateways` is reached
   only when the policy allows it: a path on this site such as `/bee` always is, the gateway in direct mode
   is, and every other address must be named in `EXTRA_GATEWAY_URLS`, or the browser refuses it. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
-  player plays through them, which is also why no gateway is named as a media source.
+  player plays through them, which is also why no gateway is named as a media source. Blob URLs are
+  media, image and worker sources only, never a place the page connects to: hls.js reads a playlist
+  with a request, so a stream card hands it its preview playlist from memory rather than as a blob.
 - **The proxy passes reads only.** `/bee` forwards `GET` and `HEAD`, so the site cannot be used to
   write to the gateway. The chat writes through its own endpoint, `CHAT_WRITE_URL`.
 
