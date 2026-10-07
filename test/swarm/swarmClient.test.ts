@@ -130,7 +130,8 @@ describe('the Swarm client', () => {
 
   describe("keeping a read inside the caller's window", () => {
     const WINDOW_MS = 1_000;
-    const readInWindow = (client: SwarmClient) => client.reader('player').readBytes(REFERENCE, { timeoutMs: WINDOW_MS });
+    const readInWindow = (client: SwarmClient) =>
+      client.reader('player').readBytes(REFERENCE, { timeoutMs: WINDOW_MS });
 
     it('gives the fallback only what is left of the window after the chosen provider hung', async () => {
       const { chosen, fallback, client, advance } = world();
