@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { BeeNodeAccess } from '../../src/swarm/beeNodeAccess';
 import { ADDRESS_REFUSED } from '../../src/features/gateway/checkSentences';
-import { checkOwnNodeAddress } from '../../src/features/gateway/gatewayProbe';
+import { checkOwnNodeAddress, checkSourceAddress } from '../../src/features/gateway/gatewayProbe';
 
 function accepted(input: string, access: BeeNodeAccess): string {
   const result = checkOwnNodeAddress(input, access);
@@ -80,5 +80,33 @@ describe('a node on the internet over plain http', () => {
 describe('every refusal of an address', () => {
   it.each(Object.entries(ADDRESS_REFUSED))('%s is plain prose with no dash or semicolon', (_name, sentence) => {
     expect(sentence).not.toMatch(/[—;]/);
+  });
+});
+
+describe('the address of a gateway the viewer adds', () => {
+  it('is taken as https when typed without a scheme', () => {
+    expect(checkSourceAddress('gateway', 'gw.example.com', 'https')).toEqual({
+      ok: true,
+      url: 'https://gw.example.com',
+    });
+  });
+
+  it('holds to the same rules as a Bee node at every level', () => {
+    expect(checkSourceAddress('gateway', 'https://gw.example.com', 'off')).toEqual({
+      ok: false,
+      text: ADDRESS_REFUSED.thisComputerOnly,
+    });
+    expect(checkSourceAddress('gateway', 'http://gw.example.com', 'https-and-local-http')).toEqual({
+      ok: false,
+      text: ADDRESS_REFUSED.plainHttpInternet,
+    });
+    expect(checkSourceAddress('gateway', 'http://192.168.1.20:1633', 'https-and-local-http')).toEqual({
+      ok: true,
+      url: 'http://192.168.1.20:1633',
+    });
+  });
+
+  it('leaves a Bee node typed without a scheme on http, as the picker always has', () => {
+    expect(checkSourceAddress('bee-node', 'localhost:1633', 'off')).toEqual({ ok: true, url: 'http://localhost:1633' });
   });
 });

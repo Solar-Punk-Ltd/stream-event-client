@@ -11,6 +11,7 @@ import { type NotReadyReason, PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptio
 import { addressSpaceOf, supportsLocalNetworkRequests } from '@/swarm/addressSpace';
 import { type BeeNodeAccess, DEFAULT_BEE_NODE_ACCESS } from '@/swarm/beeNodeAccess';
 import { type GatewaySetting, OWN_GATEWAY_ID, type SwarmSettings } from '@/swarm/settings';
+import type { SourceType } from '@/swarm/sources';
 
 import {
   ADDRESS_REFUSED,
@@ -65,7 +66,7 @@ const OWN_MACHINE_HOSTS = ['localhost', '127.0.0.1'];
  */
 const IPV6_LOOPBACK = '[::1]';
 
-type OwnNodeAddressCheck = { ok: true; url: string } | { ok: false; text: string };
+export type OwnNodeAddressCheck = { ok: true; url: string } | { ok: false; text: string };
 
 const refused = (text: string): OwnNodeAddressCheck => ({ ok: false, text });
 
@@ -106,6 +107,20 @@ export function checkOwnNodeAddress(input: string, access: BeeNodeAccess = 'off'
   }
 
   return { ok: true, url: url.origin };
+}
+
+/**
+ * Whether what a viewer typed for a source they add is one this site lets them use. A gateway is an
+ * https address, so one typed without a scheme is taken as https, and otherwise it holds to exactly the
+ * rules of a Bee node at the same level, because the page's policy allows the same addresses for both.
+ */
+export function checkSourceAddress(type: SourceType, input: string, access: BeeNodeAccess): OwnNodeAddressCheck {
+  const trimmed = input.trim();
+  const typed =
+    type === 'gateway' && trimmed !== '' && !/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) && !trimmed.startsWith('/')
+      ? `https://${trimmed}`
+      : trimmed;
+  return checkOwnNodeAddress(typed, access);
 }
 
 /** Why this site will not let a viewer use a node at this host and scheme, or null when it will. */
