@@ -93,7 +93,7 @@ OWN_NODE="http://localhost:* http://127.0.0.1:*"
 # from a blob, and plays through blob URLs.
 POLICY="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'"
 POLICY="$POLICY; img-src 'self' data: blob:$GATEWAY_SOURCE$EXTRA_SOURCE $OWN_NODE"
-POLICY="$POLICY; media-src 'self' blob:$EXTRA_SOURCE; worker-src 'self' blob:"
+POLICY="$POLICY; media-src 'self' blob:; worker-src 'self' blob:"
 POLICY="$POLICY; connect-src 'self'$GATEWAY_SOURCE$EXTRA_SOURCE$CHAT_SOURCE $OWN_NODE"
 POLICY="$POLICY; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
 

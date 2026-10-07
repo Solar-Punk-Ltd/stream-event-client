@@ -113,7 +113,8 @@ describe('the image start-up script', () => {
     const extras = 'https://second.example.com http://third.example.com:1633';
     expect(csp).toMatch(new RegExp(`connect-src [^;]*${escape(extras)}`));
     expect(csp).toMatch(new RegExp(`img-src [^;]*${escape(extras)}`));
-    expect(csp).toContain(`media-src 'self' blob: ${extras};`);
+    // hls.js plays through blob URLs, so no gateway, the main one included, is a media source.
+    expect(csp).toContain("media-src 'self' blob:;");
     expect(started.stdout).toContain(`extra gateways ${extras}`);
   });
 
