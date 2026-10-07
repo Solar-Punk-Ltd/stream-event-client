@@ -286,19 +286,24 @@ once and is kept in the browser.
   source picked, and the chat from `chat.readUrl`. Per part gives the video, the stream list, the
   previews and the chat a source each. The video and the stream list are linked until the viewer
   unlinks them, because the player's live markers come from the clock of whoever serves the stream
-  list, and the screen then notes that live timing may slip. Chat messages are always sent to
-  `chat.writeUrl`.
+  list, and the screen then notes that live timing may slip. A bracket joins their two rows, with the
+  link at its middle. Chat messages are always sent to `chat.writeUrl`. The list of sources stays
+  reachable in per part, folded under a Sources row with their count, so a source can still be
+  tested, renamed, removed or added there.
 - **Sources.** The gateways `config.json` offers, marked Offered, then any number of gateways and Bee
   nodes the viewer added, grouped by type, each with a name, its host, and a status dot with its
   response time. While the screen is open each source gets a light check about every 10 s, the stream
   list's head for a gateway and Bee's `/health` with its version, `/readiness` and `/peers` for a Bee node, and nothing
-  is checked while it is closed. An offered source cannot be renamed or removed.
+  is checked while it is closed. The radio puts a source in use, and the rest of the row opens its
+  details.
 - **Details.** Opening a source runs the Test, the same checks as before on this event's real content
   through a client of that source alone: the connection, the stream list, the video, previews,
   pictures and the chat. Each shows as a badge, passed, failed or not applicable, under one status
   line. The sentences, and the steps for a node that refuses this site's origin or a browser that
   blocks the local network, show only for a failure, behind How to fix. Every sentence is in
-  `checkSentences.ts` with its test.
+  `checkSentences.ts` with its test. The actions that apply sit on the status line's right: Use for a
+  source not in use, Retest, and Rename and Remove for a source the viewer added, since an offered
+  source cannot be renamed or removed.
 - **Adding a source.** A tile per type. A Bee node's address holds to `providers.beeNodes` as described
   under the image. A gateway is an https address under the same rules, so it is greyed with its reason
   on a site at `off`, and a type whose provider kind `providers.kinds` leaves out is greyed too. A Bee
@@ -306,11 +311,12 @@ once and is kept in the browser.
   added in one-source mode is put in use.
 - **Fallback.** One order for every part: the deployment's `providers.fallback`, which the viewer may
   reorder with up and down buttons, and the default gateway always last. A source is never its own
-  fallback.
+  fallback. With nothing behind the source in use the line names that source alone, such as "Event
+  gateway only".
 - **Copy diagnostics.** The last Test's sentences, who answered each part in the last minute, the
   build and the browser. It holds no address but the tested source's. With the screen closed, the
-  header's Sources button says "Using fallback" while the fallback answered a read of the video in the
-  last minute, or the source in use is paused.
+  header's Sources button carries a warning dot, named "Using fallback" for a screen reader, while the
+  fallback answered a read of the video in the last minute, or the source in use is paused.
 
 What the browser keeps, in `localStorage`, every read and write guarded so a refusal leaves the
 deployment's defaults for that visit:
