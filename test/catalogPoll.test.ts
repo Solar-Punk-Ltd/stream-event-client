@@ -5,7 +5,6 @@ import { afterEach, describe, it, vi } from 'vitest';
 import {
   CATALOG_POLL_INTERVAL_MS,
   retryCatalogReadAfter,
-  WAITING_PAGE_CATALOG_POLL_MS,
   watchPageCatalogPollMs,
 } from '../src/features/catalog/catalogPoll';
 import { catalogUpdater, StreamCatalog, toCatalogRead } from '../src/features/catalog/catalogState';
@@ -24,8 +23,8 @@ import {
 } from '../src/features/catalog/watchPageView';
 
 describe('when the watch page reads the catalog again', () => {
-  it('reads it once a minute while the stream has not started, so a reschedule or a cancellation reaches the page', () => {
-    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_NOT_STARTED), WAITING_PAGE_CATALOG_POLL_MS);
+  it('reads it at the same pace as the browse page while the stream has not started, so a reschedule or a cancellation reaches the page', () => {
+    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_NOT_STARTED), CATALOG_POLL_INTERVAL_MS);
   });
 
   it('keeps reading it while the stream it waited for is missing, so a republish reaches the page', () => {

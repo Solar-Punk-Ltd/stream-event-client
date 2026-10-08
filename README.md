@@ -221,8 +221,10 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 
 ## What the viewer does
 
-- **The stream list.** Read from a Swarm feed and read again every 5 seconds, also after a failed
-  read, never on a longer backoff. Once the list has been read, a slow or refused read of the next
+- **The stream list.** Read from a Swarm feed and read again once a minute, also after a failed
+  read, never on a longer backoff. Each read asks the list's next slot before it is written, and Bee
+  skips each peer asked that early for a minute, so the page asks no more often than that. A new or
+  changed entry therefore reaches an open browse page up to a minute after it is written. Once the list has been read, a slow or refused read of the next
   slot means nothing new yet, and a slot whose body does not parse is asked for again rather than
   skipped. Every live stream gets
   a featured block of its own, then the next upcoming stream, the soonest whose start is still ahead,
