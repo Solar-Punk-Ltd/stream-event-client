@@ -138,6 +138,10 @@ Beyond that they need no Bee node and no network, and they print their timings a
 without asserting them. Continuous integration runs the format check, lint, typecheck, tests and
 build on every pull request, and reports what the first page load downloads.
 
+`pnpm test` also holds the count of exports nothing else imports at or below the number in
+`scripts/unused-exports-baseline.json`. `node scripts/unused-exports.mjs --list` names them, and
+after removing one, `node scripts/unused-exports.mjs --write` lowers the baseline so the gain is kept.
+
 ## Run the image
 
 The `Dockerfile` builds one image for every deployment: nginx serving the built page, with the page
