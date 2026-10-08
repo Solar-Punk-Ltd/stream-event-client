@@ -26,8 +26,9 @@ export const CATALOG_POLL_INTERVAL_MS = 60_000;
  * not started yet" from the catalog entry's `state`, and without a poll the catalog is read once, when
  * the app loads. While it waits, the ladder's markers prompt the read that takes it live, and the poll
  * carries a new start time, a title change or a cancellation. A stream that was unpublished while the
- * page waited on it is read for too: publishing it again only reaches a page that is still reading. Once the player is mounted it follows the stream's own feeds, and the page
- * deliberately keeps no catalog poll for that case, see `isStreamListLoaded` in `app/AppProvider.tsx`.
+ * page waited on it is read for too: publishing it again only reaches a page that is still reading.
+ * Once the player is mounted it follows the stream's own feeds, and the page deliberately keeps no
+ * catalog poll for that case, see `isStreamListLoaded` in `app/AppProvider.tsx`.
  */
 export function watchPageCatalogPollMs(view: WatchPageView): number | null {
   return view === WATCH_VIEW_NOT_STARTED || view === WATCH_VIEW_UNAVAILABLE ? CATALOG_POLL_INTERVAL_MS : null;
