@@ -44,8 +44,7 @@ type AppContextState = {
    * and rebuild it the moment the ladder arrived, losing playback position on every deep link.
    *
    * ⛔ Not reset by a gateway switch, and that is deliberate. The ladder belongs to the broadcast
-   * rather than to the node serving it, and the watch page keeps no catalog poll while the player is showing
-   * (except while the player says its ladder is short, see `watchPageCatalogPollMs`), so
+   * rather than to the node serving it, and the watch page keeps no catalog poll while the player is showing, so
    * clearing this there would unmount the player and leave nothing to bring it back.
    */
   isStreamListLoaded: boolean;
@@ -59,6 +58,12 @@ type AppContextState = {
   isStreamListFromCurrentGateway: boolean;
   setNewStreamList: (read: CatalogRead) => void;
   fetchAppState: () => Promise<CatalogRead>;
+  /**
+   * Reads the stream list's next slot once and applies it, for a watch page whose player found its
+   * ladder short. One slot and never the one after it, which is not written yet and which Bee would
+   * hide for a minute if asked early. A call while one is in flight does nothing.
+   */
+  readNextStreamListSlot: () => void;
   /** The one way the app reads Swarm, each part from its source with the order of fallbacks behind it. */
   swarm: SwarmClient;
   /**
@@ -292,6 +297,22 @@ export const AppContextProvider = ({ config, children }: Props) => {
     setCatalog(catalogUpdater(read, streamListSourceRef));
   }, []);
 
+  const nextSlotRead = useRef(false);
+  const readNextStreamListSlot = useCallback(() => {
+    if (nextSlotRead.current) {
+      return;
+    }
+    nextSlotRead.current = true;
+    const source = streamListSourceRef.current;
+    void catalogReader.current
+      .read(swarmRef.current.reader('stream-list'), undefined, 1)
+      .then((snapshot) => setNewStreamList(toCatalogRead(source, snapshot)))
+      .catch((error: unknown) => console.warn('Could not read the stream list for a short ladder:', error))
+      .finally(() => {
+        nextSlotRead.current = false;
+      });
+  }, [setNewStreamList]);
+
   const initAppState = useCallback(async () => {
     try {
       setNewStreamList(await fetchAppState());
@@ -317,6 +338,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
         isStreamListFromCurrentGateway: catalog.gateway === wiring.parts['stream-list'],
         setNewStreamList,
         fetchAppState,
+        readNextStreamListSlot,
         swarm,
         chatReads,
         swarmSettings: settings,

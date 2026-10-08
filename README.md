@@ -244,10 +244,12 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   player builds the master from the list and never reads the master feed. hls.js chooses the
   quality, and the player reads only the feed of the quality it plays. A stream turns live once its
   first quality has reported, so a viewer who joins a moment before the others report gets an entry
-  naming only some of them. The player compares the entry with the stream's time marker, which it
-  reads at the start anyway, and when the marker names more qualities the watch page reads the stream
-  list again every 5 seconds until the entry names them all, then rebuilds the player with every
-  quality. That rebuild costs the viewer a moment of loading once.
+  naming only some of them, or none. The player compares the entry with the stream's time marker,
+  the one it reads at the start anyway and then one per 10 second period for a minute, each address
+  once. When a marker names a quality the entry lacks, the watch page reads the stream list's next slot
+  once. A quality reports before its first segment, so that slot is written by then and the read is
+  not early. The fuller entry rebuilds the player with every quality, which costs the viewer a moment
+  of loading. The page never polls the list for this.
 - **How it times its reads.** The player asks for the next playlist when it is due: the newest
   segment's end, plus one segment, plus a delay it learns from its own reads, set so that about one
   ask in four comes too early. A second ask covers that one, then one ask per segment, then asks
