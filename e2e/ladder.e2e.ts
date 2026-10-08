@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
+import { MARKER_PERIOD_SECONDS } from '../src/shared/ladderMarker';
 import {
   installHlsProbe,
   levelUris,
@@ -186,7 +187,17 @@ for (const markers of [true, false]) {
       expect(gateway.count('marker'), 'the start read a time marker (decision 35)').toBeGreaterThan(0);
     } else {
       expect(gateway.count('marker'), 'no marker was there to read').toBe(0);
-      expect(gateway.count('markerMiss'), 'the two recent periods were asked once each').toBeLessThanOrEqual(2);
+      // The start asks the two recent periods, and the player's watch for late qualities then asks each period's
+      // marker once for its first minute: a stream that has not written its first marker yet looks the same as one
+      // that never will, and a viewer who joined it early still needs the watch.
+      const misses = gateway.requests.filter((request) => request.kind === 'markerMiss');
+      expect(new Set(misses.map((request) => request.path)).size, 'no marker address was asked twice').toBe(
+        misses.length,
+      );
+      const askedForMs = Date.now() - (misses[0]?.atMs ?? Date.now());
+      expect(misses.length, 'the two recent periods, then at most one marker a period').toBeLessThanOrEqual(
+        2 + Math.ceil(askedForMs / (MARKER_PERIOD_SECONDS * 1000)) + 1,
+      );
     }
     for (const other of RUNGS.filter((candidate) => candidate.name !== rung)) {
       expect(gateway.feedReads(other.name), `${other.name} is not read`).toBe(0);
