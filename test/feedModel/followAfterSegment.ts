@@ -16,7 +16,7 @@ export interface FollowAfterSegmentOptions {
   readonly trigger: RefusedSlotTrigger;
 }
 
-export const AFTER_SEGMENT_DEFAULTS: FollowAfterSegmentOptions = {
+const AFTER_SEGMENT_DEFAULTS: FollowAfterSegmentOptions = {
   waitMs: SEGMENT_MS - 200,
   retryMs: 500,
   trigger: TODAY_TRIGGER,

@@ -10,7 +10,7 @@ export interface PlayerOutcome {
 }
 
 /** How far behind the newest known segment the player starts, as hls.js's live sync does here. */
-export const PLAYER_BEHIND_MS = 6_000;
+const PLAYER_BEHIND_MS = 6_000;
 /** How much has to be buffered again before a stalled player resumes. */
 const RESUME_BUFFER_MS = 2_000;
 
