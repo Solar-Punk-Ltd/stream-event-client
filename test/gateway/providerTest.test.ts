@@ -540,10 +540,11 @@ describe("the Sources screen's Test, on a live ladder and pictures", () => {
   const playlist = ['#EXTM3U', '#EXT-X-TARGETDURATION:2', '#EXTINF:2.0,', SEGMENT].join('\n');
   const marker = new TextDecoder().decode(
     encodeLadderMarker({
-      v: 1,
+      v: 2,
       period: PERIOD,
       writtenAt: PERIOD * 10_000 + 250,
       rungs: { [Topic.fromString(RUNG).toHex()]: 42 },
+      segmentMs: 2_000,
     }),
   );
 

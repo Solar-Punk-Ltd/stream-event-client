@@ -46,10 +46,11 @@ const UPLOADER_VECTORS = [
 
 function validMarker(overrides: Partial<LadderMarker> = {}): LadderMarker {
   return {
-    v: 1,
+    v: 2,
     period: 175_983_840,
     writtenAt: 1_759_838_400_250,
     rungs: { [RUNG_360]: 41, [RUNG_720]: 0 },
+    segmentMs: 2_000,
     ...overrides,
   };
 }
@@ -75,9 +76,23 @@ describe('the ladder marker convention, as the uploader writes it', () => {
     assert.deepEqual(parseLadderMarker(new TextDecoder().decode(encodeLadderMarker(marker)), marker.period), marker);
   });
 
+  it('reads the segment length a version 2 marker names', () => {
+    const text = new TextDecoder().decode(encodeLadderMarker(validMarker({ segmentMs: 500 })));
+    assert.equal(parseLadderMarker(text)?.segmentMs, 500);
+  });
+
+  it('still reads a version 1 marker, which names no segment length', () => {
+    const { segmentMs: _segmentMs, ...rest } = validMarker();
+    const marker = parseLadderMarker(JSON.stringify({ ...rest, v: 1 }));
+    assert.equal(marker?.v, 1);
+    assert.equal(marker?.segmentMs, null);
+  });
+
   const refused: Array<[string, string]> = [
     ['text that is not JSON', '{"v":1,'],
-    ['another version', JSON.stringify(validMarker({ v: 2 as 1 }))],
+    ['another version', JSON.stringify(validMarker({ v: 3 as 2 }))],
+    ['a version 2 marker without a segment length', JSON.stringify({ ...validMarker(), segmentMs: undefined })],
+    ['a segment length of zero', JSON.stringify(validMarker({ segmentMs: 0 }))],
     ['an extra field', JSON.stringify({ ...validMarker(), note: 'x' })],
     ['a write time outside its own period', JSON.stringify(validMarker({ writtenAt: 1_759_838_410_000 }))],
     ['no rungs at all', JSON.stringify(validMarker({ rungs: {} }))],
