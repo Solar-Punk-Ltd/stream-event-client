@@ -439,7 +439,7 @@ export class LadderGateway {
     if (Object.keys(rungs).length === 0) {
       return null;
     }
-    return new TextDecoder().decode(encodeLadderMarker({ v: 1, period, writtenAt, rungs }));
+    return new TextDecoder().decode(encodeLadderMarker({ v: 2, period, writtenAt, rungs, segmentMs: SEGMENT_MS }));
   }
 
   private decideSegment(route: Route, path: string, ref: string): Reply {
