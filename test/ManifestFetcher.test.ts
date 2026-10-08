@@ -19,9 +19,9 @@ import {
   ManifestStateManager,
   MAX_SLOTS_PER_POLL,
   SEGMENTS_AS_WRITTEN,
-  waitMs,
 } from '../src/features/player/ManifestManagement';
 import { PROBE_DISTANCES, UNSERVED_POLLS_BEFORE_PROBE } from '../src/features/player/refusedSlot';
+import { waitMs } from '../src/features/player/waitMs';
 import { MANIFEST_BACKOFF_JITTER_FRACTION, RequestJitter } from '../src/shared/requestJitter';
 
 import { waitFor } from './helpers/waiting';

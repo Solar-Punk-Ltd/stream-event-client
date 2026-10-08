@@ -2,6 +2,7 @@ import { Topic } from '@ethersphere/bee-js';
 
 import { PeriodMarkers } from '@/features/player/following/headMarkers';
 import type { PlayerReader } from '@/features/player/playerReads';
+import { waitMs } from '@/features/player/waitMs';
 import { ladderMarkerIdentifier, parseLadderMarker } from '@/shared/ladderMarker';
 import { contentText } from '@/swarm/answers';
 
@@ -34,15 +35,11 @@ interface LadderMarkerWatch {
 export function watchForLadderMarkers(watch: LadderMarkerWatch): () => void {
   const now = watch.now ?? (() => Date.now());
   const group = Topic.fromString(watch.topic);
-  const markers = new PeriodMarkers<true>(
-    { now, sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) },
-    watch.clockOffsetMs,
-    async (period) => {
-      const identifier = ladderMarkerIdentifier(group, period).toHex();
-      const answer = await watch.reader().readSoc(watch.owner, identifier);
-      return answer.kind === 'content' && parseLadderMarker(contentText(answer), period) !== null ? true : null;
-    },
-  );
+  const markers = new PeriodMarkers<true>({ now, sleep: waitMs }, watch.clockOffsetMs, async (period) => {
+    const identifier = ladderMarkerIdentifier(group, period).toHex();
+    const answer = await watch.reader().readSoc(watch.owner, identifier);
+    return answer.kind === 'content' && parseLadderMarker(contentText(answer), period) !== null ? true : null;
+  });
 
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
