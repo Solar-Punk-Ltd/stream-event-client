@@ -245,6 +245,14 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   ask in four comes too early. A second ask covers that one, then one ask per segment, then asks
   every 2 seconds rising to 4 while nothing comes. A playlist 4 seconds late is looked past, one
   slot further on. One viewer costs about 40 reads a minute.
+- **When the broadcast goes quiet.** Bee skips, for a minute, every peer it asked for an address not
+  written yet, so a slot asked for over and over during an outage stays unreadable for about a minute
+  after the broadcaster is back. So once the next slot has had five asks, the player stops asking for
+  it and reads the stream's time markers instead (described below), each one once, 4 seconds into its
+  10 seconds. When a marker names a slot past the missing one, the player reads that slot, whose
+  playlist also holds the segments it skips, and follows on from there. The picture is back 4 to 14
+  seconds after the broadcaster has new video, where it used to take about a minute. In a 10 second
+  period whose marker is missing, the slot itself is asked once.
 - **How it finds the newest playlist.** It reads slots by their number, never Bee's feed lookup.
   The uploader writes a time marker for each stream every 10 seconds, at an address worked out from
   the clock, naming every quality's newest playlist. At the start, at a switch, and when a quality
