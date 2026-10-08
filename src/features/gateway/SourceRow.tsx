@@ -36,7 +36,7 @@ interface SourceRowProps {
 }
 
 /** Where a source is, as a viewer can recognise it: its host, or this site for a path such as `/bee`. */
-export function whereIs(url: string): string {
+function whereIs(url: string): string {
   try {
     return new URL(url).host;
   } catch {

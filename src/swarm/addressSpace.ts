@@ -12,7 +12,7 @@
 export type AddressSpace = 'loopback' | 'local' | 'public';
 
 /** `RequestInit` with the Local Network Access draft's option, which the DOM types do not carry yet. */
-export type LocalNetworkRequestInit = RequestInit & { targetAddressSpace?: 'local' };
+type LocalNetworkRequestInit = RequestInit & { targetAddressSpace?: 'local' };
 
 const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 
@@ -71,7 +71,7 @@ export function localNetworkRequestInit(url: string): LocalNetworkRequestInit {
 }
 
 /** Asks the browser about one permission by name, as `navigator.permissions.query` does. */
-export type PermissionQuery = (descriptor: { name: string }) => Promise<unknown>;
+type PermissionQuery = (descriptor: { name: string }) => Promise<unknown>;
 
 /**
  * The names Chrome and the draft give the Local Network Access permission. Chrome 152 knows all three,

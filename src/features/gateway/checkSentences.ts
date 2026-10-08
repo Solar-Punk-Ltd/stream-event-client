@@ -105,7 +105,7 @@ export const CHAT_FEED_NOT_FOUND = (title: string) =>
   `Not tested: this gateway found no chat feed for ${titled(title)}. Nobody may have written in it yet, or the gateway has not found it on the network. Test again once the chat has messages.`;
 
 /** The quoted title a sentence names a stream by. */
-export const titled = (title: string) => `“${title}”`;
+const titled = (title: string) => `“${title}”`;
 
 export const PASSED = {
   streamList: (streams: number, index: number | null) =>
@@ -163,7 +163,7 @@ export function notReadySentence(reason: NotReadyReason): string {
 }
 
 /** One step of help: what it is, then the exact text to copy or the thing to do. */
-export interface HelpStep {
+interface HelpStep {
   readonly label: string;
   readonly code?: string;
   readonly text?: string;

@@ -20,7 +20,7 @@ export type UnreachableCause =
   | { readonly kind: 'unreachable-local' };
 
 /** A permission's state as the Permissions API gives it, or unknown where the browser does not know the name. */
-export type PermissionAnswer = PermissionState | 'unknown';
+type PermissionAnswer = PermissionState | 'unknown';
 
 export interface ReachabilityOptions {
   /** The page's own address, whose network decides whether reaching the node needs the viewer's leave. */

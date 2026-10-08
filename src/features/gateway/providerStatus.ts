@@ -31,7 +31,7 @@ export interface StatusRow {
 }
 
 /** A provider's name as a viewer knows it, never its address. */
-export type NameOf = (providerId: string) => string;
+type NameOf = (providerId: string) => string;
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 

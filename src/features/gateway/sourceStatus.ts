@@ -13,7 +13,7 @@ import { gatewaySettingOf, type Source } from '@/swarm/sources';
 
 import { isBlockedAsMixedContent, onlyGateway } from './gatewayProbe';
 
-export type SourceHealth = 'ok' | 'warning' | 'failing' | 'unknown';
+type SourceHealth = 'ok' | 'warning' | 'failing' | 'unknown';
 
 export interface SourceStatus {
   readonly health: SourceHealth;
@@ -28,7 +28,7 @@ export const UNCHECKED: SourceStatus = { health: 'unknown', elapsedMs: null };
 /** How often the Sources screen checks every source again while it is open. */
 export const SOURCE_CHECK_INTERVAL_MS = 10_000;
 
-export interface SourceCheckContext {
+interface SourceCheckContext {
   /** The stream list feed this event publishes, whose first entry a gateway is asked for. */
   readonly catalog: { readonly owner: string; readonly topic: string };
   readonly signal?: AbortSignal;

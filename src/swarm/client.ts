@@ -25,7 +25,7 @@ export type SwarmFeature = (typeof SWARM_FEATURES)[number];
  */
 const CLOCK_FEATURES: ReadonlySet<SwarmFeature> = new Set<SwarmFeature>(['player', 'stream-list']);
 
-export type ReadKind = 'feed-head' | 'feed-entry' | 'soc' | 'chunk' | 'bytes';
+type ReadKind = 'feed-head' | 'feed-entry' | 'soc' | 'chunk' | 'bytes';
 
 /** A provider with the name the counts and the health report give it, such as a gateway's id in the settings. */
 export interface NamedProvider {
@@ -34,7 +34,7 @@ export interface NamedProvider {
 }
 
 /** When a provider that keeps failing is left alone, and for how long. */
-export interface PausePolicy {
+interface PausePolicy {
   /** Faults in a row before the first pause. Once paused, one more fault pauses it again. */
   readonly faultsBeforePause: number;
   readonly firstPauseMs: number;
@@ -42,7 +42,7 @@ export interface PausePolicy {
   readonly longestPauseMs: number;
 }
 
-export const DEFAULT_PAUSE_POLICY: PausePolicy = {
+const DEFAULT_PAUSE_POLICY: PausePolicy = {
   faultsBeforePause: 3,
   firstPauseMs: 15_000,
   longestPauseMs: 120_000,
@@ -83,7 +83,7 @@ export interface SwarmReader {
   urlSource(use: UrlUse): string | null;
 }
 
-export interface ReadCount {
+interface ReadCount {
   readonly feature: SwarmFeature;
   readonly read: ReadKind;
   readonly provider: string;
@@ -92,9 +92,9 @@ export interface ReadCount {
 }
 
 /** How long the client remembers each read for {@link SwarmClient.activity}. */
-export const ACTIVITY_WINDOW_MS = 60_000;
+const ACTIVITY_WINDOW_MS = 60_000;
 
-export interface ProviderAnswerCount {
+interface ProviderAnswerCount {
   readonly provider: string;
   readonly answer: AnswerKind;
   readonly count: number;

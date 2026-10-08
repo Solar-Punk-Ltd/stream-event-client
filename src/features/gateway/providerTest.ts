@@ -76,7 +76,7 @@ export interface CheckResult {
   readonly help?: Help;
 }
 
-export interface ProviderTestContext {
+interface ProviderTestContext {
   /** A client made for the gateway under test alone. */
   readonly client: Pick<SwarmClient, 'reader' | 'probe'>;
   /** The gateway's address, which decides whether the browser refuses it before asking. */

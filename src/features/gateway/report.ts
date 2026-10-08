@@ -13,7 +13,7 @@ export interface TestedGateway {
   readonly results: readonly CheckResult[];
 }
 
-export interface ReportInput {
+interface ReportInput {
   readonly tested: TestedGateway | null;
   readonly status: readonly StatusRow[];
   readonly build: string;
