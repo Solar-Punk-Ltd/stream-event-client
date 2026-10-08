@@ -15,7 +15,7 @@ import { attachLiveSyncToSegmentLength } from './liveSyncLength';
 import { ManifestStateManager } from './ManifestManagement';
 import { nextMediaErrorAction, NO_MEDIA_ERRORS_YET, recoverFromMediaError } from './mediaErrorRecovery';
 import { attachPlaybackStallReporter } from './playbackHealth';
-import { buildPlayerConfig, HLS_TUNING, LIVE_SYNC_DURATION_S } from './playerConfig';
+import { buildPlayerConfig, HLS_TUNING } from './playerConfig';
 import { buildSwarmUri } from './playlist';
 import { attachReturningBroadcastRejoin } from './returningBroadcast';
 import { attachActiveRungFollower, attachRungFailover, attachWatchedRungReporter } from './rungHealth';
@@ -360,8 +360,9 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
     );
 
     let hls: Hls | null = null;
-    // A caller that sets its own live target keeps it. Only the shipped one follows the segment length.
-    let followsSegmentLength = false;
+    // A caller that sets its own live target keeps it, whatever its value. Only the shipped one
+    // follows the segment length.
+    const callerTuning = JSON.parse(hlsConfigKey) as HlsTuning;
 
     const onHlsPause = () => {
       hls?.stopLoad();
@@ -371,9 +372,8 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
     };
 
     if (Hls.isSupported()) {
-      const tuning: HlsTuning = { ...DEFAULT_HLS_TUNING, ...(JSON.parse(hlsConfigKey) as HlsTuning) };
+      const tuning: HlsTuning = { ...DEFAULT_HLS_TUNING, ...callerTuning };
       hls = new Hls(buildPlayerConfig({ pLoader: CustomManifestLoader, fLoader: CustomFragmentLoader }, tuning));
-      followsSegmentLength = tuning.liveSyncDuration === LIVE_SYNC_DURATION_S;
 
       const restartStream = () => {
         console.warn('Restarting stream due to manifest parsing error.');
@@ -460,7 +460,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
 
     const detachQoe = enableQoeOverlay ? attachQoeTracking(video, hls, setMetrics) : null;
     const detachRateGuard = hls ? attachLivePlaybackRateGuard(video, hls) : null;
-    const detachLiveSync = hls && followsSegmentLength ? attachLiveSyncToSegmentLength(hls) : null;
+    const detachLiveSync = hls ? attachLiveSyncToSegmentLength(hls, callerTuning) : null;
 
     // ⛔ Both halves of what a ladder viewer needs when one rung stops being produced, and neither
     // works alone: the failover moves the picture, the reporter is what lets the overlay say so
