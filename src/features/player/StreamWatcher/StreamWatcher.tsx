@@ -6,13 +6,14 @@ import type { SwarmClient } from '@/swarm/client';
 import { watchPageCatalogPollMs } from '@/features/catalog/catalogPoll';
 import { useCatalogPoll } from '@/features/catalog/useCatalogPoll';
 import { ROUTES } from '@/app/routes';
-import { MEDIA_TYPE_AUDIO, MEDIA_TYPE_VIDEO, MediaType } from '@/features/catalog/stream';
+import { MEDIA_TYPE_AUDIO, MEDIA_TYPE_VIDEO, MediaType, STREAM_STATUS_SCHEDULED } from '@/features/catalog/stream';
 import { playableRenditions } from '@/features/player/playableRenditions';
 import { scheduledStartMs } from '@/features/catalog/scheduledStart';
 import { WATCH_VIEW_PLAYER, watchPageDescription, watchPageView } from '@/features/catalog/watchPageView';
 import { WatchChat } from '@/features/chat/WatchChat';
 
 import { useIsWaitingForStart } from './useIsWaitingForStart';
+import { useListReadAtMarkers } from './useListReadAtMarkers';
 import { WatchLayout } from './WatchLayout';
 import { WatchNotice, WatchPlaceholder } from './WatchPlaceholder';
 
@@ -47,6 +48,7 @@ export function StreamWatcher() {
   const stream = streamList.find((entry) => entry.owner === owner && entry.topic === topic);
 
   // Above the early return, because a hook may not be skipped on some renders.
+  useListReadAtMarkers(swarm, owner, topic, stream?.state === STREAM_STATUS_SCHEDULED, readNextStreamListSlot);
   const isWaiting = useIsWaitingForStart(`${owner}/${topic}`, stream);
   const view = watchPageView(isStreamListLoaded, stream, isWaiting);
   useCatalogPoll(watchPageCatalogPollMs(view));
