@@ -6,14 +6,14 @@ Read by AI coding agents and by people working in this repository. `CLAUDE.md` i
 ## What this is
 
 The Devcon 8 viewer: browse the event's streams, watch them over Swarm, and chat beside the video.
-The plan, its phases and its open decisions are in `docs/PLAN.md`. Read it before starting work,
-and update it when a phase closes or a decision lands.
+The plan and its decisions are kept by the owner outside this repository. The README says what is
+built.
 
 ## Scope
 
 - In: the stream list, the watch page and its player, the Bee node picker, the Swarm design, and a
   chat per stream with a display-name login.
-- Out, and staying out unless the plan changes: admin sign-in, wallets, postage stamps, uploads,
+- Out, and staying out unless the owner says otherwise: admin sign-in, wallets, postage stamps, uploads,
   creating or managing streams, a theme switcher for viewers, and any theme beyond `swarm` and `web3privacy`. A
   deployment picks among the build's themes with `theme` in `config.json`.
 

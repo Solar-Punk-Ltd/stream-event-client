@@ -6,8 +6,7 @@ another gateway the site offers, or your own Bee node), and chat with the other 
 
 **What is built.** The stream list, the watch page with a player that reads only the quality it
 plays and finds the newest playlist from the ladder's time markers, the Sources screen over a Swarm
-client made of providers, and a chat beside each stream, in the Swarm Brand v3.0 look. The plan,
-its phases and its decisions are in [docs/PLAN.md](docs/PLAN.md).
+client made of providers, and a chat beside each stream, in the Swarm Brand v3.0 look.
 
 It is built from the viewer of
 [streaming-monorepo](https://github.com/Solar-Punk-Ltd/streaming-monorepo) and the Swarm design and
