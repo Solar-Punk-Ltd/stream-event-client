@@ -173,22 +173,22 @@ export class CatalogFeedReader {
         break;
       }
       if (answer.kind !== 'content') {
-        // A throw is not the same shape as a refusal and must not lose what the walk already read.
-        // `this.index` is committed per slot, inside this loop, while the body is only handed back
-        // after it, so letting the rejection out drops a snapshot this walk successfully fetched
-        // *and* keeps the index that consumed it. The next poll then asks for the slot after the one
-        // it threw away, and since each slot carries the whole catalog rather than a delta, a
-        // broadcast announced only in that slot is never offered to this reader again.
+        // Whatever the failure, what the walk already read is handed back. `this.index` is committed
+        // per slot, inside this loop, while the body is only handed back after it, so letting a
+        // failure out drops a snapshot this walk successfully fetched *and* keeps the index that
+        // consumed it. Each slot carries the whole catalog rather than a delta, so a broadcast
+        // announced only in that slot would never be offered to this reader again.
         //
-        // Reached by a gateway going slow rather than answering as well as by a refusing status. A
-        // hit and the miss that ends the walk are different requests, and a miss has a measured tail
-        // of about 1.4s at the 95th percentile, so "one slot answered, the next one hung" is the
-        // ordinary shape of this rather than an exotic one.
-        //
-        // Raised only when there is nothing to salvage, so a walk that failed on its first step still
-        // reaches the caller as the error it is instead of reading as an idle catalog: the browse
-        // page decides between "Could not reach this gateway" and "No streams here yet" by whether
-        // this rejected.
+        // A refusal or a timeout is "nothing new yet", see {@link isNothingNewYet}. A hit and the miss
+        // that ends the walk are different requests, and a miss has a measured tail of about 1.4s at
+        // the 95th percentile, so "one slot answered, the next one hung" is the ordinary shape of it.
+        if (isNothingNewYet(answer)) {
+          return newest;
+        }
+        // What is left is a gateway that cannot be reached at all, raised when there is nothing to
+        // salvage, so it reaches the caller as the error it is instead of reading as an idle catalog:
+        // the browse page decides between "Could not reach this gateway" and "No streams here yet" by
+        // whether this rejected.
         if (newest === null) {
           throw failureOf(answer, request.path);
         }
@@ -201,9 +201,17 @@ export class CatalogFeedReader {
       if (generation !== this.generation) {
         return newest;
       }
+      const body = contentText(answer);
+      // ⛔ The body is checked before the position moves. The caller parses it after this returns, so
+      // a body that arrived cut short used to fail that poll with the position already past it, and
+      // every later poll asked for the slot after it. A change announced only in that slot never
+      // reached the page. The walk stops here and this slot is asked for again on the next poll.
+      if (!isJson(body)) {
+        return newest;
+      }
       cursor = request.index;
       this.index = cursor;
-      newest = { body: contentText(answer), slot: cursor.toBigInt() };
+      newest = { body, slot: cursor.toBigInt() };
     }
     return newest;
   }
@@ -235,9 +243,44 @@ export class CatalogFeedReader {
     // A head resolved on a gateway the viewer has since left keeps no position either, for the
     // stronger reason that the node now being asked has its own numbering. See {@link generation}.
     // Its slot is still handed back, because the slot describes the body rather than this reader.
-    if (slot !== null && generation === this.generation) {
+    // A body that does not parse keeps no position either, so the next read resolves the head again
+    // rather than walking on from a slot whose catalog never reached the page.
+    const body = contentText(answer);
+    if (slot !== null && generation === this.generation && isJson(body)) {
       this.index = FeedIndex.fromBigInt(slot);
     }
-    return { body: contentText(answer), slot };
+    return { body, slot };
+  }
+}
+
+/**
+ * Whether a slot read past the head is "nothing new yet" rather than a fault: a refusing status, a rate
+ * limit among them, or a window that ran out.
+ *
+ * ⛔ The reader holds a position, so this gateway has already answered for this catalog, and the slot
+ * asked for is usually one nobody has written yet: a miss, which on a gateway reading the catalog from
+ * another node takes about a second and has a tail past six seconds under load. Raising it put the poll
+ * into SWR's error state, which skips the regular reads and backs off, so one slow miss held an open
+ * page behind until a reload. The head lookup still raises, see {@link CatalogFeedReader.readHead}:
+ * that is the read the browse page's "Could not reach this gateway" rests on.
+ */
+function isNothingNewYet(answer: Exclude<SwarmAnswer, { kind: 'content' | 'not-found' }>): boolean {
+  if (answer.kind === 'rate-limited') {
+    return true;
+  }
+  return answer.kind === 'unavailable' && (answer.cause.kind === 'status' || answer.cause.kind === 'timeout');
+}
+
+/**
+ * Whether a catalog body parses at all. What it holds is checked by the stream list, which owns that
+ * rule: a body that parses but does not validate still moves the position, so one writer's mistake
+ * cannot hold every open page at that slot.
+ */
+function isJson(text: string): boolean {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
   }
 }
