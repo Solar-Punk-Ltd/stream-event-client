@@ -254,6 +254,8 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   once. A quality reports before its first segment, so that slot is written by then and the read is
   not early. The fuller entry rebuilds the player with every quality, which costs the viewer a moment
   of loading. The page never polls the list for this.
+- **How far behind live it plays.** The live target is three segments of the playlist's segment
+  length, never under 6 seconds, and moves when the playlist names a new length.
 - **How it times its reads.** The player asks for the next playlist when it is due: the newest
   segment's end, plus one segment, plus a delay it learns from its own reads, set so that about one
   ask in four comes too early. A second ask covers that one, then one ask per segment, then asks
