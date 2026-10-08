@@ -1,8 +1,12 @@
 import { Topic } from '@ethersphere/bee-js';
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { afterEach, describe, it, vi } from 'vitest';
 
-import { CATALOG_POLL_INTERVAL_MS, watchPageCatalogPollMs } from '../src/features/catalog/catalogPoll';
+import {
+  CATALOG_POLL_INTERVAL_MS,
+  retryCatalogReadAfter,
+  watchPageCatalogPollMs,
+} from '../src/features/catalog/catalogPoll';
 import { catalogUpdater, StreamCatalog, toCatalogRead } from '../src/features/catalog/catalogState';
 import { Stream, STREAM_STATUS_LIVE, STREAM_STATUS_SCHEDULED } from '../src/features/catalog/stream';
 import { CatalogFeedReader } from '../src/features/catalog/catalogFeed';
@@ -37,6 +41,64 @@ describe('when the watch page reads the catalog again', () => {
 
   it('adds no read of its own before the first one lands, which the app makes itself', () => {
     assert.equal(watchPageCatalogPollMs(WATCH_VIEW_LOADING), null);
+  });
+});
+
+/**
+ * ⛔ SWR skips its refresh timer while its cache holds an error and leaves the next read to
+ * `onErrorRetry`, whose default waits longer after every failure, from 5 to 10 s after one up to
+ * minutes after a few in a row. One slow or refused read used to hold an open page that far behind.
+ */
+describe('after a failed catalog read', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function retryOf(pollMs: number | null, visible = () => true) {
+    const revalidate = vi.fn(async () => true);
+    const config = { isVisible: visible } as unknown as Parameters<
+      NonNullable<ReturnType<typeof retryCatalogReadAfter>>
+    >[2];
+    const retry = retryCatalogReadAfter(pollMs);
+    return {
+      revalidate,
+      fail: (retryCount: number) => retry?.(new Error('slow'), 'app-state', config, revalidate, { retryCount }),
+    };
+  }
+
+  it('reads again one poll interval later, however many reads failed before it', () => {
+    vi.useFakeTimers();
+    const { revalidate, fail } = retryOf(CATALOG_POLL_INTERVAL_MS);
+
+    fail(1);
+    vi.advanceTimersByTime(CATALOG_POLL_INTERVAL_MS - 1);
+    assert.equal(revalidate.mock.calls.length, 0);
+    vi.advanceTimersByTime(1);
+    assert.equal(revalidate.mock.calls.length, 1);
+
+    fail(6);
+    vi.advanceTimersByTime(CATALOG_POLL_INTERVAL_MS);
+    assert.equal(revalidate.mock.calls.length, 2, 'a sixth failure in a row was backed off');
+  });
+
+  it('drops the retry when the page is hidden by the time it is due, since SWR reads again when it is shown', () => {
+    vi.useFakeTimers();
+    const { revalidate, fail } = retryOf(CATALOG_POLL_INTERVAL_MS, () => false);
+
+    fail(1);
+    vi.advanceTimersByTime(CATALOG_POLL_INTERVAL_MS);
+
+    assert.equal(revalidate.mock.calls.length, 0);
+  });
+
+  it('schedules nothing for a page that does not poll', () => {
+    vi.useFakeTimers();
+    const { revalidate, fail } = retryOf(null);
+
+    fail(1);
+    vi.advanceTimersByTime(60_000);
+
+    assert.equal(revalidate.mock.calls.length, 0);
   });
 });
 

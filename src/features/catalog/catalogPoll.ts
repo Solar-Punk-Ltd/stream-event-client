@@ -1,3 +1,5 @@
+import type { SWRConfiguration } from 'swr';
+
 import { WATCH_VIEW_NOT_STARTED, WATCH_VIEW_UNAVAILABLE, WatchPageView } from '@/features/catalog/watchPageView';
 
 /**
@@ -22,4 +24,28 @@ export const CATALOG_POLL_INTERVAL_MS = 5_000;
  */
 export function watchPageCatalogPollMs(view: WatchPageView): number | null {
   return view === WATCH_VIEW_NOT_STARTED || view === WATCH_VIEW_UNAVAILABLE ? CATALOG_POLL_INTERVAL_MS : null;
+}
+
+/**
+ * SWR's error retry, flat: the next read comes `pollMs` after a failure, however many came before it.
+ *
+ * ⛔ **Never a backoff.** SWR skips its refresh timer while its cache holds an error and leaves the next
+ * read to `onErrorRetry`, whose default waits longer after every failure, from 5 to 10 s after one up
+ * to minutes after a few in a row. One slow or refused read used to hold an open page that far behind,
+ * so a stream published or gone live reached it only after a reload. A retry due while the page is
+ * hidden is dropped, since SWR reads again when the page is shown.
+ *
+ * @param pollMs The page's poll interval, or null for a page that does not poll, which retries nothing.
+ */
+export function retryCatalogReadAfter(pollMs: number | null): SWRConfiguration['onErrorRetry'] {
+  return (_error, _key, config, revalidate, options) => {
+    if (pollMs === null) {
+      return;
+    }
+    setTimeout(() => {
+      if (config.isVisible()) {
+        void revalidate(options);
+      }
+    }, pollMs);
+  };
 }

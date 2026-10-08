@@ -5,6 +5,7 @@ import { CatalogFeedReader, type CatalogSource } from '@/features/catalog/catalo
 import { feedSlotPath, nextFeedRequest, resolvedFeedIndex } from '@/shared/feedFollow';
 import type { PathResponse } from './helpers/playerReader';
 import type { SwarmAnswer } from '@/swarm/answers';
+import { FetchTimeoutError } from '@/shared/fetchTimeoutError';
 
 /**
  * That the catalog is followed by walking rather than by resolving its head on every poll.
@@ -65,6 +66,9 @@ async function answerOf(fetcher: Fetcher, url: string): Promise<SwarmAnswer> {
   try {
     response = await fetcher(url);
   } catch (error) {
+    if (error instanceof FetchTimeoutError) {
+      return { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: 10_000 } };
+    }
     return { kind: 'unavailable', cause: { kind: 'network', error } };
   }
   if (response.status === 404) {
@@ -186,6 +190,19 @@ describe('CatalogFeedReader', () => {
     expect(signals).toEqual([controller.signal, controller.signal]);
   });
 
+  /**
+   * For a page that knows the next slot is written and must not ask the one after it before it is:
+   * Bee hides an address asked early for a minute.
+   */
+  it('asks only the next slot when the read is limited to one', async () => {
+    const { urls, fetcher } = stubFetcher([respond({ headers: headerFor(7) }), respond({ text: '[{"live":true}]' })]);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
+    await reader.read(via(fetcher, 'http://gw'));
+
+    expect(await reader.read(via(fetcher, 'http://gw'), undefined, 1)).toEqual({ body: '[{"live":true}]', slot: 8n });
+    expect(urls).toHaveLength(2);
+  });
+
   it('stops walking at the bound rather than holding the page open', async () => {
     const replies = [respond({ headers: headerFor(0) })];
     for (let i = 0; i < 100; i++) {
@@ -255,15 +272,82 @@ describe('CatalogFeedReader', () => {
     expect(reader.getIndex()).toBeNull();
   });
 
-  it('raises when the first step of a walk is refused with a server error', async () => {
-    const { fetcher } = stubFetcher([respond({ headers: headerFor(7) }), respond({ ok: false, status: 502 })]);
+  /**
+   * ⛔ Once the head has answered, a slot read the gateway refuses or lets time out is "nothing new
+   * yet". Raising it put the browse page's poll into SWR's error state, which skips the regular reads
+   * and backs off instead, so one slow or refused miss held an open page behind until a reload.
+   */
+  it.each([
+    ['is refused with a server error', respond({ ok: false, status: 502 })],
+    ['is rate limited', respond({ ok: false, status: 429 })],
+    ['times out', new FetchTimeoutError('http://gw/soc', 10_000)],
+  ])(
+    'reads as nothing new when the first step of a walk %s, and asks for the same slot next time',
+    async (_, failure) => {
+      const { urls, fetcher } = stubFetcher([
+        respond({ headers: headerFor(7) }),
+        failure,
+        respond({ ok: false, status: 404 }),
+      ]);
+      const reader = new CatalogFeedReader(OWNER, TOPIC);
+
+      await reader.read(via(fetcher, 'http://gw'));
+
+      expect(await reader.read(via(fetcher, 'http://gw'))).toBeNull();
+      // The walk read nothing, so the position it starts from next time is the one it already held.
+      expect(reader.getIndex()?.toBigInt()).toBe(7n);
+      await reader.read(via(fetcher, 'http://gw'));
+      expect(urls[2]).toBe(urls[1]);
+    },
+  );
+
+  /**
+   * ⛔ The body is checked before the position moves. The caller parses it after the read returns, so
+   * a body cut short used to fail that poll with the position already past it, and every later poll
+   * asked for the slot after it. A change announced only in that slot never reached the page.
+   */
+  it('does not move past a slot whose body does not parse, and asks for it again next time', async () => {
+    const { urls, fetcher } = stubFetcher([
+      respond({ headers: headerFor(7) }),
+      respond({ text: '[{"live":tr' }),
+      respond({ text: '[{"live":true}]' }),
+      respond({ ok: false, status: 404 }),
+    ]);
     const reader = new CatalogFeedReader(OWNER, TOPIC);
 
     await reader.read(via(fetcher, 'http://gw'));
 
-    await expect(reader.read(via(fetcher, 'http://gw'))).rejects.toThrow('502');
-    // The walk read nothing, so the position it starts from next time is the one it already held.
+    expect(await reader.read(via(fetcher, 'http://gw'))).toBeNull();
     expect(reader.getIndex()?.toBigInt()).toBe(7n);
+
+    expect(await reader.read(via(fetcher, 'http://gw'))).toEqual({ body: '[{"live":true}]', slot: 8n });
+    expect(urls[2]).toBe(urls[1]);
+  });
+
+  it('keeps no position from a head whose body does not parse, so the next read resolves the head again', async () => {
+    const { urls, fetcher } = stubFetcher([
+      respond({ headers: headerFor(7), text: '[{"live":tr' }),
+      respond({ headers: headerFor(7) }),
+    ]);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
+
+    await reader.read(via(fetcher, 'http://gw'));
+    expect(reader.getIndex()).toBeNull();
+
+    await reader.read(via(fetcher, 'http://gw'));
+    expect(urls[1]).toBe(urls[0]);
+    expect(reader.getIndex()?.toBigInt()).toBe(7n);
+  });
+
+  /** A body that parses but does not validate still moves the position, since the stream list refuses it anyway. */
+  it('moves past a slot whose body parses, whatever it holds', async () => {
+    const { fetcher } = stubFetcher([respond({ headers: headerFor(7) }), respond({ text: '{"not":"a list"}' })]);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
+
+    await reader.read(via(fetcher, 'http://gw'));
+
+    expect(await reader.read(via(fetcher, 'http://gw'))).toEqual({ body: '{"not":"a list"}', slot: 8n });
+    expect(reader.getIndex()?.toBigInt()).toBe(8n);
   });
 
   // Same salvage rule the throw path already has: what a walk fetched is not thrown away because a
