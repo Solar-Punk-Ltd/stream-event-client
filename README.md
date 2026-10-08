@@ -366,7 +366,9 @@ so the player brings its own loaders:
   newest playlist. Where it starts comes from a `NewestIndexFinder`, injected so it can be swapped:
   the `MarkerFinder`, which reads the ladder's time marker (`src/shared/ladderMarker.ts`, copied from
   the uploader) and falls back to the `IndexSearchFinder`. How it follows is `followPredicted` in
-  `src/features/player/following/`, the polling study's choice. The study's simulator and the strategies it was compared with are in `test/feedModel/`.
+  `src/features/player/following/`, the polling study's choice. The player assumes no segment length:
+  the follower and the searches take it from the `#EXTINF` values of the playlist they stand on, and a
+  join from a time marker takes the `segmentMs` the marker names, which is the stage's `HLS_FRAGMENT`. The study's simulator and the strategies it was compared with are in `test/feedModel/`.
 
 Feed URIs use a `swarm://<owner>/<topic>` scheme, because hls.js resolves every playlist URI against
 the playlist's own URL and a URI with a scheme is the one case it leaves untouched.

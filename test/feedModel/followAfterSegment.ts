@@ -1,8 +1,9 @@
-import { FeedEntry, FollowContext, SEGMENT_MS } from '../../src/features/player/following/feedReader';
+import { FeedEntry, FollowContext } from '../../src/features/player/following/feedReader';
 import { pollsTriggerFires, probeAhead, RefusedSlotTrigger } from '../../src/features/player/following/probeAhead';
 import { PROBE_DISTANCES } from '../../src/features/player/refusedSlot';
 
 import { TODAY_TRIGGER } from './followImmediately';
+import { SEGMENT_MS } from './publisher';
 
 export interface FollowAfterSegmentOptions {
   /**
