@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createElement } from 'react';
+import { act, createElement } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -20,32 +20,51 @@ vi.mock('../src/app/AppProvider', async () => {
   const swarm = gatewaySwarm('/bee');
   return { useAppContext: () => ({ ...appContext.value, swarm }) };
 });
-vi.mock('../src/features/catalog/useCatalogPoll', () => ({ useCatalogPoll: () => {} }));
+const seen = vi.hoisted(() => ({
+  pollMs: [] as (number | null)[],
+  player: null as null | { renditions?: { name: string }[]; onLadderIncomplete?: (incomplete: boolean) => void },
+}));
+vi.mock('../src/features/catalog/useCatalogPoll', () => ({
+  useCatalogPoll: (pollMs: number | null) => {
+    seen.pollMs.push(pollMs);
+  },
+}));
 vi.mock('../src/features/player/SwarmHlsPlayer', () => ({
-  SwarmHlsPlayer: () => createElement('video', { 'data-testid': 'player' }),
+  SwarmHlsPlayer: (props: NonNullable<typeof seen.player>) => {
+    seen.player = props;
+    return createElement('video', { 'data-testid': 'player' });
+  },
 }));
 
 let mounted: Mounted | null = null;
 
-function openWatchPage(entry: Partial<Stream> & Record<string, unknown>) {
-  appContext.value = {
-    ...appContext.value,
-    streamList: [{ owner: OWNER, topic: TOPIC, title: 'A talk', timestamp: 1, mediatype: 'video', ...entry }],
-  };
-  mounted = mount(
+function watchPage() {
+  return createElement(
+    MemoryRouter,
+    { initialEntries: [`/watch/video/${OWNER}/${TOPIC}`] },
     createElement(
-      MemoryRouter,
-      { initialEntries: [`/watch/video/${OWNER}/${TOPIC}`] },
-      createElement(
-        Routes,
-        null,
-        createElement(Route, { path: '/watch/:mediatype/:owner/:topic', element: createElement(StreamWatcher) }),
-      ),
+      Routes,
+      null,
+      createElement(Route, { path: '/watch/:mediatype/:owner/:topic', element: createElement(StreamWatcher) }),
     ),
   );
 }
 
+function listing(entry: Partial<Stream> & Record<string, unknown>) {
+  appContext.value = {
+    ...appContext.value,
+    streamList: [{ owner: OWNER, topic: TOPIC, title: 'A talk', timestamp: 1, mediatype: 'video', ...entry }],
+  };
+}
+
+function openWatchPage(entry: Partial<Stream> & Record<string, unknown>) {
+  listing(entry);
+  mounted = mount(watchPage());
+}
+
 afterEach(() => {
+  seen.pollMs.length = 0;
+  seen.player = null;
   mounted?.unmount();
   mounted = null;
   document.body.innerHTML = '';
@@ -88,5 +107,33 @@ describe('the watch page', () => {
 
     expect(document.body.textContent).toContain('Live in 3 days');
     expect(document.querySelector('.scheduled-placeholder img')?.getAttribute('src')).toBe('/bee/bzz/abc/');
+  });
+
+  /**
+   * Architecture review 2026-10-08, P2 #7. The entry turns live once the first quality has reported,
+   * and a viewer who joined then is handed one rendition. The player says the ladder's marker names
+   * more, the page reads the stream list again, and the fuller entry reaches the player.
+   */
+  it('reads the stream list again while the player says its entry was short, until the entry names every rung', () => {
+    const rung = (name: string) => ({
+      name,
+      width: 1,
+      height: 1,
+      topic: `rung-${name}`,
+      bandwidth: 1,
+      avgBandwidth: 1,
+    });
+    openWatchPage({ state: 'live', renditions: [rung('360p')] });
+    expect(seen.pollMs.at(-1)).toBeNull();
+
+    act(() => seen.player?.onLadderIncomplete?.(true));
+    expect(seen.pollMs.at(-1)).toBe(5_000);
+
+    listing({ state: 'live', renditions: ['360p', '480p', '720p', '1080p'].map(rung) });
+    mounted?.render(watchPage());
+    expect(seen.player?.renditions?.map((r) => r.name)).toEqual(['360p', '480p', '720p', '1080p']);
+
+    act(() => seen.player?.onLadderIncomplete?.(false));
+    expect(seen.pollMs.at(-1)).toBeNull();
   });
 });

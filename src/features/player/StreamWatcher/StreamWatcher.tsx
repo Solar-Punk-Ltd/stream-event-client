@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 
 import { SwarmHlsPlayer } from '@/features/player/SwarmHlsPlayer';
@@ -49,9 +50,14 @@ export function StreamWatcher() {
   // Above the early return, because a hook may not be skipped on some renders.
   const isWaiting = useIsWaitingForStart(`${owner}/${topic}`, stream);
   const view = watchPageView(isStreamListLoaded, stream, isWaiting);
-  useCatalogPoll(watchPageCatalogPollMs(view));
-
   const streamKey = `${owner}/${topic}`;
+  // Kept per stream, because React Router keeps this page mounted when only the route changes.
+  const [shortLadderOf, setShortLadderOf] = useState<string | null>(null);
+  const onLadderIncomplete = useCallback(
+    (incomplete: boolean) => setShortLadderOf(incomplete ? streamKey : null),
+    [streamKey],
+  );
+  useCatalogPoll(watchPageCatalogPollMs(view, shortLadderOf === streamKey));
 
   const back = (
     <Link className="watch-back" to={ROUTES.STREAM_BROWSER}>
@@ -93,6 +99,7 @@ export function StreamWatcher() {
             enableQoeOverlay={enableQoeOverlay}
             renditions={playableRenditions(stream)}
             level={level}
+            onLadderIncomplete={onLadderIncomplete}
           />
         ) : (
           <WatchPlaceholder
