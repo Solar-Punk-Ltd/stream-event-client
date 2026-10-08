@@ -230,11 +230,13 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 - **Previews.** The entry's uploaded thumbnail when it has one, otherwise a frame decoded from the
   stream's first segment, with a live badge and the duration.
 - **Scheduled streams.** An entry whose state is `scheduled` has been announced and not yet
-  broadcast. Its watch page says the stream has not started and starts the player as soon as the
-  broadcast's first ladder marker appears, reading each period's marker once, about 4 seconds into
-  the period. It keeps reading the stream list as well, which also starts the player when the entry
-  turns live and carries title changes, a new start time and an unpublish. If it is unpublished while
-  the page waits, the page says it is no longer available.
+  broadcast. Its watch page says the stream has not started and reads the broadcast's ladder markers,
+  each period's marker once, about 4 seconds into the period. Each marker found prompts one read of the
+  stream list, and the player starts once the list says live, with the stream's renditions. Apart from
+  that the page reads the list once a minute, for a new start time, a title change or an unpublish,
+  because asking the list's unwritten next slot more often makes the node skip its peers for that slot
+  and the live entry then arrives up to a minute late. If it is unpublished while the page waits, the
+  page says it is no longer available.
 - **A broadcast that comes back.** After a feed finishes, the player keeps asking for the slot after
   the finished playlist, about every 30 seconds and spread per viewer. When the broadcast returns and
   the viewer has reached the end of what they were playing, the player rejoins it live.
