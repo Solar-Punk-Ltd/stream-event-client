@@ -4,10 +4,10 @@ A lightweight web app for watching the Devcon 8 streams over [Swarm](https://www
 browse the event's streams, watch one, choose and test where the video loads from (the event gateway,
 another gateway the site offers, or your own Bee node), and chat with the other people watching.
 
-**Status: phase 3 of the plan, the chat.** The stream list, the watch page, the player and the
-Sources screen work, in the Swarm Brand v3.0 look, and each stream has a chat beside the video, built and
-tested against stand-ins until the chat's services are set up. The plan, its phases and its decisions
-are in [docs/PLAN.md](docs/PLAN.md).
+**What is built.** The stream list, the watch page with a player that reads only the quality it
+plays and finds the newest playlist from the ladder's time markers, the Sources screen over a Swarm
+client made of providers, and a chat beside each stream, in the Swarm Brand v3.0 look. The plan,
+its phases and its decisions are in [docs/PLAN.md](docs/PLAN.md).
 
 It is built from the viewer of
 [streaming-monorepo](https://github.com/Solar-Punk-Ltd/streaming-monorepo) and the Swarm design and
