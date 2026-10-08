@@ -5,7 +5,7 @@ import type { PlayerReader } from '@/features/player/playerReads';
 import { ladderMarkerIdentifier, parseLadderMarker } from '@/shared/ladderMarker';
 import { contentText } from '@/swarm/answers';
 
-export interface LadderMarkerWatch {
+interface LadderMarkerWatch {
   /** Read when each marker is asked, so a gateway switch while waiting reaches the next ask. */
   readonly reader: () => Pick<PlayerReader, 'readSoc'>;
   /** The entry's owner, who signs the ladder and writes its markers. */

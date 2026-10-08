@@ -41,7 +41,7 @@ const MARKER_WRITE_DELAY_MS = 250;
 const MARKER_PERIODS_RECOGNISED = 6;
 
 /** The fake publisher's account. Made up, so nothing it names exists on any real node. */
-export const LADDER_OWNER = 'a1'.repeat(20);
+const LADDER_OWNER = 'a1'.repeat(20);
 const CATALOG_TOPIC = 'ladder-test-catalog';
 const MASTER_TOPIC = 'ladder-test-master';
 

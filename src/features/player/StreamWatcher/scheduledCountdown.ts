@@ -3,7 +3,7 @@ const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
 /** An announced broadcast's start, worded twice: how long until it, and when it is. */
-export interface ScheduledCountdown {
+interface ScheduledCountdown {
   /** "Live in 2 days", "Live in 3 hours", "Live in 1 minute", or "Starting soon" once the time has passed. */
   relative: string;
   /** The day and time it starts, in the reader's own locale and time zone. */
