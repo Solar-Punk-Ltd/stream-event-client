@@ -4,6 +4,7 @@ import { afterEach, describe, it, vi } from 'vitest';
 
 import {
   CATALOG_POLL_INTERVAL_MS,
+  FIRST_LOAD_RETRY_MS,
   retryCatalogReadAfter,
   watchPageCatalogPollMs,
 } from '../src/features/catalog/catalogPoll';
@@ -54,12 +55,12 @@ describe('after a failed catalog read', () => {
     vi.useRealTimers();
   });
 
-  function retryOf(pollMs: number | null, visible = () => true) {
+  function retryOf(pollMs: number | null, visible = () => true, hasShownList = () => true) {
     const revalidate = vi.fn(async () => true);
     const config = { isVisible: visible } as unknown as Parameters<
       NonNullable<ReturnType<typeof retryCatalogReadAfter>>
     >[2];
-    const retry = retryCatalogReadAfter(pollMs);
+    const retry = retryCatalogReadAfter(pollMs, hasShownList);
     return {
       revalidate,
       fail: (retryCount: number) => retry?.(new Error('slow'), 'app-state', config, revalidate, { retryCount }),
@@ -89,6 +90,23 @@ describe('after a failed catalog read', () => {
     vi.advanceTimersByTime(CATALOG_POLL_INTERVAL_MS);
 
     assert.equal(revalidate.mock.calls.length, 0);
+  });
+
+  it('reads again within a few seconds while the page has never shown the list', () => {
+    vi.useFakeTimers();
+    const { revalidate, fail } = retryOf(
+      CATALOG_POLL_INTERVAL_MS,
+      () => true,
+      () => false,
+    );
+
+    fail(1);
+    vi.advanceTimersByTime(FIRST_LOAD_RETRY_MS);
+    assert.equal(revalidate.mock.calls.length, 1, 'a failed first read waited the routine interval');
+
+    fail(4);
+    vi.advanceTimersByTime(FIRST_LOAD_RETRY_MS);
+    assert.equal(revalidate.mock.calls.length, 2, 'a fourth failure in a row on the first load was backed off');
   });
 
   it('schedules nothing for a page that does not poll', () => {

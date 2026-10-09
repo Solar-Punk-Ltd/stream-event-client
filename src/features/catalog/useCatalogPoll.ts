@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import useSWR from 'swr';
 
 import { useAppContext } from '@/app/AppProvider';
@@ -18,23 +18,27 @@ interface CatalogPollState {
  * poll rather than running two against the gateway. The source is part of the key so that a switch
  * starts a fresh fetch rather than inheriting the previous node's answer: `isLoading` is then true
  * again while the new node is being asked, and an `error` belongs to the node now selected instead of
- * the one the viewer has left. A failed read is followed by the next at the same cadence, see
- * {@link retryCatalogReadAfter}.
+ * the one the viewer has left. A failed read is followed by the next at the same cadence once the list
+ * has been shown, and within a few seconds before that, see {@link retryCatalogReadAfter}.
  *
  * @param pollMs How often to read, or null not to read at all, which is SWR's null key.
  */
 export function useCatalogPoll(pollMs: number | null): CatalogPollState {
   const { fetchAppState, setNewStreamList, streamListSourceId } = useAppContext();
+  const hasShownList = useRef(false);
   const { data, error, isLoading } = useSWR(pollMs === null ? null : ['app-state', streamListSourceId], fetchAppState, {
     revalidateOnFocus: true,
     refreshInterval: pollMs ?? 0,
     dedupingInterval: pollMs ?? 0,
     shouldRetryOnError: true,
-    onErrorRetry: retryCatalogReadAfter(pollMs),
+    onErrorRetry: retryCatalogReadAfter(pollMs, () => hasShownList.current),
   });
 
   useEffect(() => {
-    if (data) setNewStreamList(data);
+    if (data) {
+      hasShownList.current = true;
+      setNewStreamList(data);
+    }
   }, [data, setNewStreamList]);
 
   return { error, isLoading };

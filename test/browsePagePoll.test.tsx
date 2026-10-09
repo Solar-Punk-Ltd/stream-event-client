@@ -16,7 +16,8 @@ const SKIP_MS = 60_000;
 const app = vi.hoisted(() => ({
   sourceId: '',
   readsAtMs: [] as number[],
-  fails: false,
+  /** Whether the read about to be made fails, given how many came before it. */
+  fails: (_readsBefore: number) => false,
 }));
 
 vi.mock('../src/app/AppProvider', () => ({
@@ -26,8 +27,9 @@ vi.mock('../src/app/AppProvider', () => ({
     theme: { heroTitle: 'Streams', heroSubtitle: '', footer: {} },
     streamListSourceId: app.sourceId,
     fetchAppState: async () => {
+      const readsBefore = app.readsAtMs.length;
       app.readsAtMs.push(Date.now());
-      if (app.fails) {
+      if (app.fails(readsBefore)) {
         throw new Error('the gateway refused the read');
       }
       return { gateway: 'fake', streams: null, slot: null };
@@ -64,7 +66,7 @@ function gapsBetween(times: readonly number[]): number[] {
 
 describe('the browse page reading the stream list', () => {
   it('keeps reading it, and asks the unwritten next slot at most once a minute', async () => {
-    app.fails = false;
+    app.fails = () => false;
     const reads = await openBrowsePageFor(4 * SKIP_MS, 'browse-poll-answered');
 
     expect(reads.length, 'an open page stopped reading the list').toBeGreaterThan(1);
@@ -73,13 +75,29 @@ describe('the browse page reading the stream list', () => {
     }
   });
 
-  it('keeps the same pace after failed reads, never faster and never a growing backoff', async () => {
-    app.fails = true;
-    const reads = await openBrowsePageFor(4 * SKIP_MS, 'browse-poll-failing');
+  /**
+   * A viewer whose first read fails would otherwise look at an empty page for a minute. A retry asks
+   * the same unwritten slot again, so the quick ones are kept to the first load.
+   */
+  it('retries a failed first read within a few seconds, until the list has been shown once', async () => {
+    app.fails = (readsBefore) => readsBefore < 2;
+    const reads = await openBrowsePageFor(30_000, 'browse-poll-first-read-fails');
 
-    expect(reads.length, 'a failed read stopped the page reading').toBeGreaterThan(1);
+    expect(reads.length, 'a failed first read was not retried within half a minute').toBeGreaterThanOrEqual(3);
     for (const gap of gapsBetween(reads)) {
-      expect(gap, 'a failed read was retried more than once a minute').toBeGreaterThanOrEqual(SKIP_MS);
+      expect(gap, 'a failed first read waited the routine minute').toBeLessThanOrEqual(10_000);
+    }
+  });
+
+  it('waits the routine minute after a failed read once the list has been shown', async () => {
+    app.fails = (readsBefore) => readsBefore > 0;
+    const reads = await openBrowsePageFor(4 * SKIP_MS, 'browse-poll-later-reads-fail');
+
+    expect(reads.length, 'a failed read stopped the page reading').toBeGreaterThan(2);
+    for (const gap of gapsBetween(reads)) {
+      expect(gap, 'a failed read after the list was shown was retried more than once a minute').toBeGreaterThanOrEqual(
+        SKIP_MS,
+      );
     }
   });
 });
