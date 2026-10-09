@@ -1,6 +1,5 @@
-// Copied from Solar-Punk-Ltd/streaming-monorepo at ef714fcff (branch chore/deploy-157-2026-10-08),
-// apps/hls-stream/packages/shared/src/ladderMarker.ts, with the version 1 read removed as at 503346734
-// (branch fix/catalog-first-read-retry). Refresh it from there when the convention changes.
+// Copied from Solar-Punk-Ltd/streaming-monorepo's shared package,
+// apps/hls-stream/packages/shared/src/ladderMarker.ts. Refresh it from there when the convention changes.
 // The uploader writes these markers and this player reads them, so the two must compute one address.
 
 /**
