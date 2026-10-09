@@ -35,8 +35,9 @@ export interface NewestIndex {
  * rungs of one ladder drift apart without bound. A search may start from the hint. It may never read
  * the hint as the answer.
  *
- * Injected, so the owner's decision 34 can move to Bee's own lookup at the start (option b) or to a
- * latest index the stream list carries (option c) without touching the walk.
+ * Injected, so the walk does not depend on how the newest index is found. The player starts from
+ * the ladder's time marker (`MarkerFinder` in `markerFinder.ts`) and falls back to
+ * {@link IndexSearchFinder}. Neither uses Bee's own feed head lookup.
  *
  * @param isStopped Checked before every read. Once the rung stops being followed the search reads
  *   nothing more and its answer is thrown away.
@@ -47,7 +48,7 @@ export interface NewestIndexFinder {
 }
 
 /**
- * The searches by index from the polling study (decision 34, option a): from nothing at the start,
+ * The searches by index: from nothing at the start,
  * and from the playing rung's newest slot at a switch, a failover and the check of an end. Neither
  * reads the feed head lookup, which measured the slowest request this deployment has.
  */

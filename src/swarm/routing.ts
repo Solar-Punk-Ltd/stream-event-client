@@ -1,8 +1,8 @@
 /**
- * Which source each part of the viewer reads from: one source for everything, or a source per part
- * (decision 46). Pure, so the app keeps it in the browser and the Sources screen shows it.
+ * Which source each part of the viewer reads from: one source for everything, or a source per part.
+ * Pure, so the app keeps it in the browser and the Sources screen shows it.
  *
- * The video and the stream list are linked by default (decision 47): the player finds a live stream's
+ * The video and the stream list are linked by default, because the player finds a live stream's
  * newest entry from time markers at addresses computed from the clock of whoever serves the stream
  * list, so the two reading from different hosts can put the player behind or ahead of live.
  */

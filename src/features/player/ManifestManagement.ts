@@ -664,8 +664,8 @@ export class ManifestFetcher {
    * `loadSource`.
    *
    * A stream whose entry in the stream list names its renditions is answered with the master built
-   * from them, and nothing is read (decision 33, Levi, 2026-10-07). The master feed's head lookup
-   * was the slowest read at start, 4.2 to 4.7 s in phase 0, and the list already carries every
+   * from them, and nothing is read. The master feed's head lookup was the slowest read at start,
+   * 4.2 to 4.7 s when measured on 2026-10-06, and the list already carries every
    * rendition with its topic, size and bandwidth.
    *
    * Any other stream reads its source feed, and the content decides what it is. A multivariant
