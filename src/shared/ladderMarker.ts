@@ -1,5 +1,6 @@
 // Copied from Solar-Punk-Ltd/streaming-monorepo at ef714fcff (branch chore/deploy-157-2026-10-08),
-// apps/hls-stream/packages/shared/src/ladderMarker.ts. Refresh it from there when the convention changes.
+// apps/hls-stream/packages/shared/src/ladderMarker.ts, with the version 1 read removed as at 503346734
+// (branch fix/catalog-first-read-retry). Refresh it from there when the convention changes.
 // The uploader writes these markers and this player reads them, so the two must compute one address.
 
 /**
@@ -26,9 +27,6 @@ const MARKER_PERIOD_MS = MARKER_PERIOD_SECONDS * 1000;
 
 export const LADDER_MARKER_VERSION = 2;
 
-/** Markers written before they named a segment length. Readers still take them, without one. */
-const LADDER_MARKER_VERSION_WITHOUT_LENGTH = 1;
-
 /** One Swarm chunk's payload. A marker that does not fit would need a second chunk and a second read. */
 export const LADDER_MARKER_MAX_BYTES = 4096;
 
@@ -37,7 +35,6 @@ const IDENTIFIER_PREFIX = new TextEncoder().encode('ladder-marker');
 /** A rung's feed topic as bee-js prints it: 32 bytes, lowercase hex, no prefix. */
 const RUNG_TOPIC_HEX = /^[0-9a-f]{64}$/;
 
-const MARKER_FIELDS_WITHOUT_LENGTH = ['period', 'rungs', 'v', 'writtenAt'];
 const MARKER_FIELDS = ['period', 'rungs', 'segmentMs', 'v', 'writtenAt'];
 
 /**
@@ -47,7 +44,7 @@ const MARKER_FIELDS = ['period', 'rungs', 'segmentMs', 'v', 'writtenAt'];
  * had published when the marker was written. A rung that has never published is absent.
  */
 export interface LadderMarker {
-  v: typeof LADDER_MARKER_VERSION | typeof LADDER_MARKER_VERSION_WITHOUT_LENGTH;
+  v: typeof LADDER_MARKER_VERSION;
   period: number;
   /** Unix milliseconds, inside the marker's own period. */
   writtenAt: number;
@@ -55,9 +52,9 @@ export interface LadderMarker {
   /**
    * How long every rung's segments last, in whole milliseconds: the stage's own setting, which under a
    * ladder is exactly what each rung cuts. A viewer joining from a marker has read no playlist yet, and
-   * moves the head on by the time since the write in segments of this. Null on a version 1 marker.
+   * moves the head on by the time since the write in segments of this.
    */
-  segmentMs: number | null;
+  segmentMs: number;
 }
 
 /** The period a wall-clock instant falls in. Global time, so every reader agrees without knowing the stream. */
@@ -119,17 +116,17 @@ export function parseLadderMarker(text: string, expectedPeriod?: number): Ladder
     return null;
   }
   const { v, period, writtenAt, rungs, segmentMs } = value;
-  const fields = v === LADDER_MARKER_VERSION_WITHOUT_LENGTH ? MARKER_FIELDS_WITHOUT_LENGTH : MARKER_FIELDS;
-  if (Object.keys(value).sort().join(',') !== fields.join(',')) {
+  if (Object.keys(value).sort().join(',') !== MARKER_FIELDS.join(',')) {
     return null;
   }
-  if (v !== LADDER_MARKER_VERSION && v !== LADDER_MARKER_VERSION_WITHOUT_LENGTH) {
+  // Version 1, which named no segment length, was written only by test builds and is read as absent.
+  if (v !== LADDER_MARKER_VERSION) {
     return null;
   }
   if (!isWholeNumber(period) || !isWholeNumber(writtenAt)) {
     return null;
   }
-  if (v === LADDER_MARKER_VERSION && (!isWholeNumber(segmentMs) || segmentMs === 0)) {
+  if (!isWholeNumber(segmentMs) || segmentMs === 0) {
     return null;
   }
   if (expectedPeriod !== undefined && period !== expectedPeriod) {
@@ -156,7 +153,7 @@ export function parseLadderMarker(text: string, expectedPeriod?: number): Ladder
     period,
     writtenAt,
     rungs: Object.fromEntries(entries) as Record<string, number>,
-    segmentMs: v === LADDER_MARKER_VERSION ? (segmentMs as number) : null,
+    segmentMs,
   };
 }
 

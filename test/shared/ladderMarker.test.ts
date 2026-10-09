@@ -81,11 +81,11 @@ describe('the ladder marker convention, as the uploader writes it', () => {
     assert.equal(parseLadderMarker(text)?.segmentMs, 500);
   });
 
-  it('still reads a version 1 marker, which names no segment length', () => {
+  /** Only test builds wrote version 1, which names no segment length, and nothing has written it since 2026-10-09. */
+  it('reads a version 1 marker as no marker, as any version it does not know', () => {
     const { segmentMs: _segmentMs, ...rest } = validMarker();
-    const marker = parseLadderMarker(JSON.stringify({ ...rest, v: 1 }));
-    assert.equal(marker?.v, 1);
-    assert.equal(marker?.segmentMs, null);
+    assert.equal(parseLadderMarker(JSON.stringify({ ...rest, v: 1 })), null);
+    assert.equal(parseLadderMarker(JSON.stringify({ ...rest, v: 1 }), rest.period), null);
   });
 
   const refused: Array<[string, string]> = [
