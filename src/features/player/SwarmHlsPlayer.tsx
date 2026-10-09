@@ -67,10 +67,12 @@ interface HlsTuning {
  * What the target also has to be checked against is the engine's **playlist window**, because
  * `liveSyncPosition` is clamped to `edge - levelDetails.totalduration`. A target as long as the
  * window parks the playhead on the oldest fragment, at the eviction boundary. The two engines
- * express that window differently, so the margin differs: SRS's `hls_window` is a duration and
- * holds regardless of fragment length, while OME's is `SegmentCount x SegmentDuration`, which at
- * its defaults is 5 x 2s = 10s, 4 s clear of the 6 s floor. At longer segments and OME's default
- * count of five, the window stays two segments ahead of the three-segment target.
+ * express that window differently, so the margin differs. SRS's `hls_window` is a fixed duration,
+ * 15 s by default, while the target grows with segment length, so from about 5 s segments the
+ * three-segment target reaches the window's oldest fragment. Below that the 6 s floor sits well
+ * inside it. OME's window is `SegmentCount x SegmentDuration`, which at its defaults is
+ * 5 x 2s = 10s, 4 s clear of the 6 s floor. At longer segments and OME's default count of five,
+ * the window stays two segments ahead of the three-segment target.
  */
 const DEFAULT_HLS_TUNING: Readonly<HlsTuning> = Object.freeze({
   // Spread rather than restated. These are the buffering and latency numbers of
