@@ -85,7 +85,7 @@ describe.skipIf(!OUT)('the polling study', () => {
     const started = Date.now();
 
     if (PARTS.has('validate')) {
-      out.push("## Validation, today's walk against phase 0", '');
+      out.push("## Validation, today's walk against the runs of 2026-10-06", '');
       out.push(
         '| profile | reads per slot 1 / 2 / 3 / 4+ | requests a minute | gap between finds p10 / p50 / p90 / worst ms |',
         '| --- | --- | --- | --- |',

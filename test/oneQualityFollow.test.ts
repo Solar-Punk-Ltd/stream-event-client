@@ -479,7 +479,7 @@ describe('Q3: the playing quality stops', () => {
     );
   });
 
-  /** Decision 37: the player fails over again and again until it is on a quality that moves. */
+  /** The player fails over again and again until it is on a quality that moves. */
   it('fails over a second time when the quality it moved to stops as well', async () => {
     const rig = makeRig();
     rig.gateway.publishLive(TOP, 'top', 20);

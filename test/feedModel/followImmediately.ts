@@ -16,8 +16,8 @@ export interface FollowImmediatelyOptions {
  *
  * A pass reads the next slot, and after a found slot reads the one after at once. A pass that found
  * anything is followed by another pass straight away, so the first miss after a find is asked again
- * at once, and only an empty pass waits the poll interval. Phase 0 shows exactly that shape: half the
- * asks after a miss started within a millisecond of it, the rest about 750 ms after.
+ * at once, and only an empty pass waits the poll interval. The runs of 2026-10-06 show exactly that
+ * shape: half the asks after a miss started within a millisecond of it, the rest about 750 ms after.
  */
 export async function followImmediately(
   context: FollowContext,

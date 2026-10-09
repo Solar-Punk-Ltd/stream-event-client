@@ -16,9 +16,9 @@ import { buildMasterPlaylist, buildSwarmUri } from '../src/shared/masterPlaylist
 import { GATEWAY_PATH, PREVIEW_ORIGIN, RECORDED_DIR, RecordingFile } from './recording';
 
 /**
- * How long every request waits for its answer, the median round trip of a feed read through the gateway in phase 0
- * (profile A). With no wait the player's reads came back at once and the rates the journeys print measured the fake
- * rather than the player.
+ * How long every request waits for its answer, the median round trip of a feed read through the gateway in the runs
+ * of 2026-10-06 (profile A). With no wait the player's reads came back at once and the rates the journeys print
+ * measured the fake rather than the player.
  */
 const ROUND_TRIP_MS = 650;
 /** The publisher writes a new index this often, and every segment is this long. */

@@ -5,7 +5,7 @@ import type { QualityFeed } from './publisher';
 import type { Random } from './random';
 import type { VirtualTime } from './virtualTime';
 
-/** The longest round trip phase 0 saw for a playlist read, tails at start included. */
+/** The longest round trip the runs of 2026-10-06 saw for a playlist read, tails at start included. */
 const MAX_ROUND_TRIP_MS = 8_000;
 
 /** How long Bee keeps skipping the peers that failed to deliver an address, `pkg/retrieval/retrieval.go:128`. */

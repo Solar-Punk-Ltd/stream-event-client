@@ -10,9 +10,10 @@ import { VirtualTime } from './feedModel/virtualTime.js';
 import { TimedGateway } from './helpers/timedGateway.js';
 
 /**
- * The poller on simulated time, against a gateway that answers every read after phase 0's 650 ms and
- * publishes one index every two seconds. What is checked is how the playing quality is followed: the
- * asks the study's predicted follower makes, wired into the player rather than run on its own.
+ * The poller on simulated time, against a gateway that answers every read after the 650 ms measured
+ * on 2026-10-06 and publishes one index every two seconds. What is checked is how the playing quality
+ * is followed: the asks the study's predicted follower makes, wired into the player rather than run on
+ * its own.
  */
 
 const OWNER = 'ddeeff';

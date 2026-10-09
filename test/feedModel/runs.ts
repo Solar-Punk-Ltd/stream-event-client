@@ -9,7 +9,7 @@ import { historyPauses, Pause, QualityFeed, SEGMENT_MS } from './publisher';
 import { Random } from './random';
 import { VirtualTime } from './virtualTime';
 
-/** The spread of a slot's readable lag from slot to slot, fitted to phase 0 (see the study report). */
+/** The spread of a slot's readable lag from slot to slot, fitted to the runs of 2026-10-06 (see the study report). */
 const CALIBRATED_JITTER_MS = 300;
 
 export type Follower = (context: FollowContext) => Promise<void>;

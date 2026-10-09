@@ -180,11 +180,11 @@ for (const markers of [true, false]) {
       requests: gateway.tally(),
       warnings,
     });
-    expect(gateway.count('master'), 'nothing is read for the master feed (decision 33)').toBe(0);
+    expect(gateway.count('master'), 'the master the list names is built, never read').toBe(0);
     expect(gateway.count('head', rung!), 'the starting quality is found by its slots, never the head lookup').toBe(0);
     expect(gateway.feedReads(rung!), 'the starting quality is read').toBeGreaterThan(0);
     if (markers) {
-      expect(gateway.count('marker'), 'the start read a time marker (decision 35)').toBeGreaterThan(0);
+      expect(gateway.count('marker'), 'the start read a time marker').toBeGreaterThan(0);
     } else {
       expect(gateway.count('marker'), 'no marker was there to read').toBe(0);
       // The start asks the two recent periods, and the player's watch for late qualities then asks each period's
@@ -309,7 +309,7 @@ test('two qualities stop one after the other: the player drops both and keeps pl
   page,
   context,
 }) => {
-  // Decision 37: any number of drops, until the player is on a quality that moves. A cap of one per stream left the
+  // Any number of drops, until the player is on a quality that moves. A cap of one per stream left the
   // viewer frozen on the second quality to stop.
   const gateway = new LadderGateway();
   const { warnings } = await openStream(page, context, gateway);

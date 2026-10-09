@@ -1,5 +1,5 @@
 /**
- * How a Bee node answers, fitted to phase 0's two runs of ten minutes on 2026-10-06: A through the
+ * How a Bee node answers, fitted to two runs of ten minutes on 2026-10-06: A through the
  * test stack's viewer gateway, B through a local Bee node. Round trips are log-normal with the
  * measured medians. The spreads were then fitted, with the readable lag's jitter, so that today's walk
  * reproduces the measured asks per slot (the study report gives the fit), and come out a little

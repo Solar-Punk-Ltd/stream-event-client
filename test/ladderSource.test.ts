@@ -262,9 +262,9 @@ describe('the ladder entry points', () => {
   });
 
   /**
-   * Decision 33 (Levi, 2026-10-07): a stream whose entry in the stream list names its renditions is
-   * answered with the master built from them, and the master feed is not read at all. That read was
-   * the slowest at start, 4.2 to 4.7 s in phase 0, a head lookup of the master topic.
+   * A stream whose entry in the stream list names its renditions is answered with the master built
+   * from them, and the master feed is not read at all. That read was the slowest at start, 4.2 to
+   * 4.7 s in the measurements of 2026-10-06, a head lookup of the master topic.
    */
   describe('a stream list entry that names its renditions', () => {
     it('is answered with the master built from the list, reading nothing, and the first read is the start rung', async () => {
