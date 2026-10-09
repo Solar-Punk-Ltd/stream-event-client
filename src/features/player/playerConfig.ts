@@ -53,8 +53,9 @@ const MB = 1024 * 1024;
  * duration and a bare Swarm reference, so measured against the shipped builder it holds **12.5s at a
  * 0.25s segment and 25.5s at the 0.5s profile that ships**. The deployment these arrival times were
  * measured on had a gateway URL prepended to every line and reached only 9.0s at 0.25s, so the
- * runway a joining viewer gets has since roughly doubled. `ManifestManager.test.ts` reads this
- * constant out of this file and fails if the window stops covering it.
+ * runway a joining viewer gets has since roughly doubled. The uploader's `ManifestManager.test.ts`,
+ * in streaming-monorepo, reads this constant out of the player there and fails if the window stops
+ * covering it. No test in this repository checks the window.
  *
  * ## What this is not
  *
