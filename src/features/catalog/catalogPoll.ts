@@ -35,7 +35,8 @@ export function watchPageCatalogPollMs(view: WatchPageView): number | null {
 }
 
 /**
- * How soon a failed read is tried again while the page has never shown the list, in milliseconds.
+ * How soon a failed read is tried again while the list has not yet been shown from the selected source,
+ * in milliseconds.
  *
  * ⛔ **Only on the first load.** A viewer whose first read fails would otherwise look at an empty page
  * for a whole {@link CATALOG_POLL_INTERVAL_MS}. A retry asks the list's next slot again, which is not
@@ -46,8 +47,8 @@ export const FIRST_LOAD_RETRY_MS = 5_000;
 
 /**
  * SWR's error retry, flat: the next read comes a fixed time after a failure, however many came before
- * it. That time is {@link FIRST_LOAD_RETRY_MS} while the page has never shown the list, and `pollMs`
- * once it has.
+ * it. That time is {@link FIRST_LOAD_RETRY_MS} while the list has not been shown from the selected
+ * source, and `pollMs` once it has. A switch of source starts the first load again.
  *
  * ⛔ **Never a backoff.** SWR skips its refresh timer while its cache holds an error and leaves the next
  * read to `onErrorRetry`, whose default waits longer after every failure, from 5 to 10 s after one up
@@ -56,7 +57,7 @@ export const FIRST_LOAD_RETRY_MS = 5_000;
  * hidden is dropped, since SWR reads again when the page is shown.
  *
  * @param pollMs The page's poll interval, or null for a page that does not poll, which retries nothing.
- * @param hasShownList Whether a read has succeeded in this page's life, asked when a read fails.
+ * @param hasShownList Whether a read from the source now selected has succeeded, asked when a read fails.
  */
 export function retryCatalogReadAfter(
   pollMs: number | null,

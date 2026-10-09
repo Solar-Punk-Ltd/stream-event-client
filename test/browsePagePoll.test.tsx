@@ -89,6 +89,34 @@ describe('the browse page reading the stream list', () => {
     }
   });
 
+  /**
+   * The source is part of the poll's key, so a viewer who switches gateway looks at a list being read
+   * for the first time again. A list shown from the gateway left behind says nothing about the new one.
+   */
+  it('retries a failed first read on a newly chosen source within a few seconds, though the old one was shown', async () => {
+    const firstSource = 'browse-poll-switch-from';
+    const switchedSource = 'browse-poll-switch-to';
+    app.fails = () => app.sourceId === switchedSource;
+    await openBrowsePageFor(1_000, firstSource);
+    expect(app.readsAtMs.length, 'the first source was never read').toBe(1);
+
+    app.sourceId = switchedSource;
+    app.readsAtMs = [];
+    mounted?.render(createElement(StreamBrowser));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    const reads = [...app.readsAtMs];
+
+    expect(
+      reads.length,
+      'a failed first read on the new source was not retried within half a minute',
+    ).toBeGreaterThanOrEqual(3);
+    for (const gap of gapsBetween(reads)) {
+      expect(gap, 'a failed first read on the new source waited the routine minute').toBeLessThanOrEqual(10_000);
+    }
+  });
+
   it('waits the routine minute after a failed read once the list has been shown', async () => {
     app.fails = (readsBefore) => readsBefore > 0;
     const reads = await openBrowsePageFor(4 * SKIP_MS, 'browse-poll-later-reads-fail');
