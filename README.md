@@ -302,6 +302,14 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   to its first new playlist: one that finishes inside them means the broadcast ended, and only one
   that carries on through them is moved to. A quality the player was moved to that finishes before
   hls.js has switched to it runs the same check.
+- **A segment that will not load.** When hls.js gives up on one of the three newest segments of a
+  live playlist, after its own retries and with no other quality left to try, the player marks that
+  segment `#EXT-X-GAP` in the playlist it serves hls.js. The video skips the segment, a moment of
+  picture, instead of freezing or restarting the player, and every later reload of that playlist
+  says the same. At most four segments are skipped this way in any five minutes. Past that, or for
+  an older segment, a finished broadcast or a recording, the player recovers as it always did, which
+  for a failure at the live edge means a restart. While another quality is left, hls.js moves to it
+  instead and nothing is marked.
 - **Where the video loads from.** The Sources screen, the Sources button in the header, is
   described below.
 - **Diagnosing playback.** `?qoe=1` on a watch page shows a draggable playback quality overlay,
