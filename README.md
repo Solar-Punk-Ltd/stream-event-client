@@ -424,7 +424,7 @@ controls the page, and counts as failed with no peer after 30 s.
   taken off. Two reads it cannot make answer unsupported, and plainly, since nothing else is asked: a feed's head,
   which weeb-3 has no lookup for, and a single-owner chunk read by its address, which comes back without the
   identifier and signature that prove it the owner's, as the chat's slots are read. Both are out of reach while weeb-3
-  serves the video only, since the stream list and the chat never read from it, and both await the owner's ruling.
+  serves the video only, since the stream list and the chat never read from it.
 
 ## How the player reads Swarm
 

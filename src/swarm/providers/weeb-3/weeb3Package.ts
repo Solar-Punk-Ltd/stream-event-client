@@ -1,7 +1,7 @@
 /**
  * The part of `@lat-murmeldjur/weeb_3` this viewer uses, typed from the `weeb_3.d.ts` of its release
  * 0.0.354001. The package's own module has these shapes and more, so the one import in
- * `weeb3Module.ts` type-checks against them whether it names the stand-in or the package.
+ * `weeb3Module.ts` type-checks against them, and a test's fake of the package has them too.
  */
 
 /** Where `attachStream` starts: the feed's newest entry, or the earliest it can rebuild. */

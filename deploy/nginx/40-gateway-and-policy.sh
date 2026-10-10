@@ -1,8 +1,8 @@
 #!/bin/sh
 # Run by nginx's image entrypoint before nginx starts. It turns the image's settings into three files the server
 # includes: how /bee reaches the gateway, whether /weeb-3/ is served, and the headers every page answer carries, its
-# content security policy among them. A setting that is missing or malformed stops the container here, with the reason, rather than serving
-# a page that cannot load its streams.
+# content security policy among them. A setting that is missing or malformed stops the container here, with the
+# reason, rather than serving a page that cannot load its streams.
 #
 # GATEWAY_MODE    proxy (default): the page reads the gateway at /bee on its own origin, and nginx forwards there.
 #                 direct: the page reads the gateway at its own address, which config.json names as gatewayUrl.

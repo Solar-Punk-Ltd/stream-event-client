@@ -60,8 +60,9 @@ function NodeInTabStatusLine({ source }: { readonly source: Source }) {
 /**
  * One source in the list: a radio that puts it in use, its name, an In use tag, where it is, and its
  * status dot. The node in this browser shows its status line where the others show their host, and is
- * never tested, since its own start says whether it works. The rest of the row opens its details, where the Test's result shows as badges and one
- * line, the actions that apply, and a failure's sentences and fix only behind "How to fix".
+ * never tested, since its own start says whether it works. The rest of the row opens its details, where
+ * the Test's result shows as badges and one line, the actions that apply, and a failure's sentences and
+ * fix only behind "How to fix".
  */
 export function SourceRow(props: SourceRowProps) {
   const { source, isInUse, radioName, pickRefusal = null, status, isExpanded, onToggle } = props;

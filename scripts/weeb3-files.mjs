@@ -6,8 +6,7 @@
  * its snippets beside it, and the WebAssembly module. So the build copies them out of the installed package, and the
  * dev and preview servers serve the service worker with the header that lets it control the whole site.
  *
- * Until the package is installed this copies nothing and says so once per build, and the page's stand-in reports the
- * node as failed to start, which the Sources screen and the watch page say.
+ * A build without the package installed copies nothing and says so once.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -75,7 +74,12 @@ function middleware(packageFolder, servesFiles) {
     if (!servesFiles || packageFolder === null) {
       return next();
     }
-    const relative = normalize(decodeURIComponent(path.slice(PREFIX.length)));
+    let relative;
+    try {
+      relative = normalize(decodeURIComponent(path.slice(PREFIX.length)));
+    } catch {
+      return next();
+    }
     const file = join(packageFolder, relative);
     if (relative.startsWith('..') || !WEEB3_FILES.includes(relative.split('/')[0]) || !existsSync(file)) {
       return next();

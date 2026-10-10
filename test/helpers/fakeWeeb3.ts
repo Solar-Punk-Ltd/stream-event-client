@@ -10,7 +10,7 @@ interface FakeWeeb3Node extends Weeb3Node {
 }
 
 interface FakeWeeb3Options {
-  /** The WebAssembly module fails to load, as the stand-in's does. */
+  /** The WebAssembly module fails to load. */
   readonly initFails?: boolean;
   /** What `attachStream` does once called, such as start playing the media element. */
   readonly onAttach?: (media: HTMLMediaElement) => Promise<void> | void;
@@ -23,7 +23,7 @@ interface FakeWeeb3 {
   readonly loads: number;
 }
 
-/** A stand-in for the package that records what the page asked of it and answers as the test sets. */
+/** A fake of the package that records what the page asked of it and answers as the test sets. */
 export function fakeWeeb3Package(options: FakeWeeb3Options = {}): FakeWeeb3 {
   const nodes: FakeWeeb3Node[] = [];
   const initInputs: unknown[] = [];
