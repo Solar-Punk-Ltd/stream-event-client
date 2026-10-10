@@ -13,6 +13,7 @@ import type {
   UrlUse,
 } from '../../provider';
 import { MAX_CHUNK_PAYLOAD, singleOwnerChunkAddress } from '../../singleOwnerChunk';
+import type { Weeb3Node } from './weeb3Package';
 import { WEEB3_PATH, type Weeb3Runtime } from './weeb3Runtime';
 
 const CAPABILITIES: ProviderCapabilities = {
@@ -31,7 +32,7 @@ const SPAN_LENGTH = 8;
 const WEEB3_READ_WINDOW_MS = 30_000;
 
 /** What the provider needs of the page's node: where it is, and a way to start and stop it. */
-export type Weeb3RuntimeView = Pick<Weeb3Runtime, 'status' | 'start' | 'stop'>;
+export type Weeb3RuntimeView = Pick<Weeb3Runtime, 'status' | 'acquire' | 'release' | 'whenReady'>;
 
 interface Weeb3ProviderOptions {
   readonly runtime: Weeb3RuntimeView;
@@ -147,13 +148,33 @@ export class Weeb3Provider implements SwarmProvider {
     return download ? { state, peers, download } : { state, peers };
   }
 
-  /** weeb-3 plays a stream with its own player on the page's node, which this starts if nothing has yet. */
+  /**
+   * weeb-3 plays a stream with its own player on the page's node. Loading it holds the node, starting it
+   * if nothing has, and answers once the node is ready.
+   */
   readonly ownPlayer = async (): Promise<OwnPlayer> => {
-    const node = await this.runtime.start();
-    return { attach: (video, owner, topic, from) => node.attachStream(video, owner, topic, from) };
+    const { runtime } = this;
+    let node: Weeb3Node;
+    try {
+      void runtime.acquire().catch(() => undefined);
+      node = await runtime.whenReady();
+    } catch (error) {
+      runtime.release();
+      throw error;
+    }
+    let held = true;
+    return {
+      attach: (video, owner, topic, from) => node.attachStream(video, owner, topic, from),
+      detach: () => {
+        if (held) {
+          held = false;
+          runtime.release();
+        }
+      },
+    };
   };
 
-  /** Never reads the network: the node's own state says whether it can serve, and a stopped node is started. */
+  /** Never reads the network and never starts the node: its own state says whether it can serve. */
   async probe(): Promise<ProbeResult> {
     const { state } = this.runtime.status();
     switch (state) {
@@ -162,19 +183,18 @@ export class Weeb3Provider implements SwarmProvider {
       case 'failed':
         return { kind: 'unreachable' };
       case 'stopped':
-        this.startQuietly();
-        return { kind: 'not-ready', reason: { kind: 'starting' } };
       case 'starting':
         return { kind: 'not-ready', reason: { kind: 'starting' } };
     }
   }
 
+  /** Holds the page's node, starting it if nothing held it. Each start is let go by one stop. */
   async start(): Promise<void> {
-    await this.runtime.start();
+    await this.runtime.acquire();
   }
 
   async stop(): Promise<void> {
-    await this.runtime.stop();
+    this.runtime.release();
   }
 
   private async readSocAt(identifier: Identifier, owner: string, options?: ReadOptions): Promise<SwarmAnswer> {
@@ -190,16 +210,8 @@ export class Weeb3Provider implements SwarmProvider {
   private async read(path: string, options: ReadOptions = {}): Promise<SwarmAnswer> {
     const { state } = this.runtime.status();
     if (state !== 'ready') {
-      if (state === 'stopped') {
-        this.startQuietly();
-      }
       return options.signal?.aborted ? { kind: 'aborted' } : notReady(state);
     }
     return httpRead(new URL(`${WEEB3_PATH}${path}`, this.pageOrigin).href, { ...options, fetcher: this.fetcher });
-  }
-
-  /** A failed start shows in {@link status}, so nobody here waits on it. */
-  private startQuietly(): void {
-    this.runtime.start().catch(() => undefined);
   }
 }

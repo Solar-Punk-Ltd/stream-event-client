@@ -64,7 +64,12 @@ function servedFetch(log: AskedLog = { urls: [] }): typeof fetch {
   }) as typeof fetch;
 }
 
-type FakeRuntime = Weeb3RuntimeView & { starts: number; stops: number; readonly attached: unknown[][] };
+type FakeRuntime = Weeb3RuntimeView & {
+  holds: number;
+  readonly attached: unknown[][];
+  /** Settles the node's readiness, as the real runtime's peer watch would. */
+  settle(ready: boolean): void;
+};
 
 function runtimeAt(status: Weeb3Status): FakeRuntime {
   const attached: unknown[][] = [];
@@ -74,18 +79,23 @@ function runtimeAt(status: Weeb3Status): FakeRuntime {
     attachStream: async (...args) => void attached.push(args),
     free: () => undefined,
   };
+  let settle: (ready: boolean) => void = () => undefined;
+  const readiness = new Promise<Weeb3Node>((resolve, reject) => {
+    settle = (ready) => (ready ? resolve(node) : reject(new Error('the node failed to start')));
+  });
   return {
-    starts: 0,
-    stops: 0,
+    holds: 0,
     attached,
+    settle: (ready) => settle(ready),
     status: () => status,
-    async start() {
-      this.starts += 1;
+    async acquire() {
+      this.holds += 1;
       return node;
     },
-    async stop() {
-      this.stops += 1;
+    release() {
+      this.holds -= 1;
     },
+    whenReady: () => (status.state === 'ready' ? Promise.resolve(node) : readiness),
   };
 }
 
@@ -184,15 +194,16 @@ describe('the weeb-3 provider', () => {
     expect(provider.urlFor(` ${REFERENCE} `, 'thumbnail')).toBe(`/weeb-3/bzz/${REFERENCE}/`);
   });
 
-  it('answers unavailable without asking while the node is not ready, and starts it', async () => {
+  it('answers unavailable without asking while the node is not ready, and never starts it', async () => {
     const log: AskedLog = { urls: [] };
     const { provider, runtime } = weeb3(servedFetch(log), { state: 'stopped', peers: 0 });
 
     const answer = await provider.readBytes(REFERENCE);
+    await provider.probe();
 
     expect(answer.kind).toBe('unavailable');
     expect(log.urls).toEqual([]);
-    expect(runtime.starts).toBe(1);
+    expect(runtime.holds).toBe(0);
   });
 
   it('says where the node is in its own life, and is a node in this tab that start and stop reach', async () => {
@@ -202,19 +213,38 @@ describe('the weeb-3 provider', () => {
     expect(provider.capabilities.feedHead).toBe(false);
     expect(provider.status()).toEqual({ state: 'starting', peers: 2 });
     await provider.start();
+    expect(runtime.holds).toBe(1);
     await provider.stop();
-    expect([runtime.starts, runtime.stops]).toEqual([1, 1]);
+    expect(runtime.holds).toBe(0);
   });
 
-  it("brings weeb-3's own player, which starts the node and plays a stream into the page's video", async () => {
+  it("brings weeb-3's own player once the node is ready, which holds the node until it detaches", async () => {
     const { provider, runtime } = weeb3(servedFetch(), { state: 'starting', peers: 0 });
     const video = {} as HTMLVideoElement;
+    let player: Awaited<ReturnType<typeof provider.ownPlayer>> | null = null;
 
-    const player = await provider.ownPlayer();
-    await player.attach(video, OWNER, 'a-topic', 'live');
+    void provider.ownPlayer().then((loaded) => (player = loaded));
+    await Promise.resolve();
+    expect(runtime.holds).toBe(1);
+    expect(player).toBeNull();
 
-    expect(runtime.starts).toBe(1);
+    runtime.settle(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await player!.attach(video, OWNER, 'a-topic', 'live');
     expect(runtime.attached).toEqual([[video, OWNER, 'a-topic', 'live']]);
+
+    player!.detach();
+    expect(runtime.holds).toBe(0);
+  });
+
+  it('lets go of the node when it fails before the player could attach', async () => {
+    const { provider, runtime } = weeb3(servedFetch(), { state: 'starting', peers: 0 });
+
+    const loading = provider.ownPlayer();
+    runtime.settle(false);
+
+    await expect(loading).rejects.toThrow('failed to start');
+    expect(runtime.holds).toBe(0);
   });
 
   it.each<[Weeb3Status, string]>([

@@ -21,12 +21,16 @@ interface Attached {
 
 function player() {
   const attached: Attached[] = [];
+  const detached = { count: 0 };
   const own: OwnPlayer = {
     attach: async (video, owner, topic, from) => {
       attached.push({ video, owner, topic, from });
     },
+    detach: () => {
+      detached.count += 1;
+    },
   };
-  return { attached, load: async () => own };
+  return { attached, detached, load: async () => own };
 }
 
 function render(load: () => Promise<OwnPlayer>, from: PlaybackStart = 'live') {
@@ -91,8 +95,9 @@ describe("a source's own player", () => {
   it('says plainly that it cannot play when the player cannot attach, and stays on this source', async () => {
     render(async () => ({
       attach: async () => {
-        throw new Error('weeb-3 is not part of this build yet');
+        throw new Error('the fake refuses');
       },
+      detach: () => undefined,
     }));
     await wait(0);
     expect(line()).toBe(PLAY_FAILED);
@@ -102,6 +107,35 @@ describe("a source's own player", () => {
     expect(line()).toBe(PLAY_FAILED);
     expect(document.querySelectorAll('video')).toHaveLength(1);
     expect(document.querySelector('.swarm-hls-player-wrapper')).toBeNull();
+  });
+
+  it('lets go of the player when the stage goes, so the node can stop', async () => {
+    const { detached, load } = player();
+    render(load);
+    await wait(0);
+
+    mounted?.unmount();
+    mounted = null;
+
+    expect(detached.count).toBe(1);
+  });
+
+  it('lets go of a player that arrives after the stage has gone', async () => {
+    const { attached, detached, load } = player();
+    let arrive: () => void = () => undefined;
+    const late = () =>
+      new Promise<OwnPlayer>((resolve) => {
+        arrive = () => void load().then(resolve);
+      });
+    render(late);
+    mounted?.unmount();
+    mounted = null;
+
+    arrive();
+    await wait(0);
+
+    expect(detached.count).toBe(1);
+    expect(attached).toEqual([]);
   });
 
   it('says the same when the player cannot load', async () => {

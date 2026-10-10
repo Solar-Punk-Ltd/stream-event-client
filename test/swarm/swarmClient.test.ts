@@ -223,7 +223,7 @@ describe('the Swarm client', () => {
 
     it("names the player a feature's own provider brings, with that provider's id, and none for one that brings none", async () => {
       const { chosen, second, client } = ordered();
-      const player = { attach: async () => undefined };
+      const player = { attach: async () => undefined, detach: () => undefined };
       Object.assign(second, { ownPlayer: async () => player });
       const routed = new SwarmClient({
         chosen: { id: 'chosen', provider: chosen },
@@ -236,6 +236,11 @@ describe('the Swarm client', () => {
       expect(own?.id).toBe('second');
       expect(await own?.load()).toBe(player);
       expect(own?.status()).toEqual({ state: 'ready' });
+
+      const release = own!.hold();
+      release();
+      release();
+      expect([second.started, second.stopped]).toEqual([1, 1]);
     });
 
     it('says where the chosen provider is in its own life', () => {

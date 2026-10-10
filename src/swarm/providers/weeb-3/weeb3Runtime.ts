@@ -47,7 +47,8 @@ function pageIsControlled(): boolean {
 /**
  * The one weeb-3 node of a page, which its reads provider and its player share, because the package
  * runs one node per browser behind a shared worker. Ready once it has a peer and its service worker
- * controls the page.
+ * controls the page. Whatever needs the node holds it, and the node runs while anything does: the last
+ * release stops it and frees it.
  */
 export class Weeb3Runtime {
   private readonly load: () => Promise<Weeb3Package>;
@@ -58,6 +59,8 @@ export class Weeb3Runtime {
   private node: Promise<Weeb3Node> | null = null;
   private poll: ReturnType<typeof setTimeout> | null = null;
   private generation = 0;
+  private holders = 0;
+  private pendingStop: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: Weeb3RuntimeOptions = {}) {
     this.load = options.load ?? loadWeeb3Package;
@@ -91,6 +94,57 @@ export class Weeb3Runtime {
     return this.node;
   }
 
+  /** Holds the node, starting it if nothing held it, and answers it once made. */
+  acquire(): Promise<Weeb3Node> {
+    this.holders += 1;
+    this.cancelStop();
+    return this.start();
+  }
+
+  /**
+   * Lets go of one hold. The last one stops the node a tick later, so a holder that is replaced at once,
+   * such as a part's client made again or a player shown again, keeps the node it had.
+   */
+  release(): void {
+    if (this.holders === 0) {
+      return;
+    }
+    this.holders -= 1;
+    if (this.holders === 0) {
+      this.cancelStop();
+      this.pendingStop = setTimeout(() => {
+        this.pendingStop = null;
+        void this.stop();
+      }, 0);
+    }
+  }
+
+  private cancelStop(): void {
+    if (this.pendingStop !== null) {
+      clearTimeout(this.pendingStop);
+      this.pendingStop = null;
+    }
+  }
+
+  /** The node once it is ready. Rejects if it fails or is stopped first. */
+  whenReady(): Promise<Weeb3Node> {
+    return new Promise((resolve, reject) => {
+      const check = (status: Weeb3Status) => {
+        if (status.state === 'ready' && this.node) {
+          unsubscribe();
+          this.node.then(resolve, reject);
+        } else if (status.state === 'failed' || status.state === 'stopped') {
+          unsubscribe();
+          reject(
+            new Error(`the node in this browser ${status.state === 'failed' ? 'failed to start' : 'was stopped'}`),
+          );
+        }
+      };
+      const unsubscribe = this.subscribe(check);
+      check(this.current);
+    });
+  }
+
   async stop(): Promise<void> {
     const node = this.node;
     this.generation += 1;
@@ -108,6 +162,9 @@ export class Weeb3Runtime {
         this.set({ state: 'starting', peers: 0 });
       }
       await weeb3.default({ module_or_path: wasm });
+      if (generation !== this.generation) {
+        throw new Error('the node in this browser was stopped while it started');
+      }
       const node = new weeb3.Weeb3No103(undefined, SERVICE_WORKER_SCOPE);
       node.start();
       this.watchPeers(node, generation, Date.now() + WEEB3_START_DEADLINE_MS);

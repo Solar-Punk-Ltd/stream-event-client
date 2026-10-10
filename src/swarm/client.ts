@@ -240,15 +240,34 @@ export class SwarmClient {
 
   /**
    * The player a feature's own provider plays video with, with that provider's id, or null where the
-   * app's player reads through it. Loading it starts whatever the player needs.
+   * app's player reads through it. Loading it starts whatever the player needs, and `hold` keeps that
+   * running until the function it answers is called.
    */
   ownPlayer(feature: SwarmFeature): {
     readonly id: string;
     readonly load: () => Promise<OwnPlayer>;
     readonly status: () => ProviderStatus;
+    readonly hold: () => () => void;
   } | null {
     const { id, provider } = this.primaryFor(feature);
-    return provider.ownPlayer ? { id, load: provider.ownPlayer, status: () => provider.status() } : null;
+    if (!provider.ownPlayer) {
+      return null;
+    }
+    return {
+      id,
+      load: provider.ownPlayer,
+      status: () => provider.status(),
+      hold: () => {
+        provider.start().catch(() => undefined);
+        let held = true;
+        return () => {
+          if (held) {
+            held = false;
+            void provider.stop();
+          }
+        };
+      },
+    };
   }
 
   /** Where the provider every feature reads from first is in its own life. */

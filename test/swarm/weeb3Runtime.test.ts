@@ -145,6 +145,73 @@ describe('the node in this browser', () => {
     expect(runtime.status().state).toBe('failed');
   });
 
+  it('runs while anything holds it, and the last release stops and frees it', async () => {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
+
+    await Promise.all([runtime.acquire(), runtime.acquire()]);
+    runtime.release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fake.nodes[0].freed).toBe(false);
+    expect(runtime.status().state).toBe('starting');
+
+    runtime.release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fake.nodes[0].freed).toBe(true);
+    expect(runtime.status().state).toBe('stopped');
+
+    runtime.release();
+    await runtime.acquire();
+    expect(fake.nodes).toHaveLength(2);
+  });
+
+  it('makes no node once it was stopped while still starting', async () => {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
+
+    const starting = runtime.acquire();
+    runtime.release();
+    void runtime.stop();
+
+    await expect(starting).rejects.toThrow();
+    expect(fake.nodes).toEqual([]);
+  });
+
+  it('keeps the node for a holder that takes over in the same tick as the last one lets go', async () => {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
+    await runtime.acquire();
+
+    runtime.release();
+    await runtime.acquire();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fake.nodes).toHaveLength(1);
+    expect(fake.nodes[0].freed).toBe(false);
+  });
+
+  it('answers the node once it is ready, and refuses once it fails', async () => {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
+    await runtime.acquire();
+    let ready: unknown = null;
+    void runtime.whenReady().then((node) => (ready = node));
+
+    await vi.advanceTimersByTimeAsync(WEEB3_PEER_POLL_MS);
+    expect(ready).toBeNull();
+    fake.nodes[0].peers = 2;
+    await vi.advanceTimersByTimeAsync(WEEB3_PEER_POLL_MS);
+    expect(ready).toBe(fake.nodes[0]);
+
+    const failing = new Weeb3Runtime({
+      load: fake.load,
+      isControlled: () => true,
+      fetcher: wasmFetch([], { status: 500 }),
+    });
+    await failing.acquire().catch(() => undefined);
+    await expect(failing.whenReady()).rejects.toThrow('failed to start');
+  });
+
   it('frees the node on stop and can start a new one after', async () => {
     const fake = fakeWeeb3Package();
     const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });

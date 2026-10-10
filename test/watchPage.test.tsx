@@ -159,6 +159,7 @@ describe('the watch page', () => {
                   load: async () => ({
                     attach: async (_video: HTMLVideoElement, _owner: string, topic: string, from: string) =>
                       void attached.push({ topic, from }),
+                    detach: () => undefined,
                   }),
                 }
               : null,

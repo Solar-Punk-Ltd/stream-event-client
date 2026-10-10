@@ -34,9 +34,17 @@ export function OwnPlayerStage({ load, status, owner, topic, from }: OwnPlayerSt
       return;
     }
     let current = true;
+    let player: OwnPlayer | null = null;
     setFailed(false);
     load()
-      .then((player) => player.attach(video, owner, topic, from))
+      .then((loaded) => {
+        if (!current) {
+          loaded.detach();
+          return;
+        }
+        player = loaded;
+        return loaded.attach(video, owner, topic, from);
+      })
       .catch((error: unknown) => {
         console.warn("The source's own player could not play the stream:", error);
         if (current) {
@@ -45,6 +53,8 @@ export function OwnPlayerStage({ load, status, owner, topic, from }: OwnPlayerSt
       });
     return () => {
       current = false;
+      video.pause();
+      player?.detach();
     };
   }, [load, owner, topic, from]);
 
