@@ -1,85 +1,38 @@
 // The Web3Privacy Now theme, for the Cypherpunk Congress stream page, taken from web3privacy.info's own
 // tokens: a black page, #0a0a0a surfaces with white hairlines, white text and the neon green #70ff88
-// with its dark-green foreground for calls to action, in Archivo with Domine headings. Same
-// groups and names as the Swarm theme; only the brand values differ.
+// with its dark-green foreground for calls to action, in Archivo with Domine headings. Merged over
+// `_base.scss` with the same names as the Swarm theme, only the brand values differ.
+@use 'sass:map';
+@use 'base';
 
-$color: (
-  'background': #000000,
-  'surface': #0a0a0a,
-  'surface-glass': rgba(10, 10, 10, 0.88),
-  // A card or featured block, a faint light wash over the page.
-  'surface-card': rgba(255, 255, 255, 0.04),
-  'surface-hover': rgba(250, 250, 250, 0.08),
-  'input': #141414,
-  'input-focus': #1c1c1c,
-  'border': rgba(255, 255, 255, 0.1),
-  'border-strong': rgba(255, 255, 255, 0.2),
-  'overlay': rgba(0, 0, 0, 0.75),
-  // The page colour at no opacity, where the header fades into the page.
-  'background-clear': rgba(0, 0, 0, 0),
-  'footer-end': #0a0a0a,
-  // Behind a dialog, over a page that stays blurred beneath it.
-  'overlay-modal': rgba(0, 0, 0, 0.7),
-  // A chat message's bubble, and a notice that sits in the flow of the page.
-  'message': rgba(250, 250, 250, 0.06),
-  'border-subtle': #2b2b2b,
-  // The thin lines and faint fills of the chat: reaction pills, the thread's title bar.
-  'hairline': rgba(255, 255, 255, 0.1),
-  'hairline-strong': rgba(255, 255, 255, 0.2),
-  'tint': rgba(255, 255, 255, 0.02),
-  'reaction': rgba(255, 255, 255, 0.05),
-  'reaction-own': rgba(255, 255, 255, 0.534),
-  // Over a picture, where the words have to read whatever the picture is.
-  'scrim': rgba(0, 0, 0, 0.65),
-  'on-scrim': #ffffff,
-  'on-scrim-secondary': rgba(255, 255, 255, 0.75),
-  // The light button of a dialog, the one that backs out.
-  'button-light': #fafafa,
-  'button-light-hover': #ffffff,
-  'on-button-light': #242424,
-  'error-surface': rgba(251, 44, 54, 0.15),
-  'error-border': rgba(251, 44, 54, 0.4),
-  // Behind a letterboxed picture, where anything but black reads as part of the video.
-  'video': #000000,
-  'primary': #70ff88,
-  'primary-hover': #8cff9e,
-  // web3privacy.info writes on its green in this dark green rather than black.
-  'on-primary': #122014,
-  'text': #ffffff,
-  'text-secondary': #e0e0e0,
-  'text-tertiary': #808080,
-  'text-muted': #a7b0bd,
-  'text-soft': #d0d0d0,
-  'button-secondary': rgba(250, 250, 250, 0.1),
-  'button-secondary-hover': rgba(250, 250, 250, 0.16),
-  // Behind a duration on a thumbnail.
-  'badge-dark': rgba(0, 0, 0, 0.95),
-  // The brand's #fb2c36 carries white text at 3.6:1, so the badge uses its darker step.
-  'live': #b91c1c,
-  'on-live': #fafafa,
-  'error-text': #ff8b80,
-  'warning': #f28b0a,
-  // A source that answers: the brand's own green.
-  'success': #70ff88,
-  'spinner-track': rgba(250, 250, 250, 0.15),
-  // A chat name's colour, behind its initial in light text. The chat picks one by hashing the name.
-  // msrs-client's sixteen hues, each darkened only as far as light text on it needs to read at 4.5:1.
-  'name-1': #dc2626,
-  'name-2': #ad5f05,
-  'name-3': #04835c,
-  'name-4': #2563eb,
-  'name-5': #c64a0a,
-  'name-6': #9333ea,
-  'name-7': #be123c,
-  'name-8': #0b8177,
-  'name-9': #7c3aed,
-  'name-10': #0279b7,
-  'name-11': #be26d1,
-  'name-12': #9a6903,
-  'name-13': #077d9a,
-  'name-14': #d72473,
-  'name-15': #15803d,
-  'name-16': #4f46e5,
+$color: map.merge(
+  base.$color,
+  (
+    'background': #000000,
+    'surface': #0a0a0a,
+    'surface-glass': rgba(10, 10, 10, 0.88),
+    'input': #141414,
+    'input-focus': #1c1c1c,
+    'border': rgba(255, 255, 255, 0.1),
+    'border-strong': rgba(255, 255, 255, 0.2),
+    // The page colour at no opacity, where the header fades into the page.
+    'background-clear': rgba(0, 0, 0, 0),
+    'footer-end': #0a0a0a,
+    'primary': #70ff88,
+    'primary-hover': #8cff9e,
+    // web3privacy.info writes on its green in this dark green rather than black.
+    'on-primary': #122014,
+    'text': #ffffff,
+    'text-secondary': #e0e0e0,
+    'text-tertiary': #808080,
+    'text-muted': #a7b0bd,
+    'text-soft': #d0d0d0,
+    // Behind a duration on a thumbnail.
+    'badge-dark': rgba(0, 0, 0, 0.95),
+    'error-text': #ff8b80,
+    // A source that answers: the brand's own green.
+    'success': #70ff88,
+  )
 );
 
 $font-family: (
@@ -98,14 +51,7 @@ $font-family: (
     Georgia,
     serif,
   ),
-  'mono': (
-    'JetBrains Mono',
-    ui-monospace,
-    'SFMono-Regular',
-    Menlo,
-    Monaco,
-    monospace,
-  ),
+  'mono': base.$font-family-mono,
 );
 
 // web3privacy.info sets its Domine headings in the regular weight.

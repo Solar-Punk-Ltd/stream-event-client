@@ -18,9 +18,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--color-scrim-soft);
+  border: 1px solid var(--color-hairline-strong);
+  color: var(--color-on-scrim-secondary);
   cursor: grab;
   transition:
     background 0.15s ease,
@@ -39,8 +39,8 @@
   }
 
   &:hover {
-    background: rgba(0, 0, 0, 0.78);
-    color: #fff;
+    background: var(--color-overlay);
+    color: var(--color-on-scrim);
 
     .qoe-btn__chart {
       opacity: 0.2;
@@ -53,18 +53,16 @@
   }
 
   &--active {
-    background: rgba(30, 100, 230, 0.62);
-    border-color: rgba(120, 170, 255, 0.45);
-    color: #fff;
+    background: var(--color-info);
+    border-color: var(--color-info-border);
+    color: var(--color-on-scrim);
   }
 
   &--dragging {
     cursor: grabbing;
-    background: rgba(0, 0, 0, 0.9);
-    border-color: rgba(255, 255, 255, 0.4);
-    box-shadow:
-      0 8px 24px rgba(0, 0, 0, 0.6),
-      0 2px 6px rgba(0, 0, 0, 0.35);
+    background: var(--color-scrim-strong);
+    border-color: var(--color-on-scrim-secondary);
+    box-shadow: var(--shadow-dropdown);
     transform: scale(1.1);
 
     .qoe-btn__chart {
@@ -74,7 +72,7 @@
     .qoe-btn__move {
       opacity: 1;
       transform: scale(1.05);
-      color: #fff;
+      color: var(--color-on-scrim);
     }
   }
 
@@ -106,8 +104,8 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #4ade80;
-    box-shadow: 0 0 5px #4ade80;
+    background: var(--color-signal);
+    box-shadow: 0 0 5px var(--color-signal);
     animation: qoe-pulse 2s ease-in-out infinite;
     pointer-events: none;
   }
@@ -118,15 +116,15 @@
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  background: rgba(0, 0, 0, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--color-scrim-strong);
+  border: 1px solid var(--color-hairline-strong);
   border-radius: 6px;
   padding: 8px 10px;
   min-width: 220px;
   max-height: 70vh;
   overflow-y: auto;
   backdrop-filter: blur(4px);
-  color: var(--color-text);
+  color: var(--color-on-scrim);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
   line-height: 1.4;
@@ -135,10 +133,10 @@
 .qoe-overlay__header {
   font-size: 12px;
   font-weight: bold;
-  color: #fff;
+  color: var(--color-on-scrim);
   margin-bottom: 6px;
   padding-bottom: 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid var(--color-hairline-strong);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -148,7 +146,7 @@
 }
 
 .qoe-overlay__section-title {
-  color: #aaa;
+  color: var(--color-on-scrim-secondary);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -163,25 +161,25 @@
   padding: 1px 0;
 
   &--bad .qoe-overlay__value {
-    color: #ff6b6b;
+    color: var(--color-error-text);
   }
 }
 
 .qoe-overlay__label {
-  color: #bbb;
+  color: var(--color-on-scrim-secondary);
   white-space: nowrap;
 }
 .qoe-overlay__value {
-  color: #fff;
+  color: var(--color-on-scrim);
   text-align: right;
   white-space: nowrap;
 }
 
 .qoe-overlay__footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: 1px solid var(--color-hairline-strong);
   padding-top: 4px;
   margin-top: 4px;
-  color: #aaa;
+  color: var(--color-on-scrim-secondary);
   font-size: 10px;
   text-align: right;
 }

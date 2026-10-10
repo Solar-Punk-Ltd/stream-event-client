@@ -46,6 +46,18 @@ const designTokens = matches(DEFINITION, themeCss);
 const componentStylesheets = filesUnder(SRC, (name) => name.endsWith('.scss') && !name.startsWith('_')).filter(
   (path) => path !== THEME,
 );
+const componentSources = filesUnder(SRC, (name) => name.endsWith('.scss'))
+  .filter((path) => !path.startsWith(join(SRC, 'design')))
+  .map((path) => ({ path: relative(ROOT, path), scss: readFileSync(path, 'utf8') }));
+
+const COLOUR_LITERAL = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?)\(|(?<![\w-])(?:white|black)(?![\w-])/gi;
+
+/** The colours a stylesheet writes out itself, comments aside, which no theme can change. */
+function literalColours(scss: string): string[] {
+  const code = scss.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  return [...code.matchAll(COLOUR_LITERAL)].map(([found]) => found);
+}
+
 const componentCss = componentStylesheets.map((path) => ({ path: relative(ROOT, path), css: compileFile(path) }));
 const scriptSources = filesUnder(SRC, (name) => /\.tsx?$/.test(name)).map((path) => ({
   path: relative(ROOT, path),
@@ -111,6 +123,22 @@ describe('the design tokens', () => {
   it.each([...componentCss, ...scriptSources])('are the only variables $path reads', ({ css }) => {
     expect(undefinedReads(css, designTokens)).toEqual([]);
   });
+
+  it('catch a colour a stylesheet writes out instead of reading from the theme', () => {
+    expect(literalColours('.x { color: #fff; background: rgba(0, 0, 0, 0.5); border-color: black; }')).toEqual([
+      '#fff',
+      'rgba(',
+      'black',
+    ]);
+    expect(literalColours('// was #fff\n.x { color: var(--color-text); }')).toEqual([]);
+  });
+
+  it.each(componentSources)(
+    'leave every colour of $path to the theme, so switching the look reaches it',
+    ({ scss }) => {
+      expect(literalColours(scss)).toEqual([]);
+    },
+  );
 
   it('are each read somewhere, so the design carries no token this app does not use', () => {
     const everyRead = new Set(
@@ -208,6 +236,10 @@ const TEXT_ON_SURFACE: Array<[text: string, surface: string]> = [
   ['on-scrim-secondary', 'scrim'],
   ['on-button-light', 'button-light'],
   ['on-button-light', 'button-light-hover'],
+  ['on-scrim', 'scrim-strong'],
+  ['on-scrim-secondary', 'scrim-strong'],
+  ['error-text', 'scrim-strong'],
+  ['on-scrim', 'info'],
   ...Array.from({ length: 16 }, (_, i): [string, string] => ['text', `name-${i + 1}`]),
 ];
 

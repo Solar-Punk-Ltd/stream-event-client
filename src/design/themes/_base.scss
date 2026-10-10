@@ -1,0 +1,69 @@
+// What every theme shares: the neutral washes and lines over a dark page, what sits over a picture or
+// the video, the dialog's light button, the error, live and warning colours, and the chat's name hues.
+// A theme file merges its brand values over these, so a change here reaches every theme at once and a
+// theme names only what makes it that brand.
+
+$color: (
+  // A card or featured block, a faint light wash over the page.
+  'surface-card': rgba(255, 255, 255, 0.04),
+  'surface-hover': rgba(250, 250, 250, 0.08),
+  'overlay': rgba(0, 0, 0, 0.75),
+  // Behind a dialog, over a page that stays blurred beneath it.
+  'overlay-modal': rgba(0, 0, 0, 0.7),
+  // A chat message's bubble, and a notice that sits in the flow of the page.
+  'message': rgba(250, 250, 250, 0.06),
+  'border-subtle': #2b2b2b,
+  // The thin lines and faint fills of the chat: reaction pills, the thread's title bar.
+  'hairline': rgba(255, 255, 255, 0.1),
+  'hairline-strong': rgba(255, 255, 255, 0.2),
+  'tint': rgba(255, 255, 255, 0.02),
+  'reaction': rgba(255, 255, 255, 0.05),
+  'reaction-own': rgba(255, 255, 255, 0.534),
+  // Over a picture or the video, where the words have to read whatever is beneath them: the lightest
+  // where a photo should still show, the darkest behind a panel of figures.
+  'scrim-soft': rgba(0, 0, 0, 0.5),
+  'scrim': rgba(0, 0, 0, 0.65),
+  'scrim-strong': rgba(0, 0, 0, 0.85),
+  'on-scrim': #ffffff,
+  'on-scrim-secondary': rgba(255, 255, 255, 0.75),
+  // The playback quality overlay's button while its panel is open, and the light that says it is live.
+  'info': rgba(30, 100, 230, 0.62),
+  'info-border': rgba(120, 170, 255, 0.45),
+  'signal': #4ade80,
+  // The light button of a dialog, the one that backs out.
+  'button-light': #fafafa,
+  'button-light-hover': #ffffff,
+  'on-button-light': #242424,
+  'error-surface': rgba(251, 44, 54, 0.15),
+  'error-border': rgba(251, 44, 54, 0.4),
+  // Behind a letterboxed picture, where anything but black reads as part of the video.
+  'video': #000000,
+  'button-secondary': rgba(250, 250, 250, 0.1),
+  'button-secondary-hover': rgba(250, 250, 250, 0.16),
+  // The brand's #fb2c36 carries white text at 3.6:1, so the badge uses its darker step.
+  'live': #b91c1c,
+  'on-live': #fafafa,
+  'warning': #f28b0a,
+  'spinner-track': rgba(250, 250, 250, 0.15),
+  // A chat name's colour, behind its initial in light text. The chat picks one by hashing the name.
+  // msrs-client's sixteen hues, each darkened only as far as light text on it needs to read at 4.5:1.
+  'name-1': #dc2626,
+  'name-2': #ad5f05,
+  'name-3': #04835c,
+  'name-4': #2563eb,
+  'name-5': #c64a0a,
+  'name-6': #9333ea,
+  'name-7': #be123c,
+  'name-8': #0b8177,
+  'name-9': #7c3aed,
+  'name-10': #0279b7,
+  'name-11': #be26d1,
+  'name-12': #9a6903,
+  'name-13': #077d9a,
+  'name-14': #d72473,
+  'name-15': #15803d,
+  'name-16': #4f46e5,
+);
+
+// The playback quality overlay's figures and the configuration problem's detail, in every theme.
+$font-family-mono: ('JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Monaco, monospace);
