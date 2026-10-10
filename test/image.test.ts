@@ -16,6 +16,7 @@ interface Start {
   stderr: string;
   gateway: string;
   headers: string;
+  weeb3: string;
 }
 
 /** Runs the image's start-up script with only the given settings, writing into a folder of its own. */
@@ -38,6 +39,7 @@ function start(settings: Record<string, string>): Start {
     stderr: result.stderr,
     gateway: read('gateway.conf'),
     headers: read('headers.conf'),
+    weeb3: read('weeb3.conf'),
   };
 }
 
@@ -187,7 +189,49 @@ describe('the image start-up script', () => {
     });
   });
 
+  describe('WEEB3, whether a viewer may run the node in the browser', () => {
+    const sources = (csp: string, directive: string) =>
+      (csp.split('; ').find((part) => part.startsWith(`${directive} `)) ?? '').split(' ').slice(1);
+
+    it.each([
+      ['unset', {}],
+      ['off', { WEEB3: 'off' }],
+    ])('leaves the policy as it was and serves no /weeb-3/ when %s', (_, settings) => {
+      const started = start({ GATEWAY_MODE: 'direct', BEE_GATEWAY_URL: 'https://gateway.example.com', ...settings });
+      expect(started.status).toBe(0);
+      const csp = policy(started.headers);
+      expect(sources(csp, 'script-src')).toEqual(["'self'"]);
+      expect(sources(csp, 'connect-src')).not.toContain('wss:');
+      expect(started.weeb3).toContain('location /weeb-3/ {\n  return 404;\n}');
+      expect(started.stdout).not.toContain('weeb-3');
+    });
+
+    it('lets the page compile WebAssembly and reach peers over secure websockets when on, and nothing else', () => {
+      const started = start({ GATEWAY_MODE: 'direct', BEE_GATEWAY_URL: 'https://gateway.example.com', WEEB3: 'on' });
+      expect(started.status).toBe(0);
+      expect(policy(started.headers)).toBe(
+        "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'" +
+          "; img-src 'self' data: blob: https://gateway.example.com http://localhost:* http://127.0.0.1:*" +
+          "; media-src 'self' blob:; worker-src 'self' blob:" +
+          "; connect-src 'self' https://gateway.example.com http://localhost:* http://127.0.0.1:* wss:" +
+          "; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'",
+      );
+      expect(started.stdout).toContain('weeb-3 on');
+    });
+
+    it("serves weeb-3's files with the WebAssembly type, and its service worker allowed to control the whole site", () => {
+      const { weeb3 } = start({ BEE_GATEWAY_URL: 'https://gateway.example.com', WEEB3: 'on' });
+      expect(weeb3).toContain('location /weeb-3/ {');
+      expect(weeb3).toContain('application/wasm wasm;');
+      expect(weeb3).toContain('try_files $uri =404;');
+      const worker = weeb3.slice(weeb3.indexOf('location = /weeb-3/service.js {'));
+      expect(worker).toContain('add_header Service-Worker-Allowed "/" always;');
+      expect(worker).toContain('include /etc/nginx/stream-event-client/headers.conf;');
+    });
+  });
+
   it.each([
+    [{ BEE_GATEWAY_URL: 'https://gateway.example.com', WEEB3: 'yes' }, 'WEEB3 must be off or on. It is "yes".'],
     [{}, 'BEE_GATEWAY_URL is not set'],
     [{ BEE_GATEWAY_URL: 'gateway.example.com' }, 'BEE_GATEWAY_URL must be an address'],
     [{ BEE_GATEWAY_URL: 'https://gateway.example.com/bee' }, 'BEE_GATEWAY_URL must be an address'],
@@ -237,6 +281,10 @@ describe('the image server', () => {
   it('never keeps config.json, and keeps the hashed bundle for a year', () => {
     expect(location('location = /config.json')).toContain('Cache-Control "no-store"');
     expect(location('location /assets/')).toContain('max-age=31536000, immutable');
+  });
+
+  it('includes what the start-up script writes for weeb-3', () => {
+    expect(SERVER).toContain('include /etc/nginx/stream-event-client/weeb3.conf;');
   });
 
   it('repeats the security headers in every location that sets a header of its own', () => {

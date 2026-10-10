@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv } from 'vite';
 
+import { weeb3Files } from './scripts/weeb3-files.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -24,7 +26,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: './',
-    plugins: [react()],
+    plugins: [react(), weeb3Files(__dirname)],
     // What the control panel's report names the build by.
     define: { __BUILD_LABEL__: JSON.stringify(`stream-event-client ${version}, built ${new Date().toISOString()}`) },
     build: {
