@@ -90,7 +90,19 @@ export function StreamWatcher() {
   // yet, so a player there polls a slot nobody writes and loads for ever. See `watchPageView`.
   const description = stream ? watchPageDescription(stream) : null;
 
-  const ourPlayer = (
+  // A video source that brings its own player plays bare, and nothing takes its place: a viewer who
+  // picked it watches through it alone.
+  const ownPlayer = swarm.ownPlayer('player');
+  const player = ownPlayer ? (
+    <OwnPlayerStage
+      key={`${ownPlayer.id}/${streamKey}`}
+      load={ownPlayer.load}
+      status={ownPlayer.status}
+      owner={owner}
+      topic={topic}
+      from={stream?.state === STREAM_STATUS_VOD ? 'beginning' : 'live'}
+    />
+  ) : (
     <SwarmHlsPlayer
       owner={owner}
       topicString={topic}
@@ -100,22 +112,6 @@ export function StreamWatcher() {
       level={level}
       onLadderShort={readNextStreamListSlot}
     />
-  );
-  // A video source that brings its own player plays bare, and the app's player, reading from the next
-  // source in the fallback order, takes over only when it shows nothing.
-  const ownPlayer = swarm.ownPlayer('player');
-  const player = ownPlayer ? (
-    <OwnPlayerStage
-      key={`${ownPlayer.id}/${streamKey}`}
-      load={ownPlayer.load}
-      owner={owner}
-      topic={topic}
-      from={stream?.state === STREAM_STATUS_VOD ? 'beginning' : 'live'}
-      startingNotice="Starting the Swarm node in this browser"
-      fallback={ourPlayer}
-    />
-  ) : (
-    ourPlayer
   );
 
   return (

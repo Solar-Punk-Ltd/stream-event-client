@@ -155,6 +155,7 @@ describe('the watch page', () => {
             feature === 'player'
               ? {
                   id: 'added-1',
+                  status: () => ({ state: 'starting', peers: 2 }),
                   load: async () => ({
                     attach: async (_video: HTMLVideoElement, _owner: string, topic: string, from: string) =>
                       void attached.push({ topic, from }),
@@ -175,7 +176,7 @@ describe('the watch page', () => {
       expect(seen.player).toBeNull();
       expect(document.querySelector('.own-player video')).not.toBeNull();
       expect(attached).toEqual([{ topic: TOPIC, from: 'live' }]);
-      expect(document.querySelector('[role="status"]')?.textContent).toBe('Starting the Swarm node in this browser');
+      expect(document.querySelector('[role="status"]')?.textContent).toBe('Connecting, 2 peers');
     });
 
     it('plays a finished stream from its beginning', async () => {
