@@ -81,7 +81,7 @@ exception is the image's own `BEE_GATEWAY_URL` in direct mode, which the policy 
 | `providers.gateways[].url`  | For `bee-http`: a path on this site such as `/bee`, or an http or https address, as `gatewayUrl` takes                                                                                                                        |
 | `providers.default`         | The `id` of the gateway every reader starts on                                                                                                                                                                                |
 | `providers.fallback`        | Optional. The `id` of another gateway, or a list of them in order, asked when the one in use fails. The default gateway is always asked last. Just the default when absent, and none when `false`                             |
-| `providers.kinds`           | Optional. The kinds a viewer may add a gateway of their own of. Every kind the build carries when absent                                                                                                                      |
+| `providers.kinds`           | Optional. The kinds a viewer may add a gateway of their own of. Every kind a gateway may be when absent. The node in this browser is offered by `weeb3.enabled`, not here                                                     |
 | `providers.beeNodes`        | Optional. How far a Bee node of the viewer's own may be: `off`, this computer only, the default. `https`, also any https address. `https-and-local-http`, also plain http on the local network. Match the image's `BEE_NODES` |
 
 The `weeb3` block lets a viewer run a Swarm node in their own browser, described under
@@ -400,7 +400,7 @@ where they read before.
 weeb-3 (`@lat-murmeldjur/weeb_3`) is a Swarm node compiled to WebAssembly that runs inside the viewer's tab, so a
 viewer can watch without any gateway. A page runs one node, behind a shared worker, and everything that uses weeb-3
 shares it (`src/swarm/providers/weeb-3/weeb3Runtime.ts`). It is ready once it has a peer and its service worker
-controls the page, and counts as failed with no peer after 30 s.
+controls the page, and counts as failed when it is not ready after 30 s.
 
 - **Loaded only when picked.** The package is imported from one module, `weeb3Module.ts`, as a chunk of its own,
   so the first page load carries none of it. The build copies the package's browser files, its service worker,
@@ -440,8 +440,8 @@ controls the page, and counts as failed with no peer after 30 s.
 - **The live proof.** `pnpm proof:weeb3` builds the app and, on the public Swarm network, adds the node in a real
   browser, picks it for the video, waits for it to be ready, plays a finished stream from its beginning, checks that
   `/weeb-3/bytes/` carries exactly the 8-byte span `/weeb-3/hls/bytes/` leaves out, and asks the shared worker for
-  its peers after the stop. It prints what it saw and is never part of `pnpm e2e`. `WEEB3_PROOF_OWNER` and
-  `WEEB3_PROOF_TOPIC` name another stream.
+  its peers after the stop. It prints what it saw and is never part of `pnpm e2e`. Its default stream is a public
+  test stream run by weeb-3's author, and `WEEB3_PROOF_OWNER` and `WEEB3_PROOF_TOPIC` name another.
 
 ## How the player reads Swarm
 
