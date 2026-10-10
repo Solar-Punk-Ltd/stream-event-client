@@ -30,7 +30,7 @@ const REFUSING_WEEB3 = FAKE_WEEB3.replace(
 );
 
 async function serveFakeWeeb3(page: Page, module: string): Promise<void> {
-  await page.route(/\/assets\/(weeb3StandIn|weeb_3)-[^/]+\.js$/, (route) =>
+  await page.route(/\/assets\/weeb_3-[^/]+\.js$/, (route) =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: module }),
   );
   await page.route(/\/weeb-3\/weeb_3_bg\.wasm$/, (route) =>

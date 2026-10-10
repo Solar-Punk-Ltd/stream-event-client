@@ -402,11 +402,8 @@ shares it (`src/swarm/providers/weeb-3/weeb3Runtime.ts`). It is ready once it ha
 controls the page, and counts as failed with no peer after 30 s.
 
 - **Loaded only when picked.** The package is imported from one module, `weeb3Module.ts`, as a chunk of its own,
-  so the first page load carries none of it. Until the package passes this repository's one-week install wait,
-  that module names a stand-in of the package's shape, `weeb3StandIn.ts`, which refuses to start, so a deployment
-  that switches weeb-3 on before then sees the node fail to start and says so. Once the package is installed, the
-  one import in `weeb3Module.ts` names `@lat-murmeldjur/weeb_3`, the stand-in goes, and the build copies the
-  package's files to `/weeb-3/` (`scripts/weeb3-files.mjs`). Without the package the build says it copied none.
+  so the first page load carries none of it. The build copies the package's browser files, its service worker,
+  shared worker and WebAssembly module, to `/weeb-3/` (`scripts/weeb3-files.mjs`).
 - **Getting ready.** The page downloads the 2.2 MB WebAssembly module itself, reading it as it streams, so the
   Sources screen's row and the watch page can show how much has arrived against the length the server names. It
   hands the bytes to the package, then reports starting, connecting with its peer count, and ready.

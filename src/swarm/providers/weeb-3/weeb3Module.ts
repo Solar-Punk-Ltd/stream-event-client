@@ -2,7 +2,6 @@ import type { Weeb3Package } from './weeb3Package';
 
 /**
  * The one place weeb-3 is loaded from, as a chunk of its own that a page fetches only once a viewer
- * picks the node in this browser. It names the stand-in until the package may be installed, and then
- * names `@lat-murmeldjur/weeb_3` instead.
+ * picks the node in this browser.
  */
-export const loadWeeb3Package = (): Promise<Weeb3Package> => import('./weeb3StandIn');
+export const loadWeeb3Package = (): Promise<Weeb3Package> => import('@lat-murmeldjur/weeb_3');
