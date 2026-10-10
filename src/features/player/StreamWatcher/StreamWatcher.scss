@@ -45,6 +45,7 @@
 }
 
 .watch-info-title {
+  overflow-wrap: anywhere;
   margin-top: var(--spacing-sm);
   font-family: var(--font-family-base);
   font-size: var(--font-size-3xl);
@@ -55,6 +56,7 @@
 }
 
 .watch-info-description {
+  overflow-wrap: anywhere;
   max-width: var(--size-watch-description-max-width);
   margin-top: var(--spacing-sm);
   font-size: var(--font-size-md);

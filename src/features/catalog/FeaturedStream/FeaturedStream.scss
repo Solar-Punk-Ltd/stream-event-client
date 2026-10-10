@@ -74,6 +74,7 @@
 }
 
 .featured-stream-title {
+  overflow-wrap: anywhere;
   margin-bottom: var(--spacing-sm);
   font-size: var(--font-size-title);
   line-height: normal;
@@ -85,6 +86,7 @@
 }
 
 .featured-stream-description {
+  overflow-wrap: anywhere;
   max-width: var(--size-featured-description-width);
   font-size: var(--font-size-md);
   line-height: var(--line-height-normal);
