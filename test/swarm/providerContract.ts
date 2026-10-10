@@ -6,13 +6,17 @@ import type { SwarmProvider } from '../../src/swarm/provider';
 
 /** What a provider under contract holds, so each case can name content it knows is there or is not. */
 export interface ContractWorld {
+  /**
+   * Null for a provider that cannot look up a feed's head, which must then answer unsupported for it
+   * whatever its far side does, so the client asks the next provider.
+   */
   readonly feedHead: {
     readonly owner: string;
     readonly topic: Topic;
     readonly index: number;
     readonly bytes: Uint8Array;
     readonly serverTimeMs: number;
-  };
+  } | null;
   readonly feedEntry: {
     readonly owner: string;
     readonly topic: Topic;
@@ -52,8 +56,12 @@ const SHORT_WINDOW_MS = 40;
 type Read = (provider: SwarmProvider, options?: { signal?: AbortSignal; timeoutMs?: number }) => Promise<SwarmAnswer>;
 
 function readsOf(world: ContractWorld): Record<string, Read> {
+  const { feedHead } = world;
   return {
-    'a feed head': (provider, options) => provider.readFeedHead(world.feedHead.owner, world.feedHead.topic, options),
+    ...(feedHead && {
+      'a feed head': (provider: SwarmProvider, options?: Parameters<Read>[1]) =>
+        provider.readFeedHead(feedHead.owner, feedHead.topic, options),
+    }),
     'a feed entry': (provider, options) =>
       provider.readFeedEntry(world.feedEntry.owner, world.feedEntry.topic, world.feedEntry.index, options),
     'a single-owner chunk': (provider, options) => provider.readSoc(world.soc.owner, world.soc.identifier, options),
@@ -65,7 +73,9 @@ function readsOf(world: ContractWorld): Record<string, Read> {
 function absentReadsOf(world: ContractWorld): Record<string, Read> {
   const { absent } = world;
   return {
-    'a feed head': (provider) => provider.readFeedHead(absent.owner, absent.topic),
+    ...(world.feedHead && {
+      'a feed head': (provider: SwarmProvider) => provider.readFeedHead(absent.owner, absent.topic),
+    }),
     'a feed entry': (provider) => provider.readFeedEntry(absent.owner, absent.topic, absent.index),
     'a single-owner chunk': (provider) => provider.readSoc(absent.owner, absent.identifier),
     'a chunk': (provider) => provider.readChunk(absent.address),
@@ -86,14 +96,27 @@ function contentOf(answer: SwarmAnswer) {
  */
 export function describeProviderContract(name: string, harness: () => ContractHarness): void {
   describe(`the provider contract: ${name}`, () => {
-    it('reads a feed head with its index and the server time', async () => {
-      const { world, provider } = harness();
-      const answer = contentOf(await provider('served').readFeedHead(world.feedHead.owner, world.feedHead.topic));
+    const { feedHead } = harness().world;
+    if (feedHead) {
+      it('reads a feed head with its index and the server time', async () => {
+        const answer = contentOf(await harness().provider('served').readFeedHead(feedHead.owner, feedHead.topic));
 
-      expect(answer.bytes).toEqual(world.feedHead.bytes);
-      expect(answer.feedIndex).toBe(world.feedHead.index);
-      expect(answer.serverTimeMs).toBe(world.feedHead.serverTimeMs);
-    });
+        expect(answer.bytes).toEqual(feedHead.bytes);
+        expect(answer.feedIndex).toBe(feedHead.index);
+        expect(answer.serverTimeMs).toBe(feedHead.serverTimeMs);
+      });
+    } else {
+      it.each<ContractBehaviour>(['served', 'silent', 'faulty', 'rate-limited'])(
+        'answers unsupported for a feed head when its far side is %s',
+        async (behaviour) => {
+          const { world, provider } = harness();
+
+          expect(await provider(behaviour).readFeedHead(world.feedEntry.owner, world.feedEntry.topic)).toEqual({
+            kind: 'unsupported',
+          });
+        },
+      );
+    }
 
     it('reads a feed entry by its index', async () => {
       const { world, provider } = harness();

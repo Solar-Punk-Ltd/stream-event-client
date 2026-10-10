@@ -3,7 +3,7 @@ import { loadWeeb3Package } from './weeb3Module';
 import type { Weeb3Node, Weeb3Package } from './weeb3Package';
 
 /** Where the build places the package's files, which its service worker and shared worker are served from. */
-const WEEB3_PATH = '/weeb-3/';
+export const WEEB3_PATH = '/weeb-3/';
 
 const WASM_URL = `${WEEB3_PATH}weeb_3_bg.wasm`;
 
@@ -149,4 +149,3 @@ export class Weeb3Runtime {
     }
   }
 }
-
