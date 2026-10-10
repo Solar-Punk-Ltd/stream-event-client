@@ -512,7 +512,7 @@ describe('the Sources screen', () => {
       expect(button(/^Node in this browser/).textContent).toContain('Not offered on this site');
     });
 
-    it('is added with no address, and its status line goes from starting to ready with its peers', async () => {
+    it('is added with no address, and its status line counts its peers up to the healthy 200, with a note until then', async () => {
       await open({ weeb3: { enabled: true } });
       click(button('Add source'));
       click(button(/^Node in this browser/));
@@ -525,7 +525,12 @@ describe('the Sources screen', () => {
       await waitFor(() => (row('Node in this browser').textContent?.includes('Starting') ? true : null));
 
       fakeWeeb3.current!.nodes[0].peers = 4;
-      await waitFor(() => (row('Node in this browser').textContent?.includes('Ready, 4 peers') ? true : null), 100);
+      await waitFor(() => (row('Node in this browser').textContent?.includes('4 of 200 peers') ? true : null), 100);
+      expect(row('Node in this browser').textContent).toContain('200 peers is the healthy target');
+
+      fakeWeeb3.current!.nodes[0].peers = 200;
+      await waitFor(() => (row('Node in this browser').textContent?.includes('200 of 200 peers') ? true : null), 100);
+      expect(row('Node in this browser').textContent).not.toContain('healthy target');
     });
 
     it('cannot be the one source for everything: it is greyed with its reason and adding it leaves the source in use', async () => {

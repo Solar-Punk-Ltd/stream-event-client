@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 
 import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
-import { weeb3StatusWords } from '@/shared/nodeInTabStatus';
+import { healthyPeersNote, weeb3StatusWords } from '@/shared/nodeInTabStatus';
 import { hasAddress, SOURCE_NAME_MAX_LENGTH, type Source } from '@/swarm/sources';
 
 import { HelpSteps } from './HelpSteps';
@@ -50,9 +50,12 @@ function whereIs(url: string): string {
 
 /** The node in this browser's own status line, where another source shows its host. */
 function NodeInTabStatusLine({ source }: { readonly source: Source }) {
+  const status = useNodeInTabStatus(source);
+  const note = healthyPeersNote(status);
   return (
-    <span className="source-row-address" role="status">
-      {weeb3StatusWords(useNodeInTabStatus(source))}
+    <span className="source-row-address node-in-tab">
+      <span role="status">{weeb3StatusWords(status)}</span>
+      {note !== null && <span className="source-row-hint">{note}</span>}
     </span>
   );
 }

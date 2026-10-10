@@ -500,6 +500,15 @@
 }
 
 .source-row-name,
+.source-row-address.node-in-tab {
+  white-space: normal;
+}
+
+.source-row-hint {
+  display: block;
+  font-size: var(--font-size-xs);
+}
+
 .source-row-note {
   margin: 0;
   padding: 0 var(--spacing-md) var(--spacing-sm);

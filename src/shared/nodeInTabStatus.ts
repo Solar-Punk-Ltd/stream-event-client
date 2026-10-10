@@ -20,8 +20,16 @@ function downloadWords({ receivedBytes, totalBytes }: DownloadProgress): string 
   return receivedBytes === 0 ? 'Downloading' : `Downloading ${(receivedBytes / BYTES_PER_MB).toFixed(1)} MB`;
 }
 
-/** Where the node in this browser is, in one line: downloading, starting, connecting, ready or failed. */
-export function weeb3StatusWords({ state, peers = 0, download }: ProviderStatus): string {
+/** The peers counted against the healthy count where the node names one, such as "88 of 200 peers". */
+function peersWords(peers: number, healthyPeers: number | undefined): string {
+  return healthyPeers === undefined ? peerCount(peers) : `${peers} of ${healthyPeers} peers`;
+}
+
+/**
+ * Where the node in this browser is, in one line: downloading, starting, connecting, its peers once in
+ * use, or failed. The count keeps climbing after the node is ready, and the line follows it.
+ */
+export function weeb3StatusWords({ state, peers = 0, download, healthyPeers }: ProviderStatus): string {
   switch (state) {
     case 'stopped':
       return 'Not started';
@@ -29,12 +37,20 @@ export function weeb3StatusWords({ state, peers = 0, download }: ProviderStatus)
       if (download) {
         return downloadWords(download);
       }
-      return peers === 0 ? 'Starting' : `Connecting, ${peerCount(peers)}`;
+      return peers === 0 ? 'Starting' : `Connecting, ${peersWords(peers, healthyPeers)}`;
     case 'ready':
-      return `Ready, ${peerCount(peers)}`;
+      return peersWords(peers, healthyPeers);
     case 'failed':
       return 'Failed to start';
   }
+}
+
+/** The one short note shown beside the count while it is under the healthy one, or null. */
+export function healthyPeersNote({ state, peers = 0, download, healthyPeers }: ProviderStatus): string | null {
+  const counting = (state === 'starting' && !download) || state === 'ready';
+  return counting && healthyPeers !== undefined && peers < healthyPeers
+    ? `${healthyPeers} peers is the healthy target`
+    : null;
 }
 
 /** How often a node's state is read again, often enough that a download or a peer count looks live. */
@@ -43,6 +59,7 @@ const STATUS_READ_MS = 500;
 const sameStatus = (one: ProviderStatus, other: ProviderStatus) =>
   one.state === other.state &&
   one.peers === other.peers &&
+  one.healthyPeers === other.healthyPeers &&
   one.download?.receivedBytes === other.download?.receivedBytes &&
   one.download?.totalBytes === other.download?.totalBytes;
 
