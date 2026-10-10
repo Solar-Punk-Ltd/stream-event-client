@@ -1,9 +1,9 @@
 import { FeedIndex, type Topic } from '@ethersphere/bee-js';
 
-import { makeFeedIdentifier, nextFeedRequest, resolvedFeedIndex } from '@/shared/feedFollow';
-import { ABORTED, type SwarmAnswer, UNSUPPORTED } from '../../answers';
+import { makeFeedIdentifier, nextFeedRequest } from '@/shared/feedFollow';
+import { type SwarmAnswer, UNSUPPORTED } from '../../answers';
+import { ABSENT, type AbsentStatuses, httpRead, isSuccess } from '../../httpRead';
 import {
-  DEFAULT_READ_TIMEOUT_MS,
   PROBE_TIMEOUT_MS,
   type ProbeResult,
   type ProviderCapabilities,
@@ -20,19 +20,12 @@ const HEALTH_PATH = 'health';
 const READINESS_PATH = 'readiness';
 const PEERS_PATH = 'peers';
 
-/** The longest a node's `Retry-After` may keep a provider paused, so one answer cannot stall a feed for an hour. */
-export const LONGEST_RETRY_AFTER_MS = 60_000;
+export { LONGEST_RETRY_AFTER_MS } from '../../httpRead';
 
-const NOT_FOUND = 404;
-const TOO_MANY_REQUESTS = 429;
 /** What Bee answers `GET /chunks` with for a chunk it could not find, a chat slot never written among them. */
 const CHUNK_NOT_RETRIEVED = 500;
 
-/** The statuses a read takes as content that is not there. */
-type AbsentStatuses = ReadonlySet<number>;
-
-const ABSENT: AbsentStatuses = new Set([NOT_FOUND]);
-const ABSENT_CHUNK: AbsentStatuses = new Set([NOT_FOUND, CHUNK_NOT_RETRIEVED]);
+const ABSENT_CHUNK: AbsentStatuses = new Set([...ABSENT, CHUNK_NOT_RETRIEVED]);
 
 const CAPABILITIES: ProviderCapabilities = {
   feedHead: true,
@@ -53,37 +46,6 @@ export interface BeeHttpProviderOptions {
   readonly fetcher?: typeof fetch;
   /** The page's own origin, which a gateway given as a path on this site is resolved against for a URL. */
   readonly pageOrigin?: string;
-}
-
-const isSuccess = (status: number) => status >= 200 && status < 300;
-
-function dateOf(headers: Headers): number | null {
-  const date = headers.get('date');
-  const ms = date === null ? Number.NaN : Date.parse(date);
-  return Number.isFinite(ms) ? ms : null;
-}
-
-/**
- * The wait `Retry-After` asks for, as seconds or as an HTTP date, never longer than
- * {@link LONGEST_RETRY_AFTER_MS}. A date is read against the answer's own `Date` when it has one,
- * because the two come from the same clock and the viewer's may be off. A value that is negative or
- * too large to be a number is read as no wait named.
- */
-function retryAfterMsOf(headers: Headers, serverTimeMs: number | null): number | null {
-  const raw = headers.get('retry-after')?.trim();
-  if (!raw) {
-    return null;
-  }
-  if (/^-?\d+$/.test(raw)) {
-    const seconds = Number(raw);
-    return Number.isFinite(seconds) && seconds >= 0 ? cappedRetryAfterMs(seconds * 1000) : null;
-  }
-  const until = Date.parse(raw);
-  return Number.isFinite(until) ? cappedRetryAfterMs(Math.max(0, until - (serverTimeMs ?? Date.now()))) : null;
-}
-
-function cappedRetryAfterMs(ms: number): number {
-  return Math.min(ms, LONGEST_RETRY_AFTER_MS);
 }
 
 function looksLikeBeeHealth(body: string): boolean {
@@ -216,37 +178,7 @@ export class BeeHttpProvider implements SwarmProvider {
 
   async stop(): Promise<void> {}
 
-  private async read(path: string, options: ReadOptions = {}, absent = ABSENT): Promise<SwarmAnswer> {
-    const timeoutMs = options.timeoutMs ?? DEFAULT_READ_TIMEOUT_MS;
-    const outcome = await boundedRequest(`${this.baseUrl}/${path}`, {
-      fetcher: this.fetcher,
-      timeoutMs,
-      signal: options.signal,
-      readsBody: isSuccess,
-    });
-    switch (outcome.kind) {
-      case 'aborted':
-        return ABORTED;
-      case 'timed-out':
-        return { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs } };
-      case 'failed':
-        return { kind: 'unavailable', cause: { kind: 'network', error: outcome.error } };
-      case 'response':
-        return answerOf(outcome.response, outcome.body, absent);
-    }
+  private read(path: string, options: ReadOptions = {}, absent?: AbsentStatuses): Promise<SwarmAnswer> {
+    return httpRead(`${this.baseUrl}/${path}`, { ...options, fetcher: this.fetcher, absent });
   }
-}
-
-function answerOf(response: Response, body: Uint8Array | null, absent: AbsentStatuses): SwarmAnswer {
-  const serverTimeMs = dateOf(response.headers);
-  if (absent.has(response.status)) {
-    return { kind: 'not-found', serverTimeMs };
-  }
-  if (response.status === TOO_MANY_REQUESTS) {
-    return { kind: 'rate-limited', retryAfterMs: retryAfterMsOf(response.headers, serverTimeMs), serverTimeMs };
-  }
-  if (body === null) {
-    return { kind: 'unavailable', cause: { kind: 'status', status: response.status } };
-  }
-  return { kind: 'content', bytes: body, feedIndex: resolvedFeedIndex(response.headers), serverTimeMs };
 }
