@@ -14,6 +14,7 @@ interface OwnPlayerStageProps {
   readonly status: () => ProviderStatus;
   readonly owner: string;
   readonly topic: string;
+  /** Where the stream starts, read once when the stage mounts: a live stream that ends while it plays keeps playing. */
   readonly from: PlaybackStart;
 }
 
@@ -26,6 +27,7 @@ interface OwnPlayerStageProps {
 export function OwnPlayerStage({ load, status, owner, topic, from }: OwnPlayerStageProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
+  const [startFrom] = useState(from);
   const node = useNodeStatus(status);
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export function OwnPlayerStage({ load, status, owner, topic, from }: OwnPlayerSt
           return;
         }
         player = loaded;
-        return loaded.attach(video, owner, topic, from);
+        return loaded.attach(video, owner, topic, startFrom);
       })
       .catch((error: unknown) => {
         console.warn("The source's own player could not play the stream:", error);
@@ -56,7 +58,7 @@ export function OwnPlayerStage({ load, status, owner, topic, from }: OwnPlayerSt
       video.pause();
       player?.detach();
     };
-  }, [load, owner, topic, from]);
+  }, [load, owner, topic, startFrom]);
 
   const note = failed ? null : healthyPeersNote(node);
   return (

@@ -78,6 +78,19 @@ describe("a source's own player", () => {
     expect(attached[0].from).toBe('beginning');
   });
 
+  it('keeps playing when a live stream it is watching turns finished, rather than attaching again from the start', async () => {
+    const { attached, detached, load } = player();
+    const status = () => nodeStatus;
+    render(load, 'live');
+    await wait(0);
+
+    mounted!.render(createElement(OwnPlayerStage, { load, status, owner: OWNER, topic: TOPIC, from: 'beginning' }));
+    await wait(0);
+
+    expect(attached.map(({ from }) => from)).toEqual(['live']);
+    expect(detached.count).toBe(0);
+  });
+
   it('shows the node getting ready, then keeps counting its peers beside the player while it plays', async () => {
     nodeStatus = { state: 'starting', peers: 0, healthyPeers: 200, download: { receivedBytes: 1, totalBytes: 4 } };
     render(player().load);
