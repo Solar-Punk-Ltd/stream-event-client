@@ -39,6 +39,8 @@ interface Weeb3RuntimeOptions {
   readonly isControlled?: () => boolean;
   /** Injected by tests. The global `fetch` otherwise. */
   readonly fetcher?: typeof fetch;
+  /** The module's size in bytes. What the build recorded otherwise, and none in an unbundled test. */
+  readonly wasmBytes?: number | null;
 }
 
 const STOPPED: Weeb3Status = { state: 'stopped', peers: 0 };
@@ -57,6 +59,7 @@ export class Weeb3Runtime {
   private readonly load: () => Promise<Weeb3Package>;
   private readonly isControlled: () => boolean;
   private readonly fetcher: typeof fetch;
+  private readonly wasmBytes: number | null;
   private readonly listeners = new Set<Listener>();
   private current: Weeb3Status = STOPPED;
   private node: Promise<Weeb3Node> | null = null;
@@ -70,6 +73,7 @@ export class Weeb3Runtime {
     this.isControlled = options.isControlled ?? pageIsControlled;
     // Called bare by `download`, never as this object's method, which the browser's fetch would refuse.
     this.fetcher = options.fetcher ?? fetch;
+    this.wasmBytes = options.wasmBytes ?? (typeof __WEEB3_WASM_BYTES__ === 'undefined' ? null : __WEEB3_WASM_BYTES__);
   }
 
   status(): Weeb3Status {
@@ -196,8 +200,9 @@ export class Weeb3Runtime {
     if (!response.ok) {
       throw new Error(`the node's module could not be downloaded: the server answered ${response.status}`);
     }
+    // The build's own count wins, since a server that compresses the module names no length or the compressed one.
     const length = Number(response.headers.get('content-length'));
-    const totalBytes = Number.isFinite(length) && length > 0 ? length : null;
+    const totalBytes = this.wasmBytes ?? (Number.isFinite(length) && length > 0 ? length : null);
     progress(0, totalBytes);
     if (!response.body) {
       const whole = new Uint8Array(await response.arrayBuffer());

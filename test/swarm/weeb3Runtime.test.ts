@@ -99,6 +99,22 @@ describe('the node in this browser', () => {
     ]);
   });
 
+  it("counts against the module's size the build recorded, which a compressing server's answer leaves out", async () => {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({
+      load: fake.load,
+      isControlled: () => true,
+      fetcher: wasmFetch([], { length: false }),
+      wasmBytes: 8,
+    });
+    const seen: Weeb3Status[] = [];
+    runtime.subscribe((status) => seen.push(status));
+
+    await runtime.start();
+
+    expect(seen).toContainEqual({ state: 'starting', peers: 0, download: { receivedBytes: 4, totalBytes: 8 } });
+  });
+
   it('reports the bytes alone when the server names no length', async () => {
     const fake = fakeWeeb3Package();
     const runtime = new Weeb3Runtime({

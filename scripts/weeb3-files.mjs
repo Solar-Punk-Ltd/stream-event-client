@@ -8,7 +8,7 @@
  *
  * A build without the package installed copies nothing and says so once.
  */
-import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, extname, join, normalize } from 'node:path';
 
@@ -44,6 +44,18 @@ export function copyWeeb3Files(packageFolder, outDir) {
     }
   }
   return true;
+}
+
+/**
+ * The WebAssembly module's own size in bytes, or null without the package. The page counts its download
+ * against it, because a server that compresses the module answers with no length, or the compressed one.
+ */
+export function wasmBytesOf(packageFolder) {
+  if (packageFolder === null) {
+    return null;
+  }
+  const file = join(packageFolder, 'weeb_3_bg.wasm');
+  return existsSync(file) ? statSync(file).size : null;
 }
 
 /** How the package's page-side module names its WebAssembly module when it is handed none. */
@@ -108,6 +120,9 @@ export function weeb3Files(root) {
     rewrite,
     {
       name: 'weeb-3-files',
+      config() {
+        return { define: { __WEEB3_WASM_BYTES__: JSON.stringify(wasmBytesOf(packageFolder)) } };
+      },
       configResolved(config) {
         logger = config.logger;
       },

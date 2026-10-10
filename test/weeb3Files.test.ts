@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { copyWeeb3Files, WEEB3_FILES, withServedWasmPath } from '../scripts/weeb3-files.mjs';
+import { copyWeeb3Files, wasmBytesOf, WEEB3_FILES, withServedWasmPath } from '../scripts/weeb3-files.mjs';
 
 const made: string[] = [];
 
@@ -51,6 +51,11 @@ describe("the build's copy of weeb-3's files", () => {
       "if (x === undefined) {\n  module_or_path = new URL('/weeb-3/weeb_3_bg.wasm', self.location.origin);\n}",
     );
     expect(withServedWasmPath('nothing to rewrite')).toBeNull();
+  });
+
+  it("records the module's own size for the page, the length it counts its download against", () => {
+    expect(wasmBytesOf(packageFolder())).toBe('weeb_3_bg.wasm'.length);
+    expect(wasmBytesOf(null)).toBeNull();
   });
 
   it('copies nothing when the package is not installed, and answers so', () => {
