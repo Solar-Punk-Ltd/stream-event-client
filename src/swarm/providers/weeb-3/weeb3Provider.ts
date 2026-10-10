@@ -14,7 +14,7 @@ import type {
 } from '../../provider';
 import { MAX_CHUNK_PAYLOAD, singleOwnerChunkAddress } from '../../singleOwnerChunk';
 import type { Weeb3Node } from './weeb3Package';
-import { WEEB3_PATH, type Weeb3Runtime } from './weeb3Runtime';
+import { WEEB3_HEALTHY_PEERS, WEEB3_PATH, type Weeb3Runtime } from './weeb3Runtime';
 
 const CAPABILITIES: ProviderCapabilities = {
   feedHead: false,
@@ -145,7 +145,8 @@ export class Weeb3Provider implements SwarmProvider {
 
   status(): ProviderStatus {
     const { state, peers, download } = this.runtime.status();
-    return download ? { state, peers, download } : { state, peers };
+    const status = { state, peers, healthyPeers: WEEB3_HEALTHY_PEERS };
+    return download ? { ...status, download } : status;
   }
 
   /**

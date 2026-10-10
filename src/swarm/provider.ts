@@ -61,6 +61,8 @@ export interface ProviderStatus {
   readonly download?: DownloadProgress;
   /** How many peers a node in the tab is connected to. Absent for a provider that reaches a node elsewhere. */
   readonly peers?: number;
+  /** How many peers such a node builds up to when it is healthy, which its count is shown against. */
+  readonly healthyPeers?: number;
 }
 
 /** Where a player starts a stream: at its newest entry, or at the first it can rebuild. */

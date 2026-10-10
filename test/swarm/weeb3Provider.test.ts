@@ -211,7 +211,7 @@ describe('the weeb-3 provider', () => {
 
     expect(provider.capabilities.inTab).toBe(true);
     expect(provider.capabilities.feedHead).toBe(false);
-    expect(provider.status()).toEqual({ state: 'starting', peers: 2 });
+    expect(provider.status()).toEqual({ state: 'starting', peers: 2, healthyPeers: 200 });
     await provider.start();
     expect(runtime.holds).toBe(1);
     await provider.stop();

@@ -10,6 +10,9 @@ const WASM_URL = `${WEEB3_PATH}weeb_3_bg.wasm`;
 /** The service worker's scope, so its `/weeb-3/` routes answer a page served anywhere on the site. */
 const SERVICE_WORKER_SCOPE = '/';
 
+/** weeb-3's initial connection target, `CONNECTION_BUILDUP_LIMIT` in its `src/accounting.rs` and in its project README. */
+export const WEEB3_HEALTHY_PEERS = 200;
+
 /** How often the node's peer count is read, for the status line and for when it becomes ready. */
 export const WEEB3_PEER_POLL_MS = 500;
 
