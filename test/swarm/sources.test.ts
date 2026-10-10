@@ -128,6 +128,22 @@ describe('the added sources as the browser keeps them', () => {
 describe('the node in this browser as a source', () => {
   const IN_BROWSER: AddedSource = { id: 'added-1', type: 'weeb-3', name: 'Node in this browser', url: '' };
 
+  it('is listed only while the deployment offers it, so a saved one goes when weeb-3 is switched off', () => {
+    const offered = { ...settings(), kinds: [...settings().kinds, 'weeb-3' as const] };
+
+    expect(allSources(offered, [IN_BROWSER, { ...NODE, id: 'added-2' }]).map(({ id }) => id)).toEqual([
+      'event',
+      'backup',
+      'added-1',
+      'added-2',
+    ]);
+    expect(allSources(settings(), [IN_BROWSER, { ...NODE, id: 'added-2' }]).map(({ id }) => id)).toEqual([
+      'event',
+      'backup',
+      'added-2',
+    ]);
+  });
+
   it('is added with no address, under the name of what it is when the viewer gives none', () => {
     expect(addSource([], { type: 'weeb-3', name: '', url: '' }).sources).toEqual([IN_BROWSER]);
   });

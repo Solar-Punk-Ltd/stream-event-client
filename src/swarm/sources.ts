@@ -75,8 +75,13 @@ export function cleanSourceName(input: string): string | null {
   return name === '' ? null : name;
 }
 
-/** The deployment's gateways first, in its order, then the viewer's in the order they were added. */
+/**
+ * The deployment's gateways first, in its order, then the viewer's in the order they were added. A
+ * source of a kind the deployment no longer offers, such as a node in this browser kept from before
+ * weeb-3 was switched off, is left out.
+ */
 export function allSources(settings: SwarmSettings, added: readonly AddedSource[]): Source[] {
+  const offered = added.filter(({ type }) => type !== 'weeb-3' || settings.kinds.includes(SOURCE_TYPE_KIND[type]));
   return [
     ...settings.gateways.map((gateway): Source => ({
       id: gateway.id,
@@ -85,7 +90,7 @@ export function allSources(settings: SwarmSettings, added: readonly AddedSource[
       url: gateway.url,
       offered: true,
     })),
-    ...added.map((source): Source => ({ ...source, offered: false })),
+    ...offered.map((source): Source => ({ ...source, offered: false })),
   ];
 }
 
