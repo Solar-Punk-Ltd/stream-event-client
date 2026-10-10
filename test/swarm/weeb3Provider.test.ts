@@ -146,6 +146,10 @@ describe('the weeb-3 provider', () => {
     ]);
   });
 
+  it("is given weeb-3's own 30 s budget for every read, longer than the 17 s a missing chunk takes it", () => {
+    expect(weeb3(servedFetch()).provider.shortestReadWindowMs).toBe(30_000);
+  });
+
   it('strips the span weeb-3 puts before bytes, which Bee does not', async () => {
     const answer = await weeb3(servedFetch()).provider.readBytes(REFERENCE);
 

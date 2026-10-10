@@ -27,6 +27,9 @@ const CAPABILITIES: ProviderCapabilities = {
 
 const SPAN_LENGTH = 8;
 
+/** weeb-3's own budget for a whole read, so its 17 s give-up on a missing chunk ends as not found, not a timeout. */
+const WEEB3_READ_WINDOW_MS = 30_000;
+
 /** What the provider needs of the page's node: where it is, and a way to start and stop it. */
 export type Weeb3RuntimeView = Pick<Weeb3Runtime, 'status' | 'start' | 'stop'>;
 
@@ -71,7 +74,7 @@ function isContentAddressedAt(bytes: Uint8Array, address: string): boolean {
 /**
  * Swarm read through the node running in this browser, weeb-3, over the routes its service worker
  * answers on this page. A missing chunk is a 404 there, after weeb-3 has asked the network for about
- * 17 s, so a read with the default window ends as a timeout first.
+ * 17 s, so every read is given weeb-3's own budget rather than the client's shorter default.
  *
  * Every chunk and bytes answer starts with the span, which Bee's `/soc` and `/bytes` leave out, so it
  * is taken off. A single-owner chunk comes back as its span and payload without the identifier and
@@ -80,6 +83,7 @@ function isContentAddressedAt(bytes: Uint8Array, address: string): boolean {
  */
 export class Weeb3Provider implements SwarmProvider {
   readonly capabilities = CAPABILITIES;
+  readonly shortestReadWindowMs = WEEB3_READ_WINDOW_MS;
 
   private readonly runtime: Weeb3RuntimeView;
   private readonly fetcher: typeof fetch;
