@@ -126,6 +126,12 @@ export interface SwarmProvider {
    */
   readonly ownPlayer?: () => Promise<OwnPlayer>;
 
+  /**
+   * The shortest window a read through this provider is given, for a provider whose reads take longer
+   * than a caller's usual window. Absent where the caller's window stands.
+   */
+  readonly shortestReadWindowMs?: number;
+
   /** Starts a node in the tab. Resolves at once for a provider that reaches a node elsewhere. */
   start(): Promise<void>;
 

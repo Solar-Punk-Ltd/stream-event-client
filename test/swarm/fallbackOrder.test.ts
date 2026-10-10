@@ -36,6 +36,10 @@ describe('the order of fallbacks', () => {
     expect(fallbackOrderFor(THREE, ['c', 'event', 'a', 'b'])).toEqual(['c', 'a', 'b', 'event']);
   });
 
+  it('holds only gateways the deployment offers, so never the node in this browser a saved order may name', () => {
+    expect(fallbackOrderFor(THREE, ['added-1', 'a'])).toEqual(['a', 'b', 'c', 'event']);
+  });
+
   it('drops what the deployment no longer falls back to, and adds what it now does in its own place', () => {
     expect(fallbackOrderFor(THREE, ['gone', 'b', 'b', 'a'])).toEqual(['b', 'a', 'c', 'event']);
   });

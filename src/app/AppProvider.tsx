@@ -166,15 +166,6 @@ function swarmClientFor(settings: SwarmSettings, wiring: Wiring, chat: ChatConfi
   return createSwarmClient(settings, { choice: player, routes, fallbackOrder, client: { clock: gatewayClock } });
 }
 
-/**
- * What the app's player reads through. A video source that brings its own player is passed over, so
- * when the app's player stands in for it, it reads from the next source in the fallback order.
- */
-function playerReader(client: SwarmClient): SwarmReader {
-  const own = client.ownPlayer('player');
-  return client.reader('player', { passOver: own ? [own.id] : [] });
-}
-
 export const AppContextProvider = ({ config, children }: Props) => {
   const settings = useMemo(() => swarmSettingsFrom(config), [config]);
   const chat = useMemo(() => enabledChat(config), [config]);
@@ -184,7 +175,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
   const wiring = useMemo(() => wiringOf(settings, choices), [settings, choices]);
   const [swarm, setSwarm] = useState<SwarmClient>(() => {
     const client = swarmClientFor(settings, wiring, chat);
-    manifestFetcher.useSwarm(playerReader(client));
+    manifestFetcher.useSwarm(client.reader('player'));
     return client;
   });
   const swarmRef = useRef(swarm);
@@ -217,7 +208,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
       const client = swarmClientFor(settings, nextWiring, chat);
       swarmRef.current = client;
       setSwarm(client);
-      manifestFetcher.useSwarm(playerReader(client));
+      manifestFetcher.useSwarm(client.reader('player'));
       if (nextWiring.parts['stream-list'] !== streamListSourceRef.current) {
         streamListSourceRef.current = nextWiring.parts['stream-list'];
         // The new source has its own view of the feed, so a position established against the old one

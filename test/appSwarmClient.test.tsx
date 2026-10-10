@@ -235,7 +235,7 @@ describe("the app's Swarm client", () => {
     ).toEqual([{ feature: 'player', read: 'feed-head', provider: id, answer: 'not-found', count: 1 }]);
   });
 
-  it('hands the player a reader that passes over the node in this browser, which plays the video with its own player', async () => {
+  it('reads the video through the node in this browser alone once it is picked, never through a gateway behind it', async () => {
     start({ weeb3: { enabled: true } });
     await settle();
     const id = current().addSource({ type: 'weeb-3', name: '', url: '' });
@@ -247,12 +247,13 @@ describe("the app's Swarm client", () => {
     await manifestFetcher.fetchSource(SOURCE_URL).catch(() => {});
 
     expect(current().swarm.ownPlayer('player')?.id).toBe(id);
-    expect(asked.slice(before)).toEqual([`${BACKUP_GATEWAY}/feeds/${STREAM_OWNER}/${STREAM_TOPIC_HEX}`]);
+    expect(asked.slice(before)).toEqual([]);
     expect(
       current()
         .swarm.counts()
-        .filter(({ provider }) => provider === id),
-    ).toEqual([]);
+        .filter(({ feature }) => feature === 'player')
+        .map(({ provider }) => provider),
+    ).toEqual([id]);
   });
 
   it("reads the chat from the event's chat read address, whichever node the viewer picked", async () => {

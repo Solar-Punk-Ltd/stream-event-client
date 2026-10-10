@@ -183,16 +183,42 @@ describe('the Swarm client', () => {
       expect(routed.activity()[0].fallbackOrder).toEqual(['last']);
     });
 
-    it('passes over a provider a reader is told to, such as one that plays the video with a player of its own', async () => {
+    it('never hands a read from a node in the tab to another provider, whatever it answers', async () => {
       const { chosen, second, last, client } = ordered();
-      second.answer = content();
+      chosen.capabilities = { ...chosen.capabilities, inTab: true };
 
-      const reader = client.reader('player', { passOver: ['chosen'] });
+      for (const answer of [
+        fault,
+        { kind: 'unsupported' as const },
+        { kind: 'rate-limited' as const, retryAfterMs: 1, serverTimeMs: null },
+      ]) {
+        chosen.answer = answer;
+        expect(await readBytes(client)).toBe(answer);
+      }
+      expect(client.reader('player').urlSource('segment')).toBe('chosen');
+      expect([second.asked, last.asked]).toEqual([[], []]);
+      expect(client.activity()[0].fallbackOrder).toEqual([]);
+    });
 
-      expect(await reader.readBytes(REFERENCE)).toBe(second.answer);
-      expect(reader.urlFor(REFERENCE, 'segment')).toBe(`second:segment:${REFERENCE}`);
-      expect(reader.urlSource('segment')).toBe('second');
-      expect([chosen.asked, last.asked]).toEqual([[], []]);
+    it('never asks a node in the tab as a fallback', async () => {
+      const { chosen, second, last, client } = ordered();
+      second.capabilities = { ...second.capabilities, inTab: true };
+      chosen.answer = fault;
+      last.answer = content();
+
+      expect(await readBytes(client)).toBe(last.answer);
+      expect(second.asked).toEqual([]);
+      expect(client.activity()[0].fallbackOrder).toEqual(['last']);
+    });
+
+    it('gives a provider at least the shortest window it names, however short the caller asked', async () => {
+      const { chosen, client } = ordered();
+      Object.assign(chosen, { shortestReadWindowMs: 30_000 });
+
+      await client.reader('player').readBytes(REFERENCE, { timeoutMs: 1_000 });
+      await client.reader('player').readBytes(REFERENCE);
+
+      expect(chosen.windows).toEqual([30_000, 30_000]);
     });
 
     it("names the player a feature's own provider brings, with that provider's id, and none for one that brings none", async () => {
@@ -209,21 +235,13 @@ describe('the Swarm client', () => {
       const own = routed.ownPlayer('player');
       expect(own?.id).toBe('second');
       expect(await own?.load()).toBe(player);
+      expect(own?.status()).toEqual({ state: 'ready' });
     });
 
     it('says where the chosen provider is in its own life', () => {
       const { client } = ordered();
 
       expect(client.status()).toEqual({ state: 'ready' });
-    });
-
-    it("asks the feature's own provider after all when passing it over leaves nobody to ask", async () => {
-      const lone = new ScriptedProvider('lone');
-      const client = new SwarmClient({ chosen: { id: 'lone', provider: lone } });
-
-      await client.reader('player', { passOver: ['lone'] }).readBytes(REFERENCE);
-
-      expect(lone.asked).toEqual(['bytes']);
     });
 
     it('skips a paused fallback for the next one, and pauses each fallback on its own faults', async () => {

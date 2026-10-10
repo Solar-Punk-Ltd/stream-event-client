@@ -85,15 +85,6 @@ export interface SwarmReader {
   urlSource(use: UrlUse): string | null;
 }
 
-/** How one reader differs from the feature's own. */
-interface ReaderOptions {
-  /**
-   * Providers this reader never asks while another remains, such as the video's own source once it
-   * plays the video with a player of its own and the app's player stands in for it.
-   */
-  readonly passOver?: readonly string[];
-}
-
 interface ReadCount {
   readonly feature: SwarmFeature;
   readonly read: ReadKind;
@@ -146,12 +137,6 @@ interface HealthState {
   nextPauseMs: number;
 }
 
-/** Which feature a read is for, and what its reader passes over. */
-interface Route {
-  readonly feature: SwarmFeature;
-  readonly passOver: readonly string[];
-}
-
 type Ask = (provider: SwarmProvider, options: ReadOptions) => Promise<SwarmAnswer>;
 
 /** Answers after which another provider may know better. Not found and aborted are final. */
@@ -188,23 +173,22 @@ export class SwarmClient {
     this.now = options.now ?? (() => Date.now());
   }
 
-  reader(feature: SwarmFeature, { passOver = [] }: ReaderOptions = {}): SwarmReader {
-    const route: Route = { feature, passOver };
+  reader(feature: SwarmFeature): SwarmReader {
     return {
       readFeedHead: (owner, topic, options) =>
-        this.read(route, 'feed-head', options, (provider, windowed) => provider.readFeedHead(owner, topic, windowed)),
+        this.read(feature, 'feed-head', options, (provider, windowed) => provider.readFeedHead(owner, topic, windowed)),
       readFeedEntry: (owner, topic, index, options) =>
-        this.read(route, 'feed-entry', options, (provider, windowed) =>
+        this.read(feature, 'feed-entry', options, (provider, windowed) =>
           provider.readFeedEntry(owner, topic, index, windowed),
         ),
       readSoc: (owner, identifier, options) =>
-        this.read(route, 'soc', options, (provider, windowed) => provider.readSoc(owner, identifier, windowed)),
+        this.read(feature, 'soc', options, (provider, windowed) => provider.readSoc(owner, identifier, windowed)),
       readChunk: (address, options) =>
-        this.read(route, 'chunk', options, (provider, windowed) => provider.readChunk(address, windowed)),
+        this.read(feature, 'chunk', options, (provider, windowed) => provider.readChunk(address, windowed)),
       readBytes: (reference, options) =>
-        this.read(route, 'bytes', options, (provider, windowed) => provider.readBytes(reference, windowed)),
-      urlFor: (reference, use) => this.urlProviderFor(route)?.provider.urlFor(reference, use) ?? null,
-      urlSource: () => this.urlProviderFor(route)?.id ?? null,
+        this.read(feature, 'bytes', options, (provider, windowed) => provider.readBytes(reference, windowed)),
+      urlFor: (reference, use) => this.urlProviderFor(feature)?.provider.urlFor(reference, use) ?? null,
+      urlSource: () => this.urlProviderFor(feature)?.id ?? null,
     };
   }
 
@@ -258,9 +242,13 @@ export class SwarmClient {
    * The player a feature's own provider plays video with, with that provider's id, or null where the
    * app's player reads through it. Loading it starts whatever the player needs.
    */
-  ownPlayer(feature: SwarmFeature): { readonly id: string; readonly load: () => Promise<OwnPlayer> } | null {
+  ownPlayer(feature: SwarmFeature): {
+    readonly id: string;
+    readonly load: () => Promise<OwnPlayer>;
+    readonly status: () => ProviderStatus;
+  } | null {
     const { id, provider } = this.primaryFor(feature);
-    return provider.ownPlayer ? { id, load: provider.ownPlayer } : null;
+    return provider.ownPlayer ? { id, load: provider.ownPlayer, status: () => provider.status() } : null;
   }
 
   /** Where the provider every feature reads from first is in its own life. */
@@ -283,18 +271,23 @@ export class SwarmClient {
 
   /**
    * The caller's window covers the whole read, the fallback included, so a later provider is given
-   * only what the earlier ones left and is not asked once nothing is left.
+   * only what the earlier ones left and is not asked once nothing is left. A provider that names a
+   * shortest window of its own gets at least that, whatever the caller asked.
    */
   private async read(
-    { feature, passOver }: Route,
+    feature: SwarmFeature,
     read: ReadKind,
     options: ReadOptions | undefined,
     ask: Ask,
   ): Promise<SwarmAnswer> {
-    const windowMs = options?.timeoutMs ?? DEFAULT_READ_TIMEOUT_MS;
+    const candidates = this.candidatesFor(feature);
+    const windowMs = Math.max(
+      options?.timeoutMs ?? DEFAULT_READ_TIMEOUT_MS,
+      candidates[0].provider.shortestReadWindowMs ?? 0,
+    );
     const startedAtMs = this.now();
     let answer: SwarmAnswer | null = null;
-    for (const { id, provider } of this.candidatesFor(feature, passOver)) {
+    for (const { id, provider } of candidates) {
       const leftMs = windowMs - (this.now() - startedAtMs);
       if (answer !== null && leftMs <= 0) {
         return answer;
@@ -314,27 +307,31 @@ export class SwarmClient {
     return answer as SwarmAnswer;
   }
 
-  private urlProviderFor({ feature, passOver }: Route): NamedProvider | null {
-    return this.candidatesFor(feature, passOver).find(({ provider }) => provider.capabilities.urls) ?? null;
+  private urlProviderFor(feature: SwarmFeature): NamedProvider | null {
+    return this.candidatesFor(feature).find(({ provider }) => provider.capabilities.urls) ?? null;
   }
 
   private primaryFor(feature: SwarmFeature): NamedProvider {
     return this.routes[feature] ?? this.chosen;
   }
 
+  /**
+   * The providers asked when a feature's own fails. None behind a node in the tab, which a viewer picks
+   * to read through it alone, and never a node in the tab itself.
+   */
   private fallbacksFor(primary: NamedProvider): NamedProvider[] {
-    return this.fallbacks.filter(({ id }) => id !== primary.id);
+    if (primary.provider.capabilities.inTab) {
+      return [];
+    }
+    return this.fallbacks.filter(({ id, provider }) => id !== primary.id && !provider.capabilities.inTab);
   }
 
-  /**
-   * The feature's own provider then its fallbacks in order, the paused ones and the ones passed over
-   * left out while another remains.
-   */
-  private candidatesFor(feature: SwarmFeature, passOver: readonly string[]): NamedProvider[] {
+  /** The feature's own provider then its fallbacks in order, the paused ones left out while another remains. */
+  private candidatesFor(feature: SwarmFeature): NamedProvider[] {
     const primary = this.primaryFor(feature);
-    const asked = [primary, ...this.fallbacksFor(primary)].filter(({ id }) => !passOver.includes(id));
-    const awake = asked.filter(({ id }) => !this.isPaused(id));
-    return awake.length > 0 ? awake : asked.length > 0 ? asked.slice(0, 1) : [primary];
+    const all = [primary, ...this.fallbacksFor(primary)];
+    const awake = all.filter(({ id }) => !this.isPaused(id));
+    return awake.length > 0 ? awake : [primary];
   }
 
   private providers(): NamedProvider[] {
