@@ -7,6 +7,7 @@ import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
 import { CopyIcon } from '@/shared/components/Icons/CopyIcon';
 import { SourcesIcon } from '@/shared/components/Icons/SourcesIcon';
 import { BUILD_LABEL } from '@/shared/buildLabel';
+import type { SwarmClient } from '@/swarm/client';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
 import { chooseSource, CHAT_SERVICE_ID, ROUTING_MODES, type RoutingMode, setMode } from '@/swarm/routing';
 import {
@@ -68,9 +69,19 @@ export function SourcesScreen() {
   const [isAdding, setIsAdding] = useState(false);
   const reportRef = useRef<HTMLTextAreaElement>(null);
   const running = useRef(new Set<AbortController>());
+  // A node in this browser the viewer just added runs while the screen stays open, so its row can show
+  // its download and peers. The video holds it too if it reads from it, and the node stops once neither does.
+  const addedNode = useRef<SwarmClient | null>(null);
   const radioName = useId();
   const { statuses, recheck } = useSourceStatuses(sources, isOpen, catalogFeed);
   const nameOf = useCallback((id: string) => nameIn(sources, id), [sources]);
+
+  const releaseAddedNode = useCallback(() => {
+    void addedNode.current?.stop();
+    addedNode.current = null;
+  }, []);
+
+  useEffect(() => releaseAddedNode, [releaseAddedNode]);
 
   // Also while closed, because the header button marks the fallback serving from the same counts.
   useEffect(() => {
@@ -113,6 +124,7 @@ export function SourcesScreen() {
   );
 
   const close = () => {
+    releaseAddedNode();
     for (const controller of running.current) {
       controller.abort();
     }
@@ -160,6 +172,12 @@ export function SourcesScreen() {
 
   const add = (source: { type: SourceType; name: string; url: string }, results?: readonly CheckResult[]) => {
     const id = app.addSource(source);
+    if (!hasAddress(source.type)) {
+      releaseAddedNode();
+      const client = createSwarmClient(onlyGateway(gatewaySettingOf({ id, ...source })));
+      client.start().catch(() => undefined);
+      addedNode.current = client;
+    }
     setTests(({ adding: _checked, ...current }) =>
       results ? { ...current, [id]: { state: 'done', results } } : current,
     );
@@ -212,6 +230,9 @@ export function SourcesScreen() {
               onRetest={() => retest(source)}
               onRename={(name) => app.renameSource(source.id, name)}
               onRemove={() => {
+                if (!hasAddress(source.type)) {
+                  releaseAddedNode();
+                }
                 setExpandedId(null);
                 app.removeSource(source.id);
               }}

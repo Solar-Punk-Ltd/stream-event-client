@@ -565,6 +565,31 @@ describe('the Sources screen', () => {
       expect(app!.parts).toEqual({ player: id, 'stream-list': 'event', previews: 'event', chat: 'chat-read' });
     });
 
+    it('shows a saved node without starting it, since only the video or adding one runs it', async () => {
+      localStorage.setItem(
+        'swarm-sources',
+        JSON.stringify([{ id: 'added-1', type: 'weeb-3', name: 'Node in this browser', url: '' }]),
+      );
+      await open({ weeb3: { enabled: true } });
+      await settle();
+
+      expect(row('Node in this browser').textContent).toContain('Not started');
+      expect(sharedWeeb3Runtime().status().state).toBe('stopped');
+    });
+
+    it('runs the node it adds while the screen is open, and stops it on Done when the video does not use it', async () => {
+      await open({ weeb3: { enabled: true } });
+      click(button('Add source'));
+      click(button(/^Node in this browser/));
+      click(button('Add'));
+      await waitFor(() => (fakeWeeb3.current!.nodes.length === 1 ? true : null));
+
+      click(button('Done'));
+      await waitFor(() => (sharedWeeb3Runtime().status().state === 'stopped' ? true : null));
+
+      expect(fakeWeeb3.current!.nodes[0].freed).toBe(true);
+    });
+
     it('is offered once, since a browser runs one node', async () => {
       await open({ weeb3: { enabled: true } });
       click(button('Add source'));

@@ -333,6 +333,10 @@ export const AppContextProvider = ({ config, children }: Props) => {
     void initAppState();
   }, [initAppState]);
 
+  // A video source that brings its own player, a node in this browser, runs while it is the video's
+  // source, so it is ready when the watch page opens and stops once the video moves off it.
+  useEffect(() => swarm.ownPlayer('player')?.hold(), [swarm]);
+
   return (
     <AppContext.Provider
       value={{

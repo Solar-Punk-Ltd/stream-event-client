@@ -39,7 +39,7 @@ interface SourceCheckContext {
   /** Injected by tests. The viewer's clock otherwise. */
   readonly now?: () => number;
   /** Injected by tests. A client of that source alone otherwise, with no fallback behind it. */
-  readonly client?: (source: Pick<Source, 'type' | 'url'>) => Pick<SwarmClient, 'reader' | 'probe'>;
+  readonly client?: (source: Pick<Source, 'type' | 'url'>) => Pick<SwarmClient, 'reader' | 'probe' | 'status'>;
 }
 
 const failing: SourceStatus = { health: 'failing', elapsedMs: null };
@@ -66,7 +66,7 @@ export async function checkSourceStatus(
 ): Promise<SourceStatus> {
   const now = context.now ?? (() => Date.now());
   if (source.type === 'weeb-3') {
-    return weeb3Status((context.client ?? clientOf)(source));
+    return nodeInTabStatus((context.client ?? clientOf)(source));
   }
   const pageProtocol = context.pageProtocol ?? currentPageProtocol();
   const localNetworkRequests = context.localNetworkRequests ?? (await supportsLocalNetworkRequests());
@@ -108,15 +108,16 @@ export async function checkSourceStatus(
   }
 }
 
-/** The node in this browser is asked its own state, which reads nothing from the network. */
-async function weeb3Status(client: Pick<SwarmClient, 'probe'>): Promise<SourceStatus> {
-  const found = await client.probe();
-  switch (found.kind) {
-    case 'ok':
+/** The node in this browser is asked its own state, which reads nothing from the network and starts nothing. */
+function nodeInTabStatus(client: Pick<SwarmClient, 'status'>): SourceStatus {
+  switch (client.status().state) {
+    case 'ready':
       return { health: 'ok', elapsedMs: null, words: 'Ready' };
-    case 'not-ready':
+    case 'starting':
       return warning('Starting');
-    default:
+    case 'stopped':
+      return { health: 'unknown', elapsedMs: null, words: 'Not started' };
+    case 'failed':
       return failing;
   }
 }
