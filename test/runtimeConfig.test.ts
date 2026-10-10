@@ -203,6 +203,25 @@ describe('the chat settings', () => {
   });
 });
 
+describe('the weeb-3 setting', () => {
+  it('accepts weeb-3 switched on or off, and no setting at all', () => {
+    expect(parseRuntimeConfig({ ...VALID, weeb3: { enabled: true } }).ok).toBe(true);
+    expect(parseRuntimeConfig({ ...VALID, weeb3: { enabled: false } }).ok).toBe(true);
+    expect(parseRuntimeConfig(VALID).ok).toBe(true);
+  });
+
+  it('refuses a switch that is not true or false', () => {
+    expect(problemOf(parseRuntimeConfig({ ...VALID, weeb3: { enabled: 'yes' } }))).toContain('weeb3.enabled');
+  });
+
+  it('refuses weeb-3 among the gateways a deployment offers, since a viewer adds it in their own browser', () => {
+    const { gatewayUrl: _left, ...withoutGateway } = VALID;
+    const providers = { gateways: [{ id: 'w', kind: 'weeb-3', url: '/weeb-3' }], default: 'w' };
+
+    expect(problemOf(parseRuntimeConfig({ ...withoutGateway, providers }))).toContain('must be one of bee-http');
+  });
+});
+
 describe('the providers settings', () => {
   const EVENT = { id: 'event', kind: 'bee-http', label: 'Event gateway', url: '/bee' };
   const BACKUP = { id: 'backup', kind: 'bee-http', url: 'https://backup.example.com' };

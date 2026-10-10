@@ -1,10 +1,19 @@
-import type { GatewayConfig, RuntimeConfig } from '@/config/runtimeConfig';
+import type { RuntimeConfig } from '@/config/runtimeConfig';
 
 import { type BeeNodeAccess, DEFAULT_BEE_NODE_ACCESS } from './beeNodeAccess';
-import { PROVIDER_KINDS, type ProviderKindName } from './providerKinds';
+import { GATEWAY_KINDS, type ProviderKindName } from './providerKinds';
 
-/** One gateway as the settings name it, which a provider kind in the registry makes a provider from. */
-export type GatewaySetting = GatewayConfig;
+/**
+ * One source as the settings name it, which a provider kind in the registry makes a provider from. A
+ * gateway the config offers is one of these, and so is a source a viewer added.
+ */
+export interface GatewaySetting {
+  readonly id: string;
+  readonly kind: ProviderKindName;
+  readonly label?: string;
+  /** Empty for a kind that is reached by no address, such as a node running in this browser. */
+  readonly url: string;
+}
 
 /** What the Swarm client is made from, whichever way the deployment's config wrote it. */
 export interface SwarmSettings {
@@ -15,7 +24,7 @@ export interface SwarmSettings {
    * the deployment switched the fallback off. A feature's own gateway is left out of its list.
    */
   readonly fallbackOrder: readonly string[];
-  /** The kinds of provider a viewer may add one of their own of. */
+  /** The kinds of provider a viewer may add one of their own of, weeb-3 among them where the deployment allows it. */
   readonly kinds: readonly ProviderKindName[];
   /** How far a Bee node of the viewer's own may be, which the Sources screen holds to. */
   readonly beeNodes: BeeNodeAccess;
@@ -31,8 +40,9 @@ export const SINGLE_GATEWAY_ID = 'gateway';
  * gateway behind them. The fallback is the default gateway unless the config names others first or
  * switches it off, and the default is always asked last.
  */
-export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'providers'>): SwarmSettings {
+export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'providers' | 'weeb3'>): SwarmSettings {
   const { providers, gatewayUrl } = config;
+  const inBrowser: ProviderKindName[] = config.weeb3?.enabled ? ['weeb-3'] : [];
   if (!providers) {
     if (gatewayUrl === undefined) {
       // The config's own check refuses a config with neither, so only a caller that skipped it lands here.
@@ -42,7 +52,7 @@ export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'pr
       gateways: [{ id: SINGLE_GATEWAY_ID, kind: 'bee-http', url: gatewayUrl }],
       defaultId: SINGLE_GATEWAY_ID,
       fallbackOrder: [SINGLE_GATEWAY_ID],
-      kinds: [...PROVIDER_KINDS],
+      kinds: [...GATEWAY_KINDS, ...inBrowser],
       beeNodes: DEFAULT_BEE_NODE_ACCESS,
     };
   }
@@ -50,7 +60,7 @@ export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'pr
     gateways: providers.gateways,
     defaultId: providers.default,
     fallbackOrder: providers.fallback === false ? [] : [...[providers.fallback ?? []].flat(), providers.default],
-    kinds: providers.kinds ?? [...PROVIDER_KINDS],
+    kinds: [...(providers.kinds ?? GATEWAY_KINDS), ...inBrowser],
     beeNodes: providers.beeNodes ?? DEFAULT_BEE_NODE_ACCESS,
   };
 }

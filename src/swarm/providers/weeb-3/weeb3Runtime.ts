@@ -149,3 +149,11 @@ export class Weeb3Runtime {
     }
   }
 }
+
+let shared: Weeb3Runtime | null = null;
+
+/** The page's one runtime, made the first time anything asks for it. */
+export function sharedWeeb3Runtime(): Weeb3Runtime {
+  shared ??= new Weeb3Runtime();
+  return shared;
+}

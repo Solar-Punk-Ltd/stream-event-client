@@ -3,7 +3,7 @@ import { z } from 'zod';
 // Imported by its file name, so Node reads this schema without the bundler, as the deployment's own tests do.
 import { DEFAULT_THEME, THEME_NAMES, type ThemeName } from '../design/themeNames.ts';
 import { BEE_NODE_ACCESS_LEVELS } from '../swarm/beeNodeAccess.ts';
-import { PROVIDER_KINDS } from '../swarm/providerKinds.ts';
+import { GATEWAY_KINDS } from '../swarm/providerKinds.ts';
 
 /**
  * Served beside the page, so one build serves every deployment and a setting changes without a
@@ -66,7 +66,7 @@ const disabledChatSchema = z.looseObject({ enabled: z.literal(false) });
 
 const chatSchema = z.discriminatedUnion('enabled', [enabledChatSchema, disabledChatSchema]);
 
-const providerKindSchema = z.enum(PROVIDER_KINDS, { message: `must be one of ${PROVIDER_KINDS.join(', ')}` });
+const gatewayKindSchema = z.enum(GATEWAY_KINDS, { message: `must be one of ${GATEWAY_KINDS.join(', ')}` });
 
 /** A Bee node's HTTP API, the way the event gateway has always been read. */
 const beeHttpGatewaySchema = z.object({
@@ -79,7 +79,7 @@ const beeHttpGatewaySchema = z.object({
 });
 
 const gatewaySchema = z.discriminatedUnion('kind', [beeHttpGatewaySchema], {
-  message: `must be one of ${PROVIDER_KINDS.join(', ')}`,
+  message: `must be one of ${GATEWAY_KINDS.join(', ')}`,
 });
 
 const providersSchema = z
@@ -98,8 +98,8 @@ const providersSchema = z
         message: 'must name one of the gateways, list them, or be false',
       })
       .optional(),
-    /** The kinds of provider a viewer may add one of their own of. Absent means every kind this build carries. */
-    kinds: z.array(providerKindSchema).min(1, { message: 'must offer at least one kind' }).optional(),
+    /** The kinds of gateway a viewer may add one of their own of. Absent means every kind a gateway may be. */
+    kinds: z.array(gatewayKindSchema).min(1, { message: 'must offer at least one kind' }).optional(),
     /** How far a Bee node of the viewer's own may be. Absent means this computer only. */
     beeNodes: z
       .enum(BEE_NODE_ACCESS_LEVELS, { message: `must be one of ${BEE_NODE_ACCESS_LEVELS.join(', ')}` })
@@ -132,7 +132,12 @@ const providersSchema = z
 
 export type ProvidersConfig = z.infer<typeof providersSchema>;
 
-export type GatewayConfig = ProvidersConfig['gateways'][number];
+/**
+ * Whether a viewer may run a Swarm node in their own browser, weeb-3, and read and watch through it.
+ * Off unless set, because the page's security policy must also allow it, which the image does when its
+ * WEEB3 setting is on.
+ */
+const weeb3Schema = z.object({ enabled: z.boolean({ message: 'must be true or false' }) });
 
 const runtimeConfigSchema = z
   .object({
@@ -143,6 +148,7 @@ const runtimeConfigSchema = z
     providers: providersSchema.optional(),
     catalog: catalogSchema,
     chat: chatSchema.optional(),
+    weeb3: weeb3Schema.optional(),
   })
   .superRefine((config, context) => {
     if (config.gatewayUrl !== undefined && config.providers !== undefined) {

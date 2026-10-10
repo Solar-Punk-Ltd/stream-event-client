@@ -4,6 +4,7 @@ import { parseRuntimeConfig, type RuntimeConfig } from '../../src/config/runtime
 import { createSwarmClient } from '../../src/swarm/createSwarmClient';
 import { PROVIDER_KINDS } from '../../src/swarm/providerKinds';
 import { BeeHttpProvider } from '../../src/swarm/providers/bee-http/beeHttpProvider';
+import { Weeb3Provider } from '../../src/swarm/providers/weeb-3/weeb3Provider';
 import { PROVIDER_REGISTRY } from '../../src/swarm/registry';
 import { choiceForAddress, OWN_GATEWAY_ID, SINGLE_GATEWAY_ID, swarmSettingsFrom } from '../../src/swarm/settings';
 
@@ -51,7 +52,7 @@ describe('the Swarm settings', () => {
       gateways: [{ id: SINGLE_GATEWAY_ID, kind: 'bee-http', url: '/bee' }],
       defaultId: SINGLE_GATEWAY_ID,
       fallbackOrder: [SINGLE_GATEWAY_ID],
-      kinds: [...PROVIDER_KINDS],
+      kinds: ['bee-http'],
       beeNodes: 'off',
     });
   });
@@ -76,9 +77,32 @@ describe('the Swarm settings', () => {
       ],
       defaultId: 'primary',
       fallbackOrder: ['backup', 'primary'],
-      kinds: [...PROVIDER_KINDS],
+      kinds: ['bee-http'],
       beeNodes: 'off',
     });
+  });
+});
+
+describe('the node in this browser, weeb-3', () => {
+  it('is not offered unless the deployment switches it on', () => {
+    expect(swarmSettingsFrom(config({ gatewayUrl: '/bee' })).kinds).not.toContain('weeb-3');
+    expect(swarmSettingsFrom(config({ gatewayUrl: '/bee', weeb3: { enabled: false } })).kinds).not.toContain('weeb-3');
+  });
+
+  it('is offered beside every other kind once switched on', () => {
+    expect(swarmSettingsFrom(config({ gatewayUrl: '/bee', weeb3: { enabled: true } })).kinds).toEqual([
+      'bee-http',
+      'weeb-3',
+    ]);
+  });
+
+  it('is offered once switched on even where providers narrows the kinds a viewer may add', () => {
+    const narrowed = config({
+      providers: { ...TWO_GATEWAYS.providers!, kinds: ['bee-http'] },
+      weeb3: { enabled: true },
+    });
+
+    expect(swarmSettingsFrom(narrowed).kinds).toEqual(['bee-http', 'weeb-3']);
   });
 });
 
@@ -160,6 +184,15 @@ describe('the registry of provider kinds', () => {
     for (const kind of PROVIDER_KINDS) {
       expect(PROVIDER_REGISTRY[kind].label).not.toBe('');
     }
+  });
+
+  it('makes a provider in this tab for weeb-3, and only weeb-3 brings its own player', () => {
+    const provider = PROVIDER_REGISTRY['weeb-3'].create({ id: 'w', kind: 'weeb-3', url: '' }, {});
+
+    expect(provider).toBeInstanceOf(Weeb3Provider);
+    expect(provider.capabilities.inTab).toBe(true);
+    expect(PROVIDER_REGISTRY['weeb-3'].ownPlayer).not.toBeNull();
+    expect(PROVIDER_REGISTRY['bee-http'].ownPlayer).toBeNull();
   });
 
   it('makes a Bee HTTP provider for a bee-http gateway', () => {
