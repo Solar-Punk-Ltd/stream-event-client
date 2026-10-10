@@ -241,6 +241,10 @@ describe('the Swarm client', () => {
       release();
       release();
       expect([second.started, second.stopped]).toEqual([1, 1]);
+      expect(
+        routed.ownPlayer('player'),
+        'the same handle each time, so a page polling its status keeps one timer',
+      ).toBe(own);
     });
 
     it('says where the chosen provider is in its own life', () => {

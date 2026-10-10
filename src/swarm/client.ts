@@ -137,6 +137,14 @@ interface HealthState {
   nextPauseMs: number;
 }
 
+/** A source's own player as the client hands it out: the same object for as long as the client lives. */
+interface OwnPlayerHandle {
+  readonly id: string;
+  readonly load: () => Promise<OwnPlayer>;
+  readonly status: () => ProviderStatus;
+  readonly hold: () => () => void;
+}
+
 type Ask = (provider: SwarmProvider, options: ReadOptions) => Promise<SwarmAnswer>;
 
 /** Answers after which another provider may know better. Not found and aborted are final. */
@@ -160,6 +168,7 @@ export class SwarmClient {
   private readonly clock: GatewayClock;
   private readonly now: () => number;
   private readonly healthById = new Map<string, HealthState>();
+  private readonly ownPlayers = new WeakMap<SwarmProvider, OwnPlayerHandle>();
   private readonly countByKey = new Map<string, ReadCount>();
   /** Oldest first, never older than {@link ACTIVITY_WINDOW_MS}. */
   private readonly recent: RecentAnswer[] = [];
@@ -243,17 +252,16 @@ export class SwarmClient {
    * app's player reads through it. Loading it starts whatever the player needs, and `hold` keeps that
    * running until the function it answers is called.
    */
-  ownPlayer(feature: SwarmFeature): {
-    readonly id: string;
-    readonly load: () => Promise<OwnPlayer>;
-    readonly status: () => ProviderStatus;
-    readonly hold: () => () => void;
-  } | null {
+  ownPlayer(feature: SwarmFeature): OwnPlayerHandle | null {
     const { id, provider } = this.primaryFor(feature);
     if (!provider.ownPlayer) {
       return null;
     }
-    return {
+    const known = this.ownPlayers.get(provider);
+    if (known) {
+      return known;
+    }
+    const handle: OwnPlayerHandle = {
       id,
       load: provider.ownPlayer,
       status: () => provider.status(),
@@ -268,6 +276,8 @@ export class SwarmClient {
         };
       },
     };
+    this.ownPlayers.set(provider, handle);
+    return handle;
   }
 
   /** Where the provider every feature reads from first is in its own life. */
