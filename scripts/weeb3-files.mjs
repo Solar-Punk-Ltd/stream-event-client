@@ -7,7 +7,7 @@
  * dev and preview servers serve the service worker with the header that lets it control the whole site.
  *
  * Until the package is installed this copies nothing and says so once per build, and the page's stand-in reports the
- * node as failed, which sends the video to the next source.
+ * node as failed to start, which the Sources screen and the watch page say.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';

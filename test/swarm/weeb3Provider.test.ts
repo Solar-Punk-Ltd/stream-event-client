@@ -156,7 +156,7 @@ describe('the weeb-3 provider', () => {
     expect(answer).toMatchObject({ kind: 'content', bytes: SEGMENT_BYTES });
   });
 
-  it("answers unsupported for a single-owner chunk read by its address, whose identifier and signature weeb-3 does not serve, so the chat's check asks another source", async () => {
+  it("answers unsupported for a single-owner chunk read by its address, whose identifier and signature weeb-3 does not serve, rather than bytes the chat's check would refuse", async () => {
     const answer = await weeb3(servedFetch()).provider.readChunk(SOC_ADDRESS);
 
     expect(answer).toEqual({ kind: 'unsupported' });

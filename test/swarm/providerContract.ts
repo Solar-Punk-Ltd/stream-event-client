@@ -8,7 +8,7 @@ import type { SwarmProvider } from '../../src/swarm/provider';
 export interface ContractWorld {
   /**
    * Null for a provider that cannot look up a feed's head, which must then answer unsupported for it
-   * whatever its far side does, so the client asks the next provider.
+   * whatever its far side does.
    */
   readonly feedHead: {
     readonly owner: string;

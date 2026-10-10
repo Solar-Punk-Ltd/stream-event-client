@@ -359,16 +359,21 @@ once and is kept in the browser.
   source not in use, Retest, and Rename and Remove for a source the viewer added, since an offered
   source cannot be renamed or removed.
 - **The node in this browser.** Where `weeb3.enabled` is set, "Node in this browser (weeb-3)" is a tile of
-  its own. It takes a name and no address, is added at once, once per browser, and has no Test. Its row shows a
-  status line where another source shows its host: starting, how many peers, ready, or failed to start.
+  its own. It takes a name and no address, is added at once, once per browser, and has no Test. It serves the
+  video only for now: in one source its radio is greyed with "Video only for now. Pick it for Video under Per
+  part.", and per part it can be picked for the video, with the stream list, previews and chat offering it greyed
+  as "Video only for now". A saved setting that puts it on another part, from an older visit, reads that part from
+  the deployment's default instead. Its row shows how far the node has got where another source shows its host:
+  the module's download as a percentage, then starting, connecting with its peers, ready with its peers, or failed
+  to start.
 - **Adding a source.** A tile per type. A Bee node's address holds to `providers.beeNodes` as described
   under the image. A gateway is an https address under the same rules, so it is greyed with its reason
   on a site at `off`, and a type whose provider kind `providers.kinds` leaves out is greyed too. A Bee
   node is checked with the node probe and a gateway with the Test before it is added, and a source
-  added in one-source mode is put in use.
+  added in one-source mode is put in use, apart from the node in this browser, which serves the video only.
 - **Fallback.** One order for every part: the deployment's `providers.fallback`, which the viewer may
   reorder with up and down buttons, and the default gateway always last. A source is never its own
-  fallback. With nothing behind the source in use the line names that source alone, such as "Event
+  fallback. The node in this browser has none and is none: a part that reads from it reads from it alone. With nothing behind the source in use the line names that source alone, such as "Event
   gateway only".
 - **Copy diagnostics.** The last Test's sentences, who answered each part in the last minute, the
   build and the browser. It holds no address but the tested source's. With the screen closed, the
@@ -398,27 +403,31 @@ controls the page, and counts as failed with no peer after 30 s.
 
 - **Loaded only when picked.** The package is imported from one module, `weeb3Module.ts`, as a chunk of its own,
   so the first page load carries none of it. Until the package passes this repository's one-week install wait,
-  that module names a stand-in of the package's shape, `weeb3StandIn.ts`, which refuses to start. A deployment that
-  switches weeb-3 on before then sees the node fail and the video fall back. Once the package is installed, the one
-  import in `weeb3Module.ts` names `@lat-murmeldjur/weeb_3`, the stand-in goes, and the build copies the package's
-  files to `/weeb-3/` (`scripts/weeb3-files.mjs`). Without the package the build says it copied none.
+  that module names a stand-in of the package's shape, `weeb3StandIn.ts`, which refuses to start, so a deployment
+  that switches weeb-3 on before then sees the node fail to start and says so. Once the package is installed, the
+  one import in `weeb3Module.ts` names `@lat-murmeldjur/weeb_3`, the stand-in goes, and the build copies the
+  package's files to `/weeb-3/` (`scripts/weeb3-files.mjs`). Without the package the build says it copied none.
+- **Getting ready.** The page downloads the 2.2 MB WebAssembly module itself, reading it as it streams, so the
+  Sources screen's row and the watch page can show how much has arrived against the length the server names. It
+  hands the bytes to the package, then reports starting, connecting with its peer count, and ready.
 - **The video, in weeb-3's own player.** With weeb-3 as the video's source the watch page plays the stream with
   weeb-3's player, bare: a video element with the browser's controls and weeb-3's own choice of quality, from the
   newest entry for a live stream and the beginning for a finished one, and none of this app's overlays or `?level=`.
-  A plain line says the node is starting until the first picture. weeb-3's limits are its own: it plays about 16 s
-  behind live, does not leave a quality that stopped, does not notice a broadcast that returns, and plays one stream
-  across the browser's tabs.
-- **Falling back.** If no picture comes within 30 s, about twice weeb-3's cold start of 4 s to a peer and 11 s to a
-  first frame, or the player cannot load or attach, the app's player takes over for that page, reading from the next
-  source in the fallback order. The app's player always passes over a video source that brings its own player.
-- **Reads.** As a source for the stream list, the previews or the chat, weeb-3 reads through its service worker's
-  routes: `/weeb-3/chunks/` for a chunk, a feed entry or a single-owner chunk, `/weeb-3/bytes/` for bytes, and
-  segment URLs on its caching route `/weeb-3/hls/bytes/`. weeb-3 puts a chunk's 8-byte span before bytes and before a
-  single-owner chunk's payload, which Bee leaves out, so it is taken off. It has no feed head lookup, so a head read
-  goes to the next source. A single-owner chunk read by its address comes back without the identifier and signature
-  that prove it the owner's, so the chat's slot reads, which check that, go to the next source too, and the chat
-  works on weeb-3 only as well as its fallback does. A missing chunk takes weeb-3 about 17 s to give up on, longer
-  than a read's 10 s window, so it ends as a timeout.
+  Until the node is ready a plain line shows its download and its peers. Nothing replaces weeb-3's player: one that
+  cannot load or attach says "The Swarm node in this browser could not play this stream." and stays. weeb-3's limits
+  are its own: it plays about 16 s behind live, does not leave a quality that stopped, does not notice a broadcast
+  that returns, and plays one stream across the browser's tabs.
+- **No switching.** A part that reads from weeb-3 reads from it alone. None of its reads is handed to another source
+  whatever it answers, and weeb-3 is never in another source's fallback order. Every read through it gets weeb-3's
+  own 30 s budget rather than the client's 10 s, so a missing chunk, which weeb-3 gives up on after about 17 s, ends
+  as not found rather than cut short.
+- **Reads.** weeb-3 reads through its service worker's routes: `/weeb-3/chunks/` for a chunk, a feed entry or a
+  single-owner chunk, `/weeb-3/bytes/` for bytes, and segment URLs on its caching route `/weeb-3/hls/bytes/`. weeb-3
+  puts a chunk's 8-byte span before bytes and before a single-owner chunk's payload, which Bee leaves out, so it is
+  taken off. Two reads it cannot make answer unsupported, and plainly, since nothing else is asked: a feed's head,
+  which weeb-3 has no lookup for, and a single-owner chunk read by its address, which comes back without the
+  identifier and signature that prove it the owner's, as the chat's slots are read. Both are out of reach while weeb-3
+  serves the video only, since the stream list and the chat never read from it, and both await the owner's ruling.
 
 ## How the player reads Swarm
 

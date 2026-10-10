@@ -1,8 +1,8 @@
 /**
  * Stands in for `@lat-murmeldjur/weeb_3` while the package is younger than the week this repository's
  * install waits for any release. It has the package's shape and refuses to start, so a deployment that
- * switches weeb-3 on before the package is in the build sees the node fail and the video fall back to
- * the next source, rather than a page that cannot load.
+ * switches weeb-3 on before the package is in the build sees the node fail to start and the page say
+ * so, rather than a page that cannot load.
  */
 import type { HlsStart, Weeb3Node } from './weeb3Package';
 

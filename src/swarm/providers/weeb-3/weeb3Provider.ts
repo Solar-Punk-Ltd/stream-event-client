@@ -97,7 +97,7 @@ export class Weeb3Provider implements SwarmProvider {
     this.pageOrigin = options.pageOrigin ?? currentPageOrigin();
   }
 
-  /** weeb-3's feed route is its own player's playlist and reports no index, so the client asks another provider. */
+  /** weeb-3's feed route is its own player's playlist and reports no index, so a head lookup is unsupported. */
   async readFeedHead(_owner: string, _topic: Topic, _options?: ReadOptions): Promise<SwarmAnswer> {
     return UNSUPPORTED;
   }
