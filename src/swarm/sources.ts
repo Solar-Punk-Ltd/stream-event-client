@@ -1,20 +1,33 @@
 /**
- * The sources a viewer reads Swarm from: the gateways the deployment offers, and the gateways and Bee
- * nodes the viewer added, any number of each. Pure, so the app keeps them in the browser and the Sources
+ * The sources a viewer reads Swarm from: the gateways the deployment offers, and the gateways, Bee
+ * nodes and the node in their own browser the viewer added. Pure, so the app keeps them in the browser and the Sources
  * screen shows them, and neither holds a rule of its own about them.
  */
 import type { ProviderKindName } from './providerKinds';
 import { choiceForAddress, gatewayName, type GatewaySetting, type SwarmSettings } from './settings';
 
 /** What a viewer adds a source as, and what the Sources screen groups them by. */
-export const SOURCE_TYPES = ['gateway', 'bee-node'] as const;
+export const SOURCE_TYPES = ['gateway', 'bee-node', 'weeb-3'] as const;
 
 export type SourceType = (typeof SOURCE_TYPES)[number];
 
-/** The provider kind each type of source is read through. Both are Bee's HTTP API today. */
+/** The provider kind each type of source is read through. */
 export const SOURCE_TYPE_KIND: Readonly<Record<SourceType, ProviderKindName>> = {
   gateway: 'bee-http',
   'bee-node': 'bee-http',
+  'weeb-3': 'weeb-3',
+};
+
+/** Whether a source of this type is reached at an address, which every type but the node in the browser is. */
+export function hasAddress(type: SourceType): boolean {
+  return type !== 'weeb-3';
+}
+
+/** What a source a viewer leaves unnamed is called. */
+const DEFAULT_NAMES: Readonly<Record<SourceType, string>> = {
+  gateway: 'Gateway',
+  'bee-node': 'Bee node',
+  'weeb-3': 'Node in this browser',
 };
 
 /** A source the viewer added, as the browser keeps it. */
@@ -22,6 +35,7 @@ export interface AddedSource {
   readonly id: string;
   readonly type: SourceType;
   readonly name: string;
+  /** Empty for a type that is reached at no address. */
   readonly url: string;
 }
 
@@ -87,8 +101,9 @@ export function addSource(
   source: NewSource,
 ): { readonly sources: AddedSource[]; readonly id: string } {
   const id = nextAddedId(added);
-  const name = cleanSourceName(source.name) ?? (source.type === 'gateway' ? 'Gateway' : 'Bee node');
-  return { sources: [...added, { id, type: source.type, name, url: source.url }], id };
+  const name = cleanSourceName(source.name) ?? DEFAULT_NAMES[source.type];
+  const url = hasAddress(source.type) ? source.url : '';
+  return { sources: [...added, { id, type: source.type, name, url }], id };
 }
 
 /** The sources with one renamed. A blank name keeps the one it had. */
@@ -117,7 +132,7 @@ function isAddedSource(value: unknown): value is AddedSource {
     typeof name === 'string' &&
     cleanSourceName(name) !== null &&
     typeof url === 'string' &&
-    url !== ''
+    (url !== '') === hasAddress(type as SourceType)
   );
 }
 

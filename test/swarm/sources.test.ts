@@ -125,6 +125,24 @@ describe('the added sources as the browser keeps them', () => {
   });
 });
 
+describe('the node in this browser as a source', () => {
+  const IN_BROWSER: AddedSource = { id: 'added-1', type: 'weeb-3', name: 'Node in this browser', url: '' };
+
+  it('is added with no address, under the name of what it is when the viewer gives none', () => {
+    expect(addSource([], { type: 'weeb-3', name: '', url: '' }).sources).toEqual([IN_BROWSER]);
+  });
+
+  it('is read through the weeb-3 kind', () => {
+    expect(gatewaySettingOf({ ...IN_BROWSER, offered: false })).toEqual({ id: 'added-1', kind: 'weeb-3', url: '' });
+  });
+
+  it('survives the round trip through the browser without an address, which any other type still needs', () => {
+    const saved = JSON.stringify([IN_BROWSER, { ...NODE, id: 'added-2', url: '' }]);
+
+    expect(parseAddedSources(saved)).toEqual([IN_BROWSER]);
+  });
+});
+
 describe('moving a choice saved before sources existed', () => {
   it('turns an address no gateway has into an added Bee node, in use', () => {
     expect(migratedSources(settings(), 'http://localhost:1633/')).toEqual({

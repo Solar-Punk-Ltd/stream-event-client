@@ -9,7 +9,7 @@ import { SourcesIcon } from '@/shared/components/Icons/SourcesIcon';
 import { BUILD_LABEL } from '@/shared/buildLabel';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
 import { chooseSource, CHAT_SERVICE_ID, ROUTING_MODES, type RoutingMode, setMode } from '@/swarm/routing';
-import { gatewaySettingOf, type Source, SOURCE_TYPES, sourceName, type SourceType } from '@/swarm/sources';
+import { gatewaySettingOf, hasAddress, type Source, SOURCE_TYPES, sourceName, type SourceType } from '@/swarm/sources';
 
 import { type AddCheck, AddSource } from './AddSource';
 import { FallbackOrder } from './FallbackOrder';
@@ -43,9 +43,9 @@ function nameIn(sources: readonly Source[], id: string): string {
 
 /**
  * The Sources screen: where a viewer picks what the video, the stream list, the previews and the chat
- * read from, sees each source's state at a glance, adds gateways and Bee nodes of their own, orders the
- * fallbacks, and copies diagnostics for whoever runs the site. Every change applies at once and is
- * remembered in the browser.
+ * read from, sees each source's state at a glance, adds gateways, Bee nodes and a node in this
+ * browser, orders the fallbacks, and copies diagnostics for whoever runs the site. Every change applies
+ * at once and is remembered in the browser.
  */
 export function SourcesScreen() {
   const app = useAppContext();
@@ -118,7 +118,7 @@ export function SourcesScreen() {
   const toggle = (source: Source) => {
     const opening = expandedId !== source.id;
     setExpandedId(opening ? source.id : null);
-    if (opening && tests[source.id] === undefined) {
+    if (opening && tests[source.id] === undefined && hasAddress(source.type)) {
       void runTest(source);
     }
   };
@@ -216,6 +216,7 @@ export function SourcesScreen() {
     <AddSource
       access={settings.beeNodes}
       kinds={settings.kinds}
+      addedTypes={sources.map(({ type }) => type)}
       check={checkNew}
       onAdd={add}
       onOpenChange={setIsAdding}

@@ -1,13 +1,14 @@
 import { useId, useState } from 'react';
 
 import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
-import { SOURCE_NAME_MAX_LENGTH, type Source } from '@/swarm/sources';
+import { hasAddress, SOURCE_NAME_MAX_LENGTH, type Source } from '@/swarm/sources';
 
 import { HelpSteps } from './HelpSteps';
 import type { CheckResult } from './providerTest';
 import { StatusDot } from './StatusDot';
 import type { SourceStatus } from './sourceStatus';
-import { BADGE_LABELS, fixGroups, OUTCOME_WORDS, testStatusLine } from './sourceWords';
+import { BADGE_LABELS, fixGroups, OUTCOME_WORDS, testStatusLine, weeb3StatusWords } from './sourceWords';
+import { useNodeInTabStatus } from './useNodeInTabStatus';
 
 const KEY_ENTER = 'Enter';
 const KEY_ESCAPE = 'Escape';
@@ -44,9 +45,19 @@ function whereIs(url: string): string {
   }
 }
 
+/** The node in this browser's own status line, where another source shows its host. */
+function NodeInTabStatusLine({ source }: { readonly source: Source }) {
+  return (
+    <span className="source-row-address" role="status">
+      {weeb3StatusWords(useNodeInTabStatus(source))}
+    </span>
+  );
+}
+
 /**
  * One source in the list: a radio that puts it in use, its name, an In use tag, where it is, and its
- * status dot. The rest of the row opens its details, where the Test's result shows as badges and one
+ * status dot. The node in this browser shows its status line where the others show their host, and is
+ * never tested, since its own start says whether it works. The rest of the row opens its details, where the Test's result shows as badges and one
  * line, the actions that apply, and a failure's sentences and fix only behind "How to fix".
  */
 export function SourceRow(props: SourceRowProps) {
@@ -111,7 +122,11 @@ export function SourceRow(props: SourceRowProps) {
           )}
           {isInUse && <span className="source-tag in-use">In use</span>}
         </span>
-        <span className="source-row-address">{whereIs(source.url)}</span>
+        {hasAddress(source.type) ? (
+          <span className="source-row-address">{whereIs(source.url)}</span>
+        ) : (
+          <NodeInTabStatusLine source={source} />
+        )}
         <StatusDot status={status} />
         <span className="source-row-chevron" aria-hidden="true">
           <ChevronIcon />
@@ -162,15 +177,17 @@ function SourceDetails({
               Use
             </button>
           )}
-          <button
-            type="button"
-            className="sources-small-button"
-            onClick={onRetest}
-            disabled={isRunning}
-            aria-label={isRunning ? `Testing ${source.name}` : `Retest ${source.name}`}
-          >
-            {isRunning ? 'Testing' : 'Retest'}
-          </button>
+          {hasAddress(source.type) && (
+            <button
+              type="button"
+              className="sources-small-button"
+              onClick={onRetest}
+              disabled={isRunning}
+              aria-label={isRunning ? `Testing ${source.name}` : `Retest ${source.name}`}
+            >
+              {isRunning ? 'Testing' : 'Retest'}
+            </button>
+          )}
           {!source.offered && (
             <>
               <button

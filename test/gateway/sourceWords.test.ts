@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CheckResult } from '../../src/features/gateway/providerTest';
-import { addressHint, fixGroups, testStatusLine, unavailableTypeReason } from '../../src/features/gateway/sourceWords';
+import {
+  addressHint,
+  fixGroups,
+  testStatusLine,
+  unavailableTypeReason,
+  weeb3StatusWords,
+} from '../../src/features/gateway/sourceWords';
 
 const result = (check: CheckResult['check'], outcome: CheckResult['outcome']): CheckResult => ({
   check,
@@ -73,5 +79,25 @@ describe('a type of source a viewer cannot add here', () => {
     expect(unavailableTypeReason('gateway', 'https', ['bee-http'])).toBeNull();
     expect(unavailableTypeReason('bee-node', 'off', ['bee-http'])).toBeNull();
     expect(unavailableTypeReason('bee-node', 'off', [])).toBe('Not offered on this site');
+  });
+});
+
+describe('the node in this browser', () => {
+  it('is offered only where the deployment switched it on, and once, since a browser runs one', () => {
+    expect(unavailableTypeReason('weeb-3', 'off', ['bee-http'])).toBe('Not offered on this site');
+    expect(unavailableTypeReason('weeb-3', 'off', ['bee-http', 'weeb-3'])).toBeNull();
+    expect(unavailableTypeReason('weeb-3', 'off', ['bee-http', 'weeb-3'], ['weeb-3'])).toBe('Already added');
+  });
+
+  it('says where it is without an address', () => {
+    expect(addressHint('weeb-3', 'off')).toBe('Runs in this tab, no address needed');
+  });
+
+  it('says in one line where the node is: starting, how many peers, ready or failed', () => {
+    expect(weeb3StatusWords({ state: 'stopped', peers: 0 })).toBe('Not started');
+    expect(weeb3StatusWords({ state: 'starting', peers: 0 })).toBe('Starting');
+    expect(weeb3StatusWords({ state: 'starting', peers: 1 })).toBe('Starting, 1 peer');
+    expect(weeb3StatusWords({ state: 'ready', peers: 5 })).toBe('Ready, 5 peers');
+    expect(weeb3StatusWords({ state: 'failed', peers: 0 })).toBe('Failed to start');
   });
 });

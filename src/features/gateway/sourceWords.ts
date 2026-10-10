@@ -5,6 +5,7 @@
  */
 import type { BeeNodeAccess } from '@/swarm/beeNodeAccess';
 import type { SwarmFeature } from '@/swarm/client';
+import type { ProviderStatus } from '@/swarm/provider';
 import type { SwarmSettings } from '@/swarm/settings';
 import { SOURCE_TYPE_KIND, type SourceType } from '@/swarm/sources';
 
@@ -36,23 +37,29 @@ export const OUTCOME_WORDS: Readonly<Record<CheckOutcome, string>> = {
 export const TYPE_GROUP_LABELS: Readonly<Record<SourceType, string>> = {
   gateway: 'Gateways',
   'bee-node': 'Bee nodes',
+  'weeb-3': 'In this browser',
 };
 
 export const TYPE_LABELS: Readonly<Record<SourceType, string>> = {
   gateway: 'Gateway',
   'bee-node': 'Bee node',
+  'weeb-3': 'Node in this browser (weeb-3)',
 };
 
 /** A hint in an empty name, worded so it cannot be read as a name already filled in. */
 export const NAME_PLACEHOLDERS: Readonly<Record<SourceType, string>> = {
   gateway: 'My gateway',
   'bee-node': 'Home node',
+  'weeb-3': 'Node in this browser',
 };
 
+/** Shown only for a type with an address. */
 export const ADDRESS_PLACEHOLDERS: Readonly<Record<SourceType, string>> = {
   gateway: 'https://gateway.example.com',
   'bee-node': 'http://localhost:1633',
+  'weeb-3': '',
 };
+
 
 /** What the chat reads from unless a viewer picks another source for it. */
 export const CHAT_SERVICE_NAME = 'Event chat service';
@@ -69,22 +76,50 @@ const BEE_NODE_HINTS: Readonly<Record<BeeNodeAccess, string>> = {
 
 /** The one line under an address a viewer types, which says where the source may be. */
 export function addressHint(type: SourceType, access: BeeNodeAccess): string {
-  return type === 'bee-node' ? BEE_NODE_HINTS[access] : 'An https address';
+  switch (type) {
+    case 'bee-node':
+      return BEE_NODE_HINTS[access];
+    case 'weeb-3':
+      return 'Runs in this tab, no address needed';
+    case 'gateway':
+      return 'An https address';
+  }
 }
 
 /**
  * Why a viewer cannot add a source of this type here, or null when they can. A gateway elsewhere is an
- * https address, which a site that allows only Bee nodes on this computer refuses to load.
+ * https address, which a site that allows only Bee nodes on this computer refuses to load. A browser
+ * runs one weeb-3 node, so it is added once.
  */
 export function unavailableTypeReason(
   type: SourceType,
   access: BeeNodeAccess,
   kinds: SwarmSettings['kinds'],
+  addedTypes: readonly SourceType[] = [],
 ): string | null {
   if (!kinds.includes(SOURCE_TYPE_KIND[type])) {
     return 'Not offered on this site';
   }
+  if (type === 'weeb-3' && addedTypes.includes(type)) {
+    return 'Already added';
+  }
   return type === 'gateway' && access === 'off' ? 'Not allowed on this site' : null;
+}
+
+const peerCount = (peers: number) => `${peers} ${peers === 1 ? 'peer' : 'peers'}`;
+
+/** Where the node in this browser is, in one line. */
+export function weeb3StatusWords({ state, peers = 0 }: ProviderStatus): string {
+  switch (state) {
+    case 'stopped':
+      return 'Not started';
+    case 'starting':
+      return peers === 0 ? 'Starting' : `Starting, ${peerCount(peers)}`;
+    case 'ready':
+      return `Ready, ${peerCount(peers)}`;
+    case 'failed':
+      return 'Failed to start';
+  }
 }
 
 function listed(words: readonly string[]): string {

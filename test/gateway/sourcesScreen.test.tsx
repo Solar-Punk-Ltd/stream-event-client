@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { Topic } from '@ethersphere/bee-js';
 import { createElement } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppContextProvider, useAppContext } from '../../src/app/AppProvider';
 import { SOURCE_STORAGE_KEYS } from '../../src/app/sourceStorage';
@@ -14,6 +14,8 @@ import {
 } from '../../src/features/gateway/checkSentences';
 import { SourcesScreen } from '../../src/features/gateway/SourcesScreen';
 import type { SwarmClient } from '../../src/swarm/client';
+import { sharedWeeb3Runtime } from '../../src/swarm/providers/weeb-3/weeb3Runtime';
+import { fakeWeeb3Package } from '../helpers/fakeWeeb3';
 import {
   button,
   click,
@@ -27,6 +29,15 @@ import {
   waitFor,
   type Mounted,
 } from '../helpers/dom';
+
+/** The package the page's one weeb-3 runtime loads, which each weeb-3 case sets. */
+const fakeWeeb3 = vi.hoisted(() => ({
+  current: null as ReturnType<typeof import('../helpers/fakeWeeb3').fakeWeeb3Package> | null,
+}));
+
+vi.mock('../../src/swarm/providers/weeb-3/weeb3Module', () => ({
+  loadWeeb3Package: () => fakeWeeb3.current!.load(),
+}));
 
 const EVENT = 'https://event.example.com';
 const BACKUP = 'https://backup.example.com';
@@ -475,8 +486,72 @@ describe('the Sources screen', () => {
       click(button('Add source'));
 
       const tiles = [...section('Add source').querySelectorAll<HTMLButtonElement>('.add-source-tile')];
-      expect(tiles.map((tile) => tile.disabled)).toEqual([false, true]);
+      expect(tiles.map((tile) => tile.disabled)).toEqual([false, true, true]);
       expect(tiles[0].textContent).toContain('On this computer, such as Swarm Desktop');
+    });
+  });
+
+  describe('the node in this browser', () => {
+    beforeEach(() => {
+      fakeWeeb3.current = fakeWeeb3Package();
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { controller: {} } });
+    });
+
+    afterEach(async () => {
+      await sharedWeeb3Runtime().stop();
+    });
+
+    it('is not offered unless the deployment switches it on', async () => {
+      await open();
+      click(button('Add source'));
+
+      expect(button(/^Node in this browser/).disabled).toBe(true);
+      expect(button(/^Node in this browser/).textContent).toContain('Not offered on this site');
+    });
+
+    it('is added with no address, put in use, and its status line goes from starting to ready with its peers', async () => {
+      await open({ weeb3: { enabled: true } });
+      click(button('Add source'));
+      click(button(/^Node in this browser/));
+
+      expect(document.querySelector('input[aria-label="Address"]')).toBeNull();
+      click(button('Add'));
+      await waitFor(() => (app!.sources.some((source) => source.type === 'weeb-3') ? true : null));
+
+      expect(section('In this browser').textContent).toContain('Node in this browser');
+      expect(radio('Node in this browser').checked).toBe(true);
+      expect(app!.parts.player).toBe(app!.sources.find((source) => source.type === 'weeb-3')!.id);
+      await waitFor(() => (row('Node in this browser').textContent?.includes('Starting') ? true : null));
+
+      fakeWeeb3.current!.nodes[0].peers = 4;
+      await waitFor(() => (row('Node in this browser').textContent?.includes('Ready, 4 peers') ? true : null), 100);
+    });
+
+    it('is offered once, since a browser runs one node', async () => {
+      await open({ weeb3: { enabled: true } });
+      click(button('Add source'));
+      click(button(/^Node in this browser/));
+      click(button('Add'));
+      await waitFor(() => (app!.sources.some((source) => source.type === 'weeb-3') ? true : null));
+      click(button('Add source'));
+
+      expect(button(/^Node in this browser/).disabled).toBe(true);
+      expect(button(/^Node in this browser/).textContent).toContain('Already added');
+    });
+
+    it('is not tested like a gateway when its details open, and has no Retest', async () => {
+      await open({ weeb3: { enabled: true } });
+      click(button('Add source'));
+      click(button(/^Node in this browser/));
+      click(button('Add'));
+      await waitFor(() => (app!.sources.some((source) => source.type === 'weeb-3') ? true : null));
+      asked = [];
+
+      click(button('Details of Node in this browser'));
+      await settle();
+
+      expect(queryButton('Retest Node in this browser')).toBeNull();
+      expect(asked).toEqual([]);
     });
   });
 

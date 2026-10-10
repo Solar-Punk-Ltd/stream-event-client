@@ -1,12 +1,13 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 
+import { BrowserIcon } from '@/shared/components/Icons/BrowserIcon';
 import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
 import { GlobeIcon } from '@/shared/components/Icons/GlobeIcon';
 import { HexagonIcon } from '@/shared/components/Icons/HexagonIcon';
 import { PlusIcon } from '@/shared/components/Icons/PlusIcon';
 import type { BeeNodeAccess } from '@/swarm/beeNodeAccess';
 import type { SwarmSettings } from '@/swarm/settings';
-import { SOURCE_NAME_MAX_LENGTH, SOURCE_TYPES, type SourceType } from '@/swarm/sources';
+import { hasAddress, SOURCE_NAME_MAX_LENGTH, SOURCE_TYPES, type SourceType } from '@/swarm/sources';
 
 import type { Help } from './checkSentences';
 import { checkSourceAddress, OWN_NODE_DEFAULT_ADDRESS } from './gatewayProbe';
@@ -35,11 +36,14 @@ const IDLE: Status = { kind: 'idle' };
 const TYPE_ICONS: Readonly<Record<SourceType, ReactNode>> = {
   gateway: <GlobeIcon />,
   'bee-node': <HexagonIcon />,
+  'weeb-3': <BrowserIcon />,
 };
 
 interface AddSourceProps {
   readonly access: BeeNodeAccess;
   readonly kinds: SwarmSettings['kinds'];
+  /** The types of the sources already listed, which a type that may be added once is refused for. */
+  readonly addedTypes: readonly SourceType[];
   /** Asks the address whether it is a source this viewer can read from. Never rejects. */
   readonly check: (type: SourceType, url: string) => Promise<AddCheck>;
   readonly onAdd: (source: { type: SourceType; name: string; url: string }, results?: readonly CheckResult[]) => void;
@@ -50,9 +54,10 @@ interface AddSourceProps {
 /**
  * Adding a source: a tile per type, the types this site does not allow greyed with their reason, then a
  * name and an address, checked before the source is added. A refusal says why in one sentence, with
- * the steps of its fix behind "How to fix".
+ * the steps of its fix behind "How to fix". The node in this browser has no address, so it is added
+ * as it is named and its own status line says how its start goes.
  */
-export function AddSource({ access, kinds, check, onAdd, onOpenChange }: AddSourceProps) {
+export function AddSource({ access, kinds, addedTypes, check, onAdd, onOpenChange }: AddSourceProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [type, setType] = useState<SourceType | null>(null);
   const [name, setName] = useState('');
@@ -76,7 +81,10 @@ export function AddSource({ access, kinds, check, onAdd, onOpenChange }: AddSour
   };
 
   // The tiles a viewer can pick first, each with the line under its name.
-  const offered = SOURCE_TYPES.map((tile) => ({ tile, reason: unavailableTypeReason(tile, access, kinds) }));
+  const offered = SOURCE_TYPES.map((tile) => ({
+    tile,
+    reason: unavailableTypeReason(tile, access, kinds, addedTypes),
+  }));
   const tiles = [
     ...offered.filter(({ reason }) => reason === null),
     ...offered.filter(({ reason }) => reason !== null),
@@ -117,6 +125,11 @@ export function AddSource({ access, kinds, check, onAdd, onOpenChange }: AddSour
 
   const checkAndAdd = async () => {
     if (type === null || status.kind === 'checking') {
+      return;
+    }
+    if (!hasAddress(type)) {
+      onAdd({ type, name, url: '' });
+      close();
       return;
     }
     const allowed = checkSourceAddress(type, address, access);
@@ -197,30 +210,32 @@ export function AddSource({ access, kinds, check, onAdd, onOpenChange }: AddSour
                     aria-label="Name"
                   />
                 </div>
-                <div className="add-source-field">
-                  <label className="sources-label" htmlFor={addressId}>
-                    Address
-                  </label>
-                  <input
-                    id={addressId}
-                    className="sources-input"
-                    type="text"
-                    inputMode="url"
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder={ADDRESS_PLACEHOLDERS[type]}
-                    value={address}
-                    onChange={(event) => typed(setAddress)(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === KEY_ENTER) {
-                        void checkAndAdd();
-                      }
-                    }}
-                    aria-label="Address"
-                    aria-describedby={`${hintId} ${statusId}`}
-                    aria-invalid={status.kind === 'refused'}
-                  />
-                </div>
+                {hasAddress(type) && (
+                  <div className="add-source-field">
+                    <label className="sources-label" htmlFor={addressId}>
+                      Address
+                    </label>
+                    <input
+                      id={addressId}
+                      className="sources-input"
+                      type="text"
+                      inputMode="url"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder={ADDRESS_PLACEHOLDERS[type]}
+                      value={address}
+                      onChange={(event) => typed(setAddress)(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === KEY_ENTER) {
+                          void checkAndAdd();
+                        }
+                      }}
+                      aria-label="Address"
+                      aria-describedby={`${hintId} ${statusId}`}
+                      aria-invalid={status.kind === 'refused'}
+                    />
+                  </div>
+                )}
               </div>
               <p className={`sources-message${status.kind === 'refused' ? ' error' : ''}`} id={statusId} role="status">
                 {status.kind === 'checking' && 'Checking'}
@@ -245,7 +260,7 @@ export function AddSource({ access, kinds, check, onAdd, onOpenChange }: AddSour
                   onClick={() => void checkAndAdd()}
                   disabled={status.kind === 'checking'}
                 >
-                  {status.kind === 'checking' ? 'Checking' : 'Check and add'}
+                  {status.kind === 'checking' ? 'Checking' : hasAddress(type) ? 'Check and add' : 'Add'}
                 </button>
               </div>
             </div>
