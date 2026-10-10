@@ -183,6 +183,27 @@ describe('the Swarm client', () => {
       expect(routed.activity()[0].fallbackOrder).toEqual(['last']);
     });
 
+    it('passes over a provider a reader is told to, such as one that plays the video with a player of its own', async () => {
+      const { chosen, second, last, client } = ordered();
+      second.answer = content();
+
+      const reader = client.reader('player', { passOver: ['chosen'] });
+
+      expect(await reader.readBytes(REFERENCE)).toBe(second.answer);
+      expect(reader.urlFor(REFERENCE, 'segment')).toBe(`second:segment:${REFERENCE}`);
+      expect(reader.urlSource('segment')).toBe('second');
+      expect([chosen.asked, last.asked]).toEqual([[], []]);
+    });
+
+    it("asks the feature's own provider after all when passing it over leaves nobody to ask", async () => {
+      const lone = new ScriptedProvider('lone');
+      const client = new SwarmClient({ chosen: { id: 'lone', provider: lone } });
+
+      await client.reader('player', { passOver: ['lone'] }).readBytes(REFERENCE);
+
+      expect(lone.asked).toEqual(['bytes']);
+    });
+
     it('skips a paused fallback for the next one, and pauses each fallback on its own faults', async () => {
       const { chosen, second, last, client } = ordered();
       chosen.answer = fault;
