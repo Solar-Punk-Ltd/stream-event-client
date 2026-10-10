@@ -84,7 +84,7 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
   await screen.getByLabel('Video', { exact: true }).selectOption({ label: 'Node in this browser' });
   await screen.locator('button.sources-disclosure').click();
   const status = screen.locator('[data-source-row]', { hasText: 'Node in this browser' }).getByRole('status');
-  await expect(status, 'the node reaches ready with peers').toHaveText(/^Ready, \d+ peers?$/, { timeout: 90_000 });
+  await expect(status, 'the node reaches ready with peers').toHaveText(/^\d+ of 200 peers$/, { timeout: 90_000 });
   report.readyMs = since(addedAtMs);
   report.readyLine = await status.textContent();
   await screen.getByRole('button', { name: 'Done', exact: true }).click();
