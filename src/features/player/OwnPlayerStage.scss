@@ -1,5 +1,4 @@
 .own-player {
-  position: relative;
   overflow: hidden;
   width: 100%;
   background: var(--color-video);
@@ -14,15 +13,15 @@
 }
 
 .own-player-status {
-  position: absolute;
-  top: var(--spacing-sm);
-  left: var(--spacing-sm);
-  max-width: calc(100% - 2 * var(--spacing-sm));
-  padding: var(--spacing-xs) var(--spacing-md);
-  border-radius: var(--radius-sm);
-  background: var(--color-overlay);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs) var(--spacing-md);
+  margin-top: var(--spacing-sm);
   color: var(--color-text);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-tight);
-  pointer-events: none;
+}
+
+.own-player-hint {
+  color: var(--color-text-secondary);
 }

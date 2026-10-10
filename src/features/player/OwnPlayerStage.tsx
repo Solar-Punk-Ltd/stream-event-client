@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { useNodeStatus, weeb3StatusWords } from '@/shared/nodeInTabStatus';
+import { healthyPeersNote, useNodeStatus, weeb3StatusWords } from '@/shared/nodeInTabStatus';
 import type { OwnPlayer, PlaybackStart, ProviderStatus } from '@/swarm/provider';
 
 import './OwnPlayerStage.scss';
@@ -19,9 +19,9 @@ interface OwnPlayerStageProps {
 
 /**
  * A source's own player, bare: a video element it plays into with its own controls and its own choice
- * of quality, and none of the app's overlays. Until its node is ready a plain line says how far it
- * has got. A viewer who picked this source watches through it alone, so a player that cannot play
- * says so and nothing takes its place.
+ * of quality, and none of the app's overlays. One quiet line under it says how far the node has got,
+ * then keeps counting its peers while it plays. A viewer who picked this source watches through it
+ * alone, so a player that cannot play says so and nothing takes its place.
  */
 export function OwnPlayerStage({ load, status, owner, topic, from }: OwnPlayerStageProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -58,15 +58,16 @@ export function OwnPlayerStage({ load, status, owner, topic, from }: OwnPlayerSt
     };
   }, [load, owner, topic, from]);
 
-  const line = failed ? PLAY_FAILED : node.state === 'ready' ? null : weeb3StatusWords(node);
+  const note = failed ? null : healthyPeersNote(node);
   return (
-    <div className="own-player">
-      <video ref={videoRef} controls autoPlay muted playsInline />
-      {line !== null && (
-        <p className="own-player-status" role="status">
-          {line}
-        </p>
-      )}
+    <div className="own-player-stage">
+      <div className="own-player">
+        <video ref={videoRef} controls autoPlay muted playsInline />
+      </div>
+      <p className="own-player-status" role="status">
+        <span className="own-player-words">{failed ? PLAY_FAILED : weeb3StatusWords(node)}</span>
+        {note !== null && <span className="own-player-hint">{note}</span>}
+      </p>
     </div>
   );
 }

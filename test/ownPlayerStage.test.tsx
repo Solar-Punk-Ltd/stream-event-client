@@ -43,11 +43,12 @@ async function wait(ms: number) {
   });
 }
 
-const line = () => document.querySelector('.own-player-status')?.textContent ?? null;
+const line = () => document.querySelector('.own-player-words')?.textContent ?? null;
+const note = () => document.querySelector('.own-player-hint')?.textContent ?? null;
 
 beforeEach(() => {
   vi.useFakeTimers();
-  nodeStatus = { state: 'ready', peers: 5 };
+  nodeStatus = { state: 'ready', peers: 5, healthyPeers: 200 };
 });
 
 afterEach(() => {
@@ -77,19 +78,35 @@ describe("a source's own player", () => {
     expect(attached[0].from).toBe('beginning');
   });
 
-  it('shows how the node gets ready, its download and its peers, and nothing once it is ready', async () => {
-    nodeStatus = { state: 'starting', peers: 0, download: { receivedBytes: 1, totalBytes: 4 } };
+  it('shows the node getting ready, then keeps counting its peers beside the player while it plays', async () => {
+    nodeStatus = { state: 'starting', peers: 0, healthyPeers: 200, download: { receivedBytes: 1, totalBytes: 4 } };
     render(player().load);
     await wait(0);
     expect(line()).toBe('Downloading 25%');
+    expect(note()).toBeNull();
 
-    nodeStatus = { state: 'starting', peers: 2 };
+    nodeStatus = { state: 'starting', peers: 2, healthyPeers: 200 };
     await wait(500);
-    expect(line()).toBe('Connecting, 2 peers');
+    expect(line()).toBe('Connecting, 2 of 200 peers');
+    expect(note()).toBe('200 peers is the healthy target');
 
-    nodeStatus = { state: 'ready', peers: 3 };
+    nodeStatus = { state: 'ready', peers: 88, healthyPeers: 200 };
     await wait(500);
-    expect(line()).toBeNull();
+    expect(line()).toBe('88 of 200 peers');
+    expect(note()).toBe('200 peers is the healthy target');
+
+    nodeStatus = { state: 'ready', peers: 200, healthyPeers: 200 };
+    await wait(500);
+    expect(line()).toBe('200 of 200 peers');
+    expect(note()).toBeNull();
+  });
+
+  it('keeps its line beside the video rather than over it', async () => {
+    render(player().load);
+    await wait(0);
+
+    expect(document.querySelector('.own-player .own-player-status')).toBeNull();
+    expect(document.querySelector('.own-player-status')).not.toBeNull();
   });
 
   it('says plainly that it cannot play when the player cannot attach, and stays on this source', async () => {
