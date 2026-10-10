@@ -44,12 +44,13 @@
   color: var(--color-text);
 }
 
+// The page's title, so it wears the theme's heading typeface like the browse page's titles.
 .watch-info-title {
   overflow-wrap: anywhere;
   margin-top: var(--spacing-sm);
-  font-family: var(--font-family-base);
+  font-family: var(--font-family-heading);
   font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-heading);
   line-height: var(--line-height-snug);
   letter-spacing: var(--letter-spacing-snug);
   color: var(--color-text);
