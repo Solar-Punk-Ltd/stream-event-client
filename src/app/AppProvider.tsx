@@ -22,6 +22,7 @@ import {
   removeSource as withSourceRemoved,
   renameSource as withSourceRenamed,
   type Source,
+  servesVideoOnly,
 } from '@/swarm/sources';
 
 import { CatalogRead, catalogUpdater, StreamCatalog, toCatalogRead } from '@/features/catalog/catalogState';
@@ -137,6 +138,7 @@ function wiringOf(settings: SwarmSettings, choices: SourceChoices): Wiring {
       choices.routing,
       sources.map(({ id }) => id),
       settings.defaultId,
+      sources.filter(({ type }) => servesVideoOnly(type)).map(({ id }) => id),
     ),
     fallbackOrder: fallbackOrderFor(settings, choices.fallbackOrder),
   };

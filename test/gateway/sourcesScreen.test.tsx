@@ -512,7 +512,7 @@ describe('the Sources screen', () => {
       expect(button(/^Node in this browser/).textContent).toContain('Not offered on this site');
     });
 
-    it('is added with no address, put in use, and its status line goes from starting to ready with its peers', async () => {
+    it('is added with no address, and its status line goes from starting to ready with its peers', async () => {
       await open({ weeb3: { enabled: true } });
       click(button('Add source'));
       click(button(/^Node in this browser/));
@@ -522,12 +522,47 @@ describe('the Sources screen', () => {
       await waitFor(() => (app!.sources.some((source) => source.type === 'weeb-3') ? true : null));
 
       expect(section('In this browser').textContent).toContain('Node in this browser');
-      expect(radio('Node in this browser').checked).toBe(true);
-      expect(app!.parts.player).toBe(app!.sources.find((source) => source.type === 'weeb-3')!.id);
       await waitFor(() => (row('Node in this browser').textContent?.includes('Starting') ? true : null));
 
       fakeWeeb3.current!.nodes[0].peers = 4;
       await waitFor(() => (row('Node in this browser').textContent?.includes('Ready, 4 peers') ? true : null), 100);
+    });
+
+    it('cannot be the one source for everything: it is greyed with its reason and adding it leaves the source in use', async () => {
+      await open({ weeb3: { enabled: true } });
+      click(button('Add source'));
+      click(button(/^Node in this browser/));
+      click(button('Add'));
+      await waitFor(() => (app!.sources.some((source) => source.type === 'weeb-3') ? true : null));
+
+      expect(radio('Node in this browser').disabled).toBe(true);
+      expect(radio('Node in this browser').checked).toBe(false);
+      expect(row('Node in this browser').textContent).toContain(
+        'Video only for now. Pick it for Video under Per part.',
+      );
+      expect(app!.parts.player).toBe('event');
+    });
+
+    it('is picked for the video per part, and greyed with its reason for every other part', async () => {
+      await open({ weeb3: { enabled: true }, chat: CHAT });
+      click(button('Add source'));
+      click(button(/^Node in this browser/));
+      click(button('Add'));
+      await waitFor(() => (app!.sources.some((source) => source.type === 'weeb-3') ? true : null));
+      const id = app!.sources.find((source) => source.type === 'weeb-3')!.id;
+      click(document.querySelector('.sources-modes input:not(:checked)') as HTMLInputElement);
+      await settle();
+
+      const option = (label: string) => [...select(label).options].find((candidate) => candidate.value === id)!;
+      expect(option('Video').disabled).toBe(false);
+      for (const label of ['Stream list', 'Previews', 'Chat']) {
+        expect(option(label).disabled).toBe(true);
+        expect(option(label).textContent).toBe('Node in this browser (Video only for now)');
+      }
+
+      pick(select('Video'), id);
+      await settle();
+      expect(app!.parts).toEqual({ player: id, 'stream-list': 'event', previews: 'event', chat: 'chat-read' });
     });
 
     it('is offered once, since a browser runs one node', async () => {

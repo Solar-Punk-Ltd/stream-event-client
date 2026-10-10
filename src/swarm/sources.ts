@@ -23,6 +23,15 @@ export function hasAddress(type: SourceType): boolean {
   return type !== 'weeb-3';
 }
 
+/**
+ * Whether a source of this type is read for the video alone. The node in this browser is, for now: the
+ * stream list, the previews and the chat read elsewhere, which also keeps its missing feed head lookup
+ * and its unverified chat slots out of reach.
+ */
+export function servesVideoOnly(type: SourceType): boolean {
+  return type === 'weeb-3';
+}
+
 /** What a source a viewer leaves unnamed is called. */
 const DEFAULT_NAMES: Readonly<Record<SourceType, string>> = {
   gateway: 'Gateway',

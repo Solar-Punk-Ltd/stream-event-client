@@ -3,11 +3,11 @@ import { type ReactNode, useId } from 'react';
 import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
 import type { SwarmFeature } from '@/swarm/client';
 import { CHAT_SERVICE_ID, type PartSources, type Routing, setLinked, setPart } from '@/swarm/routing';
-import type { Source } from '@/swarm/sources';
+import { servesVideoOnly, type Source } from '@/swarm/sources';
 
 import { StatusDot } from './StatusDot';
 import type { SourceStatus } from './sourceStatus';
-import { CHAT_SEND_NOTE, CHAT_SERVICE_NAME, PART_LABELS, UNLINKED_NOTE } from './sourceWords';
+import { CHAT_SEND_NOTE, CHAT_SERVICE_NAME, PART_LABELS, UNLINKED_NOTE, VIDEO_ONLY } from './sourceWords';
 
 interface PartRoutesProps {
   readonly sources: readonly Source[];
@@ -104,11 +104,16 @@ function PartRow({ part, sources, value, status, describedBy, aside, onPick }: P
           onChange={(event) => onPick(event.target.value)}
         >
           {part === 'chat' && <option value={CHAT_SERVICE_ID}>{CHAT_SERVICE_NAME}</option>}
-          {sources.map((source) => (
-            <option key={source.id} value={source.id}>
-              {source.name}
-            </option>
-          ))}
+          {sources.map((source) => {
+            // The node in this browser is offered for the video alone, so its reads have no feed head
+            // lookup and no verified chat slot to make, and neither gap can be reached from here.
+            const videoOnly = part !== 'player' && servesVideoOnly(source.type);
+            return (
+              <option key={source.id} value={source.id} disabled={videoOnly}>
+                {videoOnly ? `${source.name} (${VIDEO_ONLY})` : source.name}
+              </option>
+            );
+          })}
         </select>
         <StatusDot status={value === CHAT_SERVICE_ID ? undefined : status} withWords={false} />
         <span className="part-row-caret" aria-hidden="true">

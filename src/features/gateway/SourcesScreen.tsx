@@ -9,7 +9,15 @@ import { SourcesIcon } from '@/shared/components/Icons/SourcesIcon';
 import { BUILD_LABEL } from '@/shared/buildLabel';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
 import { chooseSource, CHAT_SERVICE_ID, ROUTING_MODES, type RoutingMode, setMode } from '@/swarm/routing';
-import { gatewaySettingOf, hasAddress, type Source, SOURCE_TYPES, sourceName, type SourceType } from '@/swarm/sources';
+import {
+  gatewaySettingOf,
+  hasAddress,
+  servesVideoOnly,
+  type Source,
+  SOURCE_TYPES,
+  sourceName,
+  type SourceType,
+} from '@/swarm/sources';
 
 import { type AddCheck, AddSource } from './AddSource';
 import { FallbackOrder } from './FallbackOrder';
@@ -19,7 +27,7 @@ import { isServingFromFallback, statusRows } from './providerStatus';
 import { type CheckResult, testProvider } from './providerTest';
 import { reportText, type TestedGateway } from './report';
 import { type SourceTest, SourceRow } from './SourceRow';
-import { CHAT_SERVICE_NAME, TYPE_GROUP_LABELS } from './sourceWords';
+import { CHAT_SERVICE_NAME, TYPE_GROUP_LABELS, VIDEO_ONLY_IN_ONE_SOURCE } from './sourceWords';
 import { useSourceStatuses } from './useSourceStatuses';
 
 import './SourcesScreen.scss';
@@ -155,7 +163,7 @@ export function SourcesScreen() {
     setTests(({ adding: _checked, ...current }) =>
       results ? { ...current, [id]: { state: 'done', results } } : current,
     );
-    if (routing.mode === 'one') {
+    if (routing.mode === 'one' && !servesVideoOnly(source.type)) {
       app.setRouting(chooseSource(routing, id));
     }
   };
@@ -195,6 +203,7 @@ export function SourcesScreen() {
               source={source}
               isInUse={usedIds.has(source.id)}
               radioName={isPerPart ? null : radioName}
+              pickRefusal={!isPerPart && servesVideoOnly(source.type) ? VIDEO_ONLY_IN_ONE_SOURCE : null}
               status={statuses[source.id]}
               test={tests[source.id]}
               isExpanded={expandedId === source.id}

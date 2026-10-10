@@ -235,12 +235,12 @@ describe("the app's Swarm client", () => {
     ).toEqual([{ feature: 'player', read: 'feed-head', provider: id, answer: 'not-found', count: 1 }]);
   });
 
-  it('reads the video through the node in this browser alone once it is picked, never through a gateway behind it', async () => {
+  it('reads the video through the node in this browser alone once it is picked for the video, never through a gateway behind it', async () => {
     start({ weeb3: { enabled: true } });
     await settle();
     const id = current().addSource({ type: 'weeb-3', name: '', url: '' });
     await settle();
-    current().setRouting(chooseSource(current().routing, id));
+    current().setRouting(setPart(setMode(current().routing, 'per-part'), 'player', id));
     await settle();
     const before = asked.length;
 
@@ -254,6 +254,30 @@ describe("the app's Swarm client", () => {
         .filter(({ feature }) => feature === 'player')
         .map(({ provider }) => provider),
     ).toEqual([id]);
+  });
+
+  it('reads every part but the video from the default where older saved settings put the node in this browser on it', async () => {
+    const node = { id: 'added-1', type: 'weeb-3', name: 'Node in this browser', url: '' };
+    localStorage.setItem('swarm-sources', JSON.stringify([node]));
+    localStorage.setItem(
+      'swarm-routing',
+      JSON.stringify({
+        mode: 'per-part',
+        source: 'event',
+        parts: { player: 'added-1', 'stream-list': 'added-1', previews: 'added-1', chat: 'added-1' },
+        linked: true,
+      }),
+    );
+
+    start({ weeb3: { enabled: true }, chat: CHAT });
+    await settle();
+
+    expect(current().parts).toEqual({
+      player: 'added-1',
+      'stream-list': 'event',
+      previews: 'event',
+      chat: 'chat-read',
+    });
   });
 
   it("reads the chat from the event's chat read address, whichever node the viewer picked", async () => {

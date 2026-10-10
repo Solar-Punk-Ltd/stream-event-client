@@ -143,3 +143,41 @@ describe('the routing as the browser keeps it', () => {
     });
   });
 });
+
+describe('a source that serves the video only, the node in this browser', () => {
+  const WITH_NODE = [...KNOWN, 'added-2'];
+  const VIDEO_ONLY = ['added-2'];
+
+  it('reads the video per part, and every other part from where it would read otherwise', () => {
+    const linked = setPart(setMode(DEFAULT, 'per-part'), 'player', 'added-2');
+
+    expect(resolveRouting(linked, WITH_NODE, 'event', VIDEO_ONLY)).toEqual({
+      player: 'added-2',
+      'stream-list': 'event',
+      previews: 'event',
+      chat: CHAT_SERVICE_ID,
+    });
+  });
+
+  it('is never the one source for everything, so a saved choice of it reads every part from the default', () => {
+    expect(resolveRouting(chooseSource(DEFAULT, 'added-2'), WITH_NODE, 'event', VIDEO_ONLY)).toEqual(
+      resolveRouting(DEFAULT, WITH_NODE, 'event', VIDEO_ONLY),
+    );
+  });
+
+  it('reads a part an older saved routing put on it from the default, the chat from its service', () => {
+    const saved: Routing = {
+      mode: 'per-part',
+      source: 'event',
+      parts: { player: 'backup', 'stream-list': 'added-2', previews: 'added-2', chat: 'added-2' },
+      linked: false,
+    };
+
+    expect(resolveRouting(saved, WITH_NODE, 'event', VIDEO_ONLY)).toEqual({
+      player: 'backup',
+      'stream-list': 'event',
+      previews: 'event',
+      chat: CHAT_SERVICE_ID,
+    });
+  });
+});

@@ -27,6 +27,8 @@ interface SourceRowProps {
    * use from the list, as in per part, where each part picks its own.
    */
   readonly radioName: string | null;
+  /** Why the radio cannot put this source in use, or null when it can. */
+  readonly pickRefusal?: string | null;
   readonly status?: SourceStatus;
   readonly test?: SourceTest;
   readonly isExpanded: boolean;
@@ -62,7 +64,7 @@ function NodeInTabStatusLine({ source }: { readonly source: Source }) {
  * line, the actions that apply, and a failure's sentences and fix only behind "How to fix".
  */
 export function SourceRow(props: SourceRowProps) {
-  const { source, isInUse, radioName, status, isExpanded, onToggle } = props;
+  const { source, isInUse, radioName, pickRefusal = null, status, isExpanded, onToggle } = props;
   const [draft, setDraft] = useState<string | null>(null);
   const detailsId = useId();
 
@@ -83,6 +85,7 @@ export function SourceRow(props: SourceRowProps) {
               className="source-row-radio"
               name={radioName}
               checked={isInUse}
+              disabled={pickRefusal !== null}
               onChange={props.onUse}
               aria-label={source.name}
             />
@@ -133,6 +136,7 @@ export function SourceRow(props: SourceRowProps) {
           <ChevronIcon />
         </span>
       </div>
+      {pickRefusal !== null && <p className="sources-muted source-row-note">{pickRefusal}</p>}
       {isExpanded && <SourceDetails {...props} id={detailsId} onStartRename={() => setDraft(source.name)} />}
     </li>
   );
@@ -143,6 +147,7 @@ function SourceDetails({
   source,
   isInUse,
   radioName,
+  pickRefusal = null,
   test,
   onUse,
   onRetest,
@@ -173,7 +178,7 @@ function SourceDetails({
           {!isRunning && test?.state === 'done' && fixes.length !== 1 && testStatusLine(results)}
         </p>
         <div className="source-actions">
-          {radioName !== null && !isInUse && (
+          {radioName !== null && !isInUse && pickRefusal === null && (
             <button type="button" className="sources-small-button" onClick={onUse} aria-label={`Use ${source.name}`}>
               Use
             </button>

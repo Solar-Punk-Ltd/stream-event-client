@@ -95,19 +95,28 @@ export function withoutSource(routing: Routing, id: string, defaultId: string): 
 /**
  * The source each part reads from now. A source no longer known reads from the default gateway, or
  * for the chat from its service, so a removed source or a stale saved routing never leaves a part
- * reading from nowhere.
+ * reading from nowhere. A source that serves the video only, the node in this browser, is read for the
+ * video alone, picked per part: any other part a saved routing put on it, and every part when it was
+ * picked as the one source, reads from where it would have read without it.
  */
-export function resolveRouting(routing: Routing, knownIds: readonly string[], defaultId: string): PartSources {
+export function resolveRouting(
+  routing: Routing,
+  knownIds: readonly string[],
+  defaultId: string,
+  videoOnlyIds: readonly string[] = [],
+): PartSources {
   const known = (id: string, otherwise: string) => (knownIds.includes(id) ? id : otherwise);
+  const notVideoOnly = (id: string, otherwise: string) =>
+    videoOnlyIds.includes(id) ? otherwise : known(id, otherwise);
   if (routing.mode === 'one') {
-    return partsFrom(known(routing.source, defaultId), CHAT_SERVICE_ID);
+    return partsFrom(notVideoOnly(routing.source, defaultId), CHAT_SERVICE_ID);
   }
   const player = known(routing.parts.player, defaultId);
   return {
     player,
-    'stream-list': routing.linked ? player : known(routing.parts['stream-list'], defaultId),
-    previews: known(routing.parts.previews, defaultId),
-    chat: routing.parts.chat === CHAT_SERVICE_ID ? CHAT_SERVICE_ID : known(routing.parts.chat, CHAT_SERVICE_ID),
+    'stream-list': notVideoOnly(routing.linked ? player : routing.parts['stream-list'], defaultId),
+    previews: notVideoOnly(routing.parts.previews, defaultId),
+    chat: routing.parts.chat === CHAT_SERVICE_ID ? CHAT_SERVICE_ID : notVideoOnly(routing.parts.chat, CHAT_SERVICE_ID),
   };
 }
 

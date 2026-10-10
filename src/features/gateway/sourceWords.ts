@@ -59,6 +59,12 @@ export const ADDRESS_PLACEHOLDERS: Readonly<Record<SourceType, string>> = {
   'weeb-3': '',
 };
 
+/** Beside a source that can be picked for the video only, in a part it cannot be picked for. */
+export const VIDEO_ONLY = 'Video only for now';
+
+/** Under such a source's row while one source reads every part. */
+export const VIDEO_ONLY_IN_ONE_SOURCE = 'Video only for now. Pick it for Video under Per part.';
+
 /** What the chat reads from unless a viewer picks another source for it. */
 export const CHAT_SERVICE_NAME = 'Event chat service';
 
