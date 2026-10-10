@@ -62,7 +62,7 @@ export class Weeb3Runtime {
   constructor(options: Weeb3RuntimeOptions = {}) {
     this.load = options.load ?? loadWeeb3Package;
     this.isControlled = options.isControlled ?? pageIsControlled;
-    // Called bare, never as this object's method, which the browser's fetch would refuse.
+    // Called bare by `download`, never as this object's method, which the browser's fetch would refuse.
     this.fetcher = options.fetcher ?? fetch;
   }
 
@@ -131,7 +131,8 @@ export class Weeb3Runtime {
       }
     };
     progress(0, null);
-    const response = await this.fetcher(WASM_URL);
+    const fetcher = this.fetcher;
+    const response = await fetcher(WASM_URL);
     if (!response.ok) {
       throw new Error(`the node's module could not be downloaded: the server answered ${response.status}`);
     }
