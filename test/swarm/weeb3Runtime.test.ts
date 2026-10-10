@@ -8,6 +8,24 @@ import {
 } from '../../src/swarm/providers/weeb-3/weeb3Runtime';
 import { fakeWeeb3Package } from '../helpers/fakeWeeb3';
 
+const WASM = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]);
+
+/** Serves the WebAssembly module in two halves, the way a stream delivers it, logging what was asked. */
+function wasmFetch(asked: string[] = [], options: { status?: number; length?: boolean } = {}): typeof fetch {
+  return (async (input: RequestInfo | URL) => {
+    asked.push(String(input));
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(WASM.slice(0, 4));
+        controller.enqueue(WASM.slice(4));
+        controller.close();
+      },
+    });
+    const headers: Record<string, string> = options.length === false ? {} : { 'content-length': String(WASM.length) };
+    return new Response(body, { status: options.status ?? 200, headers });
+  }) as typeof fetch;
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
 });
@@ -17,14 +35,16 @@ afterEach(() => {
 });
 
 describe('the node in this browser', () => {
-  it('loads the package once, from the copy served under /weeb-3/, and starts one node for the whole page', async () => {
+  it('loads the package once, its module downloaded from the copy served under /weeb-3/, and starts one node for the whole page', async () => {
     const fake = fakeWeeb3Package();
-    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true });
+    const asked: string[] = [];
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch(asked) });
 
     await Promise.all([runtime.start(), runtime.start()]);
 
     expect(fake.loads).toBe(1);
-    expect(fake.initInputs).toEqual([{ module_or_path: '/weeb-3/weeb_3_bg.wasm' }]);
+    expect(asked).toEqual(['/weeb-3/weeb_3_bg.wasm']);
+    expect(fake.initInputs).toEqual([{ module_or_path: WASM }]);
     expect(fake.nodes).toHaveLength(1);
     expect(fake.nodes[0].constructedWith).toEqual([undefined, '/']);
     expect(fake.nodes[0].started).toBe(1);
@@ -33,7 +53,7 @@ describe('the node in this browser', () => {
   it('is starting until it has a peer and its service worker controls the page, then ready', async () => {
     const fake = fakeWeeb3Package();
     let controlled = false;
-    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => controlled });
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => controlled, fetcher: wasmFetch() });
     const seen: Weeb3Status[] = [];
     runtime.subscribe((status) => seen.push(status));
 
@@ -52,7 +72,7 @@ describe('the node in this browser', () => {
 
   it('keeps counting peers once ready', async () => {
     const fake = fakeWeeb3Package();
-    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true });
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
     await runtime.start();
     fake.nodes[0].peers = 1;
     await vi.advanceTimersByTimeAsync(WEEB3_PEER_POLL_MS);
@@ -62,9 +82,54 @@ describe('the node in this browser', () => {
     expect(runtime.status()).toEqual({ state: 'ready', peers: 7 });
   });
 
+  it('reports how much of the module has arrived, out of the length the server named, then starting', async () => {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
+    const seen: Weeb3Status[] = [];
+    runtime.subscribe((status) => seen.push(status));
+
+    await runtime.start();
+
+    expect(seen).toEqual([
+      { state: 'starting', peers: 0, download: { receivedBytes: 0, totalBytes: null } },
+      { state: 'starting', peers: 0, download: { receivedBytes: 0, totalBytes: 8 } },
+      { state: 'starting', peers: 0, download: { receivedBytes: 4, totalBytes: 8 } },
+      { state: 'starting', peers: 0, download: { receivedBytes: 8, totalBytes: 8 } },
+      { state: 'starting', peers: 0 },
+    ]);
+  });
+
+  it('reports the bytes alone when the server names no length', async () => {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({
+      load: fake.load,
+      isControlled: () => true,
+      fetcher: wasmFetch([], { length: false }),
+    });
+    const seen: Weeb3Status[] = [];
+    runtime.subscribe((status) => seen.push(status));
+
+    await runtime.start();
+
+    expect(seen).toContainEqual({ state: 'starting', peers: 0, download: { receivedBytes: 8, totalBytes: null } });
+  });
+
+  it('fails when the module cannot be downloaded', async () => {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({
+      load: fake.load,
+      isControlled: () => true,
+      fetcher: wasmFetch([], { status: 404 }),
+    });
+
+    await expect(runtime.start()).rejects.toThrow();
+    expect(runtime.status().state).toBe('failed');
+    expect(fake.initInputs).toEqual([]);
+  });
+
   it('fails when the package cannot load, and says so to whoever waits on it', async () => {
     const fake = fakeWeeb3Package({ initFails: true });
-    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true });
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
 
     await expect(runtime.start()).rejects.toThrow();
     expect(runtime.status().state).toBe('failed');
@@ -72,7 +137,7 @@ describe('the node in this browser', () => {
 
   it('fails when no peer comes within the start deadline', async () => {
     const fake = fakeWeeb3Package();
-    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true });
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
     await runtime.start();
 
     await vi.advanceTimersByTimeAsync(WEEB3_START_DEADLINE_MS);
@@ -82,7 +147,7 @@ describe('the node in this browser', () => {
 
   it('frees the node on stop and can start a new one after', async () => {
     const fake = fakeWeeb3Package();
-    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true });
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
     await runtime.start();
     await runtime.stop();
 
@@ -95,7 +160,7 @@ describe('the node in this browser', () => {
 
   it('answers the started node to a caller that needs it, such as the player', async () => {
     const fake = fakeWeeb3Package();
-    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true });
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
 
     expect(await runtime.start()).toBe(fake.nodes[0]);
   });

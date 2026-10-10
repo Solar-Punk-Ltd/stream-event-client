@@ -1,13 +1,14 @@
 import { useId, useState } from 'react';
 
 import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
+import { weeb3StatusWords } from '@/shared/nodeInTabStatus';
 import { hasAddress, SOURCE_NAME_MAX_LENGTH, type Source } from '@/swarm/sources';
 
 import { HelpSteps } from './HelpSteps';
 import type { CheckResult } from './providerTest';
 import { StatusDot } from './StatusDot';
 import type { SourceStatus } from './sourceStatus';
-import { BADGE_LABELS, fixGroups, OUTCOME_WORDS, testStatusLine, weeb3StatusWords } from './sourceWords';
+import { BADGE_LABELS, fixGroups, OUTCOME_WORDS, testStatusLine } from './sourceWords';
 import { useNodeInTabStatus } from './useNodeInTabStatus';
 
 const KEY_ENTER = 'Enter';

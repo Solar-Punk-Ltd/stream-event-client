@@ -49,8 +49,16 @@ export interface ProviderCapabilities {
 /** Where a provider is in its own life. A provider over HTTP is always ready. */
 export type ProviderState = 'stopped' | 'starting' | 'ready' | 'failed';
 
+/** How much of a download has arrived, and how much the server said there is, when it said. */
+export interface DownloadProgress {
+  readonly receivedBytes: number;
+  readonly totalBytes: number | null;
+}
+
 export interface ProviderStatus {
   readonly state: ProviderState;
+  /** What a node in the tab is downloading before it can start, while it does. */
+  readonly download?: DownloadProgress;
   /** How many peers a node in the tab is connected to. Absent for a provider that reaches a node elsewhere. */
   readonly peers?: number;
 }

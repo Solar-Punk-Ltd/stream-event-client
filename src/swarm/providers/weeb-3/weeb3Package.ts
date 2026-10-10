@@ -20,8 +20,11 @@ export interface Weeb3Node {
 
 /** What `import('@lat-murmeldjur/weeb_3')` resolves to. */
 export interface Weeb3Package {
-  /** Loads the WebAssembly module, once per page, before any node is made. */
-  default(input?: { readonly module_or_path: string }): Promise<unknown>;
+  /**
+   * Loads the WebAssembly module, once per page, before any node is made: from a URL, from a fetched
+   * answer, or from its bytes.
+   */
+  default(input?: { readonly module_or_path: string | Response | BufferSource }): Promise<unknown>;
   /**
    * The scope is `/weeb-3/` unless named. `/` lets the package's service worker answer `/weeb-3/...`
    * for a page served anywhere on the site, which needs `Service-Worker-Allowed: /` on its script.

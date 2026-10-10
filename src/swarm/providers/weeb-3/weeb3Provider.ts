@@ -143,8 +143,8 @@ export class Weeb3Provider implements SwarmProvider {
   }
 
   status(): ProviderStatus {
-    const { state, peers } = this.runtime.status();
-    return { state, peers };
+    const { state, peers, download } = this.runtime.status();
+    return download ? { state, peers, download } : { state, peers };
   }
 
   /** weeb-3 plays a stream with its own player on the page's node, which this starts if nothing has yet. */

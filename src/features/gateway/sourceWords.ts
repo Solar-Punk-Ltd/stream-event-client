@@ -5,7 +5,6 @@
  */
 import type { BeeNodeAccess } from '@/swarm/beeNodeAccess';
 import type { SwarmFeature } from '@/swarm/client';
-import type { ProviderStatus } from '@/swarm/provider';
 import type { SwarmSettings } from '@/swarm/settings';
 import { SOURCE_TYPE_KIND, type SourceType } from '@/swarm/sources';
 
@@ -103,22 +102,6 @@ export function unavailableTypeReason(
     return 'Already added';
   }
   return type === 'gateway' && access === 'off' ? 'Not allowed on this site' : null;
-}
-
-const peerCount = (peers: number) => `${peers} ${peers === 1 ? 'peer' : 'peers'}`;
-
-/** Where the node in this browser is, in one line. */
-export function weeb3StatusWords({ state, peers = 0 }: ProviderStatus): string {
-  switch (state) {
-    case 'stopped':
-      return 'Not started';
-    case 'starting':
-      return peers === 0 ? 'Starting' : `Starting, ${peerCount(peers)}`;
-    case 'ready':
-      return `Ready, ${peerCount(peers)}`;
-    case 'failed':
-      return 'Failed to start';
-  }
 }
 
 function listed(words: readonly string[]): string {

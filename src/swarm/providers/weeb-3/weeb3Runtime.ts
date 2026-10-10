@@ -1,4 +1,4 @@
-import type { ProviderState } from '../../provider';
+import type { DownloadProgress, ProviderState } from '../../provider';
 import { loadWeeb3Package } from './weeb3Module';
 import type { Weeb3Node, Weeb3Package } from './weeb3Package';
 
@@ -23,6 +23,8 @@ export const WEEB3_START_DEADLINE_MS = 30_000;
 export interface Weeb3Status {
   readonly state: ProviderState;
   readonly peers: number;
+  /** How much of the WebAssembly module has arrived, while it downloads. */
+  readonly download?: DownloadProgress;
 }
 
 type Listener = (status: Weeb3Status) => void;
@@ -32,6 +34,8 @@ interface Weeb3RuntimeOptions {
   readonly load?: () => Promise<Weeb3Package>;
   /** Whether weeb-3's service worker controls this page, which its `/weeb-3/` reads go through. */
   readonly isControlled?: () => boolean;
+  /** Injected by tests. The global `fetch` otherwise. */
+  readonly fetcher?: typeof fetch;
 }
 
 const STOPPED: Weeb3Status = { state: 'stopped', peers: 0 };
@@ -48,6 +52,7 @@ function pageIsControlled(): boolean {
 export class Weeb3Runtime {
   private readonly load: () => Promise<Weeb3Package>;
   private readonly isControlled: () => boolean;
+  private readonly fetcher: typeof fetch;
   private readonly listeners = new Set<Listener>();
   private current: Weeb3Status = STOPPED;
   private node: Promise<Weeb3Node> | null = null;
@@ -57,6 +62,8 @@ export class Weeb3Runtime {
   constructor(options: Weeb3RuntimeOptions = {}) {
     this.load = options.load ?? loadWeeb3Package;
     this.isControlled = options.isControlled ?? pageIsControlled;
+    // Called bare, never as this object's method, which the browser's fetch would refuse.
+    this.fetcher = options.fetcher ?? fetch;
   }
 
   status(): Weeb3Status {
@@ -95,10 +102,12 @@ export class Weeb3Runtime {
 
   private async started(generation: number): Promise<Weeb3Node> {
     this.clearPoll();
-    this.set({ state: 'starting', peers: 0 });
     try {
-      const weeb3 = await this.load();
-      await weeb3.default({ module_or_path: WASM_URL });
+      const [weeb3, wasm] = await Promise.all([this.load(), this.download(generation)]);
+      if (generation === this.generation) {
+        this.set({ state: 'starting', peers: 0 });
+      }
+      await weeb3.default({ module_or_path: wasm });
       const node = new weeb3.Weeb3No103(undefined, SERVICE_WORKER_SCOPE);
       node.start();
       this.watchPeers(node, generation, Date.now() + WEEB3_START_DEADLINE_MS);
@@ -109,6 +118,50 @@ export class Weeb3Runtime {
       }
       throw error;
     }
+  }
+
+  /**
+   * The WebAssembly module, fetched here rather than by the package so a viewer can be shown how much
+   * of its 2 MB has arrived.
+   */
+  private async download(generation: number): Promise<Uint8Array<ArrayBuffer>> {
+    const progress = (receivedBytes: number, totalBytes: number | null) => {
+      if (generation === this.generation) {
+        this.set({ state: 'starting', peers: 0, download: { receivedBytes, totalBytes } });
+      }
+    };
+    progress(0, null);
+    const response = await this.fetcher(WASM_URL);
+    if (!response.ok) {
+      throw new Error(`the node's module could not be downloaded: the server answered ${response.status}`);
+    }
+    const length = Number(response.headers.get('content-length'));
+    const totalBytes = Number.isFinite(length) && length > 0 ? length : null;
+    progress(0, totalBytes);
+    if (!response.body) {
+      const whole = new Uint8Array(await response.arrayBuffer());
+      progress(whole.length, totalBytes);
+      return whole;
+    }
+    const parts: Uint8Array[] = [];
+    let receivedBytes = 0;
+    const reader = response.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      parts.push(value);
+      receivedBytes += value.length;
+      progress(receivedBytes, totalBytes);
+    }
+    const whole = new Uint8Array(receivedBytes);
+    let at = 0;
+    for (const part of parts) {
+      whole.set(part, at);
+      at += part.length;
+    }
+    return whole;
   }
 
   private watchPeers(node: Weeb3Node, generation: number, deadlineMs: number): void {
@@ -140,7 +193,13 @@ export class Weeb3Runtime {
   }
 
   private set(status: Weeb3Status): void {
-    if (status.state === this.current.state && status.peers === this.current.peers) {
+    const { state, peers, download } = this.current;
+    if (
+      status.state === state &&
+      status.peers === peers &&
+      status.download?.receivedBytes === download?.receivedBytes &&
+      status.download?.totalBytes === download?.totalBytes
+    ) {
       return;
     }
     this.current = status;

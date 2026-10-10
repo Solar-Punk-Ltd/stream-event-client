@@ -165,6 +165,9 @@ beforeEach(() => {
     if (url.endsWith('/health')) {
       return Response.json({ status: 'ok' });
     }
+    if (url.endsWith('/weeb-3/weeb_3_bg.wasm')) {
+      return new Response(new Uint8Array(8), { headers: { 'content-length': '8' } });
+    }
     return new Response('', { status: 404 });
   }) as typeof fetch;
 });
