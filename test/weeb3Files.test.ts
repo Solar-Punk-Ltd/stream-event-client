@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { copyWeeb3Files, WEEB3_FILES } from '../scripts/weeb3-files.mjs';
+import { copyWeeb3Files, WEEB3_FILES, withServedWasmPath } from '../scripts/weeb3-files.mjs';
 
 const made: string[] = [];
 
@@ -42,6 +42,15 @@ describe("the build's copy of weeb-3's files", () => {
     );
     expect(readFileSync(join(out, 'weeb-3', 'snippets', 'weeb_3-0', 'static', 'hls_loader.js'), 'utf8')).toBe('loader');
     expect(WEEB3_FILES).not.toContain('weeb_3.d.ts');
+  });
+
+  it("points the package's own default module path at the copy under /weeb-3/, so the bundle carries no second one", () => {
+    const code = "if (x === undefined) {\n  module_or_path = new URL('weeb_3_bg.wasm', import.meta.url);\n}";
+
+    expect(withServedWasmPath(code)).toBe(
+      "if (x === undefined) {\n  module_or_path = new URL('/weeb-3/weeb_3_bg.wasm', self.location.origin);\n}",
+    );
+    expect(withServedWasmPath('nothing to rewrite')).toBeNull();
   });
 
   it('copies nothing when the package is not installed, and answers so', () => {
