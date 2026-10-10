@@ -6,7 +6,8 @@
 // The tokens test fails on a variable a stylesheet reads that nothing defines, on a token nothing
 // reads, on a theme missing a variable another theme has, and on a text colour below 4.5:1.
 
-// Only these weights are bundled: Geist 400, 500, 600 and 700, and JetBrains Mono 500.
+// Only the weights `fonts.ts` imports are bundled, for Geist 400 to 700, Archivo 300 to 700, Domine 400
+// and JetBrains Mono 500.
 // Another weight needs its file imported in `fonts.ts`, or the browser fakes it.
 $font-weight: (
   'normal': 400,

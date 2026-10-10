@@ -11,3 +11,13 @@ export type ThemeName = (typeof THEME_NAMES)[number];
 
 /** Used when the config names no theme, and applied by the stylesheet before any is chosen. */
 export const DEFAULT_THEME: ThemeName = 'swarm';
+
+/** What the theme switcher calls each theme. */
+export const THEME_LABELS: Record<ThemeName, string> = {
+  swarm: 'Swarm',
+  web3privacy: 'Web3Privacy',
+};
+
+export function isThemeName(value: unknown): value is ThemeName {
+  return typeof value === 'string' && (THEME_NAMES as readonly string[]).includes(value);
+}

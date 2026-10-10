@@ -11,7 +11,7 @@ import { CATALOG_VIEW_MESSAGE, catalogViewFrom } from './catalogView';
 import './StreamBrowser.scss';
 
 export function StreamBrowser() {
-  const { streamList, isStreamListFromCurrentGateway, theme } = useAppContext();
+  const { streamList, isStreamListFromCurrentGateway, themeContent } = useAppContext();
   const { error, isLoading } = useCatalogPoll(CATALOG_POLL_INTERVAL_MS);
 
   const view = catalogViewFrom({
@@ -23,36 +23,44 @@ export function StreamBrowser() {
 
   return (
     <div className="stream-browser-page">
-      <div className={theme.heroImageUrl ? 'stream-browser-hero stream-browser-hero--image' : 'stream-browser-hero'}>
-        {theme.heroImageUrl && (
+      <div
+        className={themeContent.heroImageUrl ? 'stream-browser-hero stream-browser-hero--image' : 'stream-browser-hero'}
+      >
+        {themeContent.heroImageUrl && (
           <>
-            <img className="stream-browser-hero-image" src={theme.heroImageUrl} alt="" />
+            <img className="stream-browser-hero-image" src={themeContent.heroImageUrl} alt="" />
             <div className="stream-browser-hero-overlay" aria-hidden="true" />
           </>
         )}
         <div className="stream-browser-hero-content">
-          {theme.heroEyebrow && <p className="stream-browser-eyebrow">{theme.heroEyebrow}</p>}
+          {themeContent.heroEyebrow && <p className="stream-browser-eyebrow">{themeContent.heroEyebrow}</p>}
           <h1 className="stream-browser-title">
-            {theme.heroTitleImageUrl ? (
-              <img className="stream-browser-title-image" src={theme.heroTitleImageUrl} alt={theme.heroTitle} />
+            {themeContent.heroTitleImageUrl ? (
+              <img
+                className="stream-browser-title-image"
+                src={themeContent.heroTitleImageUrl}
+                alt={themeContent.heroTitle}
+              />
             ) : (
-              theme.heroTitle
+              themeContent.heroTitle
             )}
           </h1>
-          <p className="stream-browser-subtitle">{theme.heroSubtitle}</p>
-          {theme.heroDate && <p className="stream-browser-date">{theme.heroDate}</p>}
-          {theme.heroSocial && theme.footer.social && <SocialLinks links={theme.footer.social.links} variant="tiles" />}
-          {theme.heroCta && (
-            <a className="stream-browser-cta" href={theme.heroCta.href} target="_blank" rel="noreferrer">
-              {theme.heroCta.label} <span aria-hidden="true">→</span>
+          <p className="stream-browser-subtitle">{themeContent.heroSubtitle}</p>
+          {themeContent.heroDate && <p className="stream-browser-date">{themeContent.heroDate}</p>}
+          {themeContent.heroSocial && themeContent.footer.social && (
+            <SocialLinks links={themeContent.footer.social.links} variant="tiles" />
+          )}
+          {themeContent.heroCta && (
+            <a className="stream-browser-cta" href={themeContent.heroCta.href} target="_blank" rel="noreferrer">
+              {themeContent.heroCta.label} <span aria-hidden="true">→</span>
             </a>
           )}
         </div>
       </div>
-      {(theme.heroTagline || theme.heroBody) && (
+      {(themeContent.heroTagline || themeContent.heroBody) && (
         <section className="stream-browser-intro">
-          {theme.heroTagline && <h2 className="stream-browser-tagline">{theme.heroTagline}</h2>}
-          {theme.heroBody && <p className="stream-browser-body">{theme.heroBody}</p>}
+          {themeContent.heroTagline && <h2 className="stream-browser-tagline">{themeContent.heroTagline}</h2>}
+          {themeContent.heroBody && <p className="stream-browser-body">{themeContent.heroBody}</p>}
         </section>
       )}
       <div className="stream-browser">

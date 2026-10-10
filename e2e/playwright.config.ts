@@ -11,7 +11,7 @@ import { PREVIEW_ORIGIN } from './recording';
  */
 export default defineConfig({
   testDir: '.',
-  testMatch: ['smoke.e2e.ts', 'ladder.e2e.ts', 'panel.e2e.ts', 'weeb3.e2e.ts'],
+  testMatch: ['smoke.e2e.ts', 'ladder.e2e.ts', 'panel.e2e.ts', 'theme.e2e.ts', 'weeb3.e2e.ts'],
   outputDir: '../test-results/playwright',
   timeout: 90_000,
   // One worker, which keeps a CI runner's core count from deciding how many browsers start, and keeps the ladder

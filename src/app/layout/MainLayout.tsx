@@ -11,13 +11,13 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const { chat, theme } = useAppContext();
+  const { chat, themeContent } = useAppContext();
 
   return (
     <div className="main-layout">
       <header className="main-layout-header">
         <Link to="/" className="main-layout-logo-link" aria-label="All streams">
-          <img src={theme.logoUrl} alt={theme.logoAlt} className="main-layout-logo" />
+          <img src={themeContent.logoUrl} alt={themeContent.logoAlt} className="main-layout-logo" />
         </Link>
         <div className="main-layout-actions">
           <SourcesScreen />

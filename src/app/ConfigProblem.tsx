@@ -1,5 +1,5 @@
 import { configProblemText } from '@/config/runtimeConfig';
-import { DEFAULT_THEME, THEMES } from '@/design';
+import { DEFAULT_THEME, THEME_CONTENT } from '@/design';
 
 import './ConfigProblem.scss';
 
@@ -12,7 +12,11 @@ export function ConfigProblem({ result }: ConfigProblemProps) {
 
   return (
     <main className="config-problem">
-      <img src={THEMES[DEFAULT_THEME].logoUrl} alt={THEMES[DEFAULT_THEME].logoAlt} className="config-problem-logo" />
+      <img
+        src={THEME_CONTENT[DEFAULT_THEME].logoUrl}
+        alt={THEME_CONTENT[DEFAULT_THEME].logoAlt}
+        className="config-problem-logo"
+      />
       <div className="config-problem-panel" role="alert">
         <h1 className="config-problem-title">{text.title}</h1>
         <p className="config-problem-detail">{text.detail}</p>

@@ -3,7 +3,7 @@ import { createElement } from 'react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { THEMES } from '../src/design/themes';
+import { THEME_CONTENT } from '../src/design/themes';
 import { StreamList } from '../src/features/catalog/StreamList/StreamList';
 import {
   type Stream,
@@ -18,7 +18,7 @@ const context = vi.hoisted(() => ({ streamList: [] as Stream[] }));
 vi.mock('@/app/AppProvider', async () => {
   const { gatewaySwarm } = await import('./helpers/gatewaySwarm');
   const swarm = gatewaySwarm('http://gateway.example.com');
-  return { useAppContext: () => ({ streamList: context.streamList, swarm, theme: THEMES.swarm }) };
+  return { useAppContext: () => ({ streamList: context.streamList, swarm, themeContent: THEME_CONTENT.swarm }) };
 });
 
 const NOW = Date.parse('2026-11-04T12:00:00Z');

@@ -21,10 +21,11 @@
   color-scheme: dark;
 }
 
-// A deployment picks its theme with `theme` in config.json, which the app writes to the page as
-// `data-theme` before it renders.
+// The page wears a theme as `data-theme`: the deployment's `theme` in config.json, or the look a viewer
+// picked in the theme switcher. An element marked `data-theme-preview` wears one theme whatever the page
+// wears, which is how the switcher shows each theme's swatch.
 @each $name, $theme in themes.$themes {
-  $selector: ":root[data-theme='#{$name}']";
+  $selector: ":root[data-theme='#{$name}'], [data-theme-preview='#{$name}']";
   @if $name == themes.$default {
     $selector: ':root, #{$selector}';
   }

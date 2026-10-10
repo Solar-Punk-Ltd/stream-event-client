@@ -11,11 +11,12 @@ built.
 
 ## Scope
 
-- In: the stream list, the watch page and its player, the Bee node picker, the Swarm design, and a
-  chat per stream with a display-name login.
+- In: the stream list, the watch page and its player, the Bee node picker, the Swarm design, a
+  chat per stream with a display-name login, and a theme switcher for viewers logged in to the chat.
+  A deployment picks its theme with `theme` in `config.json`, which decides the logo and the words. A
+  viewer's switch changes only the colours and typefaces, and `themeSwitcher` turns it off.
 - Out, and staying out unless the owner says otherwise: admin sign-in, wallets, postage stamps, uploads,
-  creating or managing streams, a theme switcher for viewers, and any theme beyond `swarm` and `web3privacy`. A
-  deployment picks among the build's themes with `theme` in `config.json`.
+  creating or managing streams, and any theme beyond `swarm` and `web3privacy`.
 
 ## Rules
 

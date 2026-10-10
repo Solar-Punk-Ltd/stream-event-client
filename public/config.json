@@ -1,5 +1,6 @@
 {
   "theme": "swarm",
+  "themeSwitcher": true,
   "gatewayUrl": "/bee",
   "catalog": {
     "owner": "<stream list feed owner address>",

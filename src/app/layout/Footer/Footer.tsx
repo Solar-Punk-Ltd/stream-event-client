@@ -20,15 +20,15 @@ function LinkList({ links }: { links: FooterLink[] }) {
 
 /** The footer under the browse page, laid out as msrs-client's Swarm theme lays out its own. */
 export function Footer() {
-  const { theme } = useAppContext();
-  const { tagline, brandLinks, columns, owner, bottomText, bottomLinks, social } = theme.footer;
+  const { themeContent } = useAppContext();
+  const { tagline, brandLinks, columns, owner, bottomText, bottomLinks, social } = themeContent.footer;
 
   return (
     <footer className={social ? 'footer footer--split' : 'footer'}>
       <div className="footer-container">
         <div className="footer-middle">
           <div className="footer-brand">
-            <img className="footer-logo" src={theme.logoUrl} alt={theme.logoAlt} />
+            <img className="footer-logo" src={themeContent.logoUrl} alt={themeContent.logoAlt} />
             {tagline && <p className="footer-tagline">{tagline}</p>}
             {brandLinks && <LinkList links={brandLinks} />}
           </div>

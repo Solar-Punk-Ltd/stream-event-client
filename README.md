@@ -47,10 +47,19 @@ live with the deployment, never in this repository.
 | `catalog.topic` | The stream list feed's topic, as text                                                                                                                              |
 | `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                                                   |
 | `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused                                               |
+| `themeSwitcher` | Optional. Whether a viewer logged in to the chat may switch the colours and typefaces between the build's themes, `true` by default                                |
 
-A theme is a set of colours and typefaces in `src/design/themes/`, with its logo, page copy and
-footer links in `src/design/themes.ts`. Every theme defines the same variables, so a deployment that picks another
-theme leaves nothing unset, and the tokens test fails on a theme that misses one or on a text colour below 4.5:1.
+A theme has two halves. Its look, the colours and typefaces, is in `src/design/themes/`. Its content, the
+logo, the hero, the footer links and the tab's title and icon, is in `src/design/themes.ts`. The deployment's
+`theme` decides both. Every theme defines the same variables, so a page that wears another theme's look leaves
+nothing unset, and the tokens test fails on a theme that misses one or on a text colour below 4.5:1.
+
+**The theme switcher.** A viewer logged in to the chat finds a Theme group in their name's menu, one
+option per theme with a swatch of its page colour, accent and heading typeface. A pick changes only the look.
+The logo, the words and the tab stay the deployment's, so a Devcon page in the web3privacy look still says
+Devcon. The pick is kept in this browser under `viewer-theme`, through reloads and after a logout, and is
+worn from the first paint on the next visit. A deployment without chat has no login, so it has no switcher
+either, and one with `themeSwitcher` false keeps a viewer's earlier pick without wearing it.
 
 The `chat` block. With `enabled` true every field must be filled in, and the page refuses to start
 otherwise. With `enabled` false the other fields are not read.
@@ -138,7 +147,7 @@ it, or run the image below, which does both.
 
 The other scripts: `pnpm test` (vitest), `pnpm lint` (oxlint), `pnpm typecheck`, `pnpm format` and
 `pnpm format:check` (oxfmt). `pnpm e2e` builds the app and runs the browser journeys in Playwright:
-a replayed recording, and real hls.js against a fake gateway publishing a live stream in four
+a replayed recording, the theme switcher on that recording, and real hls.js against a fake gateway publishing a live stream in four
 qualities, each answer held back 650 ms. The first run downloads the Chromium build Playwright pins.
 Beyond that they need no Bee node and no network, and they print their timings and read rates
 without asserting them. Continuous integration runs the format check, lint, typecheck, tests and
@@ -536,19 +545,23 @@ the two named exceptions, each with its reason in the test.
 
 ## The design
 
-One look today, Swarm Brand v3.0 as msrs-client's Swarm theme draws it: near-black surfaces, the
-Swarm orange `#f47a20` as a sparing accent, Geist for all text, and JetBrains Mono only for the
-configuration problem's detail and the playback quality overlay. A deployment picks its theme in
-`config.json`, and there is no switcher for viewers.
+Two themes. `swarm` is Swarm Brand v3.0 as msrs-client's Swarm theme draws it: near-black surfaces, the
+Swarm orange `#f47a20` as a sparing accent and Geist for all text. `web3privacy` is web3privacy.info's: a
+black page, the neon green `#70ff88`, Archivo for text and Domine for headings. Both use JetBrains Mono
+only for the configuration problem's detail and the playback quality overlay. A deployment picks its
+theme in `config.json`, and a logged-in viewer can switch the look, as above.
 
 - **The tokens.** The scales (sizes, spacing, type steps, radii, timing) live in
   `src/design/_tokens.scss`, one Sass map per group. What a theme decides, its colours and typefaces,
-  lives in `src/design/themes/`, one file per theme. `src/design/theme.scss` emits the scales once on
-  `:root` and each theme under `:root[data-theme='<name>']`, the default theme on a bare `:root` too,
+  lives in `src/design/themes/`, one file per theme, each merged over `themes/_base.scss`, which holds
+  what every theme shares. `src/design/theme.scss` emits the scales once on `:root` and each theme under
+  `:root[data-theme='<name>']`, the default theme on a bare `:root` too, and under
+  `[data-theme-preview='<name>']` for an element that shows one theme whatever the page wears,
   as CSS custom properties named `--<group>-<name>`, for example `--color-primary` or
   `--spacing-base`. It also sets the page's base styles.
 - **Components read only the variables**, `var(--color-primary)`, never a Sass token or a literal
-  colour. The breakpoints are the one exception, because a media query cannot read a custom
+  colour, so a switch of the look reaches every part of the page. The tokens test refuses a colour a
+  stylesheet outside `src/design/` writes out. The breakpoints are the one exception, because a media query cannot read a custom
   property: they are the mixins in `src/design/_media.scss`, and every layout is written for a phone
   first and widened by them.
 - **To add a token**, add a scale to its map in `_tokens.scss`, or a colour or typeface to every
@@ -557,7 +570,8 @@ configuration problem's detail and the playback quality overlay. A deployment pi
   when the design defines one nothing reads, when one theme lacks a variable another has, and when a
   text colour falls below 4.5:1 against its background. A new colour pairing goes into its list too.
 - **The fonts** are bundled from `@fontsource`, only the weights used: Geist 400, 500, 600 and 700,
-  and JetBrains Mono 500, imported in `src/design/fonts.ts`. The page makes no font request to a
+  Archivo 300 to 700, Domine 400 and JetBrains Mono 500, imported in `src/design/fonts.ts`. A browser
+  downloads a typeface only when the worn theme sets text in it. The page makes no font request to a
   third party. Another weight needs its file imported there, or the browser fakes it.
 
 ## Layout
@@ -566,7 +580,7 @@ configuration problem's detail and the playback quality overlay. A deployment pi
 src/
   app/          the entry, routes, the app provider, the page layout and header
   config/       the runtime configuration, read and checked at start
-  design/       the design tokens, the Swarm theme, the fonts and the logo
+  design/       the design tokens, the themes' looks and content, the fonts and the logos
   features/
     catalog/    the stream list: feed reader, schema, polling, previews
     player/     the Swarm HLS player, its loaders and overlays, the watch page

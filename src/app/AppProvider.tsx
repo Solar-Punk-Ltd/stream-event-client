@@ -6,7 +6,7 @@ import { ManifestStateManager } from '@/features/player/ManifestManagement';
 import { Stream } from '@/features/catalog/stream';
 import { CatalogFeedReader } from '@/features/catalog/catalogFeed';
 import { type ChatConfig, enabledChat, type RuntimeConfig, selectedTheme } from '@/config/runtimeConfig';
-import { THEMES, type ThemeSettings } from '@/design/themes';
+import { THEME_CONTENT, type ThemeContent } from '@/design/themes';
 import { gatewayClock } from '@/shared/gatewayClock';
 import type { SwarmClient, SwarmReader } from '@/swarm/client';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
@@ -96,8 +96,8 @@ type AppContextState = {
   setFallbackOrder: (order: readonly string[]) => void;
   /** The chat's settings, or null when this deployment has chat switched off. */
   chat: ChatConfig | null;
-  /** The logo and page copy of the theme this deployment wears. */
-  theme: ThemeSettings;
+  /** The logo, words and links of this deployment's theme, which stay when a viewer switches the look. */
+  themeContent: ThemeContent;
 };
 
 const AppContext = createContext<AppContextState | undefined>(undefined);
@@ -361,7 +361,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
         setRouting,
         setFallbackOrder,
         chat,
-        theme: THEMES[selectedTheme(config)],
+        themeContent: THEME_CONTENT[selectedTheme(config)],
       }}
     >
       {children}

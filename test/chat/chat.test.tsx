@@ -25,6 +25,7 @@ import {
   type Mounted,
   waitFor,
 } from '../helpers/dom';
+import { withThemeChoice } from '../helpers/themeChoice';
 
 vi.mock('@solarpunkltd/swarm-chat-js', async (importActual) => {
   const actual = await importActual<typeof import('@solarpunkltd/swarm-chat-js')>();
@@ -267,11 +268,13 @@ describe('the chat on a watch page', () => {
 
   it('reads again, and shows the chat once it answers, after a sign-in while it could not be reached', async () => {
     await open(
-      createElement(
-        ChatUserProvider,
-        null,
-        createElement(LoginButton),
-        createElement(Chat, { chat: CHAT, topic: 'stream-one', reads: () => CHAT_READS.reads }),
+      withThemeChoice(
+        createElement(
+          ChatUserProvider,
+          null,
+          createElement(LoginButton),
+          createElement(Chat, { chat: CHAT, topic: 'stream-one', reads: () => CHAT_READS.reads }),
+        ),
       ),
     );
     emit(EVENTS.CRITICAL_ERROR, new Error('unreachable'));

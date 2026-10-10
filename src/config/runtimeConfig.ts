@@ -143,6 +143,8 @@ const runtimeConfigSchema = z
   .object({
     /** Which of this build's themes the page wears. Absent means the default. */
     theme: z.enum(THEME_NAMES, { message: `must be one of ${THEME_NAMES.join(', ')}` }).optional(),
+    /** Whether a viewer logged in to the chat may switch the look between the build's themes. On unless set. */
+    themeSwitcher: z.boolean({ message: 'must be true or false' }).optional(),
     /** The one Bee gateway of before `providers`, still read as the only gateway and the default. */
     gatewayUrl: gatewayUrlSchema.optional(),
     providers: providersSchema.optional(),
@@ -177,6 +179,11 @@ function describeIssues(error: z.ZodError): string {
 /** The theme this deployment wears. */
 export function selectedTheme(config: RuntimeConfig): ThemeName {
   return config.theme ?? DEFAULT_THEME;
+}
+
+/** Whether this deployment lets a logged-in viewer switch the look. */
+export function themeSwitcherEnabled(config: RuntimeConfig): boolean {
+  return config.themeSwitcher ?? true;
 }
 
 /** The chat's settings when chat is on, and null when it is off or not configured. */

@@ -7,11 +7,12 @@ import { persistUserSession, restoreUserSession } from '../../src/features/chat/
 import { LoginButton } from '../../src/features/chat/LoginButton/LoginButton';
 import { ChatUserProvider } from '../../src/features/chat/User';
 import { button, click, dialog, input, mount, press, queryButton, text, type, type Mounted } from '../helpers/dom';
+import { withThemeChoice } from '../helpers/themeChoice';
 
 let mounted: Mounted | null = null;
 
 function header() {
-  mounted = mount(createElement(ChatUserProvider, null, createElement(LoginButton)));
+  mounted = mount(withThemeChoice(createElement(ChatUserProvider, null, createElement(LoginButton))));
 }
 
 beforeEach(() => {

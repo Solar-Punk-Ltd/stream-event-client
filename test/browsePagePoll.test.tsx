@@ -24,7 +24,7 @@ vi.mock('../src/app/AppProvider', () => ({
   useAppContext: () => ({
     streamList: [],
     isStreamListFromCurrentGateway: true,
-    theme: { heroTitle: 'Streams', heroSubtitle: '', footer: {} },
+    themeContent: { heroTitle: 'Streams', heroSubtitle: '', footer: {} },
     streamListSourceId: app.sourceId,
     fetchAppState: async () => {
       const readsBefore = app.readsAtMs.length;

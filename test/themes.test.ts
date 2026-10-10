@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseRuntimeConfig, selectedTheme } from '../src/config/runtimeConfig';
-import { applyTheme, DEFAULT_THEME, THEME_NAMES, THEMES } from '../src/design/themes';
+import { applyLook } from '../src/design/look';
+import { applyThemeContent, DEFAULT_THEME, THEME_LABELS, THEME_NAMES, THEME_CONTENT } from '../src/design/themes';
 
 const VALID = {
   gatewayUrl: '/bee',
@@ -31,26 +32,36 @@ describe('choosing a theme', () => {
     expect(!result.ok && result.problem).toMatch(new RegExp(`theme: .*${THEME_NAMES.join('.*')}`));
   });
 
-  it('marks the page with the theme, which is what the stylesheet selects on', () => {
+  it('marks the page with the look, which is what the stylesheet selects on', () => {
     const root = document.createElement('html');
 
-    applyTheme(DEFAULT_THEME, root);
+    applyLook(DEFAULT_THEME, root);
 
     expect(root.dataset.theme).toBe(DEFAULT_THEME);
   });
 
-  it("gives the tab the theme's own title and icon, and leaves the built-in ones otherwise", () => {
+  it("gives the browser's bar the page colour of the look", () => {
+    document.head.innerHTML = '<meta name="theme-color" content="#000001" />';
+    document.documentElement.style.setProperty('--color-background', '#123456');
+
+    applyLook(DEFAULT_THEME, document.documentElement);
+
+    expect(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content).toBe('#123456');
+    document.documentElement.style.removeProperty('--color-background');
+  });
+
+  it("gives the tab the deployment theme's own title and icon, and leaves the built-in ones otherwise", () => {
     document.head.innerHTML = '<link rel="icon" type="image/png" href="./favicon.png" />';
     document.title = 'Built-in title';
     const icon = () => document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
 
-    applyTheme(DEFAULT_THEME, document.documentElement);
-    expect(document.title).toBe(THEMES[DEFAULT_THEME].pageTitle ?? 'Built-in title');
-    expect(icon()?.getAttribute('href')).toBe(THEMES[DEFAULT_THEME].faviconUrl ?? './favicon.png');
+    applyThemeContent(DEFAULT_THEME);
+    expect(document.title).toBe(THEME_CONTENT[DEFAULT_THEME].pageTitle ?? 'Built-in title');
+    expect(icon()?.getAttribute('href')).toBe(THEME_CONTENT[DEFAULT_THEME].faviconUrl ?? './favicon.png');
 
     for (const name of THEME_NAMES) {
-      const { pageTitle, faviconUrl } = THEMES[name];
-      applyTheme(name, document.documentElement);
+      const { pageTitle, faviconUrl } = THEME_CONTENT[name];
+      applyThemeContent(name);
       if (pageTitle) {
         expect(document.title).toBe(pageTitle);
       }
@@ -60,18 +71,36 @@ describe('choosing a theme', () => {
     }
   });
 
+  it("keeps the deployment's tab title and icon when a viewer switches the look", () => {
+    document.head.innerHTML = '<link rel="icon" type="image/png" href="./favicon.png" />';
+    document.title = 'Built-in title';
+    applyThemeContent('swarm');
+
+    for (const name of THEME_NAMES) {
+      applyLook(name, document.documentElement);
+      expect(document.title).toBe('Built-in title');
+      expect(document.querySelector('link[rel~="icon"]')?.getAttribute('href')).toBe('./favicon.png');
+    }
+  });
+
+  it('names every theme for the switcher', () => {
+    for (const name of THEME_NAMES) {
+      expect(THEME_LABELS[name].trim()).not.toBe('');
+    }
+  });
+
   it('gives every theme its logo and page copy', () => {
     for (const name of THEME_NAMES) {
-      expect(THEMES[name].logoUrl).toBeTruthy();
-      expect(THEMES[name].logoAlt.trim()).not.toBe('');
-      expect(THEMES[name].heroTitle.trim()).not.toBe('');
-      expect(THEMES[name].heroSubtitle.trim()).not.toBe('');
+      expect(THEME_CONTENT[name].logoUrl).toBeTruthy();
+      expect(THEME_CONTENT[name].logoAlt.trim()).not.toBe('');
+      expect(THEME_CONTENT[name].heroTitle.trim()).not.toBe('');
+      expect(THEME_CONTENT[name].heroSubtitle.trim()).not.toBe('');
     }
   });
 
   it('gives every theme a footer whose links all go somewhere', () => {
     for (const name of THEME_NAMES) {
-      const { footer } = THEMES[name];
+      const { footer } = THEME_CONTENT[name];
       const links = [
         ...(footer.brandLinks ?? []),
         ...footer.columns.flatMap((column) => column.links),

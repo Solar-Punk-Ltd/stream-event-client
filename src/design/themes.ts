@@ -12,7 +12,7 @@ import web3privacyHeroUrl from './assets/web3privacy-hero.webp';
 import web3privacyLogoUrl from './assets/web3privacy-logo.png';
 import { type ThemeName } from './themeNames';
 
-export { DEFAULT_THEME, THEME_NAMES, type ThemeName } from './themeNames';
+export { DEFAULT_THEME, THEME_LABELS, THEME_NAMES, type ThemeName } from './themeNames';
 
 export interface FooterLink {
   label: string;
@@ -45,8 +45,12 @@ export interface FooterSettings {
   social?: { heading: string; links: SocialLink[] };
 }
 
-/** What a theme decides that a stylesheet cannot: its images and its words. */
-export interface ThemeSettings {
+/**
+ * A deployment's words and images, chosen with its `theme` in config.json: the logo, the hero, the footer
+ * and the tab. They stay the deployment's when a viewer switches the look, which changes only the
+ * colours and typefaces.
+ */
+export interface ThemeContent {
   logoUrl: string;
   /** What the logo says, for a reader who cannot see it. */
   logoAlt: string;
@@ -150,7 +154,7 @@ const WEB3PRIVACY_FOOTER: FooterSettings = {
   bottomLinks: [{ label: 'Hosted on Swarm', href: 'https://swarm.bzz.link/' }],
 };
 
-export const THEMES: Record<ThemeName, ThemeSettings> = {
+export const THEME_CONTENT: Record<ThemeName, ThemeContent> = {
   swarm: {
     logoUrl: swarmLogoUrl,
     logoAlt: 'Swarm',
@@ -182,15 +186,12 @@ export const THEMES: Record<ThemeName, ThemeSettings> = {
 };
 
 /**
- * Marks the page with the theme, which is what every themed variable is selected on, and gives the tab
- * the theme's title and icon when it has its own. `index.html` carries the Swarm ones, so a theme without
- * them leaves the tab as it is.
+ * Gives the tab the deployment's own title and icon when its theme has them. `index.html` carries the
+ * Swarm ones, so a theme without them leaves the tab as it is. Applied once, because a viewer who
+ * switches the look keeps the deployment's words.
  */
-export function applyTheme(name: ThemeName, root: HTMLElement = document.documentElement): void {
-  root.dataset.theme = name;
-
-  const { pageTitle, faviconUrl } = THEMES[name];
-  const doc = root.ownerDocument;
+export function applyThemeContent(name: ThemeName, doc: Document = document): void {
+  const { pageTitle, faviconUrl } = THEME_CONTENT[name];
   if (pageTitle) {
     doc.title = pageTitle;
   }
