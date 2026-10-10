@@ -12,9 +12,6 @@ import { LIVE_GAP_LIMIT, LIVE_GAP_WINDOW_MS } from './playerConfig';
  * with a `fragGap` error (`src/loader/fragment-loader.ts`, `createGapLoadError`), which the stream
  * controller records as a buffered gap (`base-stream-controller.ts`, `onFragmentOrKeyLoadError`,
  * `addAsGap`), and the gap controller seeks over the hole it leaves.
- *
- * Taken from the in-browser node's player, whose live tail fallback does the same against its own
- * playlist.
  */
 
 /** The failures a gap may stand in for: the segment's bytes never arrived, or arrived as no media. */
