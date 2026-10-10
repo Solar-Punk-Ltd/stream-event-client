@@ -15,6 +15,7 @@
     "test": "vitest run",
     "e2e": "pnpm build && playwright test -c e2e/playwright.config.ts",
     "e2e:record": "pnpm build && playwright test -c e2e/record.config.ts",
+    "proof:weeb3": "pnpm build && playwright test -c e2e/weeb3-live.config.ts",
     "test:image": "node --test test/docker/image.docker.mjs",
     "test:docker": "pnpm test:image && PLAYWRIGHT_INSTALL_DEPS=1 pnpm e2e:record"
   },

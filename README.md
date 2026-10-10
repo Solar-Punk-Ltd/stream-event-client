@@ -430,6 +430,14 @@ controls the page, and counts as failed with no peer after 30 s.
   which weeb-3 has no lookup for, and a single-owner chunk read by its address, which comes back without the
   identifier and signature that prove it the owner's, as the chat's slots are read. Both are out of reach while weeb-3
   serves the video only, since the stream list and the chat never read from it.
+- **Stopping, as far as it goes.** Stopping frees the page's handle on the node, and with 0.0.354001 that leaves the
+  node in the package's shared worker running: a handle made after a stop still finds its peers. The package names
+  no way to stop that worker's node, so it lasts until the browser closes the worker with the tab.
+- **The live proof.** `pnpm proof:weeb3` builds the app and, on the public Swarm network, adds the node in a real
+  browser, picks it for the video, waits for it to be ready, plays a finished stream from its beginning, checks that
+  `/weeb-3/bytes/` carries exactly the 8-byte span `/weeb-3/hls/bytes/` leaves out, and asks the shared worker for
+  its peers after the stop. It prints what it saw and is never part of `pnpm e2e`. `WEEB3_PROOF_OWNER` and
+  `WEEB3_PROOF_TOPIC` name another stream.
 
 ## How the player reads Swarm
 
