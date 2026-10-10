@@ -4,6 +4,7 @@ import { makeFeedIdentifier } from '@/shared/feedFollow';
 import { type SwarmAnswer, UNSUPPORTED } from '../../answers';
 import { httpRead } from '../../httpRead';
 import type {
+  OwnPlayer,
   ProbeResult,
   ProviderCapabilities,
   ProviderStatus,
@@ -138,8 +139,15 @@ export class Weeb3Provider implements SwarmProvider {
   }
 
   status(): ProviderStatus {
-    return { state: this.runtime.status().state };
+    const { state, peers } = this.runtime.status();
+    return { state, peers };
   }
+
+  /** weeb-3 plays a stream with its own player on the page's node, which this starts if nothing has yet. */
+  readonly ownPlayer = async (): Promise<OwnPlayer> => {
+    const node = await this.runtime.start();
+    return { attach: (video, owner, topic, from) => node.attachStream(video, owner, topic, from) };
+  };
 
   /** Never reads the network: the node's own state says whether it can serve, and a stopped node is started. */
   async probe(): Promise<ProbeResult> {

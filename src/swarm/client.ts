@@ -5,7 +5,9 @@ import { GatewayClock } from '@/shared/gatewayClock';
 import { type AnswerKind, serverTimeOf, type SwarmAnswer } from './answers';
 import {
   DEFAULT_READ_TIMEOUT_MS,
+  type OwnPlayer,
   type ProbeResult,
+  type ProviderStatus,
   type ReadOptions,
   type SwarmProvider,
   type UrlUse,
@@ -250,6 +252,20 @@ export class SwarmClient {
   /** What to add to the viewer's clock to read the gateway's. */
   clockOffsetMs(): number {
     return this.clock.offsetMs();
+  }
+
+  /**
+   * The player a feature's own provider plays video with, with that provider's id, or null where the
+   * app's player reads through it. Loading it starts whatever the player needs.
+   */
+  ownPlayer(feature: SwarmFeature): { readonly id: string; readonly load: () => Promise<OwnPlayer> } | null {
+    const { id, provider } = this.primaryFor(feature);
+    return provider.ownPlayer ? { id, load: provider.ownPlayer } : null;
+  }
+
+  /** Where the provider every feature reads from first is in its own life. */
+  status(): ProviderStatus {
+    return this.chosen.provider.status();
   }
 
   /** Asks the provider every feature reads from first whether it is there at all. Never rejects. */

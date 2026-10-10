@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { makeFeedIdentifier } from '../../src/shared/feedFollow';
 import { singleOwnerChunkAddress } from '../../src/swarm/singleOwnerChunk';
 import { Weeb3Provider, type Weeb3RuntimeView } from '../../src/swarm/providers/weeb-3/weeb3Provider';
+import type { Weeb3Node } from '../../src/swarm/providers/weeb-3/weeb3Package';
 import type { Weeb3Status } from '../../src/swarm/providers/weeb-3/weeb3Runtime';
 import { type AskedLog, answeringFetch, faultyFetch, silentFetch } from '../helpers/recordedBeeGateway';
 import { type ContractHarness, describeProviderContract } from './providerContract';
@@ -63,13 +64,24 @@ function servedFetch(log: AskedLog = { urls: [] }): typeof fetch {
   }) as typeof fetch;
 }
 
-function runtimeAt(status: Weeb3Status): Weeb3RuntimeView & { starts: number; stops: number } {
+type FakeRuntime = Weeb3RuntimeView & { starts: number; stops: number; readonly attached: unknown[][] };
+
+function runtimeAt(status: Weeb3Status): FakeRuntime {
+  const attached: unknown[][] = [];
+  const node: Weeb3Node = {
+    start: () => undefined,
+    connectionCount: async () => status.peers,
+    attachStream: async (...args) => void attached.push(args),
+    free: () => undefined,
+  };
   return {
     starts: 0,
     stops: 0,
+    attached,
     status: () => status,
     async start() {
       this.starts += 1;
+      return node;
     },
     async stop() {
       this.stops += 1;
@@ -184,10 +196,21 @@ describe('the weeb-3 provider', () => {
 
     expect(provider.capabilities.inTab).toBe(true);
     expect(provider.capabilities.feedHead).toBe(false);
-    expect(provider.status()).toEqual({ state: 'starting' });
+    expect(provider.status()).toEqual({ state: 'starting', peers: 2 });
     await provider.start();
     await provider.stop();
     expect([runtime.starts, runtime.stops]).toEqual([1, 1]);
+  });
+
+  it("brings weeb-3's own player, which starts the node and plays a stream into the page's video", async () => {
+    const { provider, runtime } = weeb3(servedFetch(), { state: 'starting', peers: 0 });
+    const video = {} as HTMLVideoElement;
+
+    const player = await provider.ownPlayer();
+    await player.attach(video, OWNER, 'a-topic', 'live');
+
+    expect(runtime.starts).toBe(1);
+    expect(runtime.attached).toEqual([[video, OWNER, 'a-topic', 'live']]);
   });
 
   it.each<[Weeb3Status, string]>([

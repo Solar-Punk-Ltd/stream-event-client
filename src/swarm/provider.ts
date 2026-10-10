@@ -51,6 +51,16 @@ export type ProviderState = 'stopped' | 'starting' | 'ready' | 'failed';
 
 export interface ProviderStatus {
   readonly state: ProviderState;
+  /** How many peers a node in the tab is connected to. Absent for a provider that reaches a node elsewhere. */
+  readonly peers?: number;
+}
+
+/** Where a player starts a stream: at its newest entry, or at the first it can rebuild. */
+type PlaybackStart = 'live' | 'beginning';
+
+/** A player a provider brings with it, which plays a stream into a video element the page owns. */
+export interface OwnPlayer {
+  attach(video: HTMLVideoElement, owner: string, topic: string, from: PlaybackStart): Promise<void>;
 }
 
 /** Why a node that answered cannot serve reads yet. */
@@ -109,6 +119,12 @@ export interface SwarmProvider {
 
   /** Never rejects: every way of not being there is a result. */
   probe(options?: ReadOptions): Promise<ProbeResult>;
+
+  /**
+   * The player this provider plays video with, for a provider that brings its own rather than serving
+   * the app's player. Absent where the app's player reads through the provider.
+   */
+  readonly ownPlayer?: () => Promise<OwnPlayer>;
 
   /** Starts a node in the tab. Resolves at once for a provider that reaches a node elsewhere. */
   start(): Promise<void>;

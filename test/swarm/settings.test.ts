@@ -191,8 +191,10 @@ describe('the registry of provider kinds', () => {
 
     expect(provider).toBeInstanceOf(Weeb3Provider);
     expect(provider.capabilities.inTab).toBe(true);
-    expect(PROVIDER_REGISTRY['weeb-3'].ownPlayer).not.toBeNull();
-    expect(PROVIDER_REGISTRY['bee-http'].ownPlayer).toBeNull();
+    expect(provider.ownPlayer).toBeTypeOf('function');
+    expect(
+      PROVIDER_REGISTRY['bee-http'].create({ id: 'x', kind: 'bee-http', url: '/bee' }, {}).ownPlayer,
+    ).toBeUndefined();
   });
 
   it('makes a Bee HTTP provider for a bee-http gateway', () => {
