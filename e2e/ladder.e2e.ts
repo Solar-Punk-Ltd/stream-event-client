@@ -2,8 +2,10 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
 import { MARKER_PERIOD_SECONDS } from '../src/shared/ladderMarker';
 import {
+  gapTaggedSequences,
   installHlsProbe,
   levelUris,
+  playingDateMs,
   playingUri,
   probeState,
   switchAtFirstFragment,
@@ -346,6 +348,51 @@ test('two qualities stop one after the other: the player drops both and keeps pl
     expect(gateway.feedReads(gone, quietFromMs), `${gone} is no longer read`).toBe(0);
   }
   await expectNoFatalErrorOrRestart(page);
+  expectOnlyKnownRequests(gateway);
+});
+
+test('a live segment the gateway cannot serve is played past as a gap, without a restart', async ({
+  page,
+  context,
+}) => {
+  // One quality, so hls.js has no other level to move to and the segment is given up on rather than fetched from a
+  // sibling, as for a stream published in one quality.
+  const gateway = new LadderGateway({ listedRungs: [TOP] });
+  const { warnings } = await openStream(page, context, gateway);
+
+  // Two segments past the newest, so it is refused from the moment it is published and the player meets it at the
+  // live edge, which is where a segment the gateway cannot retrieve yet is met.
+  const refused = gateway.newestIndex(TOP) + 2;
+  const refusedAtMs = Date.now();
+  gateway.refuseSegment(refused);
+
+  const refusedEndMs = gateway.segmentEndMs(refused);
+  await expect
+    .poll(async () => ((await playingDateMs(page)) ?? 0) > refusedEndMs, {
+      message: `the video plays on past segment ${refused}`,
+      timeout: FAILOVER_WAIT_MS,
+    })
+    .toBe(true);
+  const pastAtMs = Date.now();
+  await expectPlaysOn(page, 'after the gap');
+
+  const state = await probeState(page);
+  const gapTagged = await gapTaggedSequences(page);
+  report('live gap', {
+    refused,
+    playedPastMs: pastAtMs - refusedAtMs,
+    gapTagged,
+    created: state.created,
+    refusedRequests: gateway.tally(refusedAtMs),
+    fatalErrors: state.fatalErrors.map((error) => error.details),
+    warnings: warnings.filter((warning) => /gap|error/i.test(warning)),
+  });
+  expect(
+    gateway.requests.some((request) => request.kind === 'refusedSegment'),
+    'the refused segment was asked for',
+  ).toBe(true);
+  expect(state.created, 'the player was built once and never restarted').toBe(1);
+  expect(gapTagged, `the playlist the player serves hls.js marks segment ${refused} as a gap`).toContain(refused);
   expectOnlyKnownRequests(gateway);
 });
 

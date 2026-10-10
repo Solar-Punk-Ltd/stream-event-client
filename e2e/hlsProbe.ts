@@ -17,9 +17,15 @@ interface ProbeWindow {
 
 /** The part of an hls.js player the journeys drive and read. */
 interface ProbedHls {
-  levels: { uri: string; height: number }[];
+  levels: {
+    uri: string;
+    height: number;
+    /** The playlist hls.js last parsed for the level. `tagList` holds every tag line above a segment, by name. */
+    details?: { fragments: { sn: number; tagList: string[][] }[] };
+  }[];
   currentLevel: number;
   nextLevel: number;
+  playingDate: Date | null;
   on(event: string, listener: (event: string, data: Record<string, unknown>) => void): void;
 }
 
@@ -114,6 +120,31 @@ export async function switchAtFirstFragment(page: Page, uri: string): Promise<vo
   await page.addInitScript((target) => {
     (window as unknown as ProbeWindow).__ladderProbe.switchAtFirstFragment = target;
   }, uri);
+}
+
+/**
+ * The segment numbers whose entry carries `#EXT-X-GAP` in the playlist hls.js last parsed for any level. Read from the
+ * tag rather than from `frag.gap`, which hls.js also sets on its own for a fragment it gave up on, so a number here is
+ * one the playlist the player served said was a gap.
+ */
+export function gapTaggedSequences(page: Page): Promise<number[]> {
+  return page.evaluate(() => {
+    const hls = (window as unknown as ProbeWindow).__ladderProbe.hls;
+    const tagged = new Set<number>();
+    for (const level of hls?.levels ?? []) {
+      for (const fragment of level.details?.fragments ?? []) {
+        if (fragment.tagList.some((tag) => tag[0] === 'GAP')) {
+          tagged.add(fragment.sn);
+        }
+      }
+    }
+    return [...tagged].sort((a, b) => a - b);
+  });
+}
+
+/** When the frame on screen was presented, by PROGRAM-DATE-TIME, or null while hls.js cannot say. */
+export function playingDateMs(page: Page): Promise<number | null> {
+  return page.evaluate(() => (window as unknown as ProbeWindow).__ladderProbe.hls?.playingDate?.getTime() ?? null);
 }
 
 export function probeState(page: Page): Promise<Omit<ProbeWindow['__ladderProbe'], 'hls'>> {

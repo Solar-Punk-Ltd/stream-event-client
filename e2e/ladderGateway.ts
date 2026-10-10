@@ -65,6 +65,8 @@ export type RequestKind =
   | 'miss'
   /** A segment of a quality. */
   | 'segment'
+  /** A segment the journey had the gateway refuse, answered 404 as a node answers media it cannot retrieve. */
+  | 'refusedSegment'
   /** Any read of the master feed, which a stream list that names the renditions makes unnecessary. */
   | 'master'
   /** A read of the stream list. */
@@ -174,6 +176,11 @@ export interface LadderGatewayOptions {
    * journey that never needs it sees every master read answered 404.
    */
   readonly servesMaster?: boolean;
+  /**
+   * The qualities the stream list names, all four by default. Naming one gives hls.js a single level and so no other
+   * quality to move to when a segment fails, which is how a stream published in one quality plays.
+   */
+  readonly listedRungs?: readonly RungName[];
   /** The status the stream's picture is answered with. Without it the stream list names no picture. */
   readonly pictureStatus?: number;
   /**
@@ -203,11 +210,14 @@ export class LadderGateway {
   readonly pictureStatus: number | null;
   readonly catalogHeadExtraMs: number;
   readonly refusesHealth: boolean;
+  readonly listedRungs: readonly RungName[];
   readonly requests: LoggedRequest[] = [];
   private readonly feeds = new Map<RungName, RungFeed>();
   private readonly byTopicHex = new Map<string, 'catalog' | 'master' | RungName>();
   private readonly bySlotId = new Map<string, SlotAddress>();
   private readonly segments = recordedSegments();
+  /** Segment sequences every quality refuses. See {@link refuseSegment}. */
+  private readonly refusedSequences = new Set<number>();
 
   constructor(options: LadderGatewayOptions = {}) {
     this.markers = options.markers ?? true;
@@ -215,6 +225,7 @@ export class LadderGateway {
     this.pictureStatus = options.pictureStatus ?? null;
     this.catalogHeadExtraMs = options.catalogHeadExtraMs ?? 0;
     this.refusesHealth = options.refusesHealth ?? false;
+    this.listedRungs = options.listedRungs ?? RUNGS.map((rung) => rung.name);
     const name = (feed: 'catalog' | 'master' | RungName) =>
       feed === 'catalog' ? CATALOG_TOPIC : feed === 'master' ? MASTER_TOPIC : `ladder-test-${feed}`;
     const feeds: ('catalog' | 'master' | RungName)[] = ['catalog', 'master', ...RUNGS.map((rung) => rung.name)];
@@ -284,6 +295,16 @@ export class LadderGateway {
     for (const rung of RUNGS) {
       this.finish(rung.name);
     }
+  }
+
+  /** When the segment with this sequence ends, by the PROGRAM-DATE-TIME the playlists stamp it with. */
+  segmentEndMs(sequence: number): number {
+    return this.startedAtMs + (sequence + 1) * SEGMENT_MS;
+  }
+
+  /** Every quality answers the segment with this sequence 404 from now on, as a node that cannot retrieve it does. */
+  refuseSegment(sequence: number): void {
+    this.refusedSequences.add(sequence);
   }
 
   /** How many requests of this kind were made for this quality, optionally since a moment. */
@@ -449,8 +470,13 @@ export class LadderGateway {
       this.log('unknown', null, path);
       return () => notFound(route);
     }
+    const sequence = Number.parseInt(match[2], 16);
+    if (this.refusedSequences.has(sequence)) {
+      this.log('refusedSegment', rung.name, path, sequence);
+      return () => notFound(route);
+    }
     this.log('segment', rung.name, path);
-    const segment = this.segments[Number.parseInt(match[2], 16) % this.segments.length];
+    const segment = this.segments[sequence % this.segments.length];
     return () => route.fulfill({ status: 200, contentType: segment.contentType, body: segment.body });
   }
 
@@ -475,7 +501,7 @@ export class LadderGateway {
       timestamp: this.startedAtMs,
       mediatype: 'video',
       state: 'live',
-      renditions: RUNGS,
+      renditions: RUNGS.filter((rung) => this.listedRungs.includes(rung.name)),
       ...(this.pictureStatus === null ? {} : { thumbnail: PICTURE_REF }),
     };
   }
