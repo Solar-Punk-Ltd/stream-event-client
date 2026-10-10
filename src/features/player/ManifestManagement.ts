@@ -1,6 +1,13 @@
 import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import { nextFeedRequest } from '@/shared/feedFollow';
-import { HLS_DISCONTINUITY, HLS_ENDLIST, HLS_GAP, HLS_PLAYLIST_TYPE, HLS_PLAYLIST_TYPE_EVENT } from '@/shared/hlsTags';
+import {
+  HLS_DISCONTINUITY,
+  HLS_ENDLIST,
+  HLS_GAP,
+  HLS_PLAYLIST_TYPE,
+  HLS_PLAYLIST_TYPE_EVENT,
+  HLS_PLAYLIST_TYPE_VOD,
+} from '@/shared/hlsTags';
 import { parseManifest, type Segment } from '@/shared/manifest';
 import Pqueue from 'p-queue';
 
@@ -17,6 +24,7 @@ import { watchLadderCompletion } from './ladderCompletionWatch';
 import { LadderMarkerReads } from './ladderMarkerReads';
 import { MarkerFinder } from './markerFinder';
 import { headIndexOf, type PlayerReader, retryAfterMsOf, servedText, type ServedText } from './playerReads';
+import { LIVE_GAP_NEWEST_SEGMENTS } from './playerConfig';
 import { buildMasterPlaylist, isMasterPlaylist, masterRungs, parseSwarmUri } from './playlist';
 import { isSlotNotWrittenYet, ManifestFetchError, probePastRefusal, shouldProbePastRefusal } from './refusedSlot';
 import { rungHeadMarkers } from './rungHeadMarkers';
@@ -31,6 +39,13 @@ interface TopicState {
   headers: string[];
   segments: Segment[];
   segmentUris: Set<string>;
+  /**
+   * Segments this viewer could not load and serves as gaps, by URI. Kept beside the segments rather
+   * than written into them, because a publisher's gap names no media and is served as written, while
+   * one of these keeps the URL hls.js already holds for it. hls.js compares every reloaded entry's URL
+   * with the one it held at the same sequence and reports any change as a media sequence mismatch.
+   */
+  liveGapUris: Set<string>;
   isFinalized: boolean;
   dirty: boolean;
   cachedManifest: string;
@@ -192,6 +207,37 @@ export class ManifestStateManager {
     }
   }
 
+  /**
+   * Marks the segment `fragmentUrl` names as a gap, so the next playlist served for this topic says
+   * `#EXT-X-GAP` above it and hls.js skips it rather than fetching it again.
+   *
+   * Only one of the `newest` newest segments that are not gaps already, and only while the playlist is
+   * live: a finished broadcast or a recording is left exactly as the publisher wrote it, because there
+   * the media may still be fetchable later and nobody is waiting at an edge.
+   *
+   * @param fragmentUrl The URL hls.js loaded the segment from. A segment is named by its reference, so
+   *   it matches the URL whichever provider the reference was resolved against.
+   * @returns Whether a segment was marked.
+   */
+  markLiveGap(topicId: string, fragmentUrl: string, newest: number): boolean {
+    const state = this.topics.get(topicId);
+    if (!state || state.isFinalized || state.headers.includes(HLS_PLAYLIST_TYPE_VOD)) {
+      return false;
+    }
+
+    const newestPlayable = state.segments
+      .filter((segment) => !segment.gap && !state.liveGapUris.has(segment.uri))
+      .slice(-newest);
+    const failed = newestPlayable.find((segment) => namesSegment(fragmentUrl, segment.uri));
+    if (!failed) {
+      return false;
+    }
+
+    state.liveGapUris.add(failed.uri);
+    state.dirty = true;
+    return true;
+  }
+
   serialize(topicId: string, segmentUrl: SegmentUrl): string {
     const state = this.topics.get(topicId);
     if (!state || state.segments.length === 0) {
@@ -223,7 +269,7 @@ export class ManifestStateManager {
       // fetches a URI that resolves to nothing, and the viewer meets a load error where the publisher
       // had already said there was nothing to load. With it, `frag.gap` is set and the fragment is
       // skipped.
-      if (seg.gap) {
+      if (seg.gap || state.liveGapUris.has(seg.uri)) {
         lines.push(HLS_GAP);
       }
       // Passed through exactly as the publisher wrote it, never recomputed. It is the publisher's
@@ -334,6 +380,7 @@ export class ManifestStateManager {
         headers: [],
         segments: [],
         segmentUris: new Set(),
+        liveGapUris: new Set(),
         isFinalized: false,
         dirty: true,
         cachedManifest: '',
@@ -354,9 +401,10 @@ export class ManifestStateManager {
    * ⚠️ It is also why those recordings still fetch from the publisher's gateway no matter what their
    * viewer configured. That cannot be repaired from this side: the address is in the published bytes.
    *
-   * ⛔ A gap entry never reaches here. Its URI names nothing fetchable, so re-hosting it would put a
-   * real host in front of a token that stands for missing media, and every later reader would have to
-   * strip the host back off to see what it was. {@link serialize} passes it through instead.
+   * ⛔ A publisher's gap entry never reaches here. Its URI names nothing fetchable, so re-hosting it
+   * would put a real host in front of a token that stands for missing media, and every later reader
+   * would have to strip the host back off to see what it was. {@link serialize} passes it through
+   * instead. A segment this viewer marked as a gap does come through here, see `liveGapUris`.
    */
   private buildUri(uri: string, segmentUrl: SegmentUrl): string {
     if (uri.startsWith('http://') || uri.startsWith('https://') || uri.startsWith('/bytes/')) {
@@ -364,6 +412,14 @@ export class ManifestStateManager {
     }
     return segmentUrl(uri) ?? uri;
   }
+}
+
+/**
+ * Whether a URL hls.js loaded names the segment a playlist lists as `uri`: the same string for a
+ * recording that wrote absolute URLs, or a URL whose path ends in the bare reference the uploader writes.
+ */
+function namesSegment(url: string, uri: string): boolean {
+  return url === uri || url.endsWith(`/${uri}`);
 }
 
 /** A stream's ABR ladder, as the loader needs it: who owns the feeds, and what the rungs are. */
@@ -757,6 +813,20 @@ export class ManifestFetcher {
         return marker === null ? null : Object.keys(marker.rungs);
       },
     });
+  }
+
+  /**
+   * Marks a live segment hls.js could not load as a gap in the playlist served for its level, from that
+   * level's next reload on. See {@link ManifestStateManager.markLiveGap} for which segments qualify.
+   *
+   * @param levelUri The `swarm://` URI hls.js knows the level by, which names the feed it plays.
+   * @param fragmentUrl The URL hls.js loaded the segment from.
+   * @returns Whether a segment was marked.
+   */
+  markLiveSegmentGap(levelUri: string, fragmentUrl: string): boolean {
+    const { topic } = parseSwarmUri(levelUri);
+    const hexTopic = Topic.fromString(topic).toString();
+    return this.stateManager.markLiveGap(hexTopic, fragmentUrl, LIVE_GAP_NEWEST_SEGMENTS);
   }
 
   /** The master playlist for a registered ladder, or null when this source is single-rendition. */
