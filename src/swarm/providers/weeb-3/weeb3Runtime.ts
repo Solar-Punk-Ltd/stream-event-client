@@ -17,11 +17,13 @@ export const WEEB3_HEALTHY_PEERS = 200;
 export const WEEB3_PEER_POLL_MS = 500;
 
 /**
- * How long a node may take to find a peer before it counts as failed. A spike in headless Chrome found
- * its first peer in about 4 s, so this is several times that and short enough to give up on a network
- * that refuses it.
+ * How long a node may take to find its first peer before it counts as failed. A node usually finds one
+ * within seconds, so this leaves room for a slow network and still gives up on one that refuses it.
  */
 export const WEEB3_START_DEADLINE_MS = 30_000;
+
+/** How long the 2.2 MB module may take to download, a slow connection's worth, before the start fails. */
+export const WEEB3_DOWNLOAD_DEADLINE_MS = 60_000;
 
 export interface Weeb3Status {
   readonly state: ProviderState;
@@ -66,6 +68,7 @@ export class Weeb3Runtime {
   private poll: ReturnType<typeof setTimeout> | null = null;
   private generation = 0;
   private holders = 0;
+  private downloading: AbortController | null = null;
   private pendingStop: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: Weeb3RuntimeOptions = {}) {
@@ -154,6 +157,8 @@ export class Weeb3Runtime {
 
   async stop(): Promise<void> {
     const node = this.node;
+    this.downloading?.abort();
+    this.downloading = null;
     this.generation += 1;
     this.node = null;
     this.clearPoll();
@@ -195,8 +200,25 @@ export class Weeb3Runtime {
       }
     };
     progress(0, null);
+    const controller = new AbortController();
+    this.downloading = controller;
+    const deadline = setTimeout(() => controller.abort(), WEEB3_DOWNLOAD_DEADLINE_MS);
+    try {
+      return await this.read(controller.signal, progress);
+    } finally {
+      clearTimeout(deadline);
+      if (this.downloading === controller) {
+        this.downloading = null;
+      }
+    }
+  }
+
+  private async read(
+    signal: AbortSignal,
+    progress: (receivedBytes: number, totalBytes: number | null) => void,
+  ): Promise<Uint8Array<ArrayBuffer>> {
     const fetcher = this.fetcher;
-    const response = await fetcher(WASM_URL);
+    const response = await fetcher(WASM_URL, { signal });
     if (!response.ok) {
       throw new Error(`the node's module could not be downloaded: the server answered ${response.status}`);
     }
@@ -243,6 +265,8 @@ export class Weeb3Runtime {
       }
       const ready = this.current.state === 'ready' || (peers > 0 && this.isControlled());
       if (!ready && Date.now() >= deadlineMs) {
+        this.node = null;
+        node.free();
         this.set({ state: 'failed', peers });
         return;
       }

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   WEEB3_PEER_POLL_MS,
+  WEEB3_DOWNLOAD_DEADLINE_MS,
   WEEB3_START_DEADLINE_MS,
   Weeb3Runtime,
   type Weeb3Status,
@@ -159,6 +160,48 @@ describe('the node in this browser', () => {
     await vi.advanceTimersByTimeAsync(WEEB3_START_DEADLINE_MS);
 
     expect(runtime.status().state).toBe('failed');
+    expect(fake.nodes[0].freed, 'a node that never got a peer is let go').toBe(true);
+    await runtime.start();
+    expect(fake.nodes[0].freed).toBe(true);
+    expect(fake.nodes).toHaveLength(2);
+  });
+
+  it('fails, rather than freezing at a share, when the download stalls past its deadline', async () => {
+    const fake = fakeWeeb3Package();
+    const signals: AbortSignal[] = [];
+    const stalled = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      signals.push(init!.signal!);
+      return new Promise<Response>((_resolve, reject) =>
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))),
+      );
+    }) as typeof fetch;
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: stalled });
+
+    const starting = runtime.start().catch(() => 'failed');
+    await vi.advanceTimersByTimeAsync(WEEB3_DOWNLOAD_DEADLINE_MS);
+
+    expect(await starting).toBe('failed');
+    expect(runtime.status().state).toBe('failed');
+    expect(signals[0].aborted).toBe(true);
+  });
+
+  it('stops the download when the node is stopped', async () => {
+    const fake = fakeWeeb3Package();
+    const signals: AbortSignal[] = [];
+    const stalled = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      signals.push(init!.signal!);
+      return new Promise<Response>((_resolve, reject) =>
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))),
+      );
+    }) as typeof fetch;
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: stalled });
+
+    void runtime.start().catch(() => undefined);
+    await vi.advanceTimersByTimeAsync(0);
+    await runtime.stop();
+
+    expect(signals[0].aborted).toBe(true);
+    expect(runtime.status().state).toBe('stopped');
   });
 
   it('runs while anything holds it, and the last release stops and frees it', async () => {
