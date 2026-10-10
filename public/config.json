@@ -13,5 +13,8 @@
     "gsocTopic": "<GSOC topic>",
     "feedOwner": "<chat feed owner address>",
     "pollIntervalMs": 500
+  },
+  "weeb3": {
+    "enabled": false
   }
 }

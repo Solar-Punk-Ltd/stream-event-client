@@ -77,12 +77,19 @@ exception is the image's own `BEE_GATEWAY_URL` in direct mode, which the policy 
 | Field                       | What it is                                                                                                                                                                                                                    |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `providers.gateways`        | The gateways offered, at least one. Each has an `id`, a `kind`, an optional `label` and its own settings                                                                                                                      |
-| `providers.gateways[].kind` | `bee-http`, a Bee node's HTTP API, the only kind this build carries. A kind the build does not carry is refused                                                                                                               |
+| `providers.gateways[].kind` | `bee-http`, a Bee node's HTTP API, the only kind a deployment may offer as a gateway. Any other kind is refused                                                                                                               |
 | `providers.gateways[].url`  | For `bee-http`: a path on this site such as `/bee`, or an http or https address, as `gatewayUrl` takes                                                                                                                        |
 | `providers.default`         | The `id` of the gateway every reader starts on                                                                                                                                                                                |
 | `providers.fallback`        | Optional. The `id` of another gateway, or a list of them in order, asked when the one in use fails. The default gateway is always asked last. Just the default when absent, and none when `false`                             |
 | `providers.kinds`           | Optional. The kinds a viewer may add a gateway of their own of. Every kind the build carries when absent                                                                                                                      |
 | `providers.beeNodes`        | Optional. How far a Bee node of the viewer's own may be: `off`, this computer only, the default. `https`, also any https address. `https-and-local-http`, also plain http on the local network. Match the image's `BEE_NODES` |
+
+The `weeb3` block lets a viewer run a Swarm node in their own browser, described under
+[The node in this browser](#the-node-in-this-browser-weeb-3). Off unless set.
+
+| Field           | What it is                                                                                                                         |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `weeb3.enabled` | `true` offers "Node in this browser (weeb-3)" on the Sources screen. Needs the image's `WEEB3=on`, or the page's policy refuses it |
 
 Serve `config.json` with `Cache-Control: no-store`, so a changed setting reaches every page opened
 after the change.
@@ -165,6 +172,7 @@ docker run -p 8080:80 \
 | `CHAT_WRITE_URL`     | The chat's write endpoint, the same as `chat.writeUrl`, allowed the same way. The one `CHAT_BEE_URL` of before stops the container                                                                              |
 | `EXTRA_GATEWAY_URLS` | Optional. The addresses of the further gateways `config.json` offers in `providers.gateways`, separated by spaces, each with no path. The page is allowed to reach each of them, in either mode                 |
 | `BEE_NODES`          | Optional. Which Bee nodes of their own a viewer may watch through: `off`, the default, `https` or `https-and-local-http`. See below                                                                             |
+| `WEEB3`              | Optional. `on` serves the node in the browser's files at `/weeb-3/` and widens the policy for it, `off`, the default, serves neither. Match `weeb3.enabled` in `config.json`. See below                         |
 | `config.json`        | Mounted over the image's example at `/usr/share/nginx/html/config.json`. Without it the page shows the example's placeholders as a configuration problem                                                        |
 
 A setting that is missing or malformed stops the container at start, and its log says which one.
@@ -193,6 +201,18 @@ a node by its numeric address.
 
 Any other value stops the container at start and names the three levels. Blob URLs stay media, image
 and worker sources at every level and are never added to what the page connects to.
+
+### The node in the browser
+
+`WEEB3=on` serves weeb-3's files under `/weeb-3/`: the WebAssembly module as `application/wasm`, and its
+service worker at `/weeb-3/service.js` with `Service-Worker-Allowed: /`, because the worker answers the node's
+`/weeb-3/...` routes for a page anywhere on the site. Every file there is answered `no-cache` and a missing one is a
+404, never the page. It adds two sources to the policy and nothing else: `'wasm-unsafe-eval'` to `script-src`, so the
+page and its workers may compile the module, and `wss:` to `connect-src`, so the node can reach its peers. That is
+every secure websocket host, on purpose. The package's mainnet bootnodes are all `*.libp2p.direct` names, which
+`wss://*.libp2p.direct:*` would cover, but the node also dials any peer that announces a public DNS name with TLS, and
+a narrower list would refuse those. Off, `/weeb-3/` is a plain 404 and the policy is exactly as above. weeb-3 keeps
+every route under `/weeb-3/` at the site's root, so a deployment that offers it serves the viewer at the root.
 
 A `v*` tag publishes the image, built for amd64, as `ghcr.io/solar-punk-ltd/stream-event-client:<tag>`
 (`.github/workflows/image.yml`). A deployment pins it by the digest that tag resolves to. No tag ever
@@ -338,6 +358,9 @@ once and is kept in the browser.
   `checkSentences.ts` with its test. The actions that apply sit on the status line's right: Use for a
   source not in use, Retest, and Rename and Remove for a source the viewer added, since an offered
   source cannot be renamed or removed.
+- **The node in this browser.** Where `weeb3.enabled` is set, "Node in this browser (weeb-3)" is a tile of
+  its own. It takes a name and no address, is added at once, once per browser, and has no Test. Its row shows a
+  status line where another source shows its host: starting, how many peers, ready, or failed to start.
 - **Adding a source.** A tile per type. A Bee node's address holds to `providers.beeNodes` as described
   under the image. A gateway is an https address under the same rules, so it is greyed with its reason
   on a site at `off`, and a type whose provider kind `providers.kinds` leaves out is greyed too. A Bee
@@ -355,16 +378,47 @@ once and is kept in the browser.
 What the browser keeps, in `localStorage`, every read and write guarded so a refusal leaves the
 deployment's defaults for that visit:
 
-| Key                    | What it holds                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------- |
-| `swarm-sources`        | The sources the viewer added: id, type (`gateway` or `bee-node`), name, address |
-| `swarm-routing`        | One source or per part, the source picked, each part's source, and the link     |
-| `swarm-fallback-order` | The viewer's order of the deployment's fallbacks                                |
-| `swarm-gateway-url`    | The one address saved before sources existed. Read once and moved, then removed |
+| Key                    | What it holds                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `swarm-sources`        | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3` |
+| `swarm-routing`        | One source or per part, the source picked, each part's source, and the link                                  |
+| `swarm-fallback-order` | The viewer's order of the deployment's fallbacks                                                             |
+| `swarm-gateway-url`    | The one address saved before sources existed. Read once and moved, then removed                              |
 
 An address saved under `swarm-gateway-url` that an offered gateway has becomes a choice of that
 gateway. Any other becomes an added Bee node named "My Bee node", in use, so a viewer keeps reading
 where they read before.
+
+## The node in this browser (weeb-3)
+
+weeb-3 (`@lat-murmeldjur/weeb_3`) is a Swarm node compiled to WebAssembly that runs inside the viewer's tab, so a
+viewer can watch without any gateway. A page runs one node, behind a shared worker, and everything that uses weeb-3
+shares it (`src/swarm/providers/weeb-3/weeb3Runtime.ts`). It is ready once it has a peer and its service worker
+controls the page, and counts as failed with no peer after 30 s.
+
+- **Loaded only when picked.** The package is imported from one module, `weeb3Module.ts`, as a chunk of its own,
+  so the first page load carries none of it. Until the package passes this repository's one-week install wait,
+  that module names a stand-in of the package's shape, `weeb3StandIn.ts`, which refuses to start. A deployment that
+  switches weeb-3 on before then sees the node fail and the video fall back. Once the package is installed, the one
+  import in `weeb3Module.ts` names `@lat-murmeldjur/weeb_3`, the stand-in goes, and the build copies the package's
+  files to `/weeb-3/` (`scripts/weeb3-files.mjs`). Without the package the build says it copied none.
+- **The video, in weeb-3's own player.** With weeb-3 as the video's source the watch page plays the stream with
+  weeb-3's player, bare: a video element with the browser's controls and weeb-3's own choice of quality, from the
+  newest entry for a live stream and the beginning for a finished one, and none of this app's overlays or `?level=`.
+  A plain line says the node is starting until the first picture. weeb-3's limits are its own: it plays about 16 s
+  behind live, does not leave a quality that stopped, does not notice a broadcast that returns, and plays one stream
+  across the browser's tabs.
+- **Falling back.** If no picture comes within 30 s, about twice weeb-3's cold start of 4 s to a peer and 11 s to a
+  first frame, or the player cannot load or attach, the app's player takes over for that page, reading from the next
+  source in the fallback order. The app's player always passes over a video source that brings its own player.
+- **Reads.** As a source for the stream list, the previews or the chat, weeb-3 reads through its service worker's
+  routes: `/weeb-3/chunks/` for a chunk, a feed entry or a single-owner chunk, `/weeb-3/bytes/` for bytes, and
+  segment URLs on its caching route `/weeb-3/hls/bytes/`. weeb-3 puts a chunk's 8-byte span before bytes and before a
+  single-owner chunk's payload, which Bee leaves out, so it is taken off. It has no feed head lookup, so a head read
+  goes to the next source. A single-owner chunk read by its address comes back without the identifier and signature
+  that prove it the owner's, so the chat's slot reads, which check that, go to the next source too, and the chat
+  works on weeb-3 only as well as its fallback does. A missing chunk takes weeb-3 about 17 s to give up on, longer
+  than a read's 10 s window, so it ends as a timeout.
 
 ## How the player reads Swarm
 

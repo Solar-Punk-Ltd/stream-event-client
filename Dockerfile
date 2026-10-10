@@ -1,5 +1,5 @@
 # The viewer as one image for every deployment. The settings a deployment differs by are read at start: config.json,
-# mounted at /usr/share/nginx/html/config.json, and the three variables deploy/nginx/40-gateway-and-policy.sh reads.
+# mounted at /usr/share/nginx/html/config.json, and the variables deploy/nginx/40-gateway-and-policy.sh reads.
 # Base images are pinned by digest, the tag in front of it.
 FROM node:24.21.0-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS build
 WORKDIR /app
