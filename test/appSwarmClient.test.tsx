@@ -235,6 +235,26 @@ describe("the app's Swarm client", () => {
     ).toEqual([{ feature: 'player', read: 'feed-head', provider: id, answer: 'not-found', count: 1 }]);
   });
 
+  it('hands the player a reader that passes over the node in this browser, which plays the video with its own player', async () => {
+    start({ weeb3: { enabled: true } });
+    await settle();
+    const id = current().addSource({ type: 'weeb-3', name: '', url: '' });
+    await settle();
+    current().setRouting(chooseSource(current().routing, id));
+    await settle();
+    const before = asked.length;
+
+    await manifestFetcher.fetchSource(SOURCE_URL).catch(() => {});
+
+    expect(current().swarm.ownPlayer('player')?.id).toBe(id);
+    expect(asked.slice(before)).toEqual([`${BACKUP_GATEWAY}/feeds/${STREAM_OWNER}/${STREAM_TOPIC_HEX}`]);
+    expect(
+      current()
+        .swarm.counts()
+        .filter(({ provider }) => provider === id),
+    ).toEqual([]);
+  });
+
   it("reads the chat from the event's chat read address, whichever node the viewer picked", async () => {
     const { chatReads } = start({ chat: CHAT });
     await settle();

@@ -56,7 +56,7 @@ export interface ProviderStatus {
 }
 
 /** Where a player starts a stream: at its newest entry, or at the first it can rebuild. */
-type PlaybackStart = 'live' | 'beginning';
+export type PlaybackStart = 'live' | 'beginning';
 
 /** A player a provider brings with it, which plays a stream into a video element the page owns. */
 export interface OwnPlayer {

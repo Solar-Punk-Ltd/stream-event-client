@@ -60,7 +60,6 @@ export const ADDRESS_PLACEHOLDERS: Readonly<Record<SourceType, string>> = {
   'weeb-3': '',
 };
 
-
 /** What the chat reads from unless a viewer picks another source for it. */
 export const CHAT_SERVICE_NAME = 'Event chat service';
 

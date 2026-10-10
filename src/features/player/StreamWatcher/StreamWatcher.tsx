@@ -1,12 +1,19 @@
 import { Link, useParams, useSearchParams } from 'react-router';
 
+import { OwnPlayerStage } from '@/features/player/OwnPlayerStage';
 import { SwarmHlsPlayer } from '@/features/player/SwarmHlsPlayer';
 import { useAppContext } from '@/app/AppProvider';
 import type { SwarmClient } from '@/swarm/client';
 import { watchPageCatalogPollMs } from '@/features/catalog/catalogPoll';
 import { useCatalogPoll } from '@/features/catalog/useCatalogPoll';
 import { ROUTES } from '@/app/routes';
-import { MEDIA_TYPE_AUDIO, MEDIA_TYPE_VIDEO, MediaType, STREAM_STATUS_SCHEDULED } from '@/features/catalog/stream';
+import {
+  MEDIA_TYPE_AUDIO,
+  MEDIA_TYPE_VIDEO,
+  MediaType,
+  STREAM_STATUS_SCHEDULED,
+  STREAM_STATUS_VOD,
+} from '@/features/catalog/stream';
 import { playableRenditions } from '@/features/player/playableRenditions';
 import { scheduledStartMs } from '@/features/catalog/scheduledStart';
 import { WATCH_VIEW_PLAYER, watchPageDescription, watchPageView } from '@/features/catalog/watchPageView';
@@ -83,20 +90,40 @@ export function StreamWatcher() {
   // yet, so a player there polls a slot nobody writes and loads for ever. See `watchPageView`.
   const description = stream ? watchPageDescription(stream) : null;
 
+  const ourPlayer = (
+    <SwarmHlsPlayer
+      owner={owner}
+      topicString={topic}
+      mediaType={mediatype}
+      enableQoeOverlay={enableQoeOverlay}
+      renditions={playableRenditions(stream)}
+      level={level}
+      onLadderShort={readNextStreamListSlot}
+    />
+  );
+  // A video source that brings its own player plays bare, and the app's player, reading from the next
+  // source in the fallback order, takes over only when it shows nothing.
+  const ownPlayer = swarm.ownPlayer('player');
+  const player = ownPlayer ? (
+    <OwnPlayerStage
+      key={`${ownPlayer.id}/${streamKey}`}
+      load={ownPlayer.load}
+      owner={owner}
+      topic={topic}
+      from={stream?.state === STREAM_STATUS_VOD ? 'beginning' : 'live'}
+      startingNotice="Starting the Swarm node in this browser"
+      fallback={ourPlayer}
+    />
+  ) : (
+    ourPlayer
+  );
+
   return (
     <WatchLayout
       back={back}
       stage={
         view === WATCH_VIEW_PLAYER ? (
-          <SwarmHlsPlayer
-            owner={owner}
-            topicString={topic}
-            mediaType={mediatype}
-            enableQoeOverlay={enableQoeOverlay}
-            renditions={playableRenditions(stream)}
-            level={level}
-            onLadderShort={readNextStreamListSlot}
-          />
+          player
         ) : (
           <WatchPlaceholder
             view={view}

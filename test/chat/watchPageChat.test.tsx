@@ -16,7 +16,12 @@ vi.mock('@solarpunkltd/swarm-chat-js', async (importActual) => {
 });
 
 const appContext = vi.hoisted(() => ({
-  value: { streamList: [], isStreamListLoaded: true, chat: null as ChatConfig | null },
+  value: {
+    streamList: [],
+    isStreamListLoaded: true,
+    chat: null as ChatConfig | null,
+    swarm: { ownPlayer: () => null },
+  },
 }));
 
 vi.mock('../../src/app/AppProvider', () => ({ useAppContext: () => appContext.value }));

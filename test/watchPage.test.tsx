@@ -12,13 +12,18 @@ const TOPIC = 'stream-one';
 const DAY = 24 * 60 * 60 * 1000;
 
 const appContext = vi.hoisted(() => ({
-  value: { streamList: [] as unknown[], isStreamListLoaded: true, chat: null, readNextStreamListSlot: () => {} },
+  value: {
+    streamList: [] as unknown[],
+    isStreamListLoaded: true,
+    chat: null,
+    readNextStreamListSlot: () => {},
+  } as Record<string, unknown>,
 }));
 
 vi.mock('../src/app/AppProvider', async () => {
   const { gatewaySwarm } = await import('./helpers/gatewaySwarm');
   const swarm = gatewaySwarm('/bee');
-  return { useAppContext: () => ({ ...appContext.value, swarm }) };
+  return { useAppContext: () => ({ swarm, ...appContext.value }) };
 });
 const seen = vi.hoisted(() => ({
   pollMs: [] as (number | null)[],
@@ -63,6 +68,7 @@ function openWatchPage(entry: Partial<Stream> & Record<string, unknown>) {
 }
 
 afterEach(() => {
+  delete appContext.value.swarm;
   seen.pollMs.length = 0;
   seen.player = null;
   mounted?.unmount();
@@ -137,5 +143,47 @@ describe('the watch page', () => {
     mounted?.render(watchPage());
     expect(seen.player?.renditions?.map((r) => r.name)).toEqual(['360p', '480p', '720p', '1080p']);
     expect(seen.pollMs.every((pollMs) => pollMs === null)).toBe(true);
+  });
+
+  describe('with a video source that brings its own player', () => {
+    function withOwnPlayer() {
+      const attached: { from: string; topic: string }[] = [];
+      appContext.value = {
+        ...appContext.value,
+        swarm: {
+          ownPlayer: (feature: string) =>
+            feature === 'player'
+              ? {
+                  id: 'added-1',
+                  load: async () => ({
+                    attach: async (_video: HTMLVideoElement, _owner: string, topic: string, from: string) =>
+                      void attached.push({ topic, from }),
+                  }),
+                }
+              : null,
+          reader: () => ({ urlFor: () => null }),
+        },
+      };
+      return attached;
+    }
+
+    it("plays through that player instead of the app's, live from the newest entry", async () => {
+      const attached = withOwnPlayer();
+      openWatchPage({ state: 'live' });
+      await act(async () => {});
+
+      expect(seen.player).toBeNull();
+      expect(document.querySelector('.own-player video')).not.toBeNull();
+      expect(attached).toEqual([{ topic: TOPIC, from: 'live' }]);
+      expect(document.querySelector('[role="status"]')?.textContent).toBe('Starting the Swarm node in this browser');
+    });
+
+    it('plays a finished stream from its beginning', async () => {
+      const attached = withOwnPlayer();
+      openWatchPage({ state: 'vod' });
+      await act(async () => {});
+
+      expect(attached).toEqual([{ topic: TOPIC, from: 'beginning' }]);
+    });
   });
 });
