@@ -60,9 +60,10 @@ export interface GapPlayer {
  * since its error controller and stream controller subscribed first. A fatal error is the case that
  * used to end in a restart: hls.js has stopped loading, so the fragment it holds is marked a gap the
  * way a `GAP` tag would have marked it, and loading is started again from the playhead. A non-fatal
- * error on a fragment hls.js has set `gap` on is one it skipped by itself after its retries, with no
- * other level left to try (`base-stream-controller.ts`, `treatAsGap`). That skip is not remembered
- * across a reload, so it is written into the playlist too. Any other non-fatal error is still being
+ * error on a fragment hls.js has set `gap` on is one it skipped by itself: after its retries with no
+ * other level left to try, or at once for a fragment it found no media in (`base-stream-controller.ts`,
+ * `treatAsGap`, called from `onFragmentOrKeyLoadError` and from `updateLevelTiming`). That skip is not
+ * remembered across a reload, so it is written into the playlist too. Any other non-fatal error is still being
  * retried, or hls.js is moving to another level, and is left alone.
  *
  * @param playheadS Where the video is, read by the caller before anything here runs.
