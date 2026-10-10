@@ -403,15 +403,20 @@ controls the page, and counts as failed with no peer after 30 s.
 
 - **Loaded only when picked.** The package is imported from one module, `weeb3Module.ts`, as a chunk of its own,
   so the first page load carries none of it. The build copies the package's browser files, its service worker,
-  shared worker and WebAssembly module, to `/weeb-3/` (`scripts/weeb3-files.mjs`).
+  shared worker and WebAssembly module, to `/weeb-3/` (`scripts/weeb3-files.mjs`). The bundle carries no copy of
+  the module of its own.
+- **When it runs.** The node runs while something holds it: the video while weeb-3 is its source, the watch page's
+  player while it shows, and the Sources screen from adding it until the screen closes. Listing a saved one starts
+  nothing. When the last of them lets go, as when the video moves to another source or the source is removed, the
+  node is stopped and freed. A saved weeb-3 source is left out once the deployment switches weeb-3 off.
 - **Getting ready.** The page downloads the 2.2 MB WebAssembly module itself, reading it as it streams, so the
   Sources screen's row and the watch page can show how much has arrived against the length the server names. It
   hands the bytes to the package, then reports starting, connecting with its peer count, and ready.
 - **The video, in weeb-3's own player.** With weeb-3 as the video's source the watch page plays the stream with
   weeb-3's player, bare: a video element with the browser's controls and weeb-3's own choice of quality, from the
   newest entry for a live stream and the beginning for a finished one, and none of this app's overlays or `?level=`.
-  Until the node is ready a plain line shows its download and its peers. Nothing replaces weeb-3's player: one that
-  cannot load or attach says "The Swarm node in this browser could not play this stream." and stays. weeb-3's limits
+  Until the node is ready a plain line shows its download and its peers, and the stream is attached only once it
+  is. Nothing replaces weeb-3's player: one whose node fails, or that cannot attach, says "The Swarm node in this browser could not play this stream." and stays. weeb-3's limits
   are its own: it plays about 16 s behind live, does not leave a quality that stopped, does not notice a broadcast
   that returns, and plays one stream across the browser's tabs.
 - **No switching.** A part that reads from weeb-3 reads from it alone. None of its reads is handed to another source
