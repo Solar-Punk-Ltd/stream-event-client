@@ -5,13 +5,13 @@ import { PREVIEW_ORIGIN } from './recording';
 
 /**
  * The browser suites: the built app, one real browser, and no node, no network and no server other than the app's own.
- * The smoke test replays every Bee answer from `e2e/recorded/`, and the ladder and Sources screen journeys answer from a
- * fake gateway that publishes a live stream in four qualities. `pnpm e2e` builds the app first. They check that the journeys work, never
- * how fast they are.
+ * The smoke test replays every Bee answer from `e2e/recorded/`, and the ladder, Sources screen and weeb-3 journeys
+ * answer from a fake gateway that publishes a live stream in four qualities. `pnpm e2e` builds the app first. They
+ * check that the journeys work, never how fast they are.
  */
 export default defineConfig({
   testDir: '.',
-  testMatch: ['smoke.e2e.ts', 'ladder.e2e.ts', 'panel.e2e.ts'],
+  testMatch: ['smoke.e2e.ts', 'ladder.e2e.ts', 'panel.e2e.ts', 'weeb3.e2e.ts'],
   outputDir: '../test-results/playwright',
   timeout: 90_000,
   // One worker, which keeps a CI runner's core count from deciding how many browsers start, and keeps the ladder
