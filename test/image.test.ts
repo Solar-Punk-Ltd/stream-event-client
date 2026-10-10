@@ -283,6 +283,12 @@ describe('the image server', () => {
     expect(location('location /assets/')).toContain('max-age=31536000, immutable');
   });
 
+  it("compresses weeb-3's WebAssembly module and scripts, which /weeb-3/ serves under their own types", () => {
+    const types = SERVER.match(/gzip_types ([^;]+);/)?.[1].split(' ') ?? [];
+
+    expect(types).toEqual(expect.arrayContaining(['application/wasm', 'text/javascript', 'application/javascript']));
+  });
+
   it('includes what the start-up script writes for weeb-3', () => {
     expect(SERVER).toContain('include /etc/nginx/stream-event-client/weeb3.conf;');
   });
