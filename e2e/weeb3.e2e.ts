@@ -96,9 +96,6 @@ test('a weeb-3 node that fails says so on the watch page, and the video stays on
   const gateway = new LadderGateway({ servesMaster: true });
   await openWatchPage(page, gateway, FAILING_WEEB3, 'Failed to start');
 
-  await expect(page.locator('.own-player-words')).toHaveText(
-    'The Swarm node in this browser could not play this stream.',
-    { timeout: 20_000 },
-  );
+  await expect(page.locator('.own-player-words')).toHaveText('Failed to start', { timeout: 20_000 });
   await expect(page.locator('.swarm-hls-player-wrapper'), "the app's player never takes its place").toHaveCount(0);
 });

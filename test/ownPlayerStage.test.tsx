@@ -168,6 +168,16 @@ describe("a source's own player", () => {
     expect(attached).toEqual([]);
   });
 
+  it('says the node failed to start, rather than that the stream could not play, when the node itself failed', async () => {
+    nodeStatus = { state: 'failed', peers: 0, healthyPeers: 200 };
+    render(async () => {
+      throw new Error('the node in this browser failed to start');
+    });
+    await wait(0);
+
+    expect(line()).toBe('Failed to start');
+  });
+
   it('says the same when the player cannot load', async () => {
     render(async () => {
       throw new Error('the chunk did not load');
