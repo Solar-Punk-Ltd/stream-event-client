@@ -39,6 +39,7 @@
 }
 
 .stream-card-title {
+  overflow-wrap: anywhere;
   margin-bottom: var(--spacing-base);
   font-size: var(--font-size-title-sm);
   line-height: var(--line-height-snug);
@@ -50,6 +51,7 @@
 }
 
 .stream-card-description {
+  overflow-wrap: anywhere;
   font-size: var(--font-size-base);
   line-height: var(--line-height-normal);
   color: var(--color-text-secondary);
