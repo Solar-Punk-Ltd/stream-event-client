@@ -364,8 +364,9 @@ once and is kept in the browser.
   part.", and per part it can be picked for the video, with the stream list, previews and chat offering it greyed
   as "Video only for now". A saved setting that puts it on another part, from an older visit, reads that part from
   the deployment's default instead. Its row shows how far the node has got where another source shows its host:
-  the module's download as a percentage, then starting, connecting with its peers, ready with its peers, or failed
-  to start.
+  the module's download as a percentage, then "Starting", "Connecting, N of 200 peers", and once ready "N of 200
+  peers", which keeps climbing, or "Failed to start". Under 200 one short note says "200 peers is the healthy
+  target", and it goes at 200.
 - **Adding a source.** A tile per type. A Bee node's address holds to `providers.beeNodes` as described
   under the image. A gateway is an https address under the same rules, so it is greyed with its reason
   on a site at `off`, and a type whose provider kind `providers.kinds` leaves out is greyed too. A Bee
@@ -411,12 +412,15 @@ controls the page, and counts as failed with no peer after 30 s.
   node is stopped and freed. A saved weeb-3 source is left out once the deployment switches weeb-3 off.
 - **Getting ready.** The page downloads the 2.2 MB WebAssembly module itself, reading it as it streams, so the
   Sources screen's row and the watch page can show how much has arrived against the length the server names. It
-  hands the bytes to the package, then reports starting, connecting with its peer count, and ready.
+  hands the bytes to the package, then reports starting, then connecting with its peers counted against 200,
+  weeb-3's own connection target (`CONNECTION_BUILDUP_LIMIT` in its `src/accounting.rs`, which its project README
+  says drops to four fifths for every 100 lost connections, down to 30). The node is ready at its first peer, so
+  the video does not wait for the rest, and the count keeps building up after that.
 - **The video, in weeb-3's own player.** With weeb-3 as the video's source the watch page plays the stream with
   weeb-3's player, bare: a video element with the browser's controls and weeb-3's own choice of quality, from the
   newest entry for a live stream and the beginning for a finished one, and none of this app's overlays or `?level=`.
-  Until the node is ready a plain line shows its download and its peers, and the stream is attached only once it
-  is. Nothing replaces weeb-3's player: one whose node fails, or that cannot attach, says "The Swarm node in this browser could not play this stream." and stays. weeb-3's limits
+  One quiet line under the player, never over the video, shows the download, then the peers out of 200 with the
+  same note under 200, for as long as weeb-3 plays. The stream is attached once the node is ready. Nothing replaces weeb-3's player: one whose node fails, or that cannot attach, says "The Swarm node in this browser could not play this stream." and stays. weeb-3's limits
   are its own: it plays about 16 s behind live, does not leave a quality that stopped, does not notice a broadcast
   that returns, and plays one stream across the browser's tabs.
 - **No switching.** A part that reads from weeb-3 reads from it alone. None of its reads is handed to another source
