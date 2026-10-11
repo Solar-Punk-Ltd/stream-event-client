@@ -337,7 +337,8 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   `#EXT-X-GAP` in the playlist it serves hls.js. hls.js gives up after its own retries with no other
   quality left to try, or at once on a segment it finds no media in. The video skips that segment's picture,
   about one segment long, instead of freezing or restarting the player, and every later reload of that playlist
-  says the same. At most four segments are skipped this way in any five minutes. Past that, or for
+  says the same. At most four segments of one stream are skipped this way in any five minutes, and a stream opened
+  after another starts with all four. Past that, or for
   an older segment, a finished broadcast or a recording, the player handles the error as it always
   did: hls.js's own skip stands for a segment it gave up on, and a fatal network error restarts the
   player. While another quality is left, a segment that failed to load is tried there instead and
