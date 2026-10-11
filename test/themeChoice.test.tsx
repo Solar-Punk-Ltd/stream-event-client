@@ -9,7 +9,7 @@ import { nicknameLogin } from '../src/features/chat/auth/login';
 import { persistUserSession } from '../src/features/chat/auth/persistence';
 import { LoginButton } from '../src/features/chat/LoginButton/LoginButton';
 import { ChatUserProvider } from '../src/features/chat/User';
-import { button, click, dialog, mount, queryButton, type Mounted } from './helpers/dom';
+import { button, click, dialog, mount, press, queryButton, type Mounted } from './helpers/dom';
 import { minimalConfig, withThemeChoice } from './helpers/themeChoice';
 
 const REFUSING: BrowserStorage = {
@@ -148,5 +148,43 @@ describe('the theme switcher in the header', () => {
     for (const name of THEME_NAMES) {
       expect(themeOption(name)).toBeNull();
     }
+  });
+
+  it('does not wear a kept pick on a deployment that has the switcher off', () => {
+    saveThemeChoice('swarm');
+    header(minimalConfig({ theme: 'web3privacy', themeSwitcher: false }));
+
+    expect(document.documentElement.dataset.theme).toBe('web3privacy');
+    expect(loadThemeChoice()).toBe('swarm');
+  });
+});
+
+describe('the theme switcher from the keyboard', () => {
+  it('is one Tab stop, the checked option', () => {
+    persistUserSession(nicknameLogin('Ada'));
+    header(minimalConfig({ theme: 'swarm' }));
+    click(button(/^Ada/));
+
+    expect(themeOption('swarm')?.tabIndex).toBe(0);
+    expect(themeOption('web3privacy')?.tabIndex).toBe(-1);
+  });
+
+  it('moves the pick and the focus with the arrows, wrapping at the ends', () => {
+    persistUserSession(nicknameLogin('Ada'));
+    header(minimalConfig({ theme: 'swarm' }));
+    click(button(/^Ada/));
+
+    press(themeOption('swarm') as HTMLButtonElement, 'ArrowDown');
+    expect(document.documentElement.dataset.theme).toBe('web3privacy');
+    expect(document.activeElement).toBe(themeOption('web3privacy'));
+    expect(themeOption('web3privacy')?.tabIndex).toBe(0);
+
+    press(themeOption('web3privacy') as HTMLButtonElement, 'ArrowDown');
+    expect(document.documentElement.dataset.theme).toBe('swarm');
+    expect(document.activeElement).toBe(themeOption('swarm'));
+
+    press(themeOption('swarm') as HTMLButtonElement, 'End');
+    expect(document.documentElement.dataset.theme).toBe(THEME_NAMES[THEME_NAMES.length - 1]);
+    expect(loadThemeChoice()).toBe(THEME_NAMES[THEME_NAMES.length - 1]);
   });
 });

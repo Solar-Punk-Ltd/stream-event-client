@@ -1,11 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { useThemeChoice } from '@/app/ThemeChoiceProvider';
-import { THEME_LABELS, THEME_NAMES } from '@/design/themeNames';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { Dialog } from '@/shared/components/Dialog/Dialog';
 
 import { useChatUser } from '../User';
+
+import { ThemeOptions } from './ThemeOptions';
 
 import '../LoginModal/LoginModal.scss';
 import './LoginButton.scss';
@@ -20,7 +21,7 @@ const KEY_ESCAPE = 'Escape';
  */
 export function LoginButton() {
   const { session, setIsLoginModalOpen, logout } = useChatUser();
-  const { look, canSwitch, chooseLook } = useThemeChoice();
+  const { canSwitch } = useThemeChoice();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isConfirmingLogout, setIsConfirmingLogout] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -76,31 +77,7 @@ export function LoginButton() {
 
       {isMenuOpen && (
         <div id={menuId} className="login-dropdown">
-          {canSwitch && (
-            <div role="radiogroup" aria-label="Theme" className="login-dropdown-group">
-              <p className="login-dropdown-heading" aria-hidden="true">
-                Theme
-              </p>
-              {THEME_NAMES.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  role="radio"
-                  aria-checked={look === name}
-                  className="login-dropdown-item login-dropdown-theme"
-                  onClick={() => chooseLook(name)}
-                >
-                  <span className="theme-swatch" data-theme-preview={name} aria-hidden="true" />
-                  {THEME_LABELS[name]}
-                  {look === name && (
-                    <span className="login-dropdown-check" aria-hidden="true">
-                      ✓
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+          {canSwitch && <ThemeOptions />}
           <button
             type="button"
             className="login-dropdown-item"

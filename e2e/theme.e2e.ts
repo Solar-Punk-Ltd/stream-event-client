@@ -94,8 +94,14 @@ test("a logged-in viewer switches the look, keeps the deployment's words, and ke
     await page.setViewportSize({ width: 1280, height: 720 });
   }
 
+  // The arrows move the pick from the checked option, wrapping past the last theme.
   const group = await openNameMenu(page);
-  await group.getByRole('radio', { name: THEME_LABELS.web3privacy, exact: true }).click();
+  await group.getByRole('radio', { checked: true }).focus();
+  await page.keyboard.press('ArrowDown');
+  expect((await wornTheme(page)).theme, 'ArrowDown wraps to the first theme').toBe(THEME_NAMES[0]);
+  await expect(group.getByRole('radio', { name: THEME_LABELS[THEME_NAMES[0]], exact: true })).toBeFocused();
+  await page.keyboard.press('End');
+  expect((await wornTheme(page)).theme).toBe('web3privacy');
   await page.reload();
   expect((await wornTheme(page)).theme, 'the pick survives a reload').toBe('web3privacy');
 
