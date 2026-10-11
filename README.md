@@ -429,8 +429,9 @@ controls the page, and counts as failed when it is not ready after 30 s.
   nothing. When the last of them lets go, as when the video moves to another source or the source is removed, the
   node is stopped and freed. A saved weeb-3 source is left out once the deployment switches weeb-3 off.
 - **Getting ready.** The page downloads the 2.2 MB WebAssembly module itself, reading it as it streams, so the
-  Sources screen's row and the watch page can show how much has arrived against the length the server names. It
-  hands the bytes to the package, then reports starting, then connecting with its peers counted against 200,
+  Sources screen's row and the watch page can show how much has arrived against the length the server names. A
+  download that has not finished after 60 s, or whose package fails to load, is stopped and the node counts as
+  failed. It hands the bytes to the package, then reports starting, then connecting with its peers counted against 200,
   weeb-3's own connection target (`CONNECTION_BUILDUP_LIMIT` in its `src/accounting.rs`, which its project README
   says drops to four fifths for every 100 lost connections, down to 30). The node is ready at its first peer, so
   the video does not wait for the rest, and the count keeps building up after that.
