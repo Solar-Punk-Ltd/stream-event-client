@@ -10,7 +10,12 @@ import { Topic } from '@ethersphere/bee-js';
 import { ErrorDetails, ErrorTypes, type ErrorData, PlaylistLevelType } from 'hls.js';
 import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
-import { LiveGapBudget, LiveGapBudgetPerStream, skipFailedLiveSegment, type GapPlayer } from '../src/features/player/liveSegmentGaps';
+import {
+  LiveGapBudget,
+  LiveGapBudgetPerStream,
+  skipFailedLiveSegment,
+  type GapPlayer,
+} from '../src/features/player/liveSegmentGaps';
 import { ManifestFetcher, ManifestStateManager, SEGMENTS_AS_WRITTEN } from '../src/features/player/ManifestManagement';
 import { LIVE_GAP_LIMIT, LIVE_GAP_NEWEST_SEGMENTS, LIVE_GAP_WINDOW_MS } from '../src/features/player/playerConfig';
 import { buildSwarmUri, parseManifest } from '../src/features/player/playlist';
