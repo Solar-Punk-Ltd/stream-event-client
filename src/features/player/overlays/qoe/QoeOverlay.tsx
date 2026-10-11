@@ -207,6 +207,7 @@ const QoePanel: React.FC<{ metrics: QoeMetrics }> = ({ metrics: m }) => {
       <Section title="Reliability">
         <Row label="Fatal Errors" value={String(m.fatalErrorCount)} bad={m.fatalErrorCount > 0} />
         <Row label="Fatal Error Rate" value={m.fatalErrorCount > 0 ? 'yes' : 'none'} bad={m.fatalErrorCount > 0} />
+        <Row label="Segments Skipped" value={String(m.segmentsSkipped)} bad={m.segmentsSkipped > 0} />
         <Row label="Session Complete" value={m.sessionCompleted ? 'yes' : 'in progress'} />
         <Row label="Startup Failure Rate" value={m.startupFailed ? 'failed' : 'ok'} bad={m.startupFailed} />
         <Row label="Reconnect Attempts" value={String(m.reconnectAttempts)} />
