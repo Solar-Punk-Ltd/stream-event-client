@@ -183,6 +183,8 @@ export class Weeb3Runtime {
       return node;
     } catch (error) {
       if (generation === this.generation) {
+        // `Promise.all` gives up on the first rejection and leaves the other half running.
+        this.downloading?.abort();
         this.set({ state: 'failed', peers: 0 });
       }
       throw error;

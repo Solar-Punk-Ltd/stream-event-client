@@ -204,6 +204,26 @@ describe('the node in this browser', () => {
     expect(runtime.status().state).toBe('stopped');
   });
 
+  it('stops the download at once when the package cannot load, rather than at its deadline', async () => {
+    const signals: AbortSignal[] = [];
+    const stalled = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      signals.push(init!.signal!);
+      return new Promise<Response>((_resolve, reject) =>
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))),
+      );
+    }) as typeof fetch;
+    const runtime = new Weeb3Runtime({
+      load: () => Promise.reject(new Error('the package could not be loaded')),
+      isControlled: () => true,
+      fetcher: stalled,
+    });
+
+    await expect(runtime.start()).rejects.toThrow('the package could not be loaded');
+
+    expect(signals[0].aborted).toBe(true);
+    expect(runtime.status().state).toBe('failed');
+  });
+
   it('runs while anything holds it, and the last release stops and frees it', async () => {
     const fake = fakeWeeb3Package();
     const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
