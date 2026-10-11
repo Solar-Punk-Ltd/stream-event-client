@@ -335,11 +335,12 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 - **A segment that will not load.** When hls.js gives up on one of the three newest segments of a
   live playlist (segments already marked as gaps not counted), the player marks that segment
   `#EXT-X-GAP` in the playlist it serves hls.js. hls.js gives up after its own retries with no other
-  quality left to try, or at once on a segment it finds no media in. The video skips the segment, a moment of
-  picture, instead of freezing or restarting the player, and every later reload of that playlist
+  quality left to try, or at once on a segment it finds no media in. The video skips that segment's picture,
+  about one segment long, instead of freezing or restarting the player, and every later reload of that playlist
   says the same. At most four segments are skipped this way in any five minutes. Past that, or for
-  an older segment, a finished broadcast or a recording, the player recovers as it always did, which
-  for a failure at the live edge means a restart. While another quality is left, a segment that
+  an older segment, a finished broadcast or a recording, the player handles the error as it always
+  did: hls.js's own skip stands for a segment it gave up on, and a fatal network error restarts the
+  player. While another quality is left, a segment that
   failed to load is tried there instead and nothing is marked. The playback quality overlay counts
   each skipped segment once, under Segments Skipped, and not as a fatal error or a reconnect attempt.
 - **Where the video loads from.** The Sources screen, the Sources button in the header, is
