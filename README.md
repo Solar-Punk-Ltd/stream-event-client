@@ -55,10 +55,11 @@ logo, the hero, the footer links and the tab's title and icon, is in `src/design
 nothing unset, and the tokens test fails on a theme that misses one or on a text colour below 4.5:1.
 
 **The theme switcher.** A viewer logged in to the chat finds a Theme group in their name's menu, one
-option per theme with a swatch of its page colour, accent and heading typeface. A pick changes only the look.
+option per theme with a swatch of its page colour, accent and heading typeface. The arrow keys move the pick
+within the group, and Tab reaches it at the checked option. A pick changes only the look.
 The logo, the words and the tab stay the deployment's, so a Devcon page in the web3privacy look still says
-Devcon. The pick is kept in this browser under `viewer-theme`, through reloads and after a logout, and is
-worn from the first paint on the next visit. A deployment without chat has no login, so it has no switcher
+Devcon. The pick is kept in this browser under `viewer-theme`, through reloads and after a logout, and on
+the next visit it is worn before the page renders, while the config is still loading. A deployment without chat has no login, so it has no switcher
 either, and one with `themeSwitcher` false keeps a viewer's earlier pick without wearing it.
 
 The `chat` block. With `enabled` true every field must be filled in, and the page refuses to start
@@ -572,7 +573,8 @@ theme in `config.json`, and a logged-in viewer can switch the look, as above.
   text colour falls below 4.5:1 against its background. A new colour pairing goes into its list too.
 - **The fonts** are bundled from `@fontsource`, only the weights used: Geist 400, 500, 600 and 700,
   Archivo 300 to 700, Domine 400 and JetBrains Mono 500, imported in `src/design/fonts.ts`. A browser
-  downloads a typeface only when the worn theme sets text in it. The page makes no font request to a
+  downloads a typeface only when text on the page is set in it, which the switcher's swatches do for each
+  theme's heading typeface once the menu is open. The page makes no font request to a
   third party. Another weight needs its file imported there, or the browser fakes it.
 
 ## Layout
