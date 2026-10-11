@@ -340,9 +340,9 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   says the same. At most four segments are skipped this way in any five minutes. Past that, or for
   an older segment, a finished broadcast or a recording, the player handles the error as it always
   did: hls.js's own skip stands for a segment it gave up on, and a fatal network error restarts the
-  player. While another quality is left, a segment that
-  failed to load is tried there instead and nothing is marked. The playback quality overlay counts
-  each skipped segment once, under Segments Skipped, and not as a fatal error or a reconnect attempt.
+  player. While another quality is left, a segment that failed to load is tried there instead and
+  nothing is marked. The playback quality overlay counts each skipped segment once, under Segments
+  Skipped, and not as a fatal error or a reconnect attempt.
 - **Where the video loads from.** The Sources screen, the Sources button in the header, is
   described below.
 - **Diagnosing playback.** `?qoe=1` on a watch page shows a draggable playback quality overlay,
