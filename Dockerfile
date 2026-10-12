@@ -7,6 +7,10 @@ RUN corepack enable && corepack prepare pnpm@12.4.1+sha512.2e81e399d73fe8390dab2
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
+# The release this build is, which the page's diagnostics name. The image workflow passes the pushed tag and its
+# commit, because .git stays out of the build. Without them the page calls itself a development build.
+ARG BUILD_TAG=
+ARG BUILD_COMMIT=
 RUN pnpm build
 
 FROM nginx:1.30.4-alpine@sha256:dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c
