@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { act, createElement, createRef, type RefObject, useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -190,6 +193,51 @@ describe('a saved place', () => {
 
     expect(drawn().panel).toEqual({ width: before.width - 60, height: before.height - 40 });
     expect(saved()).toMatchObject({ width: before.width - 60, height: before.height - 40, open: true });
+  });
+});
+
+describe('moving it by touch or pen as well as the mouse', () => {
+  function drag(target: Element, pointerType: string, from: [number, number], to: [number, number]) {
+    const init = { bubbles: true, button: 0, pointerId: 7, pointerType };
+    act(() => {
+      target.dispatchEvent(new PointerEvent('pointerdown', { ...init, clientX: from[0], clientY: from[1] }));
+    });
+    act(() => {
+      target.dispatchEvent(new PointerEvent('pointermove', { ...init, clientX: to[0], clientY: to[1] }));
+    });
+    act(() => {
+      target.dispatchEvent(new PointerEvent('pointerup', { ...init, clientX: to[0], clientY: to[1] }));
+    });
+  }
+
+  for (const pointerType of ['touch', 'pen', 'mouse']) {
+    it(`drags the toggle and the panel with a ${pointerType}`, () => {
+      render();
+      const before = drawn().button;
+      const toggle = overlay().querySelector('button')!;
+
+      drag(toggle, pointerType, [before.x + 16, before.y + 16], [before.x + 16 - 200, before.y + 16 - 50]);
+
+      expect(drawn().button).toEqual({ x: before.x - 200, y: before.y - 50 });
+      expect(saved()).toMatchObject({ open: true });
+      expect(drawn().panel).not.toBeNull();
+    });
+  }
+
+  it('resizes from a grip with a finger', () => {
+    render();
+    const before = drawn().panel!;
+    const grip = overlay().querySelector<HTMLElement>('.qoe-overlay__handle--nw')!;
+
+    drag(grip, 'touch', [0, 0], [-40, -30]);
+
+    expect(drawn().panel).toEqual({ width: before.width + 40, height: before.height + 30 });
+  });
+
+  it('takes no page scroll or zoom gesture on the toggle or a grip', () => {
+    const scss = readFileSync(join(process.cwd(), 'src/features/player/overlays/qoe/QoeOverlay.scss'), 'utf8');
+    expect(scss).toMatch(/\.qoe-btn \{[^}]*touch-action: none;/);
+    expect(scss).toMatch(/\.qoe-overlay__handle \{[^}]*touch-action: none;/);
   });
 });
 

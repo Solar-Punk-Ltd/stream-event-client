@@ -116,7 +116,7 @@ export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics, release = BUILD
   // the button is kept inside the window (see qoeGeometry.ts).
   const rectRef = useRef<Rect | null>(null);
   const visibleRef = useRef(true);
-  const drag = useRef<{ startX: number; startY: number; start: Rect; bounds: Bounds } | null>(null);
+  const drag = useRef<{ pointerId: number; startX: number; startY: number; start: Rect; bounds: Bounds } | null>(null);
   const didDrag = useRef(false);
   const resize = useRef<{
     pointerId: number;
@@ -275,47 +275,6 @@ export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics, release = BUILD
     return () => window.removeEventListener('keydown', onKey);
   }, [toggle]);
 
-  // Dragging the button moves the button and the panel together. With the panel hidden, the button alone.
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      const d = drag.current;
-      if (!d) {
-        return;
-      }
-
-      didDrag.current = true;
-      const dx = e.clientX - d.startX;
-      const dy = e.clientY - d.startY;
-      setRect(visibleRef.current ? moveRect(d.start, dx, dy, d.bounds) : moveHiddenRect(d.start, dx, dy, d.bounds));
-    };
-    const onUp = () => {
-      const d = drag.current;
-      if (!d) {
-        return;
-      }
-
-      drag.current = null;
-      setIsDragging(false);
-      const current = rectRef.current;
-      if (didDrag.current && current) {
-        // Hidden, what is saved is where the panel will open, so a reload with it open agrees.
-        remember(
-          visibleRef.current ? current : panelAtButton(buttonOf(current), current, d.bounds, MIN_PANEL_SIZE),
-          visibleRef.current,
-        );
-      }
-      setTimeout(() => {
-        didDrag.current = false;
-      }, 0);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-  }, [setRect, remember]);
-
   // No text selection anywhere on the page while the button or an edge is being dragged, and the
   // edge's cursor even where the pointer runs ahead of the handle. Restored at the end, and on unmount.
   useEffect(() => {
@@ -334,18 +293,62 @@ export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics, release = BUILD
     };
   }, [isDragging, resizing]);
 
-  const onMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
+  // Dragging the button, with a mouse, a finger or a pen, moves the button and the panel together. With
+  // the panel hidden, the button alone. The pointer is captured, so the drag follows it off the button.
+  const onDragStart = (e: React.PointerEvent<HTMLButtonElement>) => {
     const bounds = measureViewport();
     const start = rectRef.current;
-    if (!bounds || !start) {
+    if (e.button !== 0 || !bounds || !start) {
       return;
     }
 
-    drag.current = { startX: e.clientX, startY: e.clientY, start, bounds };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // The pointer is already gone, or capture is unsupported: moves still arrive while it is over the button.
+    }
+    drag.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, start, bounds };
     didDrag.current = false;
     setIsDragging(true);
+  };
 
-    e.preventDefault();
+  const onDragMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = drag.current;
+    if (!d || d.pointerId !== e.pointerId) {
+      return;
+    }
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (dx === 0 && dy === 0) {
+      return;
+    }
+    didDrag.current = true;
+    setRect(visibleRef.current ? moveRect(d.start, dx, dy, d.bounds) : moveHiddenRect(d.start, dx, dy, d.bounds));
+  };
+
+  const onDragEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = drag.current;
+    if (!d || d.pointerId !== e.pointerId) {
+      return;
+    }
+    drag.current = null;
+    setIsDragging(false);
+    const button = e.currentTarget;
+    if (typeof button.hasPointerCapture === 'function' && button.hasPointerCapture(e.pointerId)) {
+      button.releasePointerCapture(e.pointerId);
+    }
+    const current = rectRef.current;
+    if (didDrag.current && current) {
+      // Hidden, what is saved is where the panel will open, so a reload with it open agrees.
+      remember(
+        visibleRef.current ? current : panelAtButton(buttonOf(current), current, d.bounds, MIN_PANEL_SIZE),
+        visibleRef.current,
+      );
+    }
+    // The click that follows the end of a drag is not a toggle.
+    setTimeout(() => {
+      didDrag.current = false;
+    }, 0);
   };
 
   const handleClick = () => {
@@ -413,7 +416,11 @@ export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics, release = BUILD
         className={['qoe-btn', visible ? 'qoe-btn--active' : '', isDragging ? 'qoe-btn--dragging' : '']
           .filter(Boolean)
           .join(' ')}
-        onMouseDown={onMouseDown}
+        onPointerDown={onDragStart}
+        onPointerMove={onDragMove}
+        onPointerUp={onDragEnd}
+        onPointerCancel={onDragEnd}
+        onLostPointerCapture={onDragEnd}
         onClick={handleClick}
         title="Toggle metrics (Q) · Drag to reposition"
         aria-label={visible ? 'Hide QoE metrics' : 'Show QoE metrics'}
