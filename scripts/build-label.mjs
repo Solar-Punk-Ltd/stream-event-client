@@ -51,7 +51,8 @@ function isSafeTagName(name) {
   );
 }
 
-// The tag names git describe leaves out, so the nearest tag it answers is one a label may name.
+// Tag names git describe leaves out by character and by length. A nearest tag that still fails isSafeTagName gives
+// the short commit instead.
 const DESCRIBE_EXCLUDES = ['*[!A-Za-z0-9._+/-]*', '[!A-Za-z0-9]*', `${'?'.repeat(TAG_NAME_MAX_LENGTH + 1)}*`].flatMap(
   (pattern) => ['--exclude', pattern],
 );
