@@ -14,8 +14,8 @@ const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFi
 
 /**
  * A saved panel, or null for anything that is not one: absent, not JSON, or a field of the rectangle
- * missing or not finite. A value that says nothing true or false about `open` reads as open, which is
- * how `?qoe=1` opens the panel when nothing is saved.
+ * missing or not finite. A saved value whose open is neither true nor false reads as open, matching a
+ * panel with nothing saved, which starts open.
  */
 export function parseSavedPanel(raw: string | null): QoePanelState | null {
   if (!raw) {

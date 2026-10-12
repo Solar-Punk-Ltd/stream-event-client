@@ -144,9 +144,9 @@
 }
 
 // Thin invisible grips straddling the frame's border, above everything in the panel, its sticky
-// header and its scrollbar included, since the panel is a stacking context of its own at z-index 0 and
-// the grips sit at 2 and 3 in the frame's. Corners are larger than edges so they are easy to hit, and
-// sit above the edges where the two overlap.
+// header and its scrollbar included, since the panel is its own stacking context at z-index 0 and
+// the grips sit at 2 and 3 beside it in the overlay's. Corners are larger than edges so they are
+// easy to hit, and sit above the edges where the two overlap.
 $qoe-handle-edge: 6px;
 $qoe-handle-corner: 12px;
 

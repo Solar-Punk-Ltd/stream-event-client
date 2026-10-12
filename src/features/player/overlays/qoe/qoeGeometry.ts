@@ -4,8 +4,8 @@
  * Ported from Nandor Komlodi's panel in the streaming monorepo's client, with one change of frame:
  * there the panel was positioned inside the player and its bounds were the window seen from the
  * player, here it is fixed to the browser window itself, so every rectangle is in viewport px and
- * the bounds are the viewport (`viewportBounds`). A scroll no longer moves it, and the player, which
- * clips what overflows it, can no longer hide it.
+ * the bounds are the viewport (`viewportBounds`). A scroll does not move it, and the player, which
+ * clips what overflows it, cannot hide it.
  *
  * The model is one rectangle, the panel's `{ x, y, width, height }`. Everything else follows from it:
  *
@@ -66,24 +66,24 @@ export const BUTTON_BAND = BUTTON_SIZE + BUTTON_GAP;
 
 /**
  * The smallest panel. 160 px wide holds a short label and its value on one line at the panel's
- * 11 px monospace (about 20 characters after the padding), and lets a long row wrap onto two lines
- * rather than one word per line. 120 px tall shows the header and four or five rows, enough to read
+ * 12 px monospace (`--font-size-xs`, about 19 characters after the padding), and lets a long row
+ * wrap onto two lines rather than one word per line. 120 px tall shows the header and four or five rows, enough to read
  * a section and to see that the panel scrolls.
  */
 export const MIN_PANEL_SIZE: Size = { width: 160, height: 120 };
 
-/** The button's default place, where it has always opened: 50 px in from the player's right, 10 below its top. */
+/** The button's default place: 50 px in from the player's right, 10 below its top. */
 const DEFAULT_BUTTON_RIGHT_OFFSET = 50;
 const DEFAULT_BUTTON_TOP = 10;
 /**
- * The owner's default width. Inside its 1 px border and 10 px padding it leaves 228 px, about 33
- * characters of the 11 px monospace once the rows' 8 px gap is taken: a label with its usual value
+ * The default width. Inside its 1 px border and 10 px padding it leaves 228 px, about 30
+ * characters of the 12 px monospace once the rows' 8 px gap is taken: a label with its usual value
  * fits on one line. A deployed build's release line wraps at this width, and so does a ladder rung
  * marked both capped and unaffordable.
  */
 export const DEFAULT_PANEL_WIDTH = 250;
 /**
- * The owner's default height, tall enough for every row of a local build's panel with a three-rung
+ * The default height, tall enough for every row of a local build's panel with a three-rung
  * ladder. A deployed build's release line, a longer ladder or a rung that wraps add lines, which
  * scroll. It is shortened to the space down to the window's bottom where there is less.
  */
@@ -228,7 +228,7 @@ export interface PlayerBox {
 }
 
 /**
- * The panel when nothing is saved: the button where it has always opened, at the top right of the
+ * The panel when nothing is saved: the button at its default place, at the top right of the
  * player, and the panel hanging below it, over the page below a short player, shortened to the space
  * down to the window's bottom and then clamped to the window.
  */

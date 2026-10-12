@@ -235,7 +235,7 @@ describe('a window smaller than the minimum panel and its button band', () => {
 });
 
 describe('defaultRect', () => {
-  it('puts the toggle button where it always opened, 50 px from the player right and 10 px from its top', () => {
+  it('puts the toggle button 50 px in from the player right and 10 px below its top', () => {
     // A window tall enough for the whole default panel below the button, the player at its corner.
     const tall: Bounds = { x: 0, y: 0, width: 1000, height: 1000 };
     const r = defaultRect({ left: 0, top: 0, width: tall.width }, tall);
@@ -438,7 +438,7 @@ describe("an audio stream's player, a 490×60 bar at 395, 200 in a 1280×720 win
   const WIN = viewportBounds(1280, 720);
   const PANEL = defaultRect(BAR, WIN);
 
-  it('opens with the button where it always did and the panel hanging below the bar, over the page', () => {
+  it('opens with the button at its default place and the panel hanging below the bar, over the page', () => {
     assert.deepEqual(buttonOf(PANEL), { x: BAR.left + BAR.width - 50, y: BAR.top + 10 });
     assert.equal(PANEL.width, DEFAULT_PANEL_WIDTH);
     assert.equal(PANEL.height, Math.min(DEFAULT_PANEL_HEIGHT, WIN.height - PANEL.y));
