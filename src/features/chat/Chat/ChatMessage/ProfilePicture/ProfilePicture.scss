@@ -1,11 +1,6 @@
-.profile-picture-anchor {
-  position: relative;
-  display: inline-flex;
-  flex-shrink: 0;
-}
-
 .profile-picture {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   width: var(--size-avatar);
@@ -15,43 +10,4 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-text);
   user-select: none;
-}
-
-// Beside the avatar rather than above it, so the chat's scrolling list never clips it. It sits on the
-// bubble's side of the avatar.
-.profile-picture-tooltip {
-  position: absolute;
-  top: 50%;
-  left: calc(100% + var(--spacing-sm));
-  z-index: var(--z-index-player-overlay);
-  width: max-content;
-  max-width: var(--size-tooltip-max-width);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-base);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-lg);
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-normal);
-  overflow-wrap: anywhere;
-  color: var(--color-text);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transform: translateY(-50%);
-  transition:
-    opacity var(--duration-fast) ease,
-    visibility var(--duration-fast) ease;
-
-  .own-message & {
-    right: calc(100% + var(--spacing-sm));
-    left: auto;
-  }
-
-  .profile-picture-anchor:hover &,
-  .chat-message:focus-within & {
-    opacity: 1;
-    visibility: visible;
-    transition-delay: var(--duration-base);
-  }
 }

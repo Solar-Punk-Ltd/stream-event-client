@@ -161,6 +161,9 @@ $size: (
   'reaction-height': 20px,
   'sender-input-height': 30px,
   'chat-quick-emoji': 28px,
+  // The picker library's bar of common emoji above the message field, and the button that folds the whole picker back into it.
+  'reaction-bar': 50px,
+  'close-picker': 24px,
 );
 
 $z-index: (
@@ -168,6 +171,8 @@ $z-index: (
   'player-overlay': 2,
   'qoe-overlay': 3,
   'dialog': 500,
+  // What floats over everything once opened from the chat: the emoji picker beside a message, the name over an initial.
+  'popover': 1000,
 );
 
 // Every group above, under the prefix its variables carry.

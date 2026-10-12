@@ -210,7 +210,7 @@ describe('the chat on a watch page', () => {
     emit(EVENTS.MESSAGE_RECEIVED, first);
     emit(EVENTS.MESSAGE_RECEIVED, second);
     expect(messageTexts()).toEqual(['text of first', 'text of second', 'text of third']);
-    expect(text()).toContain('Bea');
+    expect(document.querySelector('.chat-message [role="img"]')?.getAttribute('aria-label')).toContain('Bea');
   });
 
   it('shows published messages by their place in the chat feed, and one still sending after them', async () => {
