@@ -149,39 +149,46 @@ export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics, release = BUILD
   // It waits for the host, because the player's ref is attached only after this, its child, has
   // committed once, and the panel is not shown before it has a host.
   const placed = useRef(false);
+  const place = useCallback(
+    (bounds: Bounds) => {
+      placed.current = true;
+      const saved = loadPanelState(browserStorage());
+      if (saved) {
+        visibleRef.current = saved.open;
+        setVisible(saved.open);
+        setRect(reclampRect(saved, bounds, saved.open));
+      } else {
+        setRect(defaultRect(playerBox(playerRef?.current, bounds), bounds));
+      }
+    },
+    [setRect, playerRef],
+  );
+
   useLayoutEffect(() => {
     if (!host || placed.current) {
       return;
     }
-    placed.current = true;
     const bounds = measureViewport();
-    if (!bounds) {
-      return;
+    if (bounds) {
+      place(bounds);
     }
-    const saved = loadPanelState(browserStorage());
-    if (saved) {
-      visibleRef.current = saved.open;
-      setVisible(saved.open);
-      setRect(reclampRect(saved, bounds, saved.open));
-    } else {
-      setRect(defaultRect(playerBox(playerRef?.current, bounds), bounds));
-    }
-  }, [host, setRect, playerRef]);
+  }, [host, place]);
 
   // The window resizes, or the panel's window becomes the screen or the page again: clamp into the
-  // area now visible. Not saved, so a brief resize does not overwrite what the viewer chose.
+  // area now visible. Not saved, so a brief resize does not overwrite what the viewer chose. A panel
+  // not placed yet, its window having measured nothing until now, is placed instead.
   const reclamp = useCallback(() => {
     const bounds = measureViewport();
     if (!bounds) {
       return;
     }
     const current = rectRef.current;
-    setRect(
-      current
-        ? reclampRect(current, bounds, visibleRef.current)
-        : defaultRect(playerBox(playerRef?.current, bounds), bounds),
-    );
-  }, [setRect, playerRef]);
+    if (!placed.current || !current) {
+      place(bounds);
+      return;
+    }
+    setRect(reclampRect(current, bounds, visibleRef.current));
+  }, [setRect, place]);
 
   useEffect(() => {
     window.addEventListener('resize', reclamp);

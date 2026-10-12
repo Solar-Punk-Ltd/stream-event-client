@@ -78,8 +78,9 @@ export const QoePanel: React.FC<{ metrics: QoeMetrics; release: string | null; t
       {content.sections.map((section) => (
         <div key={section.title} className="qoe-overlay__section">
           <div className="qoe-overlay__section-title">{section.title}</div>
-          {section.rows.map((row) => (
-            <Row key={row.label} row={row} />
+          {section.rows.map((row, index) => (
+            // Two ladder rungs can share a label, so a row is keyed by its place in the section.
+            <Row key={index} row={row} />
           ))}
         </div>
       ))}

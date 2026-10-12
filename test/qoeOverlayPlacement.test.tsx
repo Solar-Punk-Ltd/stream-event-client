@@ -241,6 +241,22 @@ describe('moving it by touch or pen as well as the mouse', () => {
   });
 });
 
+describe('a window that measures nothing at first', () => {
+  it('still opens where the panel was left once the window can be measured', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ x: 200, y: 300, width: 300, height: 400, open: false }));
+    setViewport(0, 0);
+    render();
+
+    setViewport(1024, 768);
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    expect(drawn().panel).toBeNull();
+    expect(drawn().button).toEqual({ x: 200 + 300 - BUTTON, y: 300 - 36 });
+  });
+});
+
 describe('when the window changes', () => {
   it('pulls the panel back in after the window shrinks', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ x: 600, y: 300, width: 300, height: 400, open: true }));
