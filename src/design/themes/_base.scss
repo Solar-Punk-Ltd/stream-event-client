@@ -26,7 +26,7 @@ $color: (
   'scrim-strong': rgba(0, 0, 0, 0.85),
   'on-scrim': #ffffff,
   'on-scrim-secondary': rgba(255, 255, 255, 0.75),
-  // The playback quality overlay's button while its panel is open, and the light that says it is live.
+  // The playback quality panel's button while the panel is open, and the light that says it is live.
   'info': rgba(30, 100, 230, 0.62),
   'info-border': rgba(120, 170, 255, 0.45),
   'signal': #4ade80,
@@ -65,5 +65,5 @@ $color: (
   'name-16': #4f46e5,
 );
 
-// The playback quality overlay's figures and the configuration problem's detail, in every theme.
+// The playback quality panel's figures and the configuration problem's detail, in every theme.
 $font-family-mono: ('JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Monaco, monospace);
