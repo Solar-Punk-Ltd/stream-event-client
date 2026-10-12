@@ -65,7 +65,8 @@ describe('the build label from the release tag', () => {
   it('prefers an annotated tag to a lightweight one on the same commit', () => {
     const dir = repo();
     const short = commit(dir, 'a');
-    git(dir, 'tag', 'list');
+    // A lightweight tag on the same commit as the annotated one, which the annotated one must win over.
+    git(dir, 'tag', 'lightweight-first');
     git(dir, 'tag', '-a', 'v1.0.0', '-m', 'release');
     expect(describeBuild({ root: dir, env: {} })).toBe(`v1.0.0 (${short})`);
   });
