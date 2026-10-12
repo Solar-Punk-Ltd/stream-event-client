@@ -225,6 +225,8 @@ every secure websocket host, on purpose. The package's mainnet bootnodes are all
 a narrower list would refuse those. Off, `/weeb-3/` is a plain 404 and the policy is exactly as above. weeb-3 keeps
 every route under `/weeb-3/` at the site's root, so a deployment that offers it serves the viewer at the root.
 
+### The release tag and the build label
+
 A `v*` tag publishes the image, built for amd64, as `ghcr.io/solar-punk-ltd/stream-event-client:<tag>`
 (`.github/workflows/image.yml`). A deployment pins it by the digest that tag resolves to. No tag ever
 moves `latest`.
@@ -237,6 +239,8 @@ tag behind it and the commits past it, such as `v1.7.0-rc.5+3 (8e2d0aa)`, else t
 leaves `.git` out, it says `development build`. A `BUILD_TAG` that is not a plain tag name, letters, digits
 and `. _ + / -`, or a `BUILD_COMMIT` that is not hexadecimal stops the build rather than reaching the page.
 `scripts/build-label.mjs` holds the rule.
+
+### Testing the image
 
 `pnpm test:image` builds the image and checks it running, in both modes: `nginx -t`, the cache
 headers and the policy on each kind of answer, reads and refused writes at `/bee`, the policy at
@@ -410,7 +414,7 @@ once and is kept in the browser.
   gateway only".
 - **Copy diagnostics.** The last Test's sentences, who answered each part in the last minute, the
   build and the browser. The build is named by its release tag and short commit, such as
-  `v1.7.0-rc.5 (1fcfbd4)`, as the release section under "Run the image" says. It holds no address but the tested source's. With the screen closed, the
+  `v1.7.0-rc.5 (1fcfbd4)`, as "The release tag and the build label" under "Run the image" says. It holds no address but the tested source's. With the screen closed, the
   header's Sources button carries a warning dot, named "Using fallback" for a screen reader, while the
   fallback answered a read of the video in the last minute, or the source in use is paused.
 
