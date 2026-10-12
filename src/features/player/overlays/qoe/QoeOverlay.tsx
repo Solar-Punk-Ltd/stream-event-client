@@ -1,72 +1,281 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
+import { browserStorage } from '@/app/browserStorage';
+import { BUILD_LABEL } from '@/shared/buildLabel';
 import { BarChartIcon } from '@/shared/components/Icons/BarChartIcon';
 import { MoveIcon } from '@/shared/components/Icons/MoveIcon';
 
-import { LIVE_SYNC_DURATION_S } from '@/features/player/playerConfig';
-
+import {
+  fullscreenElementOf,
+  FULLSCREEN_EVENTS,
+  fullscreenHandOver,
+  panelHost,
+  raiseToTopLayer,
+} from './qoeFullscreen';
+import {
+  type Bounds,
+  buttonOf,
+  cursorFor,
+  DEFAULT_PANEL_HEIGHT,
+  DEFAULT_PANEL_WIDTH,
+  defaultRect,
+  MIN_PANEL_SIZE,
+  moveHiddenRect,
+  moveRect,
+  panelAtButton,
+  type PlayerBox,
+  reclampRect,
+  RESIZE_EDGES,
+  type Rect,
+  type ResizeEdge,
+  resizeRect,
+  usableBounds,
+  viewportBounds,
+} from './qoeGeometry';
+import { loadPanelState, savePanelState } from './qoePanelStorage';
+import { QoePanel } from './QoePanel';
 import { QoeMetrics } from './useHlsQoeMetrics';
 
 import './QoeOverlay.scss';
 
-const DEFAULT_OVERLAY_X_OFFSET = 50;
-const DEFAULT_OVERLAY_Y_OFFSET = 10;
+/** The browser window's visible area, or null while it measures nothing on a side, which every reader then skips. */
+function measureViewport(): Bounds | null {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+  const { clientWidth, clientHeight } = document.documentElement;
+  const bounds = viewportBounds(clientWidth, clientHeight);
+  return usableBounds(bounds) ? bounds : null;
+}
+
+/** The player's box on the page, or the window's top edge where there is no player to place the default by. */
+function playerBox(player: HTMLElement | null | undefined, bounds: Bounds): PlayerBox {
+  if (!player) {
+    return { left: bounds.x, top: bounds.y, width: bounds.width };
+  }
+  const { left, top, width } = player.getBoundingClientRect();
+  return { left, top, width };
+}
+
+const sameRect = (a: Rect | null, b: Rect) =>
+  a != null && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+
+/** A key pressed while typing, in the chat's field or any other, is the text's and not the panel's shortcut. */
+function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
+}
 
 interface QoeOverlayProps {
   metrics: QoeMetrics;
+  /** The build label shown under the panel's header. Left out, this viewer's own. Null shows no build line. */
+  release?: string | null;
+  /** The stream's topic, which names the file the panel's Save writes. */
+  topic?: string;
+  /** The player, whose top right corner the panel opens at when nothing is saved. */
+  playerRef?: RefObject<HTMLElement | null>;
 }
 
-export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics }) => {
+/**
+ * The toggle button and, below it, the metrics panel, which resizes from every edge and corner like a
+ * desktop window. Ported from Nandor Komlodi's panel in the streaming monorepo's client. It lives in
+ * the browser window rather than in the player: fixed to the viewport, rendered in the page's body or
+ * the element in full screen, and drawn in the top layer (see qoeFullscreen.ts). All of the geometry,
+ * one panel rectangle in viewport px with the button on its top-right corner, kept inside the window,
+ * is in qoeGeometry.ts. This component feeds it pointer deltas and the window's size, and remembers the
+ * result and whether the panel was open in this browser (qoePanelStorage.ts).
+ */
+export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics, release = BUILD_LABEL, topic, playerRef }) => {
   const [visible, setVisible] = useState(true);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  // Null until the window has been measured, which a server render never does.
+  const [rect, setRectState] = useState<Rect | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [resizing, setResizing] = useState<ResizeEdge | null>(null);
+  // Null until mounted: a server render has no document to render into, so it renders in place.
+  const [host, setHost] = useState<Element | null>(null);
+  const [fullscreenChanges, setFullscreenChanges] = useState(0);
 
-  const dragging = useRef(false);
+  // The latest rectangle and visibility, for the handlers and observers that outlive a render. While
+  // the panel is hidden the rectangle keeps its size and the button still derives from it, but only
+  // the button is kept inside the window (see qoeGeometry.ts).
+  const rectRef = useRef<Rect | null>(null);
+  const visibleRef = useRef(true);
+  const drag = useRef<{ startX: number; startY: number; start: Rect; bounds: Bounds } | null>(null);
   const didDrag = useRef(false);
-  const dragOffset = useRef({ x: 0, y: 0 });
+  const resize = useRef<{
+    pointerId: number;
+    edge: ResizeEdge;
+    startX: number;
+    startY: number;
+    start: Rect;
+    bounds: Bounds;
+  } | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const parentBoundingRect = overlayRef.current?.offsetParent?.getBoundingClientRect();
-    if (!parentBoundingRect) {
+  const setRect = useCallback((next: Rect) => {
+    if (sameRect(rectRef.current, next)) {
       return;
     }
-    setPos({
-      x: parentBoundingRect.width - DEFAULT_OVERLAY_X_OFFSET,
-      y: DEFAULT_OVERLAY_Y_OFFSET,
-    });
+    rectRef.current = next;
+    setRectState(next);
   }, []);
+
+  const remember = useCallback((next: Rect, open: boolean) => {
+    savePanelState(browserStorage(), { ...next, open });
+  }, []);
+
+  useLayoutEffect(() => {
+    setHost(panelHost(fullscreenElementOf(document), document.body));
+  }, []);
+
+  // Before the first paint: where the panel was left, pulled back inside the window, or the default at
+  // the player's top right. A window not measurable yet gets it from the first usable reading below.
+  // It waits for the host, because the player's ref is attached only after this, its child, has
+  // committed once, and the panel is not shown before it has a host.
+  const placed = useRef(false);
+  useLayoutEffect(() => {
+    if (!host || placed.current) {
+      return;
+    }
+    placed.current = true;
+    const bounds = measureViewport();
+    if (!bounds) {
+      return;
+    }
+    const saved = loadPanelState(browserStorage());
+    if (saved) {
+      visibleRef.current = saved.open;
+      setVisible(saved.open);
+      setRect(reclampRect(saved, bounds, saved.open));
+    } else {
+      setRect(defaultRect(playerBox(playerRef?.current, bounds), bounds));
+    }
+  }, [host, setRect, playerRef]);
+
+  // The window resizes, or the panel's window becomes the screen or the page again: clamp into the
+  // area now visible. Not saved, so a brief resize does not overwrite what the viewer chose.
+  const reclamp = useCallback(() => {
+    const bounds = measureViewport();
+    if (!bounds) {
+      return;
+    }
+    const current = rectRef.current;
+    setRect(
+      current
+        ? reclampRect(current, bounds, visibleRef.current)
+        : defaultRect(playerBox(playerRef?.current, bounds), bounds),
+    );
+  }, [setRect, playerRef]);
+
+  useEffect(() => {
+    window.addEventListener('resize', reclamp);
+    return () => window.removeEventListener('resize', reclamp);
+  }, [reclamp]);
+
+  // The element that was in full screen before the latest change, and whether the panel is ending full
+  // screen, which leaving a stack of two elements in full screen takes one exit for each.
+  const previousFullscreen = useRef<Element | null>(null);
+  const leavingFullscreen = useRef(false);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const now = fullscreenElementOf(document);
+      const player = playerRef?.current;
+      if (now === null) {
+        leavingFullscreen.current = false;
+      } else if (leavingFullscreen.current) {
+        document.exitFullscreen?.().catch(() => {});
+      } else {
+        const handOver = fullscreenHandOver(now, previousFullscreen.current, player);
+        if (handOver === 'to-player' && player) {
+          player.requestFullscreen?.().catch(() => {});
+        } else if (handOver === 'exit') {
+          leavingFullscreen.current = true;
+          document.exitFullscreen?.().catch(() => {});
+        }
+      }
+      previousFullscreen.current = now;
+      setHost(panelHost(now, document.body));
+      setFullscreenChanges((n) => n + 1);
+      reclamp();
+    };
+    for (const name of FULLSCREEN_EVENTS) {
+      document.addEventListener(name, onFullscreenChange);
+    }
+    return () => {
+      for (const name of FULLSCREEN_EVENTS) {
+        document.removeEventListener(name, onFullscreenChange);
+      }
+    };
+  }, [reclamp, playerRef]);
+
+  // Shown in the top layer once it is in its host, and raised again above whatever entered full screen.
+  useLayoutEffect(() => {
+    if (host) {
+      raiseToTopLayer(overlayRef.current);
+    }
+  }, [host, fullscreenChanges]);
+
+  // Hiding the panel unmounts its handles, so a resize under way ends with it. Showing it hangs it at
+  // the button's corner with its last size and pulls the pair back inside the window.
+  const toggle = useCallback(() => {
+    resize.current = null;
+    setResizing(null);
+    const opening = !visibleRef.current;
+    visibleRef.current = opening;
+    setVisible(opening);
+    const bounds = measureViewport();
+    const current = rectRef.current;
+    if (!current) {
+      return;
+    }
+    const next = opening && bounds ? panelAtButton(buttonOf(current), current, bounds, MIN_PANEL_SIZE) : current;
+    setRect(next);
+    remember(next, opening);
+  }, [setRect, remember]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'q' || e.key === 'Q') {
-        setVisible((v) => !v);
+      if ((e.key === 'q' || e.key === 'Q') && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping(e.target)) {
+        toggle();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [toggle]);
 
+  // Dragging the button moves the button and the panel together. With the panel hidden, the button alone.
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      if (!dragging.current || !overlayRef.current) {
+      const d = drag.current;
+      if (!d) {
         return;
       }
 
       didDrag.current = true;
-      const pr = overlayRef.current.offsetParent?.getBoundingClientRect() ?? { left: 0, top: 0 };
-      setPos({
-        x: e.clientX - dragOffset.current.x - pr.left,
-        y: e.clientY - dragOffset.current.y - pr.top,
-      });
+      const dx = e.clientX - d.startX;
+      const dy = e.clientY - d.startY;
+      setRect(visibleRef.current ? moveRect(d.start, dx, dy, d.bounds) : moveHiddenRect(d.start, dx, dy, d.bounds));
     };
     const onUp = () => {
-      if (!dragging.current) {
+      const d = drag.current;
+      if (!d) {
         return;
       }
 
-      dragging.current = false;
+      drag.current = null;
       setIsDragging(false);
+      const current = rectRef.current;
+      if (didDrag.current && current) {
+        // Hidden, what is saved is where the panel will open, so a reload with it open agrees.
+        remember(
+          visibleRef.current ? current : panelAtButton(buttonOf(current), current, d.bounds, MIN_PANEL_SIZE),
+          visibleRef.current,
+        );
+      }
       setTimeout(() => {
         didDrag.current = false;
       }, 0);
@@ -77,38 +286,100 @@ export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics }) => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, []);
+  }, [setRect, remember]);
+
+  // No text selection anywhere on the page while the button or an edge is being dragged, and the
+  // edge's cursor even where the pointer runs ahead of the handle. Restored at the end, and on unmount.
+  useEffect(() => {
+    if (!isDragging && !resizing) {
+      return;
+    }
+    const { style } = document.body;
+    const before = { userSelect: style.userSelect, cursor: style.cursor };
+    style.userSelect = 'none';
+    if (resizing) {
+      style.cursor = cursorFor(resizing);
+    }
+    return () => {
+      style.userSelect = before.userSelect;
+      style.cursor = before.cursor;
+    };
+  }, [isDragging, resizing]);
 
   const onMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (!overlayRef.current) {
+    const bounds = measureViewport();
+    const start = rectRef.current;
+    if (!bounds || !start) {
       return;
     }
 
-    const overlayBoundingRect = overlayRef.current.getBoundingClientRect();
-    const parentBoundingRect = overlayRef.current.offsetParent?.getBoundingClientRect() ?? { left: 0, top: 0 };
-
-    dragging.current = true;
+    drag.current = { startX: e.clientX, startY: e.clientY, start, bounds };
     didDrag.current = false;
     setIsDragging(true);
-    dragOffset.current = { x: e.clientX - overlayBoundingRect.left, y: e.clientY - overlayBoundingRect.top };
-    setPos({
-      x: overlayBoundingRect.left - parentBoundingRect.left,
-      y: overlayBoundingRect.top - parentBoundingRect.top,
-    });
 
     e.preventDefault();
   };
 
   const handleClick = () => {
     if (!didDrag.current) {
-      setVisible((v) => !v);
+      toggle();
     }
   };
 
-  const floatStyle: React.CSSProperties | undefined = pos ? { left: pos.x, top: pos.y, right: 'auto' } : undefined;
+  const onResizeStart = (edge: ResizeEdge) => (e: React.PointerEvent<HTMLDivElement>) => {
+    const bounds = measureViewport();
+    const start = rectRef.current;
+    if (e.button !== 0 || !bounds || !start) {
+      return;
+    }
 
-  return (
-    <div ref={overlayRef} className="qoe-overlay" style={floatStyle}>
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // The pointer is already gone, or capture is unsupported: moves still arrive while it is over the handle.
+    }
+    resize.current = { pointerId: e.pointerId, edge, startX: e.clientX, startY: e.clientY, start, bounds };
+    setResizing(edge);
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const onResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = resize.current;
+    if (!r || r.pointerId !== e.pointerId) {
+      return;
+    }
+    setRect(resizeRect(r.start, r.edge, e.clientX - r.startX, e.clientY - r.startY, r.bounds, MIN_PANEL_SIZE));
+  };
+
+  const onResizeEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = resize.current;
+    if (!r || r.pointerId !== e.pointerId) {
+      return;
+    }
+    resize.current = null;
+    setResizing(null);
+    const handle = e.currentTarget;
+    if (typeof handle.hasPointerCapture === 'function' && handle.hasPointerCapture(e.pointerId)) {
+      handle.releasePointerCapture(e.pointerId);
+    }
+    if (rectRef.current) {
+      remember(rectRef.current, true);
+    }
+  };
+
+  // The overlay element is the button's box. The panel's frame hangs below it, right edges aligned.
+  const button = rect ? buttonOf(rect) : null;
+  const floatStyle: React.CSSProperties | undefined = button
+    ? { left: button.x, top: button.y, right: 'auto' }
+    : undefined;
+  const frameStyle: React.CSSProperties = {
+    width: rect?.width ?? DEFAULT_PANEL_WIDTH,
+    height: rect?.height ?? DEFAULT_PANEL_HEIGHT,
+  };
+
+  const overlay = (
+    <div ref={overlayRef} className="qoe-overlay" style={floatStyle} popover="manual">
       <button
         type="button"
         className={['qoe-btn', visible ? 'qoe-btn--active' : '', isDragging ? 'qoe-btn--dragging' : '']
@@ -129,110 +400,26 @@ export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics }) => {
         {visible && <span className="qoe-btn__live" />}
       </button>
 
-      {visible && <QoePanel metrics={metrics} />}
+      {visible && (
+        <div className="qoe-overlay__frame" style={frameStyle}>
+          {RESIZE_EDGES.map((edge) => (
+            <div
+              key={edge}
+              className={`qoe-overlay__handle qoe-overlay__handle--${edge}`}
+              style={{ cursor: cursorFor(edge) }}
+              aria-hidden="true"
+              onPointerDown={onResizeStart(edge)}
+              onPointerMove={onResizeMove}
+              onPointerUp={onResizeEnd}
+              onPointerCancel={onResizeEnd}
+              onLostPointerCapture={onResizeEnd}
+            />
+          ))}
+          <QoePanel metrics={metrics} release={release} topic={topic} />
+        </div>
+      )}
     </div>
   );
+
+  return host ? createPortal(overlay, host) : overlay;
 };
-
-const QoePanel: React.FC<{ metrics: QoeMetrics }> = ({ metrics: m }) => {
-  // Read defensively rather than trusted. The metrics object is built once inside a long-lived
-  // closure in attachQoeTracking, so during a hot reload this panel can render against a snapshot
-  // taken before a field existed. An observability panel must not be able to take the player down
-  // with it, which is exactly what an unguarded .map() here did.
-  const ladder = m.ladder ?? [];
-
-  return (
-    <div className="qoe-overlay__panel">
-      <div className="qoe-overlay__header">QoE Metrics</div>
-
-      <Section title="Startup">
-        <Row label="Startup Time" value={fmtMs(m.startupTimeMs)} />
-        <Row label="First Frame Time" value={fmtMs(m.firstFrameTimeMs)} />
-        <Row label="Startup Failure" value={m.startupFailed ? 'YES' : 'no'} bad={m.startupFailed} />
-      </Section>
-
-      <Section title="Rebuffering">
-        <Row label="Count" value={String(m.rebufferingCount)} bad={m.rebufferingCount > 0} />
-        <Row label="Duration" value={fmtMs(m.rebufferingDurationMs)} />
-        <Row label="Ratio" value={fmtPct(m.rebufferingRatio)} bad={m.rebufferingRatio > 0.01} />
-        <Row label="Any Rebuffering" value={m.hadRebuffering ? 'yes' : 'no'} bad={m.hadRebuffering} />
-      </Section>
-
-      <Section title="Quality">
-        <Row label="Delivered Bitrate" value={m.bitrateKbps != null ? `${m.bitrateKbps} kbps` : '—'} />
-        <Row label="Delivered Resolution" value={m.resolution ?? '—'} />
-        <Row label="Quality Switches" value={String(m.qualitySwitchCount)} />
-        <Row label="Switch Frequency" value={`${m.qualitySwitchPerMin.toFixed(2)}/min`} />
-        <Row label="Dropped Frames" value={String(m.droppedFrames)} bad={m.droppedFrames > 0} />
-      </Section>
-
-      <Section title="Live">
-        <Row label="E2E Live Latency" value={m.liveLatencySec != null ? `${m.liveLatencySec.toFixed(2)} s` : '—'} />
-        <Row
-          label="Latency Target"
-          value={m.liveTargetLatencySec != null ? `${m.liveTargetLatencySec.toFixed(2)} s` : '—'}
-          bad={m.liveTargetLatencySec != null && m.liveTargetLatencySec > LIVE_SYNC_DURATION_S}
-        />
-        <Row label="Buffer Stalls" value={String(m.bufferStallCount)} bad={m.bufferStallCount > 0} />
-      </Section>
-
-      <Section title="ABR">
-        <Row label="Level Selection" value={m.abrEnabled ? 'auto' : 'pinned'} />
-        <Row label="Selected Rung" value={m.selectedHeight != null ? `${m.selectedHeight}p` : '—'} />
-        <Row
-          label="Bandwidth Estimate"
-          value={m.bandwidthEstimateKbps != null ? `${m.bandwidthEstimateKbps} kbps` : '—'}
-        />
-        <Row label="Switch Latency" value={fmtMs(m.lastSwitchLatencyMs)} />
-        <Row label="Switch Latency (avg)" value={fmtMs(m.avgSwitchLatencyMs)} />
-        <Row
-          label="Switch Latency (max)"
-          value={fmtMs(m.maxSwitchLatencyMs)}
-          bad={(m.maxSwitchLatencyMs ?? 0) > 5000}
-        />
-        <Row label="Switches Measured" value={String(m.switchLatencySamples)} />
-        {ladder.map((level) => (
-          <Row
-            key={level.height}
-            label={`${level.current ? '▸' : '\u00A0'} ${level.height}p`}
-            value={`${level.bitrateKbps} kbps${level.capped ? ' · capped' : ''}${
-              level.unaffordable ? ' · unaffordable' : ''
-            }`}
-            bad={level.capped || level.unaffordable}
-          />
-        ))}
-        {ladder.length > 0 && <Row label="ABR would pick" value={m.nextHeight != null ? `${m.nextHeight}p` : '—'} />}
-      </Section>
-
-      <Section title="Reliability">
-        <Row label="Fatal Errors" value={String(m.fatalErrorCount)} bad={m.fatalErrorCount > 0} />
-        <Row label="Fatal Error Rate" value={m.fatalErrorCount > 0 ? 'yes' : 'none'} bad={m.fatalErrorCount > 0} />
-        <Row label="Segments Skipped" value={String(m.segmentsSkipped)} bad={m.segmentsSkipped > 0} />
-        <Row label="Session Complete" value={m.sessionCompleted ? 'yes' : 'in progress'} />
-        <Row label="Startup Failure Rate" value={m.startupFailed ? 'failed' : 'ok'} bad={m.startupFailed} />
-        <Row label="Reconnect Attempts" value={String(m.reconnectAttempts)} />
-        <Row label="Reconnect Success Rate" value={m.reconnectAttempts > 0 ? fmtPct(m.reconnectSuccessRate) : '—'} />
-        <Row label="Recovery Time" value={fmtMs(m.lastRecoveryTimeMs)} />
-      </Section>
-
-      <div className="qoe-overlay__footer">Playback: {fmtMs(m.playbackTimeMs)}</div>
-    </div>
-  );
-};
-
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="qoe-overlay__section">
-    <div className="qoe-overlay__section-title">{title}</div>
-    {children}
-  </div>
-);
-
-const Row: React.FC<{ label: string; value: string; bad?: boolean }> = ({ label, value, bad }) => (
-  <div className={`qoe-overlay__row${bad ? ' qoe-overlay__row--bad' : ''}`}>
-    <span className="qoe-overlay__label">{label}</span>
-    <span className="qoe-overlay__value">{value}</span>
-  </div>
-);
-
-const fmtMs = (ms: number | null) => (ms == null ? '—' : `${Math.round(ms)} ms`);
-const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;

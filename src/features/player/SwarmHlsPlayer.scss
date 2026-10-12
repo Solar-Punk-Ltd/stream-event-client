@@ -12,6 +12,19 @@
     max-height: 80vh;
     object-fit: contain;
   }
+
+  // In full screen as a whole, which the playback quality panel asks for in place of the video alone,
+  // the picture fills the screen as the video's own full screen would.
+  &:fullscreen {
+    display: flex;
+    align-items: center;
+
+    video {
+      height: 100%;
+      max-height: none;
+      aspect-ratio: auto;
+    }
+  }
 }
 
 .swarm-hls-player-audio {

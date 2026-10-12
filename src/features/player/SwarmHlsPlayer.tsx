@@ -311,6 +311,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
   const [metrics, setMetrics] = useState<QoeMetrics>(initialMetrics);
   const [feedState, setFeedState] = useState<FeedState>(FEED_STATE_LIVE);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const hlsConfigKey = tuningKey(hlsConfig ?? {});
   const renditionKey = ladderKey(renditions);
 
@@ -593,10 +594,10 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
     );
 
   return (
-    <div className="swarm-hls-player-wrapper">
+    <div ref={wrapperRef} className="swarm-hls-player-wrapper">
       {videoEl}
       <FeedStateOverlay state={feedState} />
-      {enableQoeOverlay && <QoeOverlay metrics={metrics} />}
+      {enableQoeOverlay && <QoeOverlay metrics={metrics} topic={topicString} playerRef={wrapperRef} />}
     </div>
   );
 };

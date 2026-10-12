@@ -169,7 +169,8 @@ $size: (
 $z-index: (
   'header': 100,
   'player-overlay': 2,
-  'qoe-overlay': 3,
+  // Above the header and the chat, below a dialog: only where a browser has no top layer, which the panel otherwise sits in.
+  'qoe-overlay': 400,
   'dialog': 500,
   // What floats over everything once opened from the chat: the emoji picker beside a message, the name over an initial.
   'popover': 1000,
