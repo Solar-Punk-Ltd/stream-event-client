@@ -96,25 +96,3 @@
   padding-left: var(--spacing-md);
   color: var(--color-primary);
 }
-
-// Each theme's page, accent and heading typeface, worn by the swatch whatever the page wears.
-.theme-swatch {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: var(--size-avatar);
-  height: var(--size-avatar);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-background);
-  color: var(--color-primary);
-  font-family: var(--font-family-heading);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-heading);
-  line-height: var(--line-height-none);
-
-  &::before {
-    content: 'Aa';
-  }
-}

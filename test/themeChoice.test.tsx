@@ -30,7 +30,7 @@ function header(config = minimalConfig()) {
   mounted = mount(withThemeChoice(createElement(ChatUserProvider, null, createElement(LoginButton)), config));
 }
 
-/** A theme's option by the name a screen reader hears, which leaves out the swatch and the tick. */
+/** A theme's option by the name a screen reader hears, which leaves out the tick. */
 function themeOption(name: (typeof THEME_NAMES)[number]): HTMLButtonElement | null {
   const spoken = (option: Element) => {
     const copy = option.cloneNode(true) as Element;
