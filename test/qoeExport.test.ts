@@ -165,6 +165,17 @@ describe('the QoE export', () => {
     }
   });
 
+  it('writes n/a for a value not measured yet, and no dash', () => {
+    const exported = JSON.parse(qoeExportJson(qoeContent(initialMetrics(), RELEASE)));
+    const values: string[] = exported.sections.flatMap((section: { rows: { value: string }[] }) =>
+      section.rows.map((row) => row.value),
+    );
+
+    assert.ok(values.includes('n/a'));
+    assert.equal(values.filter((value) => value.includes('\u2014')).length, 0);
+    assert.doesNotMatch(exported.footer, /\u2014/);
+  });
+
   it('is pretty-printed with two spaces', () => {
     const json = qoeExportJson(qoeContent(initialMetrics(), RELEASE));
 

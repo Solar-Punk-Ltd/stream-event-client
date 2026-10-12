@@ -28,7 +28,10 @@ export interface QoeContent {
 
 const QOE_TITLE = 'QoE Metrics';
 
-const fmtMs = (ms: number | null) => (ms == null ? '—' : `${Math.round(ms)} ms`);
+/** What a value not measured yet reads as, in the panel and in its export. */
+const NOT_MEASURED = 'n/a';
+
+const fmtMs = (ms: number | null) => (ms == null ? NOT_MEASURED : `${Math.round(ms)} ms`);
 const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;
 
 /** The panel's content from the metrics and the build label of the viewer playing them. */
@@ -63,8 +66,8 @@ export function qoeContent(m: QoeMetrics, build: string | null): QoeContent {
       {
         title: 'Quality',
         rows: [
-          { label: 'Delivered Bitrate', value: m.bitrateKbps != null ? `${m.bitrateKbps} kbps` : '—' },
-          { label: 'Delivered Resolution', value: m.resolution ?? '—' },
+          { label: 'Delivered Bitrate', value: m.bitrateKbps != null ? `${m.bitrateKbps} kbps` : NOT_MEASURED },
+          { label: 'Delivered Resolution', value: m.resolution ?? NOT_MEASURED },
           { label: 'Quality Switches', value: String(m.qualitySwitchCount) },
           { label: 'Switch Frequency', value: `${m.qualitySwitchPerMin.toFixed(2)}/min` },
           { label: 'Dropped Frames', value: String(m.droppedFrames), bad: m.droppedFrames > 0 },
@@ -75,11 +78,11 @@ export function qoeContent(m: QoeMetrics, build: string | null): QoeContent {
         rows: [
           {
             label: 'E2E Live Latency',
-            value: m.liveLatencySec != null ? `${m.liveLatencySec.toFixed(2)} s` : '—',
+            value: m.liveLatencySec != null ? `${m.liveLatencySec.toFixed(2)} s` : NOT_MEASURED,
           },
           {
             label: 'Latency Target',
-            value: m.liveTargetLatencySec != null ? `${m.liveTargetLatencySec.toFixed(2)} s` : '—',
+            value: m.liveTargetLatencySec != null ? `${m.liveTargetLatencySec.toFixed(2)} s` : NOT_MEASURED,
             bad: m.liveTargetLatencySec != null && m.liveTargetLatencySec > LIVE_SYNC_DURATION_S,
           },
           { label: 'Buffer Stalls', value: String(m.bufferStallCount), bad: m.bufferStallCount > 0 },
@@ -89,10 +92,10 @@ export function qoeContent(m: QoeMetrics, build: string | null): QoeContent {
         title: 'ABR',
         rows: [
           { label: 'Level Selection', value: m.abrEnabled ? 'auto' : 'pinned' },
-          { label: 'Selected Rung', value: m.selectedHeight != null ? `${m.selectedHeight}p` : '—' },
+          { label: 'Selected Rung', value: m.selectedHeight != null ? `${m.selectedHeight}p` : NOT_MEASURED },
           {
             label: 'Bandwidth Estimate',
-            value: m.bandwidthEstimateKbps != null ? `${m.bandwidthEstimateKbps} kbps` : '—',
+            value: m.bandwidthEstimateKbps != null ? `${m.bandwidthEstimateKbps} kbps` : NOT_MEASURED,
           },
           { label: 'Switch Latency', value: fmtMs(m.lastSwitchLatencyMs) },
           { label: 'Switch Latency (avg)', value: fmtMs(m.avgSwitchLatencyMs) },
@@ -110,7 +113,7 @@ export function qoeContent(m: QoeMetrics, build: string | null): QoeContent {
             bad: level.capped || level.unaffordable,
           })),
           ...(ladder.length > 0
-            ? [{ label: 'ABR would pick', value: m.nextHeight != null ? `${m.nextHeight}p` : '—' }]
+            ? [{ label: 'ABR would pick', value: m.nextHeight != null ? `${m.nextHeight}p` : NOT_MEASURED }]
             : []),
         ],
       },
@@ -125,7 +128,7 @@ export function qoeContent(m: QoeMetrics, build: string | null): QoeContent {
           { label: 'Reconnect Attempts', value: String(m.reconnectAttempts) },
           {
             label: 'Reconnect Success Rate',
-            value: m.reconnectAttempts > 0 ? fmtPct(m.reconnectSuccessRate) : '—',
+            value: m.reconnectAttempts > 0 ? fmtPct(m.reconnectSuccessRate) : NOT_MEASURED,
           },
           { label: 'Recovery Time', value: fmtMs(m.lastRecoveryTimeMs) },
         ],
