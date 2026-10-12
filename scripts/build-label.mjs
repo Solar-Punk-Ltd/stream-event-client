@@ -4,7 +4,8 @@
  *
  * Read in this order:
  * 1. `BUILD_TAG` and `BUILD_COMMIT` from the environment. The image workflow passes them as build arguments, because
- *    a Docker build has no `.git` to ask. A value of the wrong shape stops the build rather than reaching the page.
+ *    a Docker build has no `.git` to ask. A tag without a commit, or a commit without a tag, gives that one part. A
+ *    value of the wrong shape stops the build rather than reaching the page.
  * 2. The git checkout the build runs in, named the way the streaming monorepo's `tools/release/version.mjs` names a
  *    build: the tag on the commit, an annotated one before a lightweight one and the newest first, else the nearest
  *    tag behind it and the commits past it (`v1.7.0-rc.5+3`), else the short commit alone, ended by `-dirty` when the
