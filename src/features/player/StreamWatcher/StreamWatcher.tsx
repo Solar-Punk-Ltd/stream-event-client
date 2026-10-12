@@ -22,7 +22,7 @@ import { WatchChat } from '@/features/chat/WatchChat';
 import { useIsWaitingForStart } from './useIsWaitingForStart';
 import { useListReadAtMarkers } from './useListReadAtMarkers';
 import { WatchLayout } from './WatchLayout';
-import { WatchNotice, WatchPlaceholder } from './WatchPlaceholder';
+import { NotAStreamLink, UnlistedStreamNote, WatchPlaceholder } from './WatchPlaceholder';
 
 import './StreamWatcher.scss';
 
@@ -69,16 +69,7 @@ export function StreamWatcher() {
   );
 
   if (!mediatype || !owner || !topic || !isMediaType(mediatype)) {
-    return (
-      <WatchLayout
-        back={back}
-        stage={
-          <WatchNotice>
-            <p className="watch-notice-title">This link does not name a stream.</p>
-          </WatchNotice>
-        }
-      />
-    );
+    return <WatchLayout back={back} stage={<NotAStreamLink />} />;
   }
 
   const enableQoeOverlay = searchParams.get('qoe') === '1';
@@ -130,11 +121,17 @@ export function StreamWatcher() {
       }
       side={chat && <WatchChat key={streamKey} chat={chat} topic={topic} />}
       info={
-        stream && (
+        stream ? (
           <div className="watch-info">
             <h1 className="watch-info-title">{stream.title}</h1>
             {description && <p className="watch-info-description">{description}</p>}
           </div>
+        ) : (
+          view === WATCH_VIEW_PLAYER && (
+            <div className="watch-info">
+              <UnlistedStreamNote />
+            </div>
+          )
         )
       }
     />

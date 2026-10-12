@@ -64,3 +64,10 @@
   white-space: pre-line;
   color: var(--color-text-secondary);
 }
+
+.watch-unlisted {
+  max-width: var(--size-watch-description-max-width);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-secondary);
+}
