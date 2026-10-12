@@ -102,7 +102,7 @@ export function liveLatencyFor(segmentMs: number | null | undefined): LiveLatenc
  * Since hls.js no longer writes the rate, a speed the viewer picks from the native controls stays
  * theirs without any guard.
  */
-export const LIVE_SYNC_PLAYBACK_RATE = 1;
+const LIVE_SYNC_PLAYBACK_RATE = 1;
 
 /**
  * How many of a live playlist's newest segments, gaps not counted, a failed load may turn into a gap.
