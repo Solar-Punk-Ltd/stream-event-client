@@ -1,10 +1,21 @@
+// The playback quality panel, ported from Nandor Komlodi's panel in the streaming monorepo's client and
+// drawn in this viewer's tokens. The overlay element is the toggle button's 32 px box, fixed to the
+// browser window at the place qoeGeometry.ts computes, and a manual popover, so the browser's own
+// popover rules are undone here: it would otherwise be centred, padded, bordered and painted.
 .qoe-overlay {
-  position: absolute;
+  position: fixed;
+  inset: auto;
   top: 8px;
   right: 8px;
   z-index: var(--z-index-qoe-overlay);
   width: 32px;
   height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  overflow: visible;
   pointer-events: none;
   user-select: none;
 }
@@ -22,6 +33,8 @@
   border: 1px solid var(--color-hairline-strong);
   color: var(--color-on-scrim-secondary);
   cursor: grab;
+  // A finger on the button drags the panel rather than scrolling or zooming the page.
+  touch-action: none;
   transition:
     background 0.15s ease,
     box-shadow 0.15s ease,
@@ -111,34 +124,180 @@
   }
 }
 
-.qoe-overlay__panel {
+// The panel's frame hangs 4 px below the button, right edges aligned, and takes its width and height
+// from the geometry. It holds the resize grips, which therefore stay on the edges while the panel
+// inside scrolls.
+.qoe-overlay__frame {
   pointer-events: all;
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
+}
+
+// The header stays at the top while the rows scroll under it, on the opaque video black so the rows
+// passing under it don't show through.
+.qoe-overlay__frame .qoe-overlay__header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-video);
+}
+
+// Thin invisible grips straddling the frame's border, above everything in the panel, its sticky
+// header and its scrollbar included, since the panel is its own stacking context at z-index 0 and
+// the grips sit at 2 and 3 beside it in the overlay's. Corners are larger than edges so they are
+// easy to hit, and sit above the edges where the two overlap.
+$qoe-handle-edge: 6px;
+$qoe-handle-corner: 12px;
+
+.qoe-overlay__handle {
+  position: absolute;
+  z-index: 2;
+  touch-action: none;
+
+  &--n,
+  &--s {
+    left: $qoe-handle-corner * 0.5;
+    right: $qoe-handle-corner * 0.5;
+    height: $qoe-handle-edge;
+  }
+  &--e,
+  &--w {
+    top: $qoe-handle-corner * 0.5;
+    bottom: $qoe-handle-corner * 0.5;
+    width: $qoe-handle-edge;
+  }
+  &--n {
+    top: -$qoe-handle-edge * 0.5;
+  }
+  &--s {
+    bottom: -$qoe-handle-edge * 0.5;
+  }
+  &--e {
+    right: -$qoe-handle-edge * 0.5;
+  }
+  &--w {
+    left: -$qoe-handle-edge * 0.5;
+  }
+
+  &--ne,
+  &--nw,
+  &--se,
+  &--sw {
+    z-index: 3;
+    width: $qoe-handle-corner;
+    height: $qoe-handle-corner;
+  }
+  &--ne {
+    top: -$qoe-handle-corner * 0.5;
+    right: -$qoe-handle-corner * 0.5;
+  }
+  &--nw {
+    top: -$qoe-handle-corner * 0.5;
+    left: -$qoe-handle-corner * 0.5;
+  }
+  &--se {
+    bottom: -$qoe-handle-corner * 0.5;
+    right: -$qoe-handle-corner * 0.5;
+  }
+  &--sw {
+    bottom: -$qoe-handle-corner * 0.5;
+    left: -$qoe-handle-corner * 0.5;
+  }
+}
+
+// Fills the frame and scrolls: vertically as the rows need, horizontally only for a single word too
+// long to wrap. Its own stacking context, so its sticky header's z-index never reaches the grips.
+.qoe-overlay__panel {
+  position: relative;
+  z-index: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
   background: var(--color-scrim-strong);
   border: 1px solid var(--color-hairline-strong);
   border-radius: 6px;
-  padding: 8px 10px;
-  min-width: 220px;
-  max-height: 70vh;
-  overflow-y: auto;
+  padding: 0 10px 8px;
+  overflow: auto;
   backdrop-filter: blur(4px);
   color: var(--color-on-scrim);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
   line-height: 1.4;
+
+  // Focusable, so a keyboard can scroll it, and the focus shows.
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible {
+    outline: var(--size-focus-ring) solid var(--color-primary);
+    outline-offset: 1px;
+  }
 }
 
 .qoe-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 -10px 6px;
+  padding: 8px 10px 4px;
   font-size: 12px;
   font-weight: bold;
   color: var(--color-on-scrim);
-  margin-bottom: 6px;
-  padding-bottom: 4px;
   border-bottom: 1px solid var(--color-hairline-strong);
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+// Copy and Save, which export what the panel shows.
+.qoe-overlay__actions {
+  display: flex;
+  gap: 4px;
+}
+
+.qoe-overlay__action {
+  padding: 1px 6px;
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: 3px;
+  background: var(--color-button-secondary);
+  color: var(--color-on-scrim);
+  font: inherit;
+  font-size: 10px;
+  font-weight: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-button-secondary-hover);
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible {
+    outline: var(--size-focus-ring) solid var(--color-primary);
+    outline-offset: 1px;
+  }
+}
+
+// What Copy came to. A refusal is a sentence, so it wraps rather than widening the panel.
+.qoe-overlay__notice {
+  margin-bottom: 4px;
+  color: var(--color-on-scrim-secondary);
+  font-size: 10px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+
+  // Empty between notices, and kept in the page rather than hidden: a live region taken out of the
+  // accessibility tree is not announced when its text comes back.
+  &:empty {
+    margin-bottom: 0;
+  }
 }
 
 .qoe-overlay__section {
@@ -154,10 +313,13 @@
   margin-top: 4px;
 }
 
+// A narrow panel wraps a row rather than overlapping or clipping it: the value drops under its label,
+// still right-aligned, and a value too long for a line of its own breaks anywhere.
 .qoe-overlay__row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 8px;
+  column-gap: 8px;
   padding: 1px 0;
 
   &--bad .qoe-overlay__value {
@@ -165,14 +327,47 @@
   }
 }
 
-.qoe-overlay__label {
-  color: var(--color-on-scrim-secondary);
+// A bad value's sign, in the bad colour and bold, so it reads without the colour as well.
+.qoe-overlay__flag {
+  margin-left: auto;
+  color: var(--color-error-text);
+  font-weight: bold;
+
+  + .qoe-overlay__value {
+    margin-left: 4px;
+  }
+}
+
+.qoe-overlay__visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
+
+// Spaces kept, so a ladder rung that is not the current one lines up under the one marked with ▸.
+.qoe-overlay__label {
+  color: var(--color-on-scrim-secondary);
+  white-space: pre-wrap;
+}
 .qoe-overlay__value {
+  min-width: 0;
+  margin-left: auto;
   color: var(--color-on-scrim);
   text-align: right;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+}
+
+// The build under the header, which wraps rather than running past the panel's edge.
+.qoe-overlay__release {
+  margin-bottom: 4px;
+
+  .qoe-overlay__value {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 
 .qoe-overlay__footer {

@@ -356,12 +356,30 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   an older segment, a finished broadcast or a recording, the player handles the error as it always
   did: hls.js's own skip stands for a segment it gave up on, and a fatal network error restarts the
   player. While another quality is left, a segment that failed to load is tried there instead and
-  nothing is marked. The playback quality overlay counts each skipped segment once, under Segments
+  nothing is marked. The playback quality panel counts each skipped segment once, under Segments
   Skipped, and not as a fatal error or a reconnect attempt.
 - **Where the video loads from.** The Sources screen, the Sources button in the header, is
   described below.
-- **Diagnosing playback.** `?qoe=1` on a watch page shows a draggable playback quality overlay,
-  toggled with `Q`. `?level=720p` pins one quality, which tells a bad quality apart from a bad switch.
+- **Diagnosing playback.** `?qoe=1` on a watch page shows the playback quality panel, ported from
+  Nandor Komlodi's panel in the streaming monorepo's client. Its round button toggles it, and so does
+  `Q` when you are not typing in a field. The panel lives in the browser window, not in the player:
+  drag the button to move it anywhere in the window, and drag any edge or corner to resize it like a
+  window, down to 160 by 120 px. Moving and resizing need a mouse, a finger or a pen. The keyboard
+  can focus the panel and scroll it, but moving or resizing it from the keyboard is not built yet. It
+  opens 250 px wide at the player's top right. It is always kept inside the window with its header,
+  or its button when collapsed, in reach, also after the window is resized and when full screen
+  starts or ends. Where it was left, its size and whether it was open are remembered in this browser,
+  and a place that no longer fits the window is pulled back in. It stays visible and usable in full
+  screen: while the panel is on, the video's full screen button puts the whole player in full screen
+  rather than the video alone, so the panel can be inside it. This was checked in Chromium only. A
+  browser that refuses to move the full screen to the player keeps the video's own full screen, and
+  the panel stays in the page, where it may be hidden or not take clicks. Safari on an iPhone always
+  plays full screen in its own player, so the panel is not shown there. Copy puts what the panel
+  shows on the clipboard as JSON, and Save downloads the same as `qoe-<stream>-<date>-<time>.json`,
+  which works where a page served over plain http is refused the clipboard. A value not measured yet
+  reads n/a, and a value out of range is marked with a `!` as well as its colour. The line under the
+  header names the viewer's build, the same label the Sources screen shows. `?level=720p` pins one
+  quality, which tells a bad quality apart from a bad switch.
 
 ## The Sources screen
 
@@ -568,7 +586,7 @@ the two named exceptions, each with its reason in the test.
 Two themes. `swarm` is Swarm Brand v3.0 as msrs-client's Swarm theme draws it: near-black surfaces, the
 Swarm orange `#f47a20` as a sparing accent and Geist for all text. `web3privacy` is web3privacy.info's: a
 black page, the neon green `#70ff88`, Archivo for text and Domine for headings. Both use JetBrains Mono
-only for the configuration problem's detail and the playback quality overlay. A deployment picks its
+only for the configuration problem's detail and the playback quality panel. A deployment picks its
 theme in `config.json`, and a logged-in viewer can switch the look, as above.
 
 - **The tokens.** The scales (sizes, spacing, type steps, radii, timing) live in
