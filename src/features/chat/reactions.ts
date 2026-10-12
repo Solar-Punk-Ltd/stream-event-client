@@ -1,8 +1,5 @@
 import type { MessageData } from '@solarpunkltd/swarm-chat-js';
 
-/** Offered first, beside a message and beside the message field, so a common emoji needs no picker and no download. */
-export const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
-
 export interface ReactionSummary {
   emoji: string;
   count: number;

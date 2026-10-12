@@ -31,7 +31,7 @@ function accessibleName(element: Element): string {
   return (element.getAttribute('aria-label') ?? element.textContent ?? '').trim();
 }
 
-export function buttons(): HTMLButtonElement[] {
+function buttons(): HTMLButtonElement[] {
   return [...document.querySelectorAll('button')];
 }
 

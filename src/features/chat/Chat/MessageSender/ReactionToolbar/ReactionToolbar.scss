@@ -1,34 +1,76 @@
+// The picker library's bar of common emoji, drawn small and on the chat's own background, right aligned
+// above the field. Expanded, the whole picker opens upwards over the messages from the same place.
 .reaction-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--spacing-2xs);
+  position: relative;
   margin-bottom: var(--spacing-xs);
-}
+  margin-left: auto;
 
-.reaction-toolbar-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--size-chat-quick-emoji);
-  height: var(--size-chat-quick-emoji);
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: none;
-  font-size: var(--font-size-lg);
-  line-height: var(--line-height-none);
-  cursor: pointer;
-  transition:
-    background-color var(--duration-base) ease,
-    border-color var(--duration-base) ease;
-
-  &:hover {
-    border-color: var(--color-hairline-strong);
-    background: var(--color-button-secondary);
+  .EmojiPickerReact {
+    --epr-emoji-size: 16px;
   }
 
-  &.more {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
+  .epr-main {
+    padding: 0;
+    border: none;
+    background: transparent;
+  }
+
+  .epr-emoji:hover,
+  #{'button[aria-label="Show all Emojis"]'}:hover {
+    border-color: var(--color-hairline-strong);
+    background: var(--color-button-secondary);
+    transform: none;
+  }
+
+  .epr-emoji-native {
+    transform: none;
+  }
+
+  &.expanded {
+    .EmojiPickerReact {
+      position: absolute;
+      right: 0;
+      bottom: calc(100% - var(--size-reaction-bar));
+      z-index: var(--z-index-popover);
+      max-width: calc(100vw - 2 * var(--spacing-base));
+      max-height: calc(100vh - 150px);
+    }
+
+    .epr-main {
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+    }
+  }
+}
+
+.reaction-toolbar-placeholder {
+  height: var(--size-reaction-bar);
+}
+
+.close-picker-button {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% - var(--size-reaction-bar) + var(--spacing-xs));
+  z-index: calc(var(--z-index-popover) + 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-close-picker);
+  height: var(--size-close-picker);
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-glass);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: border-color var(--duration-base) ease;
+
+  &:hover {
+    border-color: var(--color-text-tertiary);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 }
