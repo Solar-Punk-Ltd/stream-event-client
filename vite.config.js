@@ -1,9 +1,9 @@
 import react from '@vitejs/plugin-react-swc';
-import { readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv } from 'vite';
 
+import { describeBuild } from './scripts/build-label.mjs';
 import { weeb3Files } from './scripts/weeb3-files.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,13 +22,12 @@ export default defineConfig(({ mode }) => {
     },
   };
 
-  const { version } = JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
-
   return {
     base: './',
     plugins: [react(), weeb3Files(__dirname)],
-    // What the control panel's report names the build by.
-    define: { __BUILD_LABEL__: JSON.stringify(`stream-event-client ${version}, built ${new Date().toISOString()}`) },
+    // What Copy diagnostics names the build by: the release tag and the short commit. scripts/build-label.mjs says
+    // where each comes from.
+    define: { __BUILD_LABEL__: JSON.stringify(describeBuild({ root: __dirname, env: process.env })) },
     build: {
       // Stated rather than inherited, because the bundler default is not stable
       // across majors and moving it is silent: vite 5 defaulted to this list and
