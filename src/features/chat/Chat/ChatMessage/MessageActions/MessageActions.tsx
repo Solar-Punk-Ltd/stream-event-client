@@ -19,6 +19,7 @@ interface MessageActionsProps {
  */
 export function MessageActions({ visible, ownMessage, onReact, onOpenThread, disabled = false }: MessageActionsProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [wasOpenedByKeyboard, setWasOpenedByKeyboard] = useState(false);
   const reactButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -41,6 +42,9 @@ export function MessageActions({ visible, ownMessage, onReact, onOpenThread, dis
         disabled={disabled}
         onClick={(event) => {
           event.stopPropagation();
+          // A click the keyboard made counts no presses, and only then does the picker take focus, so a
+          // phone does not raise its keyboard over the picker for a search nobody asked for.
+          setWasOpenedByKeyboard(event.detail === 0);
           setIsPickerOpen((open) => !open);
         }}
       >
@@ -65,6 +69,7 @@ export function MessageActions({ visible, ownMessage, onReact, onOpenThread, dis
         <EmojiPickerPopover
           anchorRef={reactButtonRef}
           ownMessage={ownMessage}
+          takesFocus={wasOpenedByKeyboard}
           onPick={onReact}
           onClose={() => setIsPickerOpen(false)}
         />

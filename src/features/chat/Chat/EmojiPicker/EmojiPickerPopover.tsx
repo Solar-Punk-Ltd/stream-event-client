@@ -15,6 +15,8 @@ interface EmojiPickerPopoverProps {
   anchorRef: RefObject<HTMLElement | null>;
   /** Whose message the picker opened from, which decides the side it reaches towards. */
   ownMessage: boolean;
+  /** Moves focus to the picker's search field, for a picker opened from the keyboard. */
+  takesFocus?: boolean;
   onPick: (emoji: string) => void;
   onClose: () => void;
 }
@@ -24,7 +26,13 @@ interface EmojiPickerPopoverProps {
  * drawn into the body so the chat's scrolling list cannot clip it, and a press anywhere else or Escape
  * closes it.
  */
-export function EmojiPickerPopover({ anchorRef, ownMessage, onPick, onClose }: EmojiPickerPopoverProps) {
+export function EmojiPickerPopover({
+  anchorRef,
+  ownMessage,
+  takesFocus = false,
+  onPick,
+  onClose,
+}: EmojiPickerPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -72,6 +80,7 @@ export function EmojiPickerPopover({ anchorRef, ownMessage, onPick, onClose }: E
       >
         <EmojiPickerPanel
           size={size}
+          focusesSearch={takesFocus}
           onPick={(emoji) => {
             onPick(emoji);
             onClose();

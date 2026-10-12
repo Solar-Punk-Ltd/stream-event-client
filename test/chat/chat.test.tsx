@@ -36,10 +36,11 @@ vi.mock('@solarpunkltd/swarm-chat-js', async (importActual) => {
 interface FakePickerProps {
   onEmojiClick: (data: { emoji: string }) => void;
   reactionsDefaultOpen?: boolean;
+  autoFocusSearch?: boolean;
 }
 
 /** The picker as the library draws it: its reactions bar with a button that shows every emoji, or every emoji. */
-function FakePicker({ onEmojiClick, reactionsDefaultOpen = false }: FakePickerProps) {
+function FakePicker({ onEmojiClick, reactionsDefaultOpen = false, autoFocusSearch = false }: FakePickerProps) {
   const [showsReactions, setShowsReactions] = useState(reactionsDefaultOpen);
   const pick = (emoji: string, label: string) =>
     createElement('button', { key: label, type: 'button', onClick: () => onEmojiClick({ emoji }) }, label);
@@ -53,7 +54,10 @@ function FakePicker({ onEmojiClick, reactionsDefaultOpen = false }: FakePickerPr
       ),
     ]);
   }
-  return createElement('div', { className: 'EmojiPickerReact' }, pick('🎉', 'pick 🎉'));
+  return createElement('div', { className: 'EmojiPickerReact' }, [
+    createElement('input', { key: 'search', 'aria-label': 'Search emoji', autoFocus: autoFocusSearch }),
+    pick('🎉', 'pick 🎉'),
+  ]);
 }
 
 vi.mock('emoji-picker-react', () => ({
@@ -560,6 +564,43 @@ describe('reactions', () => {
     await settle();
     expect(chat.sendMessage).toHaveBeenCalledWith('🎉', MessageType.REACTION, 'm');
     expect(document.querySelector('.emoji-picker-popover')).toBeNull();
+  });
+
+  it('close the picker on a press outside it or on Escape, and keep it and the actions open on a press inside', async () => {
+    signIn();
+    await open();
+    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    click(document.querySelector('.chat-message .message')!);
+    const react = button('Add reaction');
+    click(react);
+    const picker = await waitFor(() => document.querySelector('.emoji-picker-popover'));
+
+    click(picker.querySelector('input')!);
+    expect(document.querySelector('.emoji-picker-popover')).not.toBeNull();
+    expect(document.querySelector('.message-actions.visible')).not.toBeNull();
+
+    act(() => {
+      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+    expect(document.querySelector('.emoji-picker-popover')).toBeNull();
+
+    click(react);
+    await waitFor(() => document.querySelector('.emoji-picker-popover'));
+    press(document.body, 'Escape');
+    expect(document.querySelector('.emoji-picker-popover')).toBeNull();
+    expect(document.activeElement).toBe(react);
+  });
+
+  it('move focus into the picker when it is opened from the keyboard', async () => {
+    signIn();
+    await open();
+    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    click(document.querySelector('.chat-message .message')!);
+    act(() => {
+      button('Add reaction').dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+    });
+    const picker = await waitFor(() => document.querySelector('.emoji-picker-popover'));
+    expect(document.activeElement).toBe(picker.querySelector('input'));
   });
 
   it('show their actions on a click of the message and hide them on another', async () => {
