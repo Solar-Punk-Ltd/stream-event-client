@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { ChatMessageError, EVENTS, MessageType, type MessageData } from '@solarpunkltd/swarm-chat-js';
-import { act, createElement, StrictMode, type ReactNode } from 'react';
+import { act, createElement, StrictMode, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ChatConfig } from '../../src/config/runtimeConfig';
@@ -33,9 +33,31 @@ vi.mock('@solarpunkltd/swarm-chat-js', async (importActual) => {
   return { ...actual, SwarmChat: FakeSwarmChat };
 });
 
+interface FakePickerProps {
+  onEmojiClick: (data: { emoji: string }) => void;
+  reactionsDefaultOpen?: boolean;
+}
+
+/** The picker as the library draws it: its reactions bar with a button that shows every emoji, or every emoji. */
+function FakePicker({ onEmojiClick, reactionsDefaultOpen = false }: FakePickerProps) {
+  const [showsReactions, setShowsReactions] = useState(reactionsDefaultOpen);
+  const pick = (emoji: string, label: string) =>
+    createElement('button', { key: label, type: 'button', onClick: () => onEmojiClick({ emoji }) }, label);
+  if (showsReactions) {
+    return createElement('div', { className: 'EmojiPickerReact' }, [
+      pick('👍', 'react 👍'),
+      createElement(
+        'button',
+        { key: 'all', type: 'button', 'aria-label': 'Show all Emojis', onClick: () => setShowsReactions(false) },
+        '+',
+      ),
+    ]);
+  }
+  return createElement('div', { className: 'EmojiPickerReact' }, pick('🎉', 'pick 🎉'));
+}
+
 vi.mock('emoji-picker-react', () => ({
-  default: ({ onEmojiClick }: { onEmojiClick: (data: { emoji: string }) => void }) =>
-    createElement('button', { type: 'button', onClick: () => onEmojiClick({ emoji: '🎉' }) }, 'pick 🎉'),
+  default: FakePicker,
   EmojiStyle: { NATIVE: 'native' },
   Theme: { DARK: 'dark' },
 }));
@@ -206,8 +228,26 @@ describe('the chat on a watch page', () => {
 
     expect(avatar?.textContent).toBe('B');
     expect(avatar?.getAttribute('aria-label')).toBe('Bea ccc:ccc');
-    expect(document.querySelector('.profile-picture-tooltip')?.textContent).toBe('Bea ccc:ccc');
     expect(document.querySelector('.chat-message-author')).toBeNull();
+  });
+
+  it('floats the name and short address over the page while the initial is pointed at, as the Swarm site does', async () => {
+    await open();
+    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm', username: 'Bea', address: OTHER }));
+    const avatar = document.querySelector('.chat-message [role="img"]')!;
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+
+    act(() => {
+      avatar.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    const tooltip = await waitFor(() => document.querySelector('[role="tooltip"]'));
+    expect(tooltip.textContent).toBe('Bea ccc:ccc');
+    expect(tooltip.closest('.chat-message')).toBeNull();
+
+    act(() => {
+      avatar.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+    });
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
   });
 
   it('puts the viewer own messages on the other side from everyone else', async () => {
@@ -373,22 +413,28 @@ describe('sending', () => {
     expect(input('Message').value).toBe('hi');
   });
 
-  it('adds an emoji from the picker to the message being written', async () => {
+  it('adds an emoji from the picker opened in place above the field, never in a dialog', async () => {
     signIn();
     await open();
     type(input('Message'), 'party ');
-    click(button('Add an emoji'));
-    click(await waitFor(() => queryButton('pick 🎉')));
+    click(await waitFor(() => queryButton('Show all Emojis')));
+    expect(document.querySelector('.reaction-toolbar.expanded')).not.toBeNull();
+    click(button('pick 🎉'));
     expect(input('Message').value).toBe('party 🎉');
     expect(dialog()).toBeNull();
+
+    click(button('Close the emoji picker'));
+    expect(document.querySelector('.reaction-toolbar.expanded')).toBeNull();
+    expect(await waitFor(() => queryButton('react 👍'))).toBeTruthy();
   });
 
-  it('adds a quick emoji to the message being written, without opening the picker', async () => {
+  it('adds an emoji from the bar above the field, without opening the picker', async () => {
     signIn();
     await open();
     type(input('Message'), 'nice ');
-    click(button('Add 👍'));
+    click(await waitFor(() => queryButton('react 👍')));
     expect(input('Message').value).toBe('nice 👍');
+    expect(document.querySelector('.reaction-toolbar.expanded')).toBeNull();
     expect(dialog()).toBeNull();
   });
 
@@ -496,15 +542,35 @@ describe('reactions', () => {
     expect(chat.sendMessage).toHaveBeenCalledWith('👍', MessageType.REACTION, 'm');
   });
 
-  it('are added from the message actions', async () => {
+  it('are added from a picker that opens beside the message actions, never in a dialog', async () => {
     signIn();
     await open();
     const chat = FakeSwarmChat.latest();
     emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
-    click(button('Message actions'));
-    click(button('React with 😂'));
+    expect(queryButton('Message actions')).toBeNull();
+
+    click(document.querySelector('.chat-message .message')!);
+    expect(document.querySelector('.chat-message .message-actions.visible')).not.toBeNull();
+    click(button('Add reaction'));
+    const picker = await waitFor(() => document.querySelector('.emoji-picker-popover'));
+    expect(picker.closest('.chat-message')).toBeNull();
+    expect(dialog()).toBeNull();
+
+    click(picker.querySelector('button')!);
     await settle();
-    expect(chat.sendMessage).toHaveBeenCalledWith('😂', MessageType.REACTION, 'm');
+    expect(chat.sendMessage).toHaveBeenCalledWith('🎉', MessageType.REACTION, 'm');
+    expect(document.querySelector('.emoji-picker-popover')).toBeNull();
+  });
+
+  it('show their actions on a click of the message and hide them on another', async () => {
+    await open();
+    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    const bubble = document.querySelector('.chat-message .message')!;
+    expect(document.querySelector('.message-actions.visible')).toBeNull();
+    click(bubble);
+    expect(document.querySelector('.message-actions.visible')).not.toBeNull();
+    click(bubble);
+    expect(document.querySelector('.message-actions.visible')).toBeNull();
   });
 
   it('ask a viewer with no name for one instead of sending', async () => {
@@ -546,7 +612,7 @@ describe('threads', () => {
   it('open from the message actions for a viewer with no name, who can read them', async () => {
     await open();
     emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'parent' }));
-    click(button('Message actions'));
+    click(document.querySelector('.chat-message .message')!);
     click(button('Reply in a thread'));
     expect(text()).toContain('No replies yet');
     expect(queryButton('Join the chat to reply')).toBeTruthy();
