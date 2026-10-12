@@ -69,7 +69,7 @@ export function NotAStreamLink() {
  * Stands where the player would, in the player's shape, so a viewer who followed a link to a stream
  * that is loading or gone lands on the page they expected.
  */
-export function WatchNotice({ children }: { children: React.ReactNode }) {
+function WatchNotice({ children }: { children: React.ReactNode }) {
   return (
     <div className="watch-notice" role="status">
       {children}
