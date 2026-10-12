@@ -347,8 +347,20 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   Skipped, and not as a fatal error or a reconnect attempt.
 - **Where the video loads from.** The Sources screen, the Sources button in the header, is
   described below.
-- **Diagnosing playback.** `?qoe=1` on a watch page shows a draggable playback quality overlay,
-  toggled with `Q`. `?level=720p` pins one quality, which tells a bad quality apart from a bad switch.
+- **Diagnosing playback.** `?qoe=1` on a watch page shows the playback quality panel, ported from
+  Nandor Komlodi's panel in the streaming monorepo's client. Its round button toggles it, and so does
+  `Q` when you are not typing in a field. The panel lives in the browser window, not in the player:
+  drag the button to move it anywhere on the page, and drag any edge or corner to resize it like a
+  window, down to 160 by 120 px. It opens 250 px wide at the player's top right. It is always kept
+  inside the window with its header, or its button when collapsed, in reach, also after the window
+  is resized and when full screen starts or ends. Where it was left, its size and whether it was open
+  are remembered in this browser, and a place that no longer fits the window is pulled back in. It
+  stays visible and usable in full screen: while the panel is on, the video's full screen button puts
+  the whole player in full screen rather than the video alone, so the panel can be inside it. Copy puts what the panel shows on the clipboard as
+  JSON, and Save downloads the same as `qoe-<stream>-<date>-<time>.json`, which works where a page
+  served over plain http is refused the clipboard. The line under its header names the viewer's
+  build, the same label the Sources screen shows. `?level=720p` pins one quality, which tells a bad
+  quality apart from a bad switch.
 
 ## The Sources screen
 
