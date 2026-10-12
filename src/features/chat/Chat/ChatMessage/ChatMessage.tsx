@@ -52,7 +52,10 @@ function useIsUnconfirmed(waiting: boolean, onHeightChange?: () => void): boolea
   return isUnconfirmed;
 }
 
-/** One message as the Swarm site draws it: an initial and a bubble, the viewer's own on the right. */
+/**
+ * One message as the Swarm site draws it: an initial and a bubble, the viewer's own on the right. A click
+ * on the message shows what can be done with it, and the next click folds that away.
+ */
 export function ChatMessage({
   message,
   ownMessage,
@@ -70,6 +73,8 @@ export function ChatMessage({
   const isUnconfirmed =
     useIsUnconfirmed(ownMessage && uploaded && !received && !error, onHeightChange) && canOfferResend;
   const color = nameColor(message.username);
+  const canAct = received && !error;
+  const [areActionsShown, setAreActionsShown] = useState(false);
 
   const classes = [
     'chat-message',
@@ -81,7 +86,7 @@ export function ChatMessage({
     .join(' ');
 
   return (
-    <li className={classes}>
+    <li className={classes} onClick={() => canAct && setAreActionsShown((shown) => !shown)}>
       <ProfilePicture name={message.username} address={message.address} color={color} />
 
       <div className="chat-message-text">
@@ -110,8 +115,14 @@ export function ChatMessage({
         {onOpenThread && <MessageThreadWrapper replyCount={replyCount} onOpenThread={onOpenThread} />}
       </div>
 
-      {received && !error && (
-        <MessageActions onReact={onReact} onOpenThread={onOpenThread} disabled={pendingReaction !== null} />
+      {canAct && (
+        <MessageActions
+          visible={areActionsShown}
+          ownMessage={ownMessage}
+          onReact={onReact}
+          onOpenThread={onOpenThread}
+          disabled={pendingReaction !== null}
+        />
       )}
     </li>
   );

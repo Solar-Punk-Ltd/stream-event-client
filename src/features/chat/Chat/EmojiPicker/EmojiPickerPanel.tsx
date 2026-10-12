@@ -1,11 +1,18 @@
 import EmojiPicker, { EmojiStyle, Theme } from 'emoji-picker-react';
 
+import type { PickerSize } from './pickerPlacement';
+
+import './EmojiPicker.scss';
+
 interface EmojiPickerPanelProps {
   onPick: (emoji: string) => void;
+  /** Opens on the library's bar of common emoji, whose last button shows every emoji in place. */
+  startsAsReactionBar?: boolean;
+  size?: PickerSize;
 }
 
-/** The emoji picker library, in a file of its own so it downloads only when a picker first opens. */
-export default function EmojiPickerPanel({ onPick }: EmojiPickerPanelProps) {
+/** The emoji picker library, in a file of its own so it downloads only when a picker is first drawn. */
+export default function EmojiPickerPanel({ onPick, startsAsReactionBar = false, size }: EmojiPickerPanelProps) {
   return (
     <EmojiPicker
       theme={Theme.DARK}
@@ -14,8 +21,9 @@ export default function EmojiPickerPanel({ onPick }: EmojiPickerPanelProps) {
       lazyLoadEmojis
       skinTonesDisabled
       autoFocusSearch={false}
-      width="100%"
-      height={360}
+      reactionsDefaultOpen={startsAsReactionBar}
+      width={size?.width}
+      height={size?.height}
       onEmojiClick={(data) => onPick(data.emoji)}
     />
   );

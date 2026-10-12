@@ -1,0 +1,11 @@
+// The picker library styles itself through these properties, set here to the theme's surfaces.
+.EmojiPickerReact {
+  --epr-bg-color: var(--color-surface);
+  --epr-category-label-bg-color: var(--color-surface);
+  --epr-hover-bg-color: var(--color-button-secondary-hover);
+  --epr-focus-bg-color: var(--color-button-secondary-hover);
+  --epr-search-input-bg-color: var(--color-input);
+  --epr-picker-border-color: var(--color-border);
+  --epr-highlight-color: var(--color-primary);
+  --epr-text-color: var(--color-text);
+}

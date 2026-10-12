@@ -1,84 +1,73 @@
-import { useId, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { QUICK_REACTIONS } from '../../../reactions';
-import { EmojiPickerDialog } from '../../EmojiPicker/EmojiPickerDialog';
+import { EmojiPickerPopover } from '../../EmojiPicker/EmojiPickerPopover';
 
 import './MessageActions.scss';
 
 interface MessageActionsProps {
+  /** Shown once the message is clicked, folded away on the next click. */
+  visible: boolean;
+  ownMessage: boolean;
   onReact: (emoji: string) => void;
   onOpenThread?: () => void;
   disabled?: boolean;
 }
 
 /**
- * What can be done with a message, folded behind one button in the empty side of its row, so a phone
- * screen is not all buttons.
+ * The Swarm site's two actions on a message, a reaction and a reply, sliding in on the side of the row
+ * the bubble leaves empty. The reaction opens the emoji picker beside its button.
  */
-export function MessageActions({ onReact, onOpenThread, disabled = false }: MessageActionsProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function MessageActions({ visible, ownMessage, onReact, onOpenThread, disabled = false }: MessageActionsProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const actionsId = useId();
+  const reactButtonRef = useRef<HTMLButtonElement>(null);
 
-  const react = (emoji: string) => {
-    onReact(emoji);
-    setIsOpen(false);
-  };
+  useEffect(() => {
+    if (!visible) {
+      setIsPickerOpen(false);
+    }
+  }, [visible]);
+
+  const classes = ['message-actions', visible && 'visible', ownMessage && 'own-message'].filter(Boolean).join(' ');
 
   return (
-    <div className="message-actions">
+    <div className={classes}>
       <button
+        ref={reactButtonRef}
         type="button"
-        className="message-actions-toggle"
-        aria-label="Message actions"
-        aria-expanded={isOpen}
-        aria-controls={actionsId}
-        onClick={() => setIsOpen((open) => !open)}
+        className="message-action"
+        aria-label="Add reaction"
+        aria-expanded={isPickerOpen}
+        title={disabled ? 'Sending reaction…' : 'Add reaction'}
+        disabled={disabled}
+        onClick={(event) => {
+          event.stopPropagation();
+          setIsPickerOpen((open) => !open);
+        }}
       >
-        <span aria-hidden="true">⋯</span>
+        <span aria-hidden="true">{disabled ? '⏳' : '😊'}</span>
       </button>
-
-      {isOpen && (
-        <div id={actionsId} className="message-actions-row">
-          {QUICK_REACTIONS.map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              className="message-action"
-              aria-label={`React with ${emoji}`}
-              disabled={disabled}
-              onClick={() => react(emoji)}
-            >
-              {emoji}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="message-action"
-            aria-label="More reactions"
-            disabled={disabled}
-            onClick={() => setIsPickerOpen(true)}
-          >
-            <span aria-hidden="true">😊</span>
-          </button>
-          {onOpenThread && (
-            <button
-              type="button"
-              className="message-action"
-              aria-label="Reply in a thread"
-              onClick={() => {
-                setIsOpen(false);
-                onOpenThread();
-              }}
-            >
-              <span aria-hidden="true">💬</span>
-            </button>
-          )}
-        </div>
+      {onOpenThread && (
+        <button
+          type="button"
+          className="message-action"
+          aria-label="Reply in a thread"
+          title="Reply in thread"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenThread();
+          }}
+        >
+          <span aria-hidden="true">💬</span>
+        </button>
       )}
 
       {isPickerOpen && (
-        <EmojiPickerDialog title="React with an emoji" onPick={react} onClose={() => setIsPickerOpen(false)} />
+        <EmojiPickerPopover
+          anchorRef={reactButtonRef}
+          ownMessage={ownMessage}
+          onPick={onReact}
+          onClose={() => setIsPickerOpen(false)}
+        />
       )}
     </div>
   );

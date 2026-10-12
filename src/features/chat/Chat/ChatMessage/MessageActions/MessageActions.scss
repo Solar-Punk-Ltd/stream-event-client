@@ -1,82 +1,49 @@
 @use '@/design/touch';
 
-// In the part of the row the bubble leaves empty: the right for everyone else's messages, the left for
-// the viewer's own. Shown while the row is pointed at or holds focus, and always on a touch screen,
-// which has no pointing.
-.message-actions-toggle {
-  @include touch.touch-target;
-
+// Slides in from the row's edge on the side the bubble leaves empty: the right for everyone else's
+// messages, the left for the viewer's own. It is unveiled rather than moved in from outside the row,
+// because anything past the row's edge widens the list, which a focused button then scrolls sideways.
+// Hidden, the buttons still take keyboard focus, and a focused one brings the bar in with it.
+.message-actions {
   position: absolute;
   top: var(--spacing-xs);
-  right: var(--spacing-xs);
-  width: var(--size-chat-control);
-  height: var(--size-chat-control);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: none;
-  font-size: var(--font-size-lg);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  opacity: 0;
-  transition:
-    opacity var(--duration-fast) ease,
-    background-color var(--duration-fast) ease;
-
-  .chat-message:hover &,
-  .chat-message:focus-within &,
-  &[aria-expanded='true'] {
-    opacity: 1;
-  }
-
-  @media (hover: none) {
-    opacity: 1;
-  }
-
-  &:hover,
-  &[aria-expanded='true'] {
-    background: var(--color-button-secondary);
-    color: var(--color-text);
-  }
-
-  .own-message & {
-    right: auto;
-    left: var(--spacing-xs);
-  }
-}
-
-// A bar over the row, on the same side as the button that opened it.
-.message-actions-row {
-  position: absolute;
-  right: var(--spacing-xs);
-  bottom: calc(100% - var(--spacing-xs));
+  right: 0;
   z-index: var(--z-index-player-overlay);
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
   gap: var(--spacing-2xs);
-  max-width: calc(100% - 2 * var(--spacing-xs));
   padding: var(--spacing-2xs);
-  border: 1px solid var(--color-hairline);
   border-radius: var(--radius-base);
-  background: var(--color-surface-glass);
-  box-shadow: var(--shadow-modal);
-  backdrop-filter: blur(var(--blur-base));
-  -webkit-backdrop-filter: blur(var(--blur-base));
+  clip-path: inset(0 0 0 100%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--duration-base) ease-in-out,
+    clip-path var(--duration-base) ease-in-out;
 
-  .own-message & {
+  &.own-message {
     right: auto;
-    left: var(--spacing-xs);
-    justify-content: flex-start;
+    left: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+
+  &.visible,
+  &:focus-within {
+    clip-path: inset(0);
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 
 .message-action {
+  @include touch.touch-target;
+
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: var(--size-chat-control);
   height: var(--size-chat-control);
-  padding: 0 var(--spacing-xs);
+  padding: var(--spacing-xs-sm) var(--spacing-sm);
   border: none;
   border-radius: var(--radius-sm);
   background: none;
@@ -91,10 +58,5 @@
   &:disabled {
     cursor: progress;
     opacity: 0.6;
-  }
-
-  @media (pointer: coarse) {
-    min-width: var(--size-touch-target);
-    height: var(--size-touch-target);
   }
 }
