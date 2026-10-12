@@ -7,11 +7,13 @@ import { BarChartIcon } from '@/shared/components/Icons/BarChartIcon';
 import { MoveIcon } from '@/shared/components/Icons/MoveIcon';
 
 import {
+  exitFullscreenOf,
   fullscreenElementOf,
   FULLSCREEN_EVENTS,
   fullscreenHandOver,
   panelHost,
   raiseToTopLayer,
+  requestFullscreenOn,
 } from './qoeFullscreen';
 import {
   type Bounds,
@@ -191,21 +193,36 @@ export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics, release = BUILD
   const previousFullscreen = useRef<Element | null>(null);
   const leavingFullscreen = useRef(false);
 
+  const toldOfRefusal = useRef(false);
+
   useEffect(() => {
     const onFullscreenChange = () => {
       const now = fullscreenElementOf(document);
+      // The standard event and Safari's for the same change: the first one has handled it.
+      if (now === previousFullscreen.current) {
+        return;
+      }
       const player = playerRef?.current;
       if (now === null) {
         leavingFullscreen.current = false;
       } else if (leavingFullscreen.current) {
-        document.exitFullscreen?.().catch(() => {});
+        void exitFullscreenOf(document);
       } else {
         const handOver = fullscreenHandOver(now, previousFullscreen.current, player);
         if (handOver === 'to-player' && player) {
-          player.requestFullscreen?.().catch(() => {});
+          void requestFullscreenOn(player).then((granted) => {
+            // Refused, the video keeps its own full screen and the panel stays in the page, where
+            // Chrome would make it inert but other browsers may not.
+            if (!granted && !toldOfRefusal.current) {
+              toldOfRefusal.current = true;
+              console.debug(
+                'QoE panel: the browser refused to put the player in full screen, so the panel stays in the page.',
+              );
+            }
+          });
         } else if (handOver === 'exit') {
           leavingFullscreen.current = true;
-          document.exitFullscreen?.().catch(() => {});
+          void exitFullscreenOf(document);
         }
       }
       previousFullscreen.current = now;

@@ -356,8 +356,11 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   is resized and when full screen starts or ends. Where it was left, its size and whether it was open
   are remembered in this browser, and a place that no longer fits the window is pulled back in. It
   stays visible and usable in full screen: while the panel is on, the video's full screen button puts
-  the whole player in full screen rather than the video alone, so the panel can be inside it. Copy puts what the panel shows on the clipboard as
-  JSON, and Save downloads the same as `qoe-<stream>-<date>-<time>.json`, which works where a page
+  the whole player in full screen rather than the video alone, so the panel can be inside it. This was
+  checked in Chromium only. A browser that refuses to move the full screen to the player keeps the
+  video's own full screen, and the panel stays in the page, where it may be hidden or not take clicks.
+  Safari on an iPhone always plays full screen in its own player, so the panel is not shown there. Copy
+  puts what the panel shows on the clipboard as JSON, and Save downloads the same as `qoe-<stream>-<date>-<time>.json`, which works where a page
   served over plain http is refused the clipboard. The line under its header names the viewer's
   build, the same label the Sources screen shows. `?level=720p` pins one quality, which tells a bad
   quality apart from a bad switch.

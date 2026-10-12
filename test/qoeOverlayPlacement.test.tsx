@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, createElement, createRef, type RefObject, useRef } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { QoeOverlay } from '../src/features/player/overlays/qoe/QoeOverlay';
 import { initialMetrics } from '../src/features/player/overlays/qoe/useHlsQoeMetrics';
@@ -266,6 +266,101 @@ describe('in full screen', () => {
     enterFullscreen(video);
 
     expect(exits).toBe(1);
+  });
+
+  it('hands over, leaves on the second press, and hands over again after full screen has ended', async () => {
+    const { player } = render();
+    const video = document.createElement('video');
+    player.appendChild(video);
+    const requested: Element[] = [];
+    player.requestFullscreen = async function (this: Element) {
+      requested.push(this);
+    };
+    let exits = 0;
+    document.exitFullscreen = async () => {
+      exits += 1;
+    };
+
+    enterFullscreen(video);
+    expect(requested).toEqual([player]);
+    enterFullscreen(player);
+    expect(exits).toBe(0);
+
+    // The video's own control pressed from inside: the panel starts leaving.
+    enterFullscreen(video);
+    expect(exits).toBe(1);
+    // The browser pops the video and the player is on top again: still leaving, so one more exit.
+    enterFullscreen(player);
+    expect(exits).toBe(2);
+    enterFullscreen(null);
+    expect(overlay().parentElement).toBe(document.body);
+
+    // Leaving was reset with the end of full screen, so the next press hands over again.
+    enterFullscreen(video);
+    expect(requested).toEqual([player, player]);
+    expect(exits).toBe(2);
+  });
+
+  it('runs once per change when a browser fires both the standard and Safari’s event', () => {
+    const { player } = render();
+    const video = document.createElement('video');
+    player.appendChild(video);
+    const requested: Element[] = [];
+    player.requestFullscreen = async function (this: Element) {
+      requested.push(this);
+    };
+
+    fullscreen = video;
+    act(() => {
+      document.dispatchEvent(new Event('fullscreenchange'));
+      document.dispatchEvent(new Event('webkitfullscreenchange'));
+    });
+
+    expect(requested).toEqual([player]);
+  });
+
+  it('keeps the video’s own full screen when the hand-over is refused, and says so once', async () => {
+    const { player } = render();
+    const video = document.createElement('video');
+    player.appendChild(video);
+    player.requestFullscreen = async () => {
+      throw new TypeError('Permissions check failed');
+    };
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    let exits = 0;
+    document.exitFullscreen = async () => {
+      exits += 1;
+    };
+
+    enterFullscreen(video);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    enterFullscreen(null);
+    enterFullscreen(video);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(exits).toBe(0);
+    expect(overlay().parentElement).toBe(document.body);
+    expect(debug).toHaveBeenCalledTimes(1);
+    debug.mockRestore();
+  });
+
+  it('falls back to Safari’s older call where the standard one is missing', () => {
+    const { player } = render();
+    const video = document.createElement('video');
+    player.appendChild(video);
+    const calls: string[] = [];
+    (player as unknown as { requestFullscreen?: unknown }).requestFullscreen = undefined;
+    (player as unknown as { webkitRequestFullscreen: () => void }).webkitRequestFullscreen = () => {
+      calls.push('webkit');
+    };
+
+    enterFullscreen(video);
+
+    expect(calls).toEqual(['webkit']);
   });
 
   it('leaves a video of another player on the page alone', () => {
