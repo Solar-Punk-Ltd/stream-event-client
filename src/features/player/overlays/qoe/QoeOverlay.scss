@@ -224,6 +224,16 @@ $qoe-handle-corner: 12px;
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
   line-height: 1.4;
+
+  // Focusable, so a keyboard can scroll it, and the focus shows.
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible {
+    outline: var(--size-focus-ring) solid var(--color-primary);
+    outline-offset: 1px;
+  }
 }
 
 .qoe-overlay__header {
@@ -315,6 +325,26 @@ $qoe-handle-corner: 12px;
   &--bad .qoe-overlay__value {
     color: var(--color-error-text);
   }
+}
+
+// A bad value's sign, in the bad colour and bold, so it reads without the colour as well.
+.qoe-overlay__flag {
+  margin-left: auto;
+  color: var(--color-error-text);
+  font-weight: bold;
+
+  + .qoe-overlay__value {
+    margin-left: 4px;
+  }
+}
+
+.qoe-overlay__visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 // Spaces kept, so a ladder rung that is not the current one lines up under the one marked with ▸.

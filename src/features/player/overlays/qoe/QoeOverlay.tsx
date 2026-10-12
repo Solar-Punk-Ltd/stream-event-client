@@ -36,7 +36,7 @@ import {
   viewportBounds,
 } from './qoeGeometry';
 import { loadPanelState, savePanelState } from './qoePanelStorage';
-import { QoePanel } from './QoePanel';
+import { QOE_PANEL_NAME, QoePanel } from './QoePanel';
 import { QoeMetrics } from './useHlsQoeMetrics';
 
 import './QoeOverlay.scss';
@@ -423,7 +423,7 @@ export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics, release = BUILD
         onLostPointerCapture={onDragEnd}
         onClick={handleClick}
         title="Toggle metrics (Q) · Drag to reposition"
-        aria-label={visible ? 'Hide QoE metrics' : 'Show QoE metrics'}
+        aria-label={QOE_PANEL_NAME}
         aria-pressed={visible}
       >
         <span className="qoe-btn__chart">

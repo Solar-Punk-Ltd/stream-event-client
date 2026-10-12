@@ -11,6 +11,9 @@ import {
 } from './qoeExport';
 import type { QoeMetrics } from './useHlsQoeMetrics';
 
+/** What the toggle and the panel's region are called for a screen reader. */
+export const QOE_PANEL_NAME = 'QoE metrics';
+
 /** How long a word under the header stays: long enough to read, short enough not to linger over the metrics. */
 const NOTICE_MS = { copied: 2_000, refused: 8_000 } as const;
 
@@ -47,7 +50,7 @@ export const QoePanel: React.FC<{ metrics: QoeMetrics; release: string | null; t
   };
 
   return (
-    <div className="qoe-overlay__panel">
+    <div className="qoe-overlay__panel" role="region" aria-label={QOE_PANEL_NAME} tabIndex={0}>
       <div className="qoe-overlay__header">
         <span className="qoe-overlay__title">{content.title}</span>
         <span className="qoe-overlay__actions">
@@ -96,9 +99,18 @@ export const QoeNotice: React.FC<{ text: string | null }> = ({ text }) => (
   </div>
 );
 
+/** A bad value's mark beside its colour: a sign to see, and words for a screen reader. */
+const BadFlag: React.FC = () => (
+  <span className="qoe-overlay__flag">
+    <span aria-hidden="true">!</span>
+    <span className="qoe-overlay__visually-hidden">out of range</span>
+  </span>
+);
+
 const Row: React.FC<{ row: QoeRow }> = ({ row: { label, value, bad } }) => (
   <div className={`qoe-overlay__row${bad ? ' qoe-overlay__row--bad' : ''}`}>
     <span className="qoe-overlay__label">{label}</span>
+    {bad && <BadFlag />}
     <span className="qoe-overlay__value">{value}</span>
   </div>
 );

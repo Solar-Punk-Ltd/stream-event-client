@@ -72,7 +72,7 @@ function text(html: string): string {
 }
 
 const ROW_RE =
-  /<div class="qoe-overlay__row(?: qoe-overlay__row--bad)?"><span class="qoe-overlay__label">([^<]*)<\/span><span class="qoe-overlay__value">([^<]*)<\/span><\/div>/g;
+  /<div class="qoe-overlay__row(?: qoe-overlay__row--bad)?"><span class="qoe-overlay__label">([^<]*)<\/span>(?:<span class="qoe-overlay__flag">(?:<span[^>]*>[^<]*<\/span>)+<\/span>)?<span class="qoe-overlay__value">([^<]*)<\/span><\/div>/g;
 
 /** What the rendered panel shows, read back out of its markup in the export's own shape. */
 function readPanel(html: string): unknown {
