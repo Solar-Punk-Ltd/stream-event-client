@@ -42,8 +42,8 @@ interface TooltipProps {
 /**
  * The Swarm site's tooltip: words on a dark card with an arrow, floating over the page beside whatever
  * it names. Drawn into the body so no scrolling list clips it. A phone shows it on a tap, which it
- * reports as the pointer arriving. It says nothing a screen reader does not already get from the
- * anchor's own name.
+ * reports as the pointer arriving. Its words repeat the anchor's accessible name, so a screen
+ * reader needs nothing more from it.
  */
 export function Tooltip({ content, children }: TooltipProps) {
   const anchorRef = useRef<HTMLSpanElement>(null);

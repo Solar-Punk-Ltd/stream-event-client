@@ -1,6 +1,6 @@
 /** Below this window width the picker takes a phone's smaller size. */
 const PHONE_MAX_WIDTH = 640;
-/** The least room kept between the picker and any edge of the window. */
+/** The least room kept between the picker and the top, left and right edges of the window. */
 const EDGE_GAP = 16;
 /** The room between the picker and the button that opened it. */
 const BUTTON_GAP = 4;
@@ -31,7 +31,8 @@ export function pickerSize(window: WindowSize): PickerSize {
 /**
  * Where the picker opens beside the button that opened it: below the button, turned above it when the
  * window has no room below, and reaching towards the message's side of the chat, so it covers the
- * message rather than spilling out of the chat column. Never closer than the edge gap to the window's edge.
+ * message rather than spilling out of the chat column. Kept at least the edge gap from the top, left and
+ * right of the window.
  */
 export function pickerPlace(
   button: Pick<DOMRect, 'top' | 'bottom' | 'left' | 'right'>,

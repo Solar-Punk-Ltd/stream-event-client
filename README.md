@@ -111,7 +111,8 @@ Anyone can read it. Writing asks once for a display name, 1 to 20 characters, an
 password, wallet or account. A viewer can send a message, react with an emoji, reply in a thread,
 load older messages, and retry a message that did not send. The chat and its library are a file of
 the bundle of their own, fetched as the watch page opens, beside the video rather than after it, and
-the emoji picker is fetched the first time it opens.
+the emoji picker is fetched the first time one is drawn: the emoji bar above the message field, or a
+reaction's picker beside a message.
 
 **What it needs, outside this repository.** Two services, set up apart from this app:
 
@@ -133,8 +134,8 @@ keys in the tree has to know it.
 browser's own crypto) and its address sit in local storage under `stream-event-client:chat-session`,
 so a reload keeps the name. Logging out removes them. The key proves only that two messages came from
 the same browser, and anyone may choose any name. So each message shows its sender's initial, and the
-name with the last six digits of the sender's address shows on hover or focus and is what a screen
-reader reads.
+name with the last six digits of the sender's address floats over it while the pointer rests there. A
+screen reader reads the same words as the initial's name.
 
 ## Build it
 

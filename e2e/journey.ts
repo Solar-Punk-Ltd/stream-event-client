@@ -83,7 +83,7 @@ export async function watchAndChat(page: Page, published: Published): Promise<vo
     .toBeGreaterThan(PLAYED_SECONDS);
 
   // Every name is matched exactly: Playwright matches a name as a substring by default, so "Message" also finds the
-  // "Messages" list and each "Message actions" button, and "Send" finds "Resend".
+  // "Messages" list, and "Send" finds "Resend".
   const chat = page.getByRole('region', { name: 'Chat', exact: true });
   for (const text of published.chat.texts) {
     await expect(chat.getByText(text, { exact: true }), `the chat shows "${text}"`).toBeVisible({ timeout: 20_000 });
