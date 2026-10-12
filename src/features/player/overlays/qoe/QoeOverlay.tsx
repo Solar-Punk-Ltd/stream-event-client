@@ -69,6 +69,17 @@ function isTyping(target: EventTarget | null): boolean {
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
 
+/**
+ * Q on its own, pressed once, outside a field: not a chord the browser owns, not the repeats of a held
+ * key, and not a key an input method is composing a character from.
+ */
+function isPanelShortcut(e: KeyboardEvent): boolean {
+  if (e.key !== 'q' && e.key !== 'Q') {
+    return false;
+  }
+  return !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat && !e.isComposing && !isTyping(e.target);
+}
+
 interface QoeOverlayProps {
   metrics: QoeMetrics;
   /** The build label shown under the panel's header. Left out, this viewer's own. Null shows no build line. */
@@ -239,7 +250,7 @@ export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics, release = BUILD
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key === 'q' || e.key === 'Q') && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping(e.target)) {
+      if (isPanelShortcut(e)) {
         toggle();
       }
     };
