@@ -151,12 +151,15 @@ describe('the release tag reaching the image build', () => {
   const workflow = readFileSync(join(ROOT, '.github/workflows/image.yml'), 'utf8');
   const viteConfig = readFileSync(join(ROOT, 'vite.config.js'), 'utf8');
 
-  it('declares the tag and commit as build arguments before the bundle is built', () => {
+  // An ARG above the build stage's FROM is not visible inside that stage, so both must sit between the two.
+  it('declares the tag and commit as build arguments inside the build stage, before the bundle is built', () => {
+    const stage = dockerfile.indexOf('FROM node:');
     const build = dockerfile.indexOf('RUN pnpm build');
-    expect(dockerfile.indexOf('ARG BUILD_TAG')).toBeGreaterThan(-1);
-    expect(dockerfile.indexOf('ARG BUILD_TAG')).toBeLessThan(build);
-    expect(dockerfile.indexOf('ARG BUILD_COMMIT')).toBeGreaterThan(-1);
-    expect(dockerfile.indexOf('ARG BUILD_COMMIT')).toBeLessThan(build);
+    expect(stage).toBeGreaterThan(-1);
+    for (const arg of ['ARG BUILD_TAG', 'ARG BUILD_COMMIT']) {
+      expect(dockerfile.indexOf(arg), arg).toBeGreaterThan(stage);
+      expect(dockerfile.indexOf(arg), arg).toBeLessThan(build);
+    }
   });
 
   it('has the publishing workflow pass the pushed tag and its commit', () => {
