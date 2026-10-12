@@ -14,8 +14,7 @@ const STEP_KEYS: Record<string, (index: number, count: number) => number> = {
 };
 
 /**
- * The theme switcher in the name's menu: one radio per theme, a swatch of its page colour, accent and
- * heading typeface, and a tick on the worn one. One Tab stop for the group, the checked option, and the
+ * The theme switcher in the name's menu: one radio per theme, named, and a tick on the worn one. One Tab stop for the group, the checked option, and the
  * arrows move the pick.
  */
 export function ThemeOptions() {
@@ -51,7 +50,6 @@ export function ThemeOptions() {
           className="login-dropdown-item login-dropdown-theme"
           onClick={() => chooseLook(name)}
         >
-          <span className="theme-swatch" data-theme-preview={name} aria-hidden="true" />
           {THEME_LABELS[name]}
           {look === name && (
             <span className="login-dropdown-check" aria-hidden="true">

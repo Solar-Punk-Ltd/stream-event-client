@@ -22,10 +22,9 @@
 }
 
 // The page wears a theme as `data-theme`: the deployment's `theme` in config.json, or the look a viewer
-// picked in the theme switcher. An element marked `data-theme-preview` wears one theme whatever the page
-// wears, which is how the switcher shows each theme's swatch.
+// picked in the theme switcher.
 @each $name, $theme in themes.$themes {
-  $selector: ":root[data-theme='#{$name}'], [data-theme-preview='#{$name}']";
+  $selector: ":root[data-theme='#{$name}']";
   @if $name == themes.$default {
     $selector: ':root, #{$selector}';
   }
