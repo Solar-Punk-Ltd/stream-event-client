@@ -10,7 +10,6 @@ import { QoeOverlay } from './overlays/qoe/QoeOverlay';
 import { attachQoeTracking, initialMetrics, QoeMetrics } from './overlays/qoe/useHlsQoeMetrics';
 import { CustomFragmentLoader, CustomManifestLoader, manifestFetcher } from './CustomManifestLoader';
 import { FEED_STATE_LIVE, FeedState } from './feedState';
-import { attachLivePlaybackRateGuard } from './livePlaybackRate';
 import { LiveGapBudgetPerStream, skipFailedLiveSegment } from './liveSegmentGaps';
 import { attachLiveSyncToSegmentLength } from './liveSyncLength';
 import { ManifestStateManager } from './ManifestManagement';
@@ -59,7 +58,7 @@ interface HlsTuning {
  * The one worth knowing about is `liveSyncDuration`. It is a latency *target*: hls.js parks the
  * playhead that many seconds behind the live edge (`latency-controller.ts`, `targetLatency` then
  * `liveSyncPosition = liveEdge - targetLatency`). The shipped target is three segments of the
- * playlist's segment length, never under 6 s, and moves when a playlist names a new length (see
+ * playlist's segment length, never under 12 s, and moves when a playlist names a new length (see
  * `liveSyncLength.ts`). Only a caller's own override stays fixed. hls.js's own default is
  * `liveSyncDurationCount: 3`, a count multiplied by the playlist's target duration, which tracks
  * segment length but has no floor. Setting one of these forbids the other: `mergeConfig` throws on
@@ -69,18 +68,19 @@ interface HlsTuning {
  * `liveSyncPosition` is clamped to `edge - levelDetails.totalduration`. A target as long as the
  * window parks the playhead on the oldest fragment, at the eviction boundary. The two engines
  * express that window differently, so the margin differs. SRS's `hls_window` is a fixed duration,
- * 15 s by default, while the target grows with segment length, so from about 5 s segments the
- * three-segment target reaches the window's oldest fragment. Below that the 6 s floor sits well
- * inside it. OME's window is `SegmentCount x SegmentDuration`, which at its defaults is
- * 5 x 2s = 10s, 4 s clear of the 6 s floor. At longer segments and OME's default count of five,
- * the window stays two segments ahead of the three-segment target.
+ * 15 s by default, 3 s clear of the 12 s floor, and from 5 s segments the three-segment target
+ * reaches the window's oldest fragment. OME's window is `SegmentCount x SegmentDuration`, which at
+ * its defaults is 5 x 2s = 10s, **shorter than the 12 s floor**, so an OME stage at its defaults
+ * joins a viewer at the window's oldest fragment with 10 s of runway rather than 12. At longer
+ * segments and OME's default count of five, the window stays two segments ahead of the
+ * three-segment target.
  */
 const DEFAULT_HLS_TUNING: Readonly<HlsTuning> = Object.freeze({
   // Spread rather than restated. These are the buffering and latency numbers of
   // {@link HLS_TUNING}, each derived from a measurement recorded beside it, and a second copy here
   // is a second place for them to be wrong: the copy this replaces had drifted back to
   // `liveSyncDuration: 10` and `liveMaxLatencyDuration: 30`, which is the pair `playerConfig.ts`
-  // names as leaving a viewer between the end of catch-up and the start of the seek with neither
+  // named as leaving a viewer between the end of catch-up and the start of the seek with neither
   // running, and it omitted `maxLiveSyncPlaybackRate` altogether.
   ...HLS_TUNING,
 
@@ -479,7 +479,6 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
     }
 
     const detachQoe = enableQoeOverlay ? attachQoeTracking(video, hls, setMetrics) : null;
-    const detachRateGuard = hls ? attachLivePlaybackRateGuard(video, hls) : null;
     const detachLiveSync = hls ? attachLiveSyncToSegmentLength(hls, callerTuning) : null;
 
     // ⛔ Both halves of what a ladder viewer needs when one rung stops being produced, and neither
@@ -541,7 +540,6 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
       video.removeEventListener('pause', onHlsPause);
       video.removeEventListener('play', onHlsPlay);
       detachQoe?.();
-      detachRateGuard?.();
       detachLiveSync?.();
       detachStallReporter?.();
       detachReturnRejoin?.();
