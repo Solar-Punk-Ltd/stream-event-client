@@ -92,8 +92,7 @@ afterEach(() => {
  *
  * `liveSyncOnStallIncrease` defaults to 1 and `stallCount` falls back to zero only when a fresh
  * manifest loads. So **one** non-fatal stall moves the viewer's latency target up by as much as a
- * target duration and leaves it there for the rest of the broadcast, and the catch-up that exists to
- * pull latency back down measures itself against the moved target and stops firing.
+ * target duration and leaves it there for the rest of the broadcast.
  *
  * Two otherwise identical runs can therefore differ by a second of latency when only one of them
  * stalled at its join, while every other counter reports zero rebuffers, zero stalled samples and

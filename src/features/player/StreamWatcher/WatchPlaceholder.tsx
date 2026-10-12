@@ -43,10 +43,33 @@ export function WatchPlaceholder({ view, scheduledStart, thumbnailUrl }: WatchPl
 }
 
 /**
+ * Under the player for a link whose stream the list does not carry once it has been read. The player still runs, because
+ * a deep link may name a real stream the list has not caught up with, but a stream that was deleted or a link that was
+ * mistyped would otherwise only ever say it is reconnecting (STMB-560, STMB-661).
+ */
+export function UnlistedStreamNote() {
+  return (
+    <p className="watch-unlisted" role="status">
+      This stream is not in the stream list. It may have been removed, or the link may be wrong. The player keeps
+      looking for it in case it starts.
+    </p>
+  );
+}
+
+/** The whole page for a link that does not have the shape of a watch link, such as one cut off when it was copied. */
+export function NotAStreamLink() {
+  return (
+    <WatchNotice>
+      <p className="watch-notice-title">This link does not name a stream.</p>
+    </WatchNotice>
+  );
+}
+
+/**
  * Stands where the player would, in the player's shape, so a viewer who followed a link to a stream
  * that is loading or gone lands on the page they expected.
  */
-export function WatchNotice({ children }: { children: React.ReactNode }) {
+function WatchNotice({ children }: { children: React.ReactNode }) {
   return (
     <div className="watch-notice" role="status">
       {children}

@@ -3,7 +3,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
-import { WatchPlaceholder } from '../src/features/player/StreamWatcher/WatchPlaceholder';
+import {
+  NotAStreamLink,
+  UnlistedStreamNote,
+  WatchPlaceholder,
+} from '../src/features/player/StreamWatcher/WatchPlaceholder';
 import {
   WATCH_VIEW_LOADING,
   WATCH_VIEW_NOT_STARTED,
@@ -68,5 +72,17 @@ describe('the watch page in place of the player', () => {
 
   it('says nothing once the player is showing', () => {
     assert.equal(render(WATCH_VIEW_PLAYER), '');
+  });
+});
+
+describe('a link the stream list does not carry', () => {
+  it('says the stream is not listed and may have been removed, while the player keeps looking (STMB-560)', () => {
+    const html = renderToStaticMarkup(createElement(UnlistedStreamNote));
+    assert.match(html, /not in the stream list/);
+    assert.match(html, /removed, or the link may be wrong/);
+  });
+
+  it('says a link without a watch link shape names no stream (STMB-662)', () => {
+    assert.match(renderToStaticMarkup(createElement(NotAStreamLink)), /This link does not name a stream/);
   });
 });
