@@ -10,7 +10,7 @@ minimumReleaseAgeStrict: true
 
 # Our own chat library, published by us and read against the copy it was tested as before it was let in younger.
 minimumReleaseAgeExclude:
-  - '@solarpunkltd/swarm-chat-js@7.2.0'
+  - '@solarpunkltd/swarm-chat-js@7.3.0'
   # The in-browser Swarm node, let in younger than the one-week gate. Registry signatures, provenance and the npm
   # malware advisories were checked at this version.
   - '@lat-murmeldjur/weeb_3@0.0.354001'
