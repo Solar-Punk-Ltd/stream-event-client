@@ -3,10 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   beeBaseUrlFromTypedAddress,
   describeProbeFailure,
-  gatewayLabel,
   probeFailureHelp,
   isBlockedAsMixedContent,
-  isDefaultGateway,
   probeGateway,
 } from '@/features/gateway/gatewayProbe';
 import {
@@ -358,28 +356,5 @@ describe('describeProbeFailure', () => {
 
   it('says plainly that the thing answering is not a Bee node', () => {
     expect(describeProbeFailure({ kind: 'not-bee' })).toContain('not a Bee node');
-  });
-});
-
-describe('the way back to the default gateway', () => {
-  it('knows a viewer is on the default, so the way back is offered only when it does something', () => {
-    expect(isDefaultGateway('/bee', '/bee')).toBe(true);
-    expect(isDefaultGateway('http://localhost:1633', '/bee')).toBe(false);
-  });
-
-  it('still knows the default when the saved value lost a trailing slash the env var carries', () => {
-    expect(isDefaultGateway('https://gateway.example', 'https://gateway.example/')).toBe(true);
-  });
-
-  it('names the default rather than showing a path a viewer has never seen', () => {
-    expect(gatewayLabel('/bee', '/bee')).toBe('Event gateway');
-  });
-
-  it('shows a viewer their own node as its host, which is what they typed', () => {
-    expect(gatewayLabel('http://localhost:1633', '/bee')).toBe('localhost:1633');
-  });
-
-  it('falls back to the raw value when it is not a URL', () => {
-    expect(gatewayLabel('/other-proxy', '/bee')).toBe('/other-proxy');
   });
 });

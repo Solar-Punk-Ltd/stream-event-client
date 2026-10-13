@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ADDRESS_REFUSED } from '../src/features/gateway/checkSentences';
-import { checkOwnNodeAddress, gatewayLabel, OWN_NODE_DEFAULT_ADDRESS } from '../src/features/gateway/gatewayProbe';
+import { checkOwnNodeAddress, OWN_NODE_DEFAULT_ADDRESS } from '../src/features/gateway/gatewayProbe';
 
 function acceptedUrl(input: string): string {
   const result = checkOwnNodeAddress(input);
@@ -97,15 +97,5 @@ describe('the address of a Bee node on the viewer’s own machine', () => {
 
   it('refuses something that is not an address at all', () => {
     expect(checkOwnNodeAddress('http://').ok).toBe(false);
-  });
-});
-
-describe('the name the header shows for the gateway in use', () => {
-  it('calls the configured gateway the event gateway', () => {
-    expect(gatewayLabel('/bee', '/bee')).toBe('Event gateway');
-  });
-
-  it('shows a viewer’s own node as its host', () => {
-    expect(gatewayLabel('http://localhost:1633', '/bee')).toBe('localhost:1633');
   });
 });

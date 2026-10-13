@@ -1,10 +1,9 @@
 /**
- * What the Bee node picker does with an address before it lets a viewer switch to it.
- *
- * The picker used to save whatever was typed and close. A viewer who mistyped a port, or whose node
- * refused this site's origin, then saw a browse page with nothing on it and no way to tell which of
- * those had happened. Everything here is pure or takes an injected prober, because this package runs
- * vitest without a DOM and a rule left inside the component is a rule nothing covers.
+ * What the Sources screen's add form does with an address before it lets a viewer switch to it, so a
+ * viewer who mistyped a port, or whose node refused this site's origin, is told which of those it was
+ * rather than left on a browse page with nothing on it. Everything here is pure or takes an injected
+ * prober, because this package runs vitest without a DOM and a rule left inside the component is a
+ * rule nothing covers.
  */
 import { createSwarmClient } from '@/swarm/createSwarmClient';
 import { type NotReadyReason, PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
@@ -49,7 +48,7 @@ export function beeBaseUrlFromTypedAddress(input: string): string {
   return `http://${trimmed}`;
 }
 
-/** What the picker offers for a viewer's own node: the Bee API port on this machine, as Swarm Desktop runs it. */
+/** What the Sources screen's add form offers for a viewer's own node: the Bee API port on this machine, as Swarm Desktop runs it. */
 export const OWN_NODE_DEFAULT_ADDRESS = 'http://localhost:1633';
 
 /**
@@ -236,12 +235,12 @@ export function onlyGateway(gateway: GatewaySetting): SwarmSettings {
   };
 }
 
-/** A Bee node over HTTP at the address, which is the kind of node the picker offers to use. */
+/** A Bee node over HTTP at the address, which is the kind of node the Sources screen's add form offers to use. */
 const beeHttpProber: Prober = (gatewayUrl) =>
   createSwarmClient(onlyGateway({ id: OWN_GATEWAY_ID, kind: 'bee-http', url: gatewayUrl }));
 
 interface GatewayProbeOptions {
-  /** Injected only by tests. Production asks the Bee HTTP provider the picker would switch to. */
+  /** Injected only by tests. Production asks the Bee HTTP provider the add form would switch to. */
   prober?: Prober;
   /**
    * The scheme this page is served over. Injected only by tests, and read lazily in production
@@ -265,7 +264,7 @@ function currentPageProtocol(): string {
  * read from it. Never throws: every failure is an outcome.
  *
  * The window covers headers and body together. A node that accepts the connection and answers
- * nothing is therefore a `timed-out` rather than a picker held open, and it reaches a viewer as its
+ * nothing is therefore a `timed-out` rather than an add form held open, and it reaches a viewer as its
  * own message: that node exists and is slow, which is a different next step from one that cannot be
  * reached at all.
  */
@@ -315,11 +314,11 @@ export async function probeGateway(
 /** Both answers a wrong port produces need the same next step, so the sentence is written once. */
 const CHECK_THE_PORT = 'Check the port: the Bee API is usually 1633.';
 
-/** Success is not described. The picker closes on it, so a sentence for it is one no viewer reads. */
+/** Success is not described. The add form closes on it, so a sentence for it is one no viewer reads. */
 type GatewayProbeFailure = Exclude<GatewayProbeOutcome, { kind: 'ok' }>;
 
 /**
- * What the picker tells a viewer about each way this can fail, kept beside the rule so a new failure
+ * What the add form tells a viewer about each way this can fail, kept beside the rule so a new failure
  * cannot ship without its copy. The declared return type is what enforces that: a switch that misses
  * a case returns undefined on it and stops compiling. Written for someone who runs a node and does
  * not read network logs.
@@ -355,34 +354,5 @@ export function probeFailureHelp(failure: GatewayProbeFailure, origin: string): 
       return failure.awaitingLocalNetwork ? unreachableHelp({ kind: 'unreachable-local' }, origin) : null;
     default:
       return null;
-  }
-}
-
-/**
- * Whether a viewer is already on the event gateway, which is what decides whether a way back to it
- * is worth offering.
- *
- * Compared without trailing slashes, because a saved address has been through `setGatewayUrl`, which
- * strips them, while the config's value may carry one. A strict comparison would offer a viewer a
- * way back to where they already are.
- */
-export function isDefaultGateway(gatewayUrl: string, defaultGatewayUrl: string): boolean {
-  return withoutTrailingSlash(gatewayUrl) === withoutTrailingSlash(defaultGatewayUrl);
-}
-
-/**
- * What the header shows beside the picker, so a viewer can see whose node is serving them without
- * opening anything. The event gateway is named rather than shown, because its address is `/bee` or
- * a setting the viewer has never seen. Their own node shows as its host, which is what they typed and
- * will recognise.
- */
-export function gatewayLabel(gatewayUrl: string, defaultGatewayUrl: string): string {
-  if (isDefaultGateway(gatewayUrl, defaultGatewayUrl)) {
-    return 'Event gateway';
-  }
-  try {
-    return new URL(gatewayUrl).host;
-  } catch {
-    return gatewayUrl;
   }
 }
