@@ -12,7 +12,7 @@ import type { SwarmReader } from '@/swarm/client';
  * per poll has a catch-up rate equal to its poll rate, so a reader that falls behind never recovers.
  * Walking while the slots keep answering fixes that, and this caps what one poll can spend doing it.
  *
- * Thirty two is far more than a five second poll can fall behind on a catalog that gains a slot per
+ * Thirty two is far more than a one minute poll can fall behind on a catalog that gains a slot per
  * broadcast, and small enough that a pathological feed cannot hold the page for a minute.
  */
 const MAX_WALK_PER_READ = 32;
@@ -88,7 +88,7 @@ function failureOf(answer: Exclude<SwarmAnswer, { kind: 'content' | 'not-found' 
  * **A miss is cheap, which is what makes this work for a mostly idle feed.** A walking reader asks
  * for a slot that does not exist yet on almost every poll, since broadcasts are rare. Measured
  * 2026-08-05: that 404 costs 4ms at the median, indistinguishable from a hit. It has a real tail,
- * about one in twenty taking 1.4s, which is invisible at a five second cadence and is the reason
+ * about one in twenty taking 1.4s, which is invisible at a one minute cadence and is the reason
  * `MAX_WALK_PER_READ` exists rather than an unbounded walk.
  */
 export class CatalogFeedReader {
@@ -98,7 +98,7 @@ export class CatalogFeedReader {
    * Bumped by {@link reset}, pinned by every read, and compared before the position is written.
    *
    * ⛔ **Without it a reset that lands mid-read is undone by the read it was meant to cancel.** The
-   * position is written after an await, and `setGatewayUrl` resets this reader synchronously while a
+   * position is written after an await, and a change of source resets this reader synchronously while a
    * poll may be in flight against the node the viewer just left. That read then finished and wrote
    * the old node's slot number back. Every later poll asked the new node for the slot after it, a
    * node that has just been pointed at this catalog does not hold it, the walk broke with nothing
@@ -107,7 +107,7 @@ export class CatalogFeedReader {
    *
    * The same guard the modules around this one already carry: `ManifestFetcher` pins a topic
    * generation before a head read, `LadderFeedPoller` re-checks its entry after every await, and the
-   * picker bumps a probe generation before it saves an address.
+   * Sources screen's add form bumps a probe generation before it saves an address.
    */
   private generation = 0;
 

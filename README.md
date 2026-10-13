@@ -149,11 +149,11 @@ it, or run the image below, which does both.
 
 The other scripts: `pnpm test` (vitest), `pnpm lint` (oxlint), `pnpm typecheck`, `pnpm format` and
 `pnpm format:check` (oxfmt). `pnpm e2e` builds the app and runs the browser journeys in Playwright:
-a replayed recording, the theme switcher on that recording, and real hls.js against a fake gateway publishing a live stream in four
+a replayed recording, the theme switcher on that recording, the Sources screen, the weeb-3 journeys, and real hls.js against a fake gateway publishing a live stream in four
 qualities, each answer held back 650 ms. The first run downloads the Chromium build Playwright pins.
 Beyond that they need no Bee node and no network, and they print their timings and read rates
-without asserting them. Continuous integration runs the format check, lint, typecheck, tests and
-build on every pull request, and reports what the first page load downloads.
+without asserting them. Continuous integration runs the format check, lint, typecheck, tests, build and `pnpm e2e` on every
+pull request, and reports what the first page load downloads.
 
 `pnpm test` also holds the count of exports nothing else imports at or below the number in
 `scripts/unused-exports-baseline.json`. `node scripts/unused-exports.mjs --list` names them, and
@@ -306,7 +306,7 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   not early. The fuller entry rebuilds the player with every quality, which costs the viewer a moment
   of loading. The page never polls the list for this.
 - **How far behind live it plays.** The live target is three segments of the playlist's segment
-  length, never under 6 seconds, and moves when the playlist names a new length.
+  length, never under 12 seconds, and moves when the playlist names a new length.
 - **How it times its reads.** The player asks for the next playlist when it is due: the newest
   segment's end, plus one segment, plus a delay it learns from its own reads, set so that about one
   ask in four comes too early. A second ask covers that one, then one ask per segment, then asks
