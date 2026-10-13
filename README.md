@@ -545,7 +545,7 @@ the two named exceptions, each with its reason in the test.
   the previews and pictures through `reader('previews')`, the Sources screen checks a source through a
   client made for that source alone, and the chat reads through `reader('chat')`, which goes to
   `chat.readUrl` unless the viewer picked another source for it.
-- **The chat.** swarm-chat-js 7.2.0 is handed a source and a write in place of its own Bee client
+- **The chat.** swarm-chat-js 7.3.0 is handed a source and a write in place of its own Bee client
   (`src/features/chat/chatParts.ts`). The source makes the library's own reads at the same URLs: the
   feed head, each slot and note as a single-owner chunk checked to be the chat owner's
   (`src/swarm/singleOwnerChunk.ts`), and history files as bytes. A 404 and a 500 both mean a chunk is
