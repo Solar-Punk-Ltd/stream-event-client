@@ -21,7 +21,7 @@ const BYTES_PATH = '/bytes/';
  * reference, which a Bee gateway makes absolute against the page's own address.
  *
  * A bare reference is what the uploader writes, and what every manifest published since 2026-08-13
- * holds. The other two shapes come from content published before that, when `MANIFEST_ACCESS_URL`
+ * holds. The other two shapes come from content published before that, when the gateway's access URL
  * could prepend either a full URL or a rooted path. A full URL already names its gateway and is kept,
  * and a rooted `/bytes/<ref>` is read as the reference it names, since a recording keeps whatever its
  * manifest was published with.
@@ -48,7 +48,7 @@ export function previewSegmentUrl(uri: string, urlFor: (reference: string) => st
  * at the median** against **4ms** for the slot, and the two returned byte-identical manifests for 12
  * entries out of 12, with the head resolving to exactly the published index every time. The previews
  * share a queue at concurrency 1, so those lookups are serial and ten cards is about 26 seconds of
- * them. See `docs/reviews/catalog-off-the-head-lookup.md`.
+ * them.
  *
  * A live entry has no index to give, because `notifyStart` publishes none, so it keeps the search.
  */

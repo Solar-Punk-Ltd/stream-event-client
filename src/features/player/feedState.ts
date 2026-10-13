@@ -74,20 +74,15 @@ const MANIFEST_RETRY_BASE_MS = 2_000;
  * ⭐ **It is the largest ceiling that keeps a ladder viewer no worse off than a single rendition
  * one.** The same client on one rendition was measured on 2026-08-27 taking **10.7s and 9.9s to
  * recover after the gateway had started answering again**, across both byte sources, on a 20.5
- * second gateway stop. A ladder walks five
- * feeds where a single rendition walks one, and walking more of them must not cost more to recover
- * than the one-rung case a ladder is built out of.
+ * second gateway stop. A ladder viewer walks
+ * the one quality it plays, two during a switch, where a single rendition walks one, and walking more
+ * of them must not cost more to recover than the one-rung case a ladder is built out of.
  *
  * It is also where this client already draws the line for itself. {@link UNSERVED_SLOT_STALL_MS}
- * is thirty polls, which its own corrected note puts at about eight seconds of healthy polling, so
- * eight seconds is the interval at which the player decides a quiet feed is worth telling a viewer
+ * is eight seconds, which its own note puts as what its old count of thirty polls meant while healthy,
+ * so eight seconds is the interval at which the player decides a quiet feed is worth telling a viewer
  * about. A retry ceiling longer than that is a client complaining about a fault it has stopped
  * looking for.
- *
- * The same number was reached from a third direction, three weeks before any of this was measured:
- * `docs/reviews/roadmap.md` item 0.8b named 8s as the secondary lever if clearing the hold on a
- * segment arrival turned out not to be enough. On the ladder it was not enough, because a ladder then
- * held five feeds and the segment path only ever cleared one of them at a time.
  *
  * ## Why the load argument that set thirty still holds
  *
@@ -119,7 +114,7 @@ export const MANIFEST_RETRY_CAP_MS = 8_000;
  * ⭐ **Eight is what the old count meant while healthy**, so a viewer at the live edge is no more
  * likely to see the overlay than they were. Only the stall case moves, which is the case that was
  * wrong. It is also {@link MANIFEST_RETRY_CAP_MS}, already this client's answer to how long a quiet
- * feed may go unmentioned, reached there from three independent directions.
+ * feed may go unmentioned, reached there from two independent directions.
  *
  * A viewer who has merely caught up with the publisher cannot reach this. A segment lands every 0.5
  * to 2 seconds and every one of them ends the run. Eight seconds of an unbroken unserved run means

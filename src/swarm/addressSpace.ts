@@ -5,7 +5,7 @@
  *
  * Read from the address as written, never from where its name resolves, because the page cannot see
  * that. A name such as `bee.lan` that resolves to a home router's address is therefore the internet
- * here, and the picker asks for its https address or its IP address instead.
+ * here, and the Sources screen's add form asks for its https address or its IP address instead.
  */
 
 /** The values of the Local Network Access draft's `IPAddressSpace`, which `fetch` takes as `targetAddressSpace`. */
@@ -95,7 +95,7 @@ function pagePermissionQuery(): PermissionQuery | undefined {
  * Read off the Permissions API, because that is the part of the draft Chrome exposes: Chrome 152 has no
  * `targetAddressSpace` on `Request` and never reads it from a request's options, yet answers a query
  * for the permission. Without one it still exempts a private IP address and a `.local` name from the
- * mixed content block, which are the only plain http addresses the picker lets through.
+ * mixed content block, which are the only plain http addresses the add form lets through.
  */
 export async function detectLocalNetworkAccess(
   query: PermissionQuery | undefined = pagePermissionQuery(),

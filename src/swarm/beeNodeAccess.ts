@@ -1,7 +1,7 @@
 /**
  * How far a deployment lets a viewer reach for a Bee node of their own, `providers.beeNodes` in
  * `config.json`. The image writes the page's content security policy from its own `BEE_NODES` setting
- * with the same three values, so the picker never offers an address the page would refuse to load.
+ * with the same three values, so the Sources screen's add form never offers an address the page would refuse to load.
  *
  * - `off`: a node on this computer only, at localhost or 127.0.0.1, as the viewer has always allowed.
  * - `https`: also a node on any other machine at an https address.

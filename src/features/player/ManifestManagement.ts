@@ -245,7 +245,7 @@ export class ManifestStateManager {
     }
 
     // ⛔⛔⛔ The gateway is part of the cache key, not just an argument. A viewer who changes gateway
-    // through `setGatewayUrl` is covered by `markAllDirty`, but anything that changes it another way
+    // through a change of source is covered by `markAllDirty`, but anything that changes it another way
     // was silently served the previous gateway's playlist. On 2026-08-13 that put every segment of
     // a comparison between two gateways on the SAME node while the client truthfully reported two
     // different gateways.
