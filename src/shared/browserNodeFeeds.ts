@@ -250,6 +250,18 @@ export class BrowserNodeFeeds {
   }
 
   /**
+   * Tells this route the gateway gave no answer for a read it handed over, so a head the node just
+   * called empty waits for the node's next answer rather than a later gateway 404 that may be read
+   * while this route is off or paused. Called by {@link fetchFeed}.
+   */
+  noteGatewayFailure(url: string): void {
+    const path = parsePath(url);
+    if (path?.kind === 'head') {
+      this.nodeEmptyHeads.delete(readKey(path));
+    }
+  }
+
+  /**
    * Asks Freedom to connect this site, which shows its prompt unless the viewer already did.
    *
    * @returns whether the site is connected afterwards. A viewer who declines leaves it as it was.
@@ -392,16 +404,16 @@ export class BrowserNodeFeeds {
   }
 }
 
+function hasData(entry: unknown): boolean {
+  return typeof (entry as { data?: unknown } | null)?.data === 'string';
+}
+
 /**
  * A feed entry as a gateway would have answered its path.
  *
  * @param named whether to name the slot in the header the way a gateway's `/feeds` read does. A
  *   `/soc` read names none, so a slot read does not either.
  */
-function hasData(entry: unknown): boolean {
-  return typeof (entry as { data?: unknown } | null)?.data === 'string';
-}
-
 function feedEntryResponse(entry: unknown, named: boolean): TimedResponse | null {
   const { data, index } = (entry ?? {}) as { data?: unknown; index?: unknown };
   if (typeof data !== 'string') {
@@ -444,7 +456,13 @@ export async function fetchFeed(
   if (fromNode !== null) {
     return fromNode;
   }
-  const fromGateway = await fetchWithTimeout(url, options);
+  let fromGateway: TimedResponse;
+  try {
+    fromGateway = await fetchWithTimeout(url, options);
+  } catch (error) {
+    feeds.noteGatewayFailure(url);
+    throw error;
+  }
   feeds.noteGatewayAnswer(url, fromGateway);
   return fromGateway;
 }

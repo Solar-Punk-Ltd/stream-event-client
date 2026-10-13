@@ -426,6 +426,22 @@ describe('fetchFeed', () => {
     expect((await fetchFeed(head, missing, feeds)).text).toBe('from the node');
   });
 
+  // The gateway's later 404 for that head answers a read the node never saw.
+  it('asks the node about a head it called empty when the gateway read after it failed', async () => {
+    provider.answer = () => Promise.reject(providerError(-32602, 'feed_empty'));
+    const failing = { fetcher: vi.fn(async () => Promise.reject(new Error('network down'))) as typeof fetch };
+    await expect(fetchFeed(head, failing, feeds)).rejects.toThrow('network down');
+
+    const missing = { fetcher: vi.fn(async () => new Response('', { status: 404 })) as typeof fetch };
+    feeds.enabled = false;
+    expect((await fetchFeed(head, missing, feeds)).status).toBe(404);
+
+    feeds.enabled = true;
+    provider.answer = () => Promise.resolve({ data: base64('from the node'), encoding: 'base64', index: 0 });
+    expect((await fetchFeed(head, missing, feeds)).text).toBe('from the node');
+    expect(provider.calls).toHaveLength(2);
+  });
+
   // A build that leaves the slot number out does so on every head, and each read counts against the budget.
   it('reads heads from the gateway alone once the node answers one without its slot number', async () => {
     const other = `${GATEWAY}/${nextFeedRequest(OWNER, Topic.fromString('another-rung'), null).path}`;
