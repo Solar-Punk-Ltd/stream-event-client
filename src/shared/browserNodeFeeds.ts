@@ -40,7 +40,10 @@
  * node gives up on a missing slot about as fast as a gateway does, the node serves the edge as well.
  *
  * A feed head the node calls empty is asked of the gateway, and while the gateway agrees it is
- * empty, the head is read from the gateway alone, until the gateway serves it. A head is read once
+ * empty, the head is read from the gateway alone, until the gateway serves it. A gateway 404 for a
+ * head the node was not asked about, as while this route is off or paused, is not the node's word and
+ * leaves the head to the node. A node that answers a head without its slot number does so for every
+ * head, so after the first such answer heads are read from the gateway alone. A head is read once
  * when a follower joins and every few seconds by the catalog, where a believed "not found" would show
  * "no streams" until the next poll, and where a stream that has not started would otherwise cost a
  * slow node miss on top of the gateway read on every poll.
@@ -159,6 +162,12 @@ export class BrowserNodeFeeds {
   /** Feed heads the node called empty and the gateway agreed, read from the gateway alone. */
   private readonly emptyHeads = new Set<string>();
 
+  /** Feed heads the node just called empty, whose gateway answer decides whether they join the above. */
+  private readonly nodeEmptyHeads = new Set<string>();
+
+  /** Set when the node answers a head without its slot number, which its build always does. */
+  private headsWithoutIndex = false;
+
   /** Set when the provider lacks these reads, which no later read can change. */
   private unsupported = false;
 
@@ -192,7 +201,7 @@ export class BrowserNodeFeeds {
       return null;
     }
     const key = readKey(path);
-    if (this.overBudget.has(key) || this.emptyHeads.has(key)) {
+    if (this.overBudget.has(key) || this.emptyHeads.has(key) || (path.kind === 'head' && this.headsWithoutIndex)) {
       return null;
     }
     if (path.kind === 'slot' && this.refusedSlots.delete(key)) {
@@ -220,10 +229,11 @@ export class BrowserNodeFeeds {
     }
     const key = readKey(path);
     if (path.kind === 'head') {
-      if (response.status === 404) {
-        remember(this.emptyHeads, key);
-      } else {
+      const nodeCalledEmpty = this.nodeEmptyHeads.delete(key);
+      if (response.status !== 404) {
         this.emptyHeads.delete(key);
+      } else if (nodeCalledEmpty) {
+        remember(this.emptyHeads, key);
       }
     }
     const refused = this.refusedOverBudget;
@@ -286,7 +296,14 @@ export class BrowserNodeFeeds {
   ): Promise<TimedResponse | null> {
     if (path.kind === 'head') {
       const entry = await this.call(provider, 'swarm_readFeedEntry', { topic: path.topic, owner: path.owner }, signal);
-      return feedEntryResponse(entry, true);
+      const response = feedEntryResponse(entry, true);
+      if (response === null && hasData(entry)) {
+        this.headsWithoutIndex = true;
+        console.warn(
+          "This browser's node reads a feed head without its slot number, so heads are read from the gateway.",
+        );
+      }
+      return response;
     }
 
     const slot = feedSlotOf(path.identifier);
@@ -351,6 +368,7 @@ export class BrowserNodeFeeds {
     const { code, data } = (error ?? {}) as ProviderError;
     if (data?.reason !== undefined && NOT_FOUND_REASONS.has(data.reason)) {
       if (path.kind === 'head') {
+        remember(this.nodeEmptyHeads, key);
         return null;
       }
       remember(this.refusedSlots, key);
@@ -380,6 +398,10 @@ export class BrowserNodeFeeds {
  * @param named whether to name the slot in the header the way a gateway's `/feeds` read does. A
  *   `/soc` read names none, so a slot read does not either.
  */
+function hasData(entry: unknown): boolean {
+  return typeof (entry as { data?: unknown } | null)?.data === 'string';
+}
+
 function feedEntryResponse(entry: unknown, named: boolean): TimedResponse | null {
   const { data, index } = (entry ?? {}) as { data?: unknown; index?: unknown };
   if (typeof data !== 'string') {

@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppContextProvider } from '../src/app/AppProvider';
+import { CatalogFeedReader } from '../src/features/catalog/catalogFeed';
 import type { RuntimeConfig } from '../src/config/runtimeConfig';
 import { DomainSelector } from '../src/features/gateway/DomainSelector';
 import { manifestFetcher } from '../src/features/player/CustomManifestLoader';
@@ -145,6 +146,20 @@ describe("feeds through this browser's node", () => {
     openPicker();
     click(button('Use the event gateway'));
     expect(browserNodeFeeds.enabled).toBe(false);
+  });
+
+  // The gateway stays the same, but the feeds move to or from the node, which has its own view of them.
+  it('makes the catalog find its head again when feeds move to or from the node', async () => {
+    await showPicker();
+    const reset = vi.spyOn(CatalogFeedReader.prototype, 'reset');
+
+    openPicker();
+    click(button('Use the event gateway'));
+    expect(reset).toHaveBeenCalledTimes(1);
+
+    openPicker();
+    click(button("Use this browser's node"));
+    expect(reset).toHaveBeenCalledTimes(2);
   });
 
   it('offers to connect the site, which raises the read limit, and stops offering once it is', async () => {

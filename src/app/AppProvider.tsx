@@ -140,8 +140,9 @@ export const AppContextProvider = ({ config, children }: Props) => {
       const trimmed = url.replace(/\/+$/, '');
       // The new node has its own view of the feed, so a position established against the old one would
       // ask it for slots it may not hold, which reads as a catalog that stopped rather than one being
-      // followed from the wrong place. Moving the segments alone leaves the feeds where they were.
-      if (trimmed !== gatewayRef.current) {
+      // followed from the wrong place. Turning the browser's node on or off moves the feeds too, to or
+      // from that node, even when the gateway behind it stays the same.
+      if (trimmed !== gatewayRef.current || fromBrowserNode !== browserNodeFeeds.enabled) {
         catalogReader.current.reset();
       }
       gatewayRef.current = trimmed;

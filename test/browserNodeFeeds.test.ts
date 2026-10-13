@@ -401,6 +401,53 @@ describe('fetchFeed', () => {
     expect(provider.calls).toHaveLength(2);
   });
 
+  // A stream polled before the viewer turned this route on: the gateway's 404 then is not the node's.
+  it('asks the node about a head the gateway called empty while the route was off', async () => {
+    const missing = { fetcher: vi.fn(async () => new Response('', { status: 404 })) as typeof fetch };
+    feeds.enabled = false;
+    expect((await fetchFeed(head, missing, feeds)).status).toBe(404);
+
+    feeds.enabled = true;
+    provider.answer = () => Promise.resolve({ data: base64('from the node'), encoding: 'base64', index: 0 });
+    expect((await fetchFeed(head, missing, feeds)).text).toBe('from the node');
+    expect(provider.calls).toHaveLength(1);
+  });
+
+  it('asks the node about a head the gateway called empty while the route was paused', async () => {
+    const missing = { fetcher: vi.fn(async () => new Response('', { status: 404 })) as typeof fetch };
+    const other = `${GATEWAY}/${nextFeedRequest(OWNER, Topic.fromString('another-rung'), null).path}`;
+    provider.answer = () => Promise.reject(new Error('node is starting'));
+    await fetchFeed(other, missing, feeds);
+    expect((await fetchFeed(head, missing, feeds)).status).toBe(404);
+    expect(provider.calls).toHaveLength(1);
+
+    clock += NODE_RETRY_MS;
+    provider.answer = () => Promise.resolve({ data: base64('from the node'), encoding: 'base64', index: 0 });
+    expect((await fetchFeed(head, missing, feeds)).text).toBe('from the node');
+  });
+
+  // A build that leaves the slot number out does so on every head, and each read counts against the budget.
+  it('reads heads from the gateway alone once the node answers one without its slot number', async () => {
+    const other = `${GATEWAY}/${nextFeedRequest(OWNER, Topic.fromString('another-rung'), null).path}`;
+    provider.answer = (call) =>
+      Promise.resolve(
+        call.params.index === undefined
+          ? { data: base64('no index'), encoding: 'base64' }
+          : { data: base64('slot'), encoding: 'base64', index: call.params.index },
+      );
+    const fetcher = { fetcher: gatewayAnswer as typeof fetch };
+
+    expect((await fetchFeed(head, fetcher, feeds)).text).toBe('from the gateway');
+    expect((await fetchFeed(head, fetcher, feeds)).text).toBe('from the gateway');
+    expect((await fetchFeed(other, fetcher, feeds)).text).toBe('from the gateway');
+    expect(provider.calls).toHaveLength(1);
+    expect(gatewayAnswer).toHaveBeenCalledTimes(3);
+
+    // Slots still come from the node.
+    const slot = `${GATEWAY}/${feedSlotPath(OWNER, TOPIC, FeedIndex.fromBigInt(9n))}`;
+    expect((await fetchFeed(slot, fetcher, feeds)).text).toBe('slot');
+  });
+
   describe('a read larger than the byte budget', () => {
     const MAX_BYTES = 512 * 1024;
     const finished = new Response('#EXTM3U\n' + 'x'.repeat(MAX_BYTES), { status: 200 });
