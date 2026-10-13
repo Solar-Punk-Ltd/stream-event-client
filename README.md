@@ -149,11 +149,11 @@ it, or run the image below, which does both.
 
 The other scripts: `pnpm test` (vitest), `pnpm lint` (oxlint), `pnpm typecheck`, `pnpm format` and
 `pnpm format:check` (oxfmt). `pnpm e2e` builds the app and runs the browser journeys in Playwright:
-a replayed recording, the theme switcher on that recording, and real hls.js against a fake gateway publishing a live stream in four
+a replayed recording, the theme switcher on that recording, the Sources screen, the weeb-3 journeys, and real hls.js against a fake gateway publishing a live stream in four
 qualities, each answer held back 650 ms. The first run downloads the Chromium build Playwright pins.
 Beyond that they need no Bee node and no network, and they print their timings and read rates
-without asserting them. Continuous integration runs the format check, lint, typecheck, tests and
-build on every pull request, and reports what the first page load downloads.
+without asserting them. Continuous integration runs the format check, lint, typecheck, tests, build and `pnpm e2e` on every
+pull request, and reports what the first page load downloads.
 
 `pnpm test` also holds the count of exports nothing else imports at or below the number in
 `scripts/unused-exports-baseline.json`. `node scripts/unused-exports.mjs --list` names them, and
@@ -306,7 +306,7 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   not early. The fuller entry rebuilds the player with every quality, which costs the viewer a moment
   of loading. The page never polls the list for this.
 - **How far behind live it plays.** The live target is three segments of the playlist's segment
-  length, never under 6 seconds, and moves when the playlist names a new length.
+  length, never under 12 seconds, and moves when the playlist names a new length.
 - **How it times its reads.** The player asks for the next playlist when it is due: the newest
   segment's end, plus one segment, plus a delay it learns from its own reads, set so that about one
   ask in four comes too early. A second ask covers that one, then one ask per segment, then asks
@@ -337,7 +337,7 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   another, because the qualities' feeds drift apart. A switch to a quality that has finished while
   the playing one is live, or sits more than 30 seconds behind it, is refused. When the playing
   quality has had nothing new for 8 seconds, or finishes, the next lower quality is found and then
-  read for three of its segments, never under 6 seconds: if it moves on, the player moves to it and drops the stopped one. There is no limit
+  read for three of its segments, never under 12 seconds: if it moves on, the player moves to it and drops the stopped one. There is no limit
   on how many are dropped: a quality refused at a switch is dropped too, and the player keeps moving on
   until it is on a quality that moves. The last quality is never dropped. If the next one does not move
   on, the broadcast paused or ended, and the player says so.

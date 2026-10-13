@@ -11,7 +11,7 @@ built.
 
 ## Scope
 
-- In: the stream list, the watch page and its player, the Bee node picker, the Swarm design, a
+- In: the stream list, the watch page and its player, the Sources screen, where a viewer picks where each part is read from, the Swarm design, a
   chat per stream with a display-name login, and a theme switcher for viewers logged in to the chat.
   A deployment picks its theme with `theme` in `config.json`, which decides the logo and the words. A
   viewer's switch changes only the colours and typefaces, and `themeSwitcher` turns it off.
