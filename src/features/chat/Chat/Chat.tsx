@@ -14,6 +14,7 @@ import { CHAT_LOADING, CHAT_UNREACHABLE, useSwarmChat, type VisibleMessage } fro
 
 import { ChatMessage } from './ChatMessage/ChatMessage';
 import { FeedNotice } from './FeedNotice/FeedNotice';
+import { OwnCopiesProvider } from './ChatMessage/OwnCopies/OwnCopies';
 import { MessageSender } from './MessageSender/MessageSender';
 import { ScrollableMessageList } from './ScrollableMessageList/ScrollableMessageList';
 import { StampWarningBar } from './StampWarningBar/StampWarningBar';
@@ -41,6 +42,10 @@ export function Chat({ chat, topic, reads }: ChatProps) {
   const { sending, ownStamp, warning } = useChatStamp();
   const settings = useMemo(() => chatSettings(chat, topic, session, sending), [chat, topic, session, sending]);
   const isSendingHeld = warning?.blocksSending ?? false;
+  const ownCopiesSource = useMemo(
+    () => ({ reads, chatTopic: settings.infra.chatTopic }),
+    [reads, settings.infra.chatTopic],
+  );
   const ownAddress = session?.address ?? null;
   const {
     status,
@@ -226,7 +231,7 @@ export function Chat({ chat, topic, reads }: ChatProps) {
         </button>
       </header>
       <div id={bodyId} className="chat-body" hidden={isFolded}>
-        {body()}
+        <OwnCopiesProvider source={ownCopiesSource}>{body()}</OwnCopiesProvider>
       </div>
     </section>
   );

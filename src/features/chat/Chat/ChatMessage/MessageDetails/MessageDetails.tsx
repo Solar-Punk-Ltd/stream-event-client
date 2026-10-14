@@ -1,6 +1,7 @@
 import type { ChatIdentity } from '@solarpunkltd/swarm-chat-js';
 
 import type { SenderBadge } from '../senderBadge';
+import { OwnCopies } from '../OwnCopies/OwnCopies';
 import { BadgeIcon } from '../SenderLine/SenderLine';
 
 import './MessageDetails.scss';
@@ -33,11 +34,22 @@ interface MessageDetailsProps {
   badge: SenderBadge;
   identity: ChatIdentity | null;
   ownStamp: boolean;
+  /** Whether the message says its sender keeps a copy in their own feed, which the details then read. */
+  hasOwnCopy: boolean;
   onClose: () => void;
 }
 
 /** What the check of one message found: who signed it, whether Swarm ID vouched for them, and who paid to send it. */
-export function MessageDetails({ id, name, address, badge, identity, ownStamp, onClose }: MessageDetailsProps) {
+export function MessageDetails({
+  id,
+  name,
+  address,
+  badge,
+  identity,
+  ownStamp,
+  hasOwnCopy,
+  onClose,
+}: MessageDetailsProps) {
   return (
     // The card is inside the message, whose own click shows its actions.
     <div
@@ -76,6 +88,7 @@ export function MessageDetails({ id, name, address, badge, identity, ownStamp, o
         <dt>Sent</dt>
         <dd>{ownStamp ? SENT_WITH_OWN_STAMP : SENT_BY_GATEWAY}</dd>
       </dl>
+      {hasOwnCopy && <OwnCopies owner={address} />}
     </div>
   );
 }

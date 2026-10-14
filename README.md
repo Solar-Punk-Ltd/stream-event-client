@@ -159,7 +159,12 @@ on this site is its own. A stamp after the badge says the sender paid for the wr
 their own. Every message this page sends says who paid, the event gateway or the viewer's own stamp. The badge, and the stamp where
 there is one, open the message's details: the name, the identity, the public chat address, that the signature
 matches the text, for a Swarm ID the link Swarm ID confirmed for this site and the account's address,
-and who paid for the write.
+and who paid for the write. For a message that says its sender keeps a copy in their own feed (`own: true`), the
+details also list **Their own copies**: the sender's own feed, `ownFeedTopic(chatTopic)` under their chat
+address, read through the source picked for Chat history, newest first, ten at a time with Load more. Each entry
+is read by its address and must be the sender's own single-owner chunk, and each copy passes the same check as
+every chat message and must be the sender's and for this chat, or it is not shown. The list only reads, and the
+section counts the entries it did not show in its `data-hidden-copies` attribute.
 
 ### Signing in with Swarm ID
 
