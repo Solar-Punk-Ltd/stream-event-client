@@ -1,5 +1,5 @@
 import { MessageVia } from '@solarpunkltd/swarm-chat-js';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createMessageVerifier, VERIFY_BATCH_SIZE } from '../../src/features/chat/verify/messageVerifier';
 import { pageScope } from '../../src/features/chat/verify/verdicts';
@@ -155,6 +155,35 @@ describe('a worker that fails', () => {
     };
     const verifier = createMessageVerifier(() => port, scope);
     expect(await verifier.verify(signedMessage('unposted'))).toMatchObject({ ok: true });
+  });
+
+  it('checks each batch on the page in a turn of its own, so a long history never holds the page at once', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const verifier = createMessageVerifier(() => {
+        throw new Error('workers are blocked here');
+      }, scope);
+      let answered = 0;
+      const count = VERIFY_BATCH_SIZE * 2 + 1;
+      for (let at = 0; at < count; at++) {
+        void verifier.verify(signedMessage(`turn ${at}`, { ts: 1_000 + at })).then(() => answered++);
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(answered).toBe(0);
+
+      const afterEachTurn: number[] = [];
+      for (let turn = 0; turn < 3; turn++) {
+        vi.advanceTimersByTime(0);
+        for (let tick = 0; tick < 5; tick++) {
+          await Promise.resolve();
+        }
+        afterEachTurn.push(answered);
+      }
+      expect(afterEachTurn).toEqual([VERIFY_BATCH_SIZE, VERIFY_BATCH_SIZE * 2, count]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('checks on the page when the worker cannot be started at all, refusing a tampered message there too', async () => {

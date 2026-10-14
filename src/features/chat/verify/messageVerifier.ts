@@ -35,13 +35,15 @@ function answerHere({ request, answers }: PendingBatch): void {
   answers.forEach((answer, at) => answer(verdicts[at]!));
 }
 
+const nextTurn = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
 /**
  * Checks signed messages in a worker. Messages asked for in one turn of the page's event loop are posted together, in
  * batches of {@link VERIFY_BATCH_SIZE}, and a message seen before is answered from its first verdict.
  *
  * A worker that cannot start, errs, or cannot carry a batch either way is left for good, and the same check runs on
- * the page's thread instead, for the batches it held and every one after. Every message is still checked, and none is
- * shown unchecked.
+ * the page's thread instead, one batch per turn of the event loop, for the batches it held and every one after. Every
+ * message is still checked, and none is shown unchecked.
  */
 export function createMessageVerifier(start: () => VerifierPort, scope: VerifyScope): MessageVerifier {
   const verdicts = new Map<string, Promise<Verdict>>();
@@ -49,12 +51,18 @@ export function createMessageVerifier(start: () => VerifierPort, scope: VerifySc
   let queue: Array<{ message: unknown; answer: (verdict: Verdict) => void }> = [];
   let nextBatch = 0;
   let port: VerifierPort | null = null;
+  /** The page's own checks, one batch per turn of the event loop, so the page draws between them. */
+  let pageTurns = Promise.resolve();
+
+  const checkOnPage = (batch: PendingBatch) => {
+    pageTurns = pageTurns.then(nextTurn).then(() => answerHere(batch));
+  };
 
   const leaveWorker = () => {
     port = null;
     const held = [...waiting.values()];
     waiting.clear();
-    held.forEach(answerHere);
+    held.forEach(checkOnPage);
   };
 
   try {
@@ -68,7 +76,7 @@ export function createMessageVerifier(start: () => VerifierPort, scope: VerifySc
       if (data.verdicts.length === batch.answers.length) {
         batch.answers.forEach((answer, at) => answer(data.verdicts[at]!));
       } else {
-        answerHere(batch);
+        checkOnPage(batch);
       }
     };
     port.onerror = leaveWorker;
@@ -87,7 +95,7 @@ export function createMessageVerifier(start: () => VerifierPort, scope: VerifySc
         answers: slice.map(({ answer }) => answer),
       };
       if (!port) {
-        answerHere(batch);
+        checkOnPage(batch);
         continue;
       }
       waiting.set(batch.request.batch, batch);

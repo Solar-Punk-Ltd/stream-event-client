@@ -422,6 +422,8 @@ describe('what the chat checks', () => {
     const signed = message({ id: 'tampered' });
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'checked here' }));
     await emit(EVENTS.MESSAGE_RECEIVED, { ...signed, signedMessage: { ...signed.signedMessage, text: 'changed' } });
+    await settle();
+    await settle();
     expect(messageTexts()).toEqual(['text of checked here']);
     expect(document.querySelector('.chat-container')?.getAttribute('data-refused-messages')).toBe('1');
   });
