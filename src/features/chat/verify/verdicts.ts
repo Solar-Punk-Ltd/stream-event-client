@@ -18,13 +18,10 @@ export interface VerifyRequest extends VerifyScope {
   readonly messages: readonly unknown[];
 }
 
-/** Set by the page, never by the worker: the worker failed, so nothing was checked and nothing is shown. */
-export const UNCHECKED = 'unchecked';
-
 export type Verdict =
   /** `message` is the one the check parsed, the only copy a page draws from. */
   | { readonly ok: true; readonly message: ChatMessage; readonly identity: ChatIdentity | null }
-  | { readonly ok: false; readonly reason: ChatMessageRefusal | typeof UNCHECKED };
+  | { readonly ok: false; readonly reason: ChatMessageRefusal };
 
 /** The verdicts of one batch, in the order its messages were posted. */
 export interface VerifiedBatch {
@@ -32,7 +29,7 @@ export interface VerifiedBatch {
   readonly verdicts: readonly Verdict[];
 }
 
-/** The worker's whole job. Runs on the page's thread only in tests, where jsdom has no Web Worker. */
+/** The worker's whole job, run on the page's thread instead when no worker can do it. */
 export function verifyBatch({ batch, messages, origin, allowLocalHttp }: VerifyRequest): VerifiedBatch {
   return {
     batch,

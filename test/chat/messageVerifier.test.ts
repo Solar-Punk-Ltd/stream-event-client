@@ -1,11 +1,7 @@
 import { MessageVia } from '@solarpunkltd/swarm-chat-js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import {
-  createMessageVerifier,
-  rebuildingVerifier,
-  VERIFY_BATCH_SIZE,
-} from '../../src/features/chat/verify/messageVerifier';
+import { createMessageVerifier, VERIFY_BATCH_SIZE } from '../../src/features/chat/verify/messageVerifier';
 import { pageScope } from '../../src/features/chat/verify/verdicts';
 import {
   BOUND_SITE,
@@ -78,7 +74,7 @@ describe('checking a chat message off the main thread', () => {
 
   it('sends a history read in batches, answering each batch as it comes back rather than after the last', async () => {
     const port = inThreadPort();
-    const verifier = createMessageVerifier(port, { origin: BOUND_SITE, allowLocalHttp: false });
+    const verifier = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
     const count = VERIFY_BATCH_SIZE * 2 + 3;
     const messages = Array.from({ length: count }, (_, at) => signedMessage(`m${at}`, { ts: 1_000 + at }));
 
@@ -101,7 +97,7 @@ describe('checking a chat message off the main thread', () => {
 
   it('checks one message once, however many events carry it', async () => {
     const port = inThreadPort();
-    const verifier = createMessageVerifier(port, { origin: BOUND_SITE, allowLocalHttp: false });
+    const verifier = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
     const message = signedMessage('again');
     await verifier.verify(message);
     await verifier.verify({ ...message });
@@ -117,67 +113,57 @@ describe('checking a chat message off the main thread', () => {
       reason: 'signature',
     });
   });
-
-  it('turns away every message it was asked about once the worker fails, rather than leaving them waiting', async () => {
-    const port = inThreadPort();
-    port.postMessage = () => {};
-    const verifier = createMessageVerifier(port, { origin: BOUND_SITE, allowLocalHttp: false });
-    const waiting = verifier.verify(signedMessage('stuck'));
-    await Promise.resolve();
-    port.onerror?.(new Event('error') as ErrorEvent);
-    expect(await waiting).toMatchObject({ ok: false, reason: 'unchecked' });
-    expect(await verifier.verify(signedMessage('later'))).toMatchObject({ ok: false, reason: 'unchecked' });
-  });
 });
 
 describe('a worker that fails', () => {
   const scope = { origin: BOUND_SITE, allowLocalHttp: false };
 
-  it('fails on a message it cannot read back as it fails on an error', async () => {
+  /** A worker that takes a batch and never answers it, until the test fails it. */
+  function silentPort() {
     const port = inThreadPort();
-    port.postMessage = () => {};
-    const verifier = createMessageVerifier(port, scope);
+    port.postMessage = (request) => port.posted.push(request);
+    return port;
+  }
+
+  it('checks on the page what was waiting when the worker errs, and every later message too', async () => {
+    const port = silentPort();
+    const verifier = createMessageVerifier(() => port, scope);
+    const waiting = verifier.verify(signedMessage('waiting'));
+    await Promise.resolve();
+    port.onerror?.(new Event('error') as ErrorEvent);
+
+    expect(await waiting).toMatchObject({ ok: true, identity: null });
+    expect(await verifier.verify(signedMessage('later'))).toMatchObject({ ok: true });
+    const tampered = { ...signedMessage('tampered'), text: 'changed' };
+    expect(await verifier.verify(tampered)).toMatchObject({ ok: false, reason: 'signature' });
+    expect(port.posted).toHaveLength(1);
+  });
+
+  it('checks on the page when the worker cannot read a message back', async () => {
+    const port = silentPort();
+    const verifier = createMessageVerifier(() => port, scope);
     const waiting = verifier.verify(signedMessage('unreadable'));
     await Promise.resolve();
     port.onmessageerror?.(new MessageEvent('messageerror'));
-    expect(await waiting).toMatchObject({ ok: false, reason: 'unchecked' });
-    expect(verifier.failed).toBe(true);
+    expect(await waiting).toMatchObject({ ok: true });
   });
 
-  it('is started again once after it failed, and then left failed', async () => {
-    const ports = [inThreadPort(), inThreadPort(), inThreadPort()];
-    let started = 0;
-    const current = rebuildingVerifier(
-      () => ports[started++],
-      () => scope,
-    );
-
-    const first = current();
-    expect(current()).toBe(first);
-    ports[0].onerror?.(new Event('error') as ErrorEvent);
-    const second = current();
-    expect(second).not.toBe(first);
-    expect(await second.verify(signedMessage('after a restart'))).toMatchObject({ ok: true });
-
-    ports[1].onerror?.(new Event('error') as ErrorEvent);
-    expect(current()).toBe(second);
-    expect(started).toBe(2);
-    expect(await current().verify(signedMessage('given up'))).toMatchObject({ ok: false, reason: 'unchecked' });
+  it('checks on the page when a batch cannot be posted to the worker', async () => {
+    const port = inThreadPort();
+    port.postMessage = () => {
+      throw new Error('could not be cloned');
+    };
+    const verifier = createMessageVerifier(() => port, scope);
+    expect(await verifier.verify(signedMessage('unposted'))).toMatchObject({ ok: true });
   });
 
-  it('counts a worker that cannot even be started as failed, and turns every message away', async () => {
-    let started = 0;
-    const current = rebuildingVerifier(
-      () => {
-        started++;
-        throw new Error('workers are blocked here');
-      },
-      () => scope,
-    );
-
-    expect(current().failed).toBe(true);
-    expect(await current().verify(signedMessage('blocked'))).toMatchObject({ ok: false, reason: 'unchecked' });
-    expect(started).toBe(2);
+  it('checks on the page when the worker cannot be started at all, refusing a tampered message there too', async () => {
+    const verifier = createMessageVerifier(() => {
+      throw new Error('workers are blocked here');
+    }, scope);
+    expect(await verifier.verify(signedMessage('blocked'))).toMatchObject({ ok: true });
+    const tampered = { ...signedMessage('tampered here'), text: 'changed' };
+    expect(await verifier.verify(tampered)).toMatchObject({ ok: false, reason: 'signature' });
   });
 });
 

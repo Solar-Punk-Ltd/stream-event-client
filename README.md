@@ -144,9 +144,9 @@ shown only once it passed. One that fails, whether its text was changed after si
 binding was made for another site, or it is in the format before version 8, is never shown, and the
 panel counts them in its `data-refused-messages` attribute. A chat whose history is all of the older
 format opens as an empty chat. The worker is the bundle's own file, so the page's policy allows it with
-`worker-src 'self'`. A worker that fails, or cannot start, is started once more. If that one fails too,
-no message is shown and the chat says "Messages cannot be checked in this browser. Reload to try
-again."
+`worker-src 'self'`. A worker that cannot start or fails is left, and the same check runs on the
+page's thread instead, for the messages it held and every later one. Nothing is shown unchecked and
+nothing is left waiting."
 
 Above each message is its sender line: the name, the badge, the stamp for a message sent with the
 sender's own stamp, and the time it was published, in hours and minutes on the viewer's clock. There

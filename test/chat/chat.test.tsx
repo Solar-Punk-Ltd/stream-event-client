@@ -383,7 +383,7 @@ describe('what the chat checks', () => {
     const answer = port.postMessage;
     const held: Array<() => void> = [];
     port.postMessage = (request) => held.push(() => answer(request));
-    verifier.current = createMessageVerifier(port, { origin: BOUND_SITE, allowLocalHttp: false });
+    verifier.current = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
     await open();
 
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'waits' }));
@@ -398,7 +398,7 @@ describe('what the chat checks', () => {
     const answer = port.postMessage;
     const held: Array<() => void> = [];
     port.postMessage = (request) => held.push(() => answer(request));
-    verifier.current = createMessageVerifier(port, { origin: BOUND_SITE, allowLocalHttp: false });
+    verifier.current = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
     await open(panel('stream-one'));
     const signed = message({ id: 'refused' });
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'late' }));
@@ -413,15 +413,17 @@ describe('what the chat checks', () => {
     expect(document.querySelector('.chat-container')?.getAttribute('data-refused-messages')).toBe('0');
   });
 
-  it('says so when messages cannot be checked in this browser, and shows none of them', async () => {
+  it('still checks and shows messages when the worker fails, and still refuses a tampered one', async () => {
     const port = inThreadPort();
     port.postMessage = () => port.onerror?.(new Event('error') as ErrorEvent);
-    verifier.current = createMessageVerifier(port, { origin: BOUND_SITE, allowLocalHttp: false });
+    verifier.current = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
     await open();
 
-    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'unchecked' }));
-    expect(messageTexts()).toEqual([]);
-    expect(text()).toContain('Messages cannot be checked in this browser. Reload to try again.');
+    const signed = message({ id: 'tampered' });
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'checked here' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, { ...signed, signedMessage: { ...signed.signedMessage, text: 'changed' } });
+    expect(messageTexts()).toEqual(['text of checked here']);
+    expect(document.querySelector('.chat-container')?.getAttribute('data-refused-messages')).toBe('1');
   });
 
   it('draws a message from what was signed, never from the copy beside it', async () => {

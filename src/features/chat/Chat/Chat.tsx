@@ -28,8 +28,6 @@ interface ChatProps {
   reads: () => ChatReads;
 }
 
-const CANNOT_CHECK = 'Messages cannot be checked in this browser. Reload to try again.';
-
 /** The reaction being sent, one per message, keyed by message id. */
 type PendingReactions = Record<string, string>;
 
@@ -55,7 +53,6 @@ export function Chat({ chat, topic, reads }: ChatProps) {
     retrySendMessage,
     restart,
     refusedCount,
-    cannotCheck,
   } = useSwarmChat(settings, ownAddress, reads);
 
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -123,14 +120,6 @@ export function Chat({ chat, topic, reads }: ChatProps) {
           <Button variant={ButtonVariant.SECONDARY} onClick={restart}>
             Try again
           </Button>
-        </div>
-      );
-    }
-
-    if (cannotCheck) {
-      return (
-        <div className="chat-state chat-state-error" role="status">
-          <p className="chat-state-title">{CANNOT_CHECK}</p>
         </div>
       );
     }
