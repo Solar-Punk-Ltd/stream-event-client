@@ -191,8 +191,8 @@ importers:
         specifier: 0.0.354001
         version: 0.0.354001
       '@solarpunkltd/swarm-chat-js':
-        specifier: 7.3.0
-        version: 7.3.0(@ethersphere/bee-js@13.1.0)
+        specifier: 8.0.0
+        version: 8.0.0(@ethersphere/bee-js@13.1.0)
       cafe-utility:
         specifier: 36.3.0
         version: 36.3.0
@@ -831,8 +831,8 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@solarpunkltd/swarm-chat-js@7.3.0':
-    resolution: {integrity: sha512-F4bT6FySBDcNRuNuzxPj1IlPOj1r16nRPATsFhvq+HedMjBR7Z4IDeoz4Rn4UdvKGc0zoUnrB9dpdymQfd53Mw==}
+  '@solarpunkltd/swarm-chat-js@8.0.0':
+    resolution: {integrity: sha512-kjnpxJCJ8Sx8ZDC0RzuRXI+gXd0DZJfOpu93fGHaoPNVw/cZ3L1YRNl1JJnLgstREiOiE58IP0b5keZqCWWpDQ==}
     engines: {node: '>=24'}
     peerDependencies:
       '@ethersphere/bee-js': ^13.1.0
@@ -1978,9 +1978,10 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@solarpunkltd/swarm-chat-js@7.3.0(@ethersphere/bee-js@13.1.0)':
+  '@solarpunkltd/swarm-chat-js@8.0.0(@ethersphere/bee-js@13.1.0)':
     dependencies:
       '@ethersphere/bee-js': 13.1.0
+      '@ethersphere/core-sdk': 0.1.1
       zod: 4.6.5
 
   '@swc/core-darwin-arm64@1.16.2':

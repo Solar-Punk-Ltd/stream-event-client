@@ -9,6 +9,7 @@ import {
   type ChatWriteAnswer,
   GATEWAY_URL_PATTERN,
   type Published,
+  PREVIEW_ORIGIN,
   RECORDED_DIR,
   RecordingFile,
   SMOKE_MESSAGE,
@@ -40,7 +41,10 @@ test('a viewer opens the list, watches a finished stream and sends a chat messag
   await watchAndChat(page, published);
 
   expect(writes.length, 'the page wrote the message to the chat inbox').toBeGreaterThan(0);
-  const check = parseChatMessage(new Uint8Array(writes[0].subarray(SPAN_BYTES)));
+  const check = parseChatMessage(new Uint8Array(writes[0].subarray(SPAN_BYTES)), {
+    origin: PREVIEW_ORIGIN,
+    allowLocalHttp: true,
+  });
   expect(check.ok, check.ok ? '' : `the written message is refused: ${check.reason}, ${check.detail}`).toBe(true);
   if (check.ok) {
     expect(check.message).toMatchObject({
