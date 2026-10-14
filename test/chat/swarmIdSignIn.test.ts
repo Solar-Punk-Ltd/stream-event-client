@@ -307,3 +307,76 @@ describe("a Swarm ID account's chat name", () => {
     );
   });
 });
+
+describe('what keeps the sign-in state honest', () => {
+  /** A frame whose disconnect never reports back, so only the sign-out itself can move the state. */
+  const silentDisconnect = (client: { disconnect: () => Promise<void>; disconnectCalls: number }) => {
+    client.disconnect = async () => {
+      client.disconnectCalls += 1;
+    };
+  };
+
+  it('is signed out the moment Sign out is pressed, before the frame says anything', async () => {
+    const swarmId = await fakeSwarmId(SIGNED_IN, silentDisconnect);
+    const signIn = await started(swarmId);
+    await until(signIn, SWARM_ID_SIGNED_IN);
+
+    void signIn.signOut();
+
+    expect(signIn.getState()).toEqual({ status: SWARM_ID_SIGNED_OUT, problem: null });
+    for (let turn = 0; turn < 20; turn += 1) {
+      await settled();
+    }
+    expect(signIn.getState()).toEqual({ status: SWARM_ID_SIGNED_OUT, problem: null });
+    expect(swarmId.client().disconnectCalls).toBe(1);
+  });
+
+  it('drops a chat key asked for before a sign-out, even when the frame never reports the sign-out', async () => {
+    const swarmId = await fakeSwarmId({}, silentDisconnect);
+    const signIn = await started(swarmId);
+
+    swarmId.client().handOver(SIGNED_IN);
+    void signIn.signOut();
+    for (let turn = 0; turn < 20; turn += 1) {
+      await settled();
+    }
+
+    expect(signIn.getState()).toEqual({ status: SWARM_ID_SIGNED_OUT, problem: null });
+  });
+
+  it('applies what the frame reported while the library was still starting', async () => {
+    const swarmId = await fakeSwarmId({}, (client) => {
+      client.initialize = async () => {
+        client.options.onConnectionChange(SIGNED_IN);
+      };
+      client.getChatKey = async () => client.chatKey;
+    });
+    const signIn = await started(swarmId);
+
+    expect(swarmId.client().connectionInfo).toEqual({});
+    expect((await until(signIn, SWARM_ID_SIGNED_IN)).status).toBe(SWARM_ID_SIGNED_IN);
+  });
+
+  it('changes nothing once stopped, whatever arrives after', async () => {
+    const swarmId = await fakeSwarmId();
+    const signIn = await started(swarmId);
+
+    swarmId.client().handOver(SIGNED_IN);
+    signIn.stop();
+    for (let turn = 0; turn < 20; turn += 1) {
+      await settled();
+    }
+
+    expect(signIn.getState()).toEqual({ status: SWARM_ID_SIGNED_OUT, problem: null });
+  });
+
+  it('accepts a signature written in upper-case hex, and sends it in the one spelling the chat reads', async () => {
+    const swarmId = await fakeSwarmId();
+    const signIn = await started(swarmId);
+    const signature = `0x${FORK_BINDING.signature.slice(2).toUpperCase()}`;
+
+    swarmId.client().handOver({ identity: FORK_IDENTITY, chatBinding: { ...FORK_BINDING, signature } });
+
+    expect(signedInSession(await until(signIn, SWARM_ID_SIGNED_IN)).binding.sig).toBe(CHAT_BINDING.sig);
+  });
+});
