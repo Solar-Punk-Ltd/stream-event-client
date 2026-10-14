@@ -32,7 +32,9 @@ describe('checking a chat message off the main thread', () => {
   });
 
   it('passes a Swarm ID message with the account that signed its binding for this site', async () => {
-    const verdict = await inThreadVerifier(BOUND_SITE).verify(signedMessage('bound', { key: boundKey, binding: CHAT_BINDING }));
+    const verdict = await inThreadVerifier(BOUND_SITE).verify(
+      signedMessage('bound', { key: boundKey, binding: CHAT_BINDING }),
+    );
     expect(verdict).toEqual({
       ok: true,
       identity: { account: FORK_ACCOUNT, site: BOUND_SITE, date: '2026-10-14T12:00:00.000Z' },
@@ -115,10 +117,12 @@ describe('checking a chat message off the main thread', () => {
 
 describe("the page's own scope", () => {
   it('names the page origin, and lets a local development page take a local binding', () => {
-    expect(pageScope({ origin: 'https://view.example.com', protocol: 'https:', hostname: 'view.example.com' })).toEqual({
-      origin: 'https://view.example.com',
-      allowLocalHttp: false,
-    });
+    expect(pageScope({ origin: 'https://view.example.com', protocol: 'https:', hostname: 'view.example.com' })).toEqual(
+      {
+        origin: 'https://view.example.com',
+        allowLocalHttp: false,
+      },
+    );
     expect(pageScope({ origin: 'http://127.0.0.1:4173', protocol: 'http:', hostname: '127.0.0.1' })).toEqual({
       origin: 'http://127.0.0.1:4173',
       allowLocalHttp: true,
