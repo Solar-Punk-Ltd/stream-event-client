@@ -520,6 +520,13 @@ describe('who sent a message', () => {
     expect(document.querySelectorAll('.chat-message time')).toHaveLength(1);
   });
 
+  it('writes no time, and still shows the message, when its time is out of range', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'timeless', timestamp: 8.64e15 + 1 }));
+    expect(messageTexts()).toEqual(['text of timeless']);
+    expect(sender().querySelector('time')).toBeNull();
+  });
+
   it('marks a guest with a grey outline hexagon after the name, in the guest weight', async () => {
     await open();
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'guest', username: 'Bea' }));

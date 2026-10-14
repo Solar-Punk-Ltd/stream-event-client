@@ -39,6 +39,7 @@ export function SenderLine({
   areDetailsShown,
   onToggleDetails,
 }: SenderLineProps) {
+  const time = messageTime(timestamp);
   const toggle = (event: MouseEvent) => {
     // The buttons are inside the message, whose own click shows its actions.
     event.stopPropagation();
@@ -71,9 +72,11 @@ export function SenderLine({
           <OwnStampIcon />
         </button>
       )}
-      <time className="chat-message-time" dateTime={new Date(timestamp).toISOString()}>
-        {messageTime(timestamp)}
-      </time>
+      {time && (
+        <time className="chat-message-time" dateTime={time.iso}>
+          {time.shown}
+        </time>
+      )}
     </p>
   );
 }
