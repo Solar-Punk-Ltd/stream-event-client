@@ -108,6 +108,16 @@ describe('checking a chat message off the main thread', () => {
     expect(port.posted.flatMap((batch) => batch.messages)).toHaveLength(1);
   });
 
+  it('checks again a message whose text changed under the same id and signature, and refuses it', async () => {
+    const verifier = inThreadVerifier();
+    const message = signedMessage('cached');
+    expect(await verifier.verify(message)).toMatchObject({ ok: true });
+    expect(await verifier.verify({ ...message, text: 'changed after the first check' })).toMatchObject({
+      ok: false,
+      reason: 'signature',
+    });
+  });
+
   it('turns away every message it was asked about once the worker fails, rather than leaving them waiting', async () => {
     const port = inThreadPort();
     port.postMessage = () => {};
