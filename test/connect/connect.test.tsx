@@ -3,7 +3,19 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { nicknameLogin } from '../../src/features/chat/auth/login';
 import { persistUserSession } from '../../src/features/chat/auth/persistence';
-import { button, click, dialog, type Mounted, press, queryButton, settle, text, type, waitFor } from '../helpers/dom';
+import {
+  button,
+  click,
+  dialog,
+  doubleClick,
+  type Mounted,
+  press,
+  queryButton,
+  settle,
+  text,
+  type,
+  waitFor,
+} from '../helpers/dom';
 import { chatConfig, connectPage, seen } from '../helpers/connectPage';
 import { minimalConfig } from '../helpers/themeChoice';
 
@@ -191,6 +203,19 @@ describe('adding a source', () => {
       'passed',
     ]);
     expect(seen.app!.sources).toHaveLength(2);
+  });
+
+  it('adds a gateway once, however fast Add is clicked twice', async () => {
+    await openConnect();
+    click(button('Add source'));
+    click(button(/^Gateway/));
+    type(addressField(), GATEWAY);
+    click(button('Test connection'));
+    await waitFor(() => (button('Add gateway').disabled ? null : true));
+    doubleClick(button('Add gateway'));
+    await settle();
+
+    expect(seen.app!.sources.filter(({ url }) => url === GATEWAY)).toHaveLength(1);
   });
 
   it("adds a gateway that passed, back on Connect's menu, without putting it in use", async () => {

@@ -64,6 +64,8 @@ export function AddAddressView({ type, onAdded }: AddAddressProps) {
   const [tested, setTested] = useState<string | null>(null);
   const addressId = useId();
   const nameId = useId();
+  // A second click on Add can land before the view has gone, and must not add the source twice.
+  const isAdded = useRef(false);
 
   const test = () => {
     const url = addressToCheck(type, address);
@@ -118,7 +120,8 @@ export function AddAddressView({ type, onAdded }: AddAddressProps) {
         <Button
           disabled={!canAdd}
           onClick={() => {
-            if (canAdd && tested !== null) {
+            if (canAdd && tested !== null && !isAdded.current) {
+              isAdded.current = true;
               onAdded(app.addSource({ type, name, url: tested }));
             }
           }}
@@ -197,7 +200,8 @@ export function AddWeeb3View({ onAdded }: AddWeeb3Props) {
   const clientFor = useCheckClient();
   const { results, run } = useSourceChecks();
   const client = useMemo(() => clientFor({ id: 'checked', type: 'weeb-3', url: '', offered: false }), [clientFor]);
-  // Read as the view goes away, so the node an added source holds is not stopped with the view.
+  // Read as the view goes away, so the node an added source holds is not stopped with the view, and by a second
+  // click on Add that lands before the view has gone.
   const isKept = useRef(false);
   // Read through a ref, so the checks start once, as the node does, however often the stream list they read is read again.
   const latestRun = useRef(run);
@@ -243,7 +247,7 @@ export function AddWeeb3View({ onAdded }: AddWeeb3Props) {
         <Button
           disabled={!canAdd}
           onClick={() => {
-            if (canAdd) {
+            if (canAdd && !isKept.current) {
               isKept.current = true;
               onAdded(app.addSource({ type: 'weeb-3', name: '', url: '' }), client);
             }

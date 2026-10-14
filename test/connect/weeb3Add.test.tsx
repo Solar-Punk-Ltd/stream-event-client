@@ -3,7 +3,7 @@ import { ChunkBuilder, Span } from '@ethersphere/bee-js';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { sharedWeeb3Runtime } from '../../src/swarm/providers/weeb-3/weeb3Runtime';
-import { button, click, dialog, type Mounted, settle, text, waitFor } from '../helpers/dom';
+import { button, click, dialog, doubleClick, type Mounted, settle, text, waitFor } from '../helpers/dom';
 import { connectPage, seen } from '../helpers/connectPage';
 
 /** The package the page's one weeb-3 runtime loads, which each case sets. */
@@ -138,6 +138,19 @@ describe('adding the node in this browser', () => {
 
     click(button('Close Connect'));
     await settle();
+    await waitFor(() => (sharedWeeb3Runtime().status().state === 'stopped' ? true : null));
+  });
+
+  it('adds it once, however fast Add is clicked twice', async () => {
+    await openWeeb3();
+    const node = await waitFor(() => fakeWeeb3.current!.nodes[0]);
+    node.peers = 25;
+    await waitFor(() => (button('Add Weeb3').disabled ? null : true), 200);
+    doubleClick(button('Add Weeb3'));
+    await settle();
+
+    expect(seen.app!.sources.filter((source) => source.type === 'weeb-3')).toHaveLength(1);
+    click(button('Close Connect'));
     await waitFor(() => (sharedWeeb3Runtime().status().state === 'stopped' ? true : null));
   });
 

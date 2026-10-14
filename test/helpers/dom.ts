@@ -57,6 +57,14 @@ export function click(element: Element): void {
   });
 }
 
+/** Two clicks before React renders between them, as a fast double click can land. */
+export function doubleClick(element: Element): void {
+  act(() => {
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
 export function input(label: string): HTMLInputElement {
   const found = document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
   if (!found) {
