@@ -404,6 +404,27 @@ describe('what the chat checks', () => {
     expect(text()).toContain('Messages cannot be checked in this browser. Reload to try again.');
   });
 
+  it('draws a message from what was signed, never from the copy beside it', async () => {
+    await open();
+    const honest = message({ id: 'honest', username: 'Bea', message: 'what Bea signed' });
+    const forgedCopy = {
+      ...honest,
+      id: idOf('forged'),
+      message: 'what Mallory wrote',
+      username: 'Mallory',
+      address: 'f'.repeat(40),
+      targetMessageId: idOf('elsewhere'),
+    };
+    await emit(EVENTS.MESSAGE_RECEIVED, forgedCopy);
+
+    expect(messageTexts()).toEqual(['what Bea signed']);
+    expect(document.querySelector('.chat-message-name')?.textContent).toBe('Bea');
+    expect(text()).not.toContain('Mallory');
+    click(button('Guest, show details'));
+    expect(text()).toContain(`0x${honest.signedMessage.addr}`);
+    expect(text()).not.toContain('f'.repeat(40));
+  });
+
   it('never shows a message whose text was changed after it was signed, and counts it', async () => {
     await open();
     const honest = message({ id: 'honest' });

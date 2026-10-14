@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type ChatEvent,
   type ChatIdentity,
+  type ChatMessage,
   type ChatEventPayloads,
   type ChatSettings,
   EVENTS,
@@ -56,6 +57,25 @@ function inChatOrder(a: MessageData, b: MessageData): number {
     return aPending ? 1 : -1;
   }
   return aPending ? a.timestamp - b.timestamp : a.index - b.index;
+}
+
+/**
+ * A message drawn only from what was verified. The feed's place and the server's receive time are the library's, and
+ * every field the message says itself is read from the signed message rather than from the event's copies of it.
+ */
+function checkedMessage(data: MessageData, message: ChatMessage, identity: ChatIdentity | null): CheckedMessage {
+  return {
+    id: message.id,
+    type: message.type,
+    message: message.text,
+    username: message.name,
+    address: message.addr,
+    ...(message.target ? { targetMessageId: message.target } : {}),
+    index: data.index,
+    timestamp: data.index === PENDING_INDEX ? message.ts : data.timestamp,
+    signedMessage: message,
+    identity,
+  };
 }
 
 /** One entry per message id, the latest delivery state laid over what was known, in chat order. */
@@ -160,7 +180,9 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
               return;
             }
             if (verdict.ok) {
-              setMessages((previous) => mergeMessage(previous, { ...data, identity: verdict.identity }, delivery));
+              setMessages((previous) =>
+                mergeMessage(previous, checkedMessage(data, verdict.message, verdict.identity), delivery),
+              );
               return;
             }
             const key = JSON.stringify(data.signedMessage) ?? data.id;

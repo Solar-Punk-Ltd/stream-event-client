@@ -31,16 +31,17 @@ beforeAll(async () => {
 
 describe('checking a chat message off the main thread', () => {
   it('passes a guest message with no identity', async () => {
-    const verdict = await inThreadVerifier().verify(signedMessage('guest'));
-    expect(verdict).toEqual({ ok: true, identity: null });
+    const guest = signedMessage('guest');
+    const verdict = await inThreadVerifier().verify(guest);
+    expect(verdict).toEqual({ ok: true, identity: null, message: guest });
   });
 
   it('passes a Swarm ID message with the account that signed its binding for this site', async () => {
-    const verdict = await inThreadVerifier(BOUND_SITE).verify(
-      signedMessage('bound', { key: boundKey, binding: CHAT_BINDING }),
-    );
+    const bound = signedMessage('bound', { key: boundKey, binding: CHAT_BINDING });
+    const verdict = await inThreadVerifier(BOUND_SITE).verify(bound);
     expect(verdict).toEqual({
       ok: true,
+      message: bound,
       identity: { account: FORK_ACCOUNT, site: BOUND_SITE, date: '2026-10-14T12:00:00.000Z' },
     });
   });
@@ -72,7 +73,7 @@ describe('checking a chat message off the main thread', () => {
 
   it('keeps what the message says about its stamp for the badge to read', async () => {
     const own = signedMessage('own stamp', { via: MessageVia.OWN_STAMP });
-    expect(await inThreadVerifier().verify(own)).toEqual({ ok: true, identity: null });
+    expect(await inThreadVerifier().verify(own)).toEqual({ ok: true, identity: null, message: own });
   });
 
   it('sends a history read in batches, answering each batch as it comes back rather than after the last', async () => {

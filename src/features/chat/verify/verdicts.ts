@@ -1,4 +1,9 @@
-import { type ChatIdentity, type ChatMessageRefusal, verifyChatMessage } from '@solarpunkltd/swarm-chat-js/message';
+import {
+  type ChatIdentity,
+  type ChatMessage,
+  type ChatMessageRefusal,
+  verifyChatMessage,
+} from '@solarpunkltd/swarm-chat-js/message';
 
 /** Which site's Swarm ID bindings a check accepts: this page's own origin. */
 export interface VerifyScope {
@@ -17,7 +22,8 @@ export interface VerifyRequest extends VerifyScope {
 export const UNCHECKED = 'unchecked';
 
 export type Verdict =
-  | { readonly ok: true; readonly identity: ChatIdentity | null }
+  /** `message` is the one the check parsed, the only copy a page draws from. */
+  | { readonly ok: true; readonly message: ChatMessage; readonly identity: ChatIdentity | null }
   | { readonly ok: false; readonly reason: ChatMessageRefusal | typeof UNCHECKED };
 
 /** The verdicts of one batch, in the order its messages were posted. */
@@ -32,7 +38,9 @@ export function verifyBatch({ batch, messages, origin, allowLocalHttp }: VerifyR
     batch,
     verdicts: messages.map((message): Verdict => {
       const check = verifyChatMessage(message, { origin, allowLocalHttp });
-      return check.ok ? { ok: true, identity: check.identity } : { ok: false, reason: check.reason };
+      return check.ok
+        ? { ok: true, message: check.message, identity: check.identity }
+        : { ok: false, reason: check.reason };
     }),
   };
 }
