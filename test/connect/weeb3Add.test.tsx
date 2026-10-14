@@ -150,4 +150,18 @@ describe('adding the node in this browser', () => {
     await waitFor(() => (sharedWeeb3Runtime().status().state === 'stopped' ? true : null));
     expect(seen.app!.sources.some((source) => source.type === 'weeb-3')).toBe(false);
   });
+
+  it('starts the node again and runs its checks once more on Test again, after it failed', async () => {
+    fakeWeeb3.current = (await import('../helpers/fakeWeeb3')).fakeWeeb3Package({ initFails: true });
+    await openWeeb3();
+    await waitFor(() => (document.querySelector('.connect-warn') ? true : null), 200);
+    expect(document.querySelector('.connect-warn')?.textContent).toContain('Test again to start it once more.');
+
+    fakeWeeb3.current = (await import('../helpers/fakeWeeb3')).fakeWeeb3Package();
+    click(button('Test again'));
+    const node = await waitFor(() => fakeWeeb3.current!.nodes[0], 200);
+    node.peers = 25;
+
+    await waitFor(() => (button('Add Weeb3').disabled ? null : true), 200);
+  });
 });

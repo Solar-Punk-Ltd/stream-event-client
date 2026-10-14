@@ -474,7 +474,7 @@ once and is kept in the browser, and nothing switches a source by itself.
   in use: the viewer picks it under Use for.
 - **Weeb3.** Opening its tile starts the node and shows its download, against the 2.2 MB module, and its peers out of
   200, the healthy target, with "Playback can start before that." Its checks run at once, and Add Weeb3 waits for
-  them. It serves the video only for now: Use for offers it for Video per feature, and greys it with "Video only for
+  them. When they did not pass, Test again runs them once more, and starts the node again first if it failed. It serves the video only for now: Use for offers it for Video per feature, and greys it with "Video only for
   now" for all features and for every other part. A saved setting that puts it on another part reads that part from
   the default instead. Its row shows how far the node has got: the download, then "Starting", "Connecting, N of 200
   peers", and once ready "N of 200 peers", or "Failed to start".

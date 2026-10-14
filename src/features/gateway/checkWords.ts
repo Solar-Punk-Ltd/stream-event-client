@@ -155,7 +155,7 @@ export const NOTHING_TO_READ: CheckFailure = {
 
 export const NODE_FAILED: CheckFailure = {
   reason: 'The node in this browser did not start.',
-  fix: 'Reload the page and try again.',
+  fix: 'Test again to start it once more.',
 };
 
 export const tooFewPeers = (peers: number, ms: number): CheckFailure => ({

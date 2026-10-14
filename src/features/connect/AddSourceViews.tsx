@@ -198,12 +198,14 @@ export function AddWeeb3View({ onAdded }: AddWeeb3Props) {
   const client = useMemo(() => clientFor({ id: 'checked', type: 'weeb-3', url: '', offered: false }), [clientFor]);
   // Read as the view goes away, so the node an added source holds is not stopped with the view.
   const isKept = useRef(false);
-  // The checks start once, as the node does, however often the stream list they read from is read again.
-  const runOnce = useRef(run);
+  // Read through a ref, so the checks start once, as the node does, however often the stream list they read is read again.
+  const latestRun = useRef(run);
+
+  latestRun.current = run;
 
   useEffect(() => {
     client.start().catch(() => undefined);
-    void runOnce.current({ id: 'checked', type: 'weeb-3', url: '', offered: false }, client);
+    void latestRun.current({ id: 'checked', type: 'weeb-3', url: '', offered: false }, client);
     return () => {
       if (!isKept.current) {
         void client.stop();
@@ -212,12 +214,30 @@ export function AddWeeb3View({ onAdded }: AddWeeb3Props) {
   }, [client]);
 
   const canAdd = results !== null && checksPassed(results);
+  const isFinished = results !== null && results.every(({ state }) => state !== 'running' && state !== 'waiting');
+
+  /** The checks once more on the node this view holds, which is started again first if it failed. */
+  const testAgain = () => {
+    if (client.status().state === 'failed') {
+      // One hold given back and one taken, so the node this view holds is still held once.
+      void client.stop();
+      client.start().catch(() => undefined);
+    }
+    void run({ id: 'checked', type: 'weeb-3', url: '', offered: false }, client);
+  };
 
   return (
     <>
       <p className="connect-hint">Runs a Swarm node in this tab.</p>
       <NodeProgress client={client} />
       <CheckList type="weeb-3" results={results} isAdding />
+      {isFinished && !canAdd && (
+        <div className="connect-inline">
+          <Button variant={ButtonVariant.SECONDARY} className="connect-small" onClick={testAgain}>
+            Test again
+          </Button>
+        </div>
+      )}
       <div className="connect-foot">
         <Button
           disabled={!canAdd}
