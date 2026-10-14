@@ -1,7 +1,6 @@
 import type { RuntimeConfig } from '@/config/runtimeConfig';
 
-import { type BeeNodeAccess, DEFAULT_BEE_NODE_ACCESS } from './beeNodeAccess';
-import { GATEWAY_KINDS, type ProviderKindName } from './providerKinds';
+import type { ProviderKindName } from './providerKinds';
 
 /**
  * One source as the settings name it, which a provider kind in the registry makes a provider from. A
@@ -19,10 +18,6 @@ export interface GatewaySetting {
 export interface SwarmSettings {
   readonly gateways: readonly GatewaySetting[];
   readonly defaultId: string;
-  /** The kinds of provider a viewer may add one of their own of, weeb-3 among them where the deployment allows it. */
-  readonly kinds: readonly ProviderKindName[];
-  /** How far a Bee node of the viewer's own may be, which the Sources screen holds to. */
-  readonly beeNodes: BeeNodeAccess;
 }
 
 /** The id the one gateway of a config that names only `gatewayUrl` goes by. */
@@ -33,9 +28,8 @@ export const SINGLE_GATEWAY_ID = 'gateway';
  * `gatewayUrl`, and that is read as the only gateway offered and the default, so a deployment needs no
  * change to its settings.
  */
-export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'providers' | 'weeb3'>): SwarmSettings {
+export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'providers'>): SwarmSettings {
   const { providers, gatewayUrl } = config;
-  const inBrowser: ProviderKindName[] = config.weeb3?.enabled ? ['weeb-3'] : [];
   if (!providers) {
     if (gatewayUrl === undefined) {
       // The config's own check refuses a config with neither, so only a caller that skipped it lands here.
@@ -44,15 +38,11 @@ export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'pr
     return {
       gateways: [{ id: SINGLE_GATEWAY_ID, kind: 'bee-http', url: gatewayUrl }],
       defaultId: SINGLE_GATEWAY_ID,
-      kinds: [...GATEWAY_KINDS, ...inBrowser],
-      beeNodes: DEFAULT_BEE_NODE_ACCESS,
     };
   }
   return {
     gateways: providers.gateways,
     defaultId: providers.default,
-    kinds: [...(providers.kinds ?? GATEWAY_KINDS), ...inBrowser],
-    beeNodes: providers.beeNodes ?? DEFAULT_BEE_NODE_ACCESS,
   };
 }
 

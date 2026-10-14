@@ -50,58 +50,17 @@ describe('the Swarm settings', () => {
     expect(swarmSettingsFrom(config({ gatewayUrl: '/bee' }))).toEqual({
       gateways: [{ id: SINGLE_GATEWAY_ID, kind: 'bee-http', url: '/bee' }],
       defaultId: SINGLE_GATEWAY_ID,
-      kinds: ['bee-http'],
-      beeNodes: 'off',
     });
   });
 
-  it('take the gateways, the default and the kinds from providers', () => {
+  it('take the gateways and the default from providers', () => {
     expect(swarmSettingsFrom(TWO_GATEWAYS)).toEqual({
       gateways: [
         { id: 'primary', kind: 'bee-http', label: 'Event gateway', url: PRIMARY },
         { id: 'backup', kind: 'bee-http', url: BACKUP },
       ],
       defaultId: 'primary',
-      kinds: ['bee-http'],
-      beeNodes: 'off',
     });
-  });
-});
-
-describe('the node in this browser, weeb-3', () => {
-  it('is not offered unless the deployment switches it on', () => {
-    expect(swarmSettingsFrom(config({ gatewayUrl: '/bee' })).kinds).not.toContain('weeb-3');
-    expect(swarmSettingsFrom(config({ gatewayUrl: '/bee', weeb3: { enabled: false } })).kinds).not.toContain('weeb-3');
-  });
-
-  it('is offered beside every other kind once switched on', () => {
-    expect(swarmSettingsFrom(config({ gatewayUrl: '/bee', weeb3: { enabled: true } })).kinds).toEqual([
-      'bee-http',
-      'weeb-3',
-    ]);
-  });
-
-  it('is offered once switched on even where providers narrows the kinds a viewer may add', () => {
-    const narrowed = config({
-      providers: { ...TWO_GATEWAYS.providers!, kinds: ['bee-http'] },
-      weeb3: { enabled: true },
-    });
-
-    expect(swarmSettingsFrom(narrowed).kinds).toEqual(['bee-http', 'weeb-3']);
-  });
-});
-
-describe('how far a Bee node of the viewer may be', () => {
-  it('is this computer only when the config says nothing, as the viewer has always allowed', () => {
-    expect(swarmSettingsFrom(config({ gatewayUrl: '/bee' })).beeNodes).toBe('off');
-    expect(swarmSettingsFrom(TWO_GATEWAYS).beeNodes).toBe('off');
-  });
-
-  it('is what providers names', () => {
-    expect(
-      swarmSettingsFrom(config({ providers: { ...TWO_GATEWAYS.providers!, beeNodes: 'https-and-local-http' } }))
-        .beeNodes,
-    ).toBe('https-and-local-http');
   });
 });
 

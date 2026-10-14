@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 // Imported by its file name, so Node reads this schema without the bundler, as the deployment's own tests do.
 import { DEFAULT_THEME, THEME_NAMES, type ThemeName } from '../design/themeNames.ts';
-import { BEE_NODE_ACCESS_LEVELS } from '../swarm/beeNodeAccess.ts';
 import { GATEWAY_KINDS } from '../swarm/providerKinds.ts';
 
 /**
@@ -66,8 +65,6 @@ const disabledChatSchema = z.looseObject({ enabled: z.literal(false) });
 
 const chatSchema = z.discriminatedUnion('enabled', [enabledChatSchema, disabledChatSchema]);
 
-const gatewayKindSchema = z.enum(GATEWAY_KINDS, { message: `must be one of ${GATEWAY_KINDS.join(', ')}` });
-
 /** A Bee node's HTTP API, the way the event gateway has always been read. */
 const beeHttpGatewaySchema = z.object({
   /** What the default and a viewer's saved choice name it by. */
@@ -88,12 +85,6 @@ const providersSchema = z
     gateways: z.array(gatewaySchema).min(1, { message: 'must offer at least one gateway' }),
     /** The gateway every reader starts on. */
     default: notEmpty,
-    /** The kinds of gateway a viewer may add one of their own of. Absent means every kind a gateway may be. */
-    kinds: z.array(gatewayKindSchema).min(1, { message: 'must offer at least one kind' }).optional(),
-    /** How far a Bee node of the viewer's own may be. Absent means this computer only. */
-    beeNodes: z
-      .enum(BEE_NODE_ACCESS_LEVELS, { message: `must be one of ${BEE_NODE_ACCESS_LEVELS.join(', ')}` })
-      .optional(),
   })
   .superRefine((providers, context) => {
     const ids = new Set<string>();
@@ -109,13 +100,6 @@ const providersSchema = z
   });
 
 export type ProvidersConfig = z.infer<typeof providersSchema>;
-
-/**
- * Whether a viewer may run a Swarm node in their own browser, weeb-3, and read and watch through it.
- * Off unless set, because the page's security policy must also allow it, which the image does when its
- * WEEB3 setting is on.
- */
-const weeb3Schema = z.object({ enabled: z.boolean({ message: 'must be true or false' }) });
 
 /** A scheme, a host and an optional port, exactly as a browser reports an origin. */
 const ORIGIN = /^https?:\/\/[A-Za-z0-9.-]+(:[0-9]{1,5})?$/;
@@ -142,7 +126,6 @@ const runtimeConfigSchema = z
     providers: providersSchema.optional(),
     catalog: catalogSchema,
     chat: chatSchema.optional(),
-    weeb3: weeb3Schema.optional(),
     swarmId: swarmIdSchema.optional(),
   })
   .superRefine((config, context) => {

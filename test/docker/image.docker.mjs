@@ -137,10 +137,8 @@ void describe('proxy mode, the default', () => {
       assert.match(response.headers.get('content-type') ?? '', /text\/html/, path);
       assert.equal(response.headers.get('cache-control'), 'no-cache', path);
       const policy = policyOf(response);
-      assert.match(
-        policy,
-        /connect-src 'self' https:\/\/chat-read\.example\.com https:\/\/chat-write\.example\.com http:\/\/localhost:\* http:\/\/127\.0\.0\.1:\*/,
-      );
+      assert.match(policy, /connect-src 'self' https: wss: http:\/\/localhost:\* http:\/\/127\.0\.0\.1:\*;/);
+      assert.match(policy, /script-src 'self' 'wasm-unsafe-eval';/);
       assert.doesNotMatch(policy, /127\.0\.0\.1:1633/, 'a proxied gateway is on the page own origin');
       assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
     }
@@ -180,10 +178,10 @@ void describe('direct mode', () => {
     await waitForServer(base, 'image-test-direct');
   });
 
-  void it('lets the page reach the gateway itself', async () => {
+  void it('lets the page reach the gateway itself, as it reaches any https address', async () => {
     const policy = policyOf(await get(`${base}/`));
-    assert.match(policy, /connect-src 'self' https:\/\/gateway\.example\.com /);
-    assert.match(policy, /img-src [^;]*https:\/\/gateway\.example\.com/);
+    assert.match(policy, /connect-src 'self' https: /);
+    assert.match(policy, /img-src [^;]* https: /);
   });
 
   void it('serves no /bee, rather than the page', async () => {
@@ -193,33 +191,22 @@ void describe('direct mode', () => {
   });
 });
 
-void describe('BEE_NODES=https-and-local-http', () => {
+void describe("weeb-3's files, always served", () => {
   let base;
   before(async () => {
-    base = startContainer('image-test-bee-nodes', {
-      BEE_GATEWAY_URL: GATEWAY,
-      BEE_NODES: 'https-and-local-http',
-    });
-    await waitForServer(base, 'image-test-bee-nodes');
+    base = startContainer('image-test-weeb3', { BEE_GATEWAY_URL: GATEWAY });
+    await waitForServer(base, 'image-test-weeb3');
   });
 
-  void it('lets the page reach a Bee node at any https or plain http address', async () => {
-    const policy = policyOf(await get(`${base}/`));
-    assert.match(policy, /img-src [^;]* https: http:;/);
-    assert.match(policy, /connect-src [^;]* https: http:;/);
-    assert.match(policy, /media-src 'self' blob:;/);
+  void it('serves its service worker allowed the whole site, and a missing file as a 404 rather than the page', async () => {
+    const worker = await get(`${base}/weeb-3/service.js`);
+    assert.equal(worker.status, 200);
+    assert.equal(worker.headers.get('service-worker-allowed'), '/');
+    policyOf(worker);
+    const missing = await get(`${base}/weeb-3/not-there.js`);
+    assert.equal(missing.status, 404);
+    assert.doesNotMatch(await missing.text(), /<div id="root">/);
   });
-});
-
-void it('refuses to start on an unknown BEE_NODES, and says why', () => {
-  const settings = ['-e', `BEE_GATEWAY_URL=${GATEWAY}`, '-e', 'BEE_NODES=lan'];
-  const result = docker(['run', '--rm', '--label', LABEL, ...settings, IMAGE], {
-    allowFailure: true,
-    timeoutMs: 60_000,
-  });
-  assert.equal(result.signal, null, 'the container kept running with BEE_NODES=lan');
-  assert.notEqual(result.status, 0, 'the container stopped');
-  assert.match(`${result.stdout}\n${result.stderr}`, /BEE_NODES must be off, https or https-and-local-http/);
 });
 
 void it('refuses to start without BEE_GATEWAY_URL, and says why', () => {

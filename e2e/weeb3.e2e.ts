@@ -68,7 +68,7 @@ async function openWatchPage(page: Page, gateway: LadderGateway, module: string,
   await refuseOtherOrigins(page.context());
   await claimServiceWorkerControl(page);
   await serveFakeWeeb3(page, module);
-  await serveConfig(page, { ...gateway.config(), weeb3: { enabled: true } });
+  await serveConfig(page, gateway.config());
   await gateway.attach(page);
   await page.goto('/');
   await pickNodeInThisBrowser(page, rowSays);

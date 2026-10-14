@@ -56,34 +56,26 @@ describe('the fixes behind How to fix', () => {
 });
 
 describe('the hint under an address', () => {
-  it("says where a Bee node may be at each of the deployment's levels", () => {
-    expect(addressHint('bee-node', 'off')).toBe('On this computer, such as Swarm Desktop');
-    expect(addressHint('bee-node', 'https')).toContain('another machine');
-    expect(addressHint('bee-node', 'https-and-local-http')).toContain('Chrome or Edge');
-  });
-
-  it('says a gateway is an https address', () => {
-    expect(addressHint('gateway', 'https')).toBe('An https address');
+  it('says where a Bee node may be, and that a gateway is an https address', () => {
+    expect(addressHint('bee-node')).toBe('On this computer or at an https address');
+    expect(addressHint('gateway')).toBe('An https address');
   });
 });
 
-describe('a type of source a viewer cannot add here', () => {
-  it('is a gateway on a site that allows only its own, or any type whose kind the deployment does not offer', () => {
-    expect(unavailableTypeReason('gateway', 'off', ['bee-http'])).toBe('Not allowed on this site');
-    expect(unavailableTypeReason('gateway', 'https', ['bee-http'])).toBeNull();
-    expect(unavailableTypeReason('bee-node', 'off', ['bee-http'])).toBeNull();
-    expect(unavailableTypeReason('bee-node', 'off', [])).toBe('Not offered on this site');
+describe('a type of source a viewer cannot add', () => {
+  it('is none on any deployment, since the page decides the kinds it offers', () => {
+    for (const type of ['gateway', 'bee-node', 'weeb-3'] as const) {
+      expect(unavailableTypeReason(type)).toBeNull();
+    }
   });
 });
 
 describe('the node in this browser', () => {
-  it('is offered only where the deployment switched it on, and once, since a browser runs one', () => {
-    expect(unavailableTypeReason('weeb-3', 'off', ['bee-http'])).toBe('Not offered on this site');
-    expect(unavailableTypeReason('weeb-3', 'off', ['bee-http', 'weeb-3'])).toBeNull();
-    expect(unavailableTypeReason('weeb-3', 'off', ['bee-http', 'weeb-3'], ['weeb-3'])).toBe('Already added');
+  it('is offered once, since a browser runs one', () => {
+    expect(unavailableTypeReason('weeb-3', ['weeb-3'])).toBe('Already added');
   });
 
   it('says where it is without an address', () => {
-    expect(addressHint('weeb-3', 'off')).toBe('Runs in this tab, no address needed');
+    expect(addressHint('weeb-3')).toBe('Runs in this tab, no address needed');
   });
 });

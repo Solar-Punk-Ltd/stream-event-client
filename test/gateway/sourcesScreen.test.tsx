@@ -56,14 +56,13 @@ const GATEWAYS = [
   { id: 'backup', kind: 'bee-http', label: 'Backup gateway', url: BACKUP },
 ];
 
-function config({ beeNodes, gateways = GATEWAYS, ...extra }: Record<string, unknown> = {}): RuntimeConfig {
+function config({ gateways = GATEWAYS, ...extra }: Record<string, unknown> = {}): RuntimeConfig {
   const result = parseRuntimeConfig({
     ...extra,
     catalog: { owner: '0x' + '1'.repeat(40), topic: 'event-streams' },
     providers: {
       gateways,
       default: 'event',
-      ...(beeNodes === undefined ? {} : { beeNodes }),
     },
   });
   if (!result.ok) {
@@ -302,7 +301,7 @@ describe('the Sources screen', () => {
     });
 
     it('ask a gateway the deployment offers for no health, and a Bee node for its health and readiness', async () => {
-      await open({ beeNodes: 'https' });
+      await open();
       click(button('Details of Backup gateway'));
       await waitFor(() => (row('Backup gateway').querySelector('.source-badges') ? true : null));
       expect(asked.filter((url) => url.startsWith(BACKUP) && url.endsWith('/health'))).toEqual([]);
@@ -359,13 +358,13 @@ describe('the Sources screen', () => {
   });
 
   describe('adding a source', () => {
-    it('offers a tile per type, and greys a gateway with its reason where the site allows only its own', async () => {
+    it('offers a tile per type on every deployment', async () => {
       await open();
       click(button('Add source'));
 
-      expect(button(/^Gateway/).disabled).toBe(true);
-      expect(button(/^Gateway/).textContent).toContain('Not allowed on this site');
+      expect(button(/^Gateway/).disabled).toBe(false);
       expect(button(/^Bee node/).disabled).toBe(false);
+      expect(button(/^Node in this browser/).disabled).toBe(false);
     });
 
     it("checks a node of the viewer's own before adding it, and says why one cannot be used", async () => {
@@ -375,7 +374,7 @@ describe('the Sources screen', () => {
       click(button('Check and add'));
       await settle();
 
-      expect(dialog()?.textContent).toContain('Only a Bee node on this computer can be used here');
+      expect(dialog()?.textContent).toContain(ADDRESS_REFUSED.plainHttp);
       expect(app!.sources).toHaveLength(2);
 
       type(input('Name'), 'Desk node');
@@ -390,24 +389,24 @@ describe('the Sources screen', () => {
       ]);
     });
 
-    it('takes a node on another machine at an https address where the deployment allows it', async () => {
-      await open({ beeNodes: 'https' });
+    it('takes a node on another machine at an https address', async () => {
+      await open();
       startAdding('Bee node');
-      expect(dialog()?.textContent).toContain('another machine');
+      expect(dialog()?.textContent).toContain('On this computer or at an https address');
       type(input('Address'), 'https://bee.example.com');
       click(button('Check and add'));
 
       await waitFor(() => (app!.sources.some((source) => source.url === 'https://bee.example.com') ? true : null));
     });
 
-    it('refuses plain http to the internet even where other machines are allowed, and says what to type', async () => {
-      await open({ beeNodes: 'https-and-local-http' });
+    it('refuses plain http to another machine, and says what to type', async () => {
+      await open();
       startAdding('Bee node');
       type(input('Address'), 'http://bee.example.com:1633');
       press(input('Address'), 'Enter');
       await settle();
 
-      expect(dialog()?.textContent).toContain(ADDRESS_REFUSED.plainHttpInternet);
+      expect(dialog()?.textContent).toContain(ADDRESS_REFUSED.plainHttp);
       expect(app!.sources).toHaveLength(2);
     });
 
@@ -445,8 +444,8 @@ describe('the Sources screen', () => {
       expect(app!.sources).toHaveLength(2);
     });
 
-    it('adds a gateway where the site allows https, tested on the way, and shows its test at once', async () => {
-      await open({ beeNodes: 'https' });
+    it('adds a gateway, tested on the way, and shows its test at once', async () => {
+      await open();
       startAdding('Gateway');
       type(input('Name'), 'My gateway');
       type(input('Address'), 'gw.example.com');
@@ -460,7 +459,7 @@ describe('the Sources screen', () => {
     });
 
     it('adds any number of each type, grouped by type', async () => {
-      await open({ beeNodes: 'https' });
+      await open();
       for (const name of ['One', 'Two']) {
         startAdding('Bee node');
         type(input('Name'), name);
@@ -491,8 +490,8 @@ describe('the Sources screen', () => {
       click(button('Add source'));
 
       const tiles = [...section('Add source').querySelectorAll<HTMLButtonElement>('.add-source-tile')];
-      expect(tiles.map((tile) => tile.disabled)).toEqual([false, true, true]);
-      expect(tiles[0].textContent).toContain('On this computer, such as Swarm Desktop');
+      expect(tiles.map((tile) => tile.disabled)).toEqual([false, false, false]);
+      expect(tiles[1].textContent).toContain('On this computer or at an https address');
     });
   });
 
@@ -506,16 +505,8 @@ describe('the Sources screen', () => {
       await sharedWeeb3Runtime().stop();
     });
 
-    it('is not offered unless the deployment switches it on', async () => {
-      await open();
-      click(button('Add source'));
-
-      expect(button(/^Node in this browser/).disabled).toBe(true);
-      expect(button(/^Node in this browser/).textContent).toContain('Not offered on this site');
-    });
-
     it('is added with no address, and its status line counts its peers up to the healthy 200, with a note until then', async () => {
-      await open({ weeb3: { enabled: true } });
+      await open();
       click(button('Add source'));
       click(button(/^Node in this browser/));
 
@@ -536,7 +527,7 @@ describe('the Sources screen', () => {
     });
 
     it('cannot be the one source for everything: it is greyed with its reason and adding it leaves the source in use', async () => {
-      await open({ weeb3: { enabled: true } });
+      await open();
       click(button('Add source'));
       click(button(/^Node in this browser/));
       click(button('Add'));
@@ -551,7 +542,7 @@ describe('the Sources screen', () => {
     });
 
     it('is picked for the video per part, and greyed with its reason for every other part', async () => {
-      await open({ weeb3: { enabled: true }, chat: CHAT });
+      await open({ chat: CHAT });
       click(button('Add source'));
       click(button(/^Node in this browser/));
       click(button('Add'));
@@ -577,7 +568,7 @@ describe('the Sources screen', () => {
         'swarm-sources',
         JSON.stringify([{ id: 'added-1', type: 'weeb-3', name: 'Node in this browser', url: '' }]),
       );
-      await open({ weeb3: { enabled: true } });
+      await open();
       await settle();
 
       expect(row('Node in this browser').textContent).toContain('Not started');
@@ -585,7 +576,7 @@ describe('the Sources screen', () => {
     });
 
     it('runs the node it adds while the screen is open, and stops it on Done when the video does not use it', async () => {
-      await open({ weeb3: { enabled: true } });
+      await open();
       click(button('Add source'));
       click(button(/^Node in this browser/));
       click(button('Add'));
@@ -598,7 +589,7 @@ describe('the Sources screen', () => {
     });
 
     it('is offered once, since a browser runs one node', async () => {
-      await open({ weeb3: { enabled: true } });
+      await open();
       click(button('Add source'));
       click(button(/^Node in this browser/));
       click(button('Add'));
@@ -610,7 +601,7 @@ describe('the Sources screen', () => {
     });
 
     it('is not tested like a gateway when its details open, and has no Retest', async () => {
-      await open({ weeb3: { enabled: true } });
+      await open();
       click(button('Add source'));
       click(button(/^Node in this browser/));
       click(button('Add'));

@@ -33,7 +33,6 @@ function start() {
   const result = parseRuntimeConfig({
     catalog: { owner: '0x' + '1'.repeat(40), topic: 'event-streams' },
     gatewayUrl: '/bee',
-    weeb3: { enabled: true },
   });
   if (!result.ok) {
     throw new Error(result.problem);

@@ -5,8 +5,6 @@ import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
 import { GlobeIcon } from '@/shared/components/Icons/GlobeIcon';
 import { HexagonIcon } from '@/shared/components/Icons/HexagonIcon';
 import { PlusIcon } from '@/shared/components/Icons/PlusIcon';
-import type { BeeNodeAccess } from '@/swarm/beeNodeAccess';
-import type { SwarmSettings } from '@/swarm/settings';
 import { hasAddress, SOURCE_NAME_MAX_LENGTH, SOURCE_TYPES, type SourceType } from '@/swarm/sources';
 
 import type { Help } from './checkSentences';
@@ -40,8 +38,6 @@ const TYPE_ICONS: Readonly<Record<SourceType, ReactNode>> = {
 };
 
 interface AddSourceProps {
-  readonly access: BeeNodeAccess;
-  readonly kinds: SwarmSettings['kinds'];
   /** The types of the sources already listed, which a type that may be added once is refused for. */
   readonly addedTypes: readonly SourceType[];
   /** Asks the address whether it is a source this viewer can read from. Never rejects. */
@@ -57,7 +53,7 @@ interface AddSourceProps {
  * the steps of its fix behind "How to fix". The node in this browser has no address, so it is added
  * as it is named and its own status line says how its start goes.
  */
-export function AddSource({ access, kinds, addedTypes, check, onAdd, onOpenChange }: AddSourceProps) {
+export function AddSource({ addedTypes, check, onAdd, onOpenChange }: AddSourceProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [type, setType] = useState<SourceType | null>(null);
   const [name, setName] = useState('');
@@ -83,7 +79,7 @@ export function AddSource({ access, kinds, addedTypes, check, onAdd, onOpenChang
   // The tiles a viewer can pick first, each with the line under its name.
   const offered = SOURCE_TYPES.map((tile) => ({
     tile,
-    reason: unavailableTypeReason(tile, access, kinds, addedTypes),
+    reason: unavailableTypeReason(tile, addedTypes),
   }));
   const tiles = [
     ...offered.filter(({ reason }) => reason === null),
@@ -132,7 +128,7 @@ export function AddSource({ access, kinds, addedTypes, check, onAdd, onOpenChang
       close();
       return;
     }
-    const allowed = checkSourceAddress(type, address, access);
+    const allowed = checkSourceAddress(type, address);
     if (!allowed.ok) {
       setStatus({ kind: 'refused', text: allowed.text, help: null });
       return;
@@ -185,7 +181,7 @@ export function AddSource({ access, kinds, addedTypes, check, onAdd, onOpenChang
                   <span className="add-source-tile-name">{TYPE_LABELS[tile]}</span>
                 </span>
                 <span className="add-source-tile-note" id={type === tile ? hintId : undefined}>
-                  {reason ?? addressHint(tile, access)}
+                  {reason ?? addressHint(tile)}
                 </span>
               </button>
             ))}

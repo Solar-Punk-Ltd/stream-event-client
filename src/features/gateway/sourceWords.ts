@@ -3,10 +3,8 @@
  * line of a tested source. Short on purpose, since the screen is a setting rather than a report, and the
  * full sentences of a failure stay in `checkSentences` behind each failure's "How to fix".
  */
-import type { BeeNodeAccess } from '@/swarm/beeNodeAccess';
 import type { SwarmFeature } from '@/swarm/client';
-import type { SwarmSettings } from '@/swarm/settings';
-import { SOURCE_TYPE_KIND, type SourceType } from '@/swarm/sources';
+import type { SourceType } from '@/swarm/sources';
 
 import type { Help } from './checkSentences';
 import type { CheckName, CheckOutcome, CheckResult } from './providerTest';
@@ -72,17 +70,11 @@ export const CHAT_SEND_NOTE = "Messages go through the event's chat service";
 
 export const UNLINKED_NOTE = 'Video and stream list differ. Timing may slip.';
 
-const BEE_NODE_HINTS: Readonly<Record<BeeNodeAccess, string>> = {
-  off: 'On this computer, such as Swarm Desktop',
-  https: 'On this computer, or another machine at an https address',
-  'https-and-local-http': 'On this computer, another machine at an https address, or your network in Chrome or Edge',
-};
-
 /** The one line under an address a viewer types, which says where the source may be. */
-export function addressHint(type: SourceType, access: BeeNodeAccess): string {
+export function addressHint(type: SourceType): string {
   switch (type) {
     case 'bee-node':
-      return BEE_NODE_HINTS[access];
+      return 'On this computer or at an https address';
     case 'weeb-3':
       return 'Runs in this tab, no address needed';
     case 'gateway':
@@ -90,24 +82,9 @@ export function addressHint(type: SourceType, access: BeeNodeAccess): string {
   }
 }
 
-/**
- * Why a viewer cannot add a source of this type here, or null when they can. A gateway elsewhere is an
- * https address, which a site that allows only Bee nodes on this computer refuses to load. A browser
- * runs one weeb-3 node, so it is added once.
- */
-export function unavailableTypeReason(
-  type: SourceType,
-  access: BeeNodeAccess,
-  kinds: SwarmSettings['kinds'],
-  addedTypes: readonly SourceType[] = [],
-): string | null {
-  if (!kinds.includes(SOURCE_TYPE_KIND[type])) {
-    return 'Not offered on this site';
-  }
-  if (type === 'weeb-3' && addedTypes.includes(type)) {
-    return 'Already added';
-  }
-  return type === 'gateway' && access === 'off' ? 'Not allowed on this site' : null;
+/** Why a viewer cannot add a source of this type, or null when they can. A browser runs one weeb-3 node, so it is added once. */
+export function unavailableTypeReason(type: SourceType, addedTypes: readonly SourceType[] = []): string | null {
+  return type === 'weeb-3' && addedTypes.includes(type) ? 'Already added' : null;
 }
 
 function listed(words: readonly string[]): string {

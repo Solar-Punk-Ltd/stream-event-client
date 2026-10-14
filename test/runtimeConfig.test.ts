@@ -235,15 +235,11 @@ describe('the Swarm ID setting', () => {
   });
 });
 
-describe('the weeb-3 setting', () => {
-  it('accepts weeb-3 switched on or off, and no setting at all', () => {
-    expect(parseRuntimeConfig({ ...VALID, weeb3: { enabled: true } }).ok).toBe(true);
-    expect(parseRuntimeConfig({ ...VALID, weeb3: { enabled: false } }).ok).toBe(true);
-    expect(parseRuntimeConfig(VALID).ok).toBe(true);
-  });
+describe('weeb-3', () => {
+  it('reads no weeb3 block a deployment still writes, since the page offers weeb-3 everywhere', () => {
+    const result = parseRuntimeConfig({ ...VALID, weeb3: { enabled: 'yes' } });
 
-  it('refuses a switch that is not true or false', () => {
-    expect(problemOf(parseRuntimeConfig({ ...VALID, weeb3: { enabled: 'yes' } }))).toContain('weeb3.enabled');
+    expect(result.ok && 'weeb3' in result.config).toBe(false);
   });
 
   it('refuses weeb-3 among the gateways a deployment offers, since a viewer adds it in their own browser', () => {
@@ -257,12 +253,12 @@ describe('the weeb-3 setting', () => {
 describe('the providers settings', () => {
   const EVENT = { id: 'event', kind: 'bee-http', label: 'Event gateway', url: '/bee' };
   const BACKUP = { id: 'backup', kind: 'bee-http', url: 'https://backup.example.com' };
-  const PROVIDERS = { gateways: [EVENT, BACKUP], default: 'event', kinds: ['bee-http'] };
+  const PROVIDERS = { gateways: [EVENT, BACKUP], default: 'event' };
   const { gatewayUrl: _left, ...WITHOUT_GATEWAY } = VALID;
   const withProviders = (providers: Record<string, unknown>) =>
     parseRuntimeConfig({ ...WITHOUT_GATEWAY, providers: { ...PROVIDERS, ...providers } });
 
-  it('accepts the gateways offered, the default and the kinds offered', () => {
+  it('accepts the gateways offered and the default', () => {
     const result = withProviders({});
 
     expect(result).toEqual({ ok: true, config: { ...WITHOUT_GATEWAY, providers: PROVIDERS } });
@@ -272,12 +268,6 @@ describe('the providers settings', () => {
     const result = withProviders({ default: 'backup' });
 
     expect(result.ok && 'gatewayUrl' in result.config).toBe(false);
-  });
-
-  it('accepts no list of kinds', () => {
-    const { kinds: _kinds, ...bare } = PROVIDERS;
-
-    expect(parseRuntimeConfig({ ...WITHOUT_GATEWAY, providers: bare }).ok).toBe(true);
   });
 
   it('refuses gatewayUrl beside providers, which replaces it', () => {
@@ -308,23 +298,14 @@ describe('the providers settings', () => {
     expect(problemOf(withProviders({ gateways: [] }))).toContain('providers.gateways');
   });
 
-  it('refuses a kind this build does not carry, in a gateway and in the kinds offered', () => {
+  it('refuses a gateway of a kind this build does not carry', () => {
     expect(problemOf(withProviders({ gateways: [{ ...EVENT, kind: 'ipfs' }] }))).toContain('providers.gateways.0');
-    expect(problemOf(withProviders({ kinds: ['ipfs'] }))).toContain('providers.kinds');
   });
 
-  it.each(['off', 'https', 'https-and-local-http'])(
-    'accepts %s as how far a Bee node of the viewer may be',
-    (beeNodes) => {
-      const result = withProviders({ beeNodes });
+  it('reads no kinds and no Bee node level a deployment still writes, since the page decides what it offers', () => {
+    const result = withProviders({ kinds: ['bee-http'], beeNodes: 'https' });
 
-      expect(result.ok && result.config.providers?.beeNodes).toBe(beeNodes);
-    },
-  );
-
-  it('refuses a Bee node level this build does not know, naming the key', () => {
-    expect(problemOf(withProviders({ beeNodes: 'everywhere' }))).toContain('providers.beeNodes');
-    expect(problemOf(withProviders({ beeNodes: true }))).toContain('providers.beeNodes');
+    expect(result.ok && result.config.providers).toEqual(PROVIDERS);
   });
 
   it("refuses a gateway's address as gatewayUrl is refused, placeholder included", () => {

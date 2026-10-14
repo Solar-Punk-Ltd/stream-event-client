@@ -8,7 +8,6 @@
 import { createSwarmClient } from '@/swarm/createSwarmClient';
 import { type NotReadyReason, PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
 import { addressSpaceOf, supportsLocalNetworkRequests } from '@/swarm/addressSpace';
-import { type BeeNodeAccess, DEFAULT_BEE_NODE_ACCESS } from '@/swarm/beeNodeAccess';
 import { type GatewaySetting, OWN_GATEWAY_ID, type SwarmSettings } from '@/swarm/settings';
 import type { SourceType } from '@/swarm/sources';
 
@@ -60,8 +59,7 @@ const OWN_MACHINE_HOSTS = ['localhost', '127.0.0.1'];
 
 /**
  * A policy cannot name `[::1]`: Chrome 153 rejects `http://[::1]:*` as an invalid source and blocks the
- * request, so only a policy allowing every plain http address lets it through, which is what the local
- * http level writes.
+ * request, so only a policy allowing every plain http address would let it through.
  */
 const IPV6_LOOPBACK = '[::1]';
 
@@ -70,14 +68,12 @@ export type OwnNodeAddressCheck = { ok: true; url: string } | { ok: false; text:
 const refused = (text: string): OwnNodeAddressCheck => ({ ok: false, text });
 
 /**
- * Whether what a viewer typed names a Bee node this site lets them use, and the base URL it means.
- *
- * A node on this computer is always allowed, over http or https. Beyond it, `access` decides: an https
- * address on any host from `https` up, and a plain http address on the local network only at
- * `https-and-local-http`. Plain http to the internet is never allowed, because a browser blocks it
- * from an https page.
+ * Whether what a viewer typed names a Bee node this site lets them use, and the base URL it means: a
+ * node on this computer over http or https, or any other machine at an https address. Plain http to
+ * another machine is never allowed, because a browser blocks it from an https page and the page's
+ * policy allows no plain http beyond this computer.
  */
-export function checkOwnNodeAddress(input: string, access: BeeNodeAccess = 'off'): OwnNodeAddressCheck {
+export function checkOwnNodeAddress(input: string): OwnNodeAddressCheck {
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(input.trim()) && !/^https?:\/\//i.test(input.trim())) {
     return refused(ADDRESS_REFUSED.notHttp);
   }
@@ -97,7 +93,7 @@ export function checkOwnNodeAddress(input: string, access: BeeNodeAccess = 'off'
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return refused(ADDRESS_REFUSED.notHttp);
   }
-  const hostRefusal = refusalOfHost(url, access);
+  const hostRefusal = refusalOfHost(url);
   if (hostRefusal !== null) {
     return refused(hostRefusal);
   }
@@ -111,39 +107,29 @@ export function checkOwnNodeAddress(input: string, access: BeeNodeAccess = 'off'
 /**
  * Whether what a viewer typed for a source they add is one this site lets them use. A gateway is an
  * https address, so one typed without a scheme is taken as https, and otherwise it holds to exactly the
- * rules of a Bee node at the same level, because the page's policy allows the same addresses for both.
+ * rules of a Bee node, because the page's policy allows the same addresses for both.
  */
-export function checkSourceAddress(type: SourceType, input: string, access: BeeNodeAccess): OwnNodeAddressCheck {
+export function checkSourceAddress(type: SourceType, input: string): OwnNodeAddressCheck {
   const trimmed = input.trim();
   const typed =
     type === 'gateway' && trimmed !== '' && !/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) && !trimmed.startsWith('/')
       ? `https://${trimmed}`
       : trimmed;
-  return checkOwnNodeAddress(typed, access);
+  return checkOwnNodeAddress(typed);
 }
 
 /** Why this site will not let a viewer use a node at this host and scheme, or null when it will. */
-function refusalOfHost(url: URL, access: BeeNodeAccess): string | null {
+function refusalOfHost(url: URL): string | null {
   if (OWN_MACHINE_HOSTS.includes(url.hostname)) {
     return null;
   }
   if (url.hostname === IPV6_LOOPBACK) {
-    return access === 'https-and-local-http' ? null : ADDRESS_REFUSED.ipv6Loopback;
+    return ADDRESS_REFUSED.ipv6Loopback;
   }
-  const space = addressSpaceOf(url.href);
-  if (access === 'off') {
-    return ADDRESS_REFUSED.thisComputerOnly;
-  }
-  if (space === 'loopback') {
+  if (addressSpaceOf(url.href) === 'loopback') {
     return ADDRESS_REFUSED.otherLoopbackHost;
   }
-  if (url.protocol === 'https:') {
-    return null;
-  }
-  if (space === 'local') {
-    return access === 'https-and-local-http' ? null : ADDRESS_REFUSED.localHttpNotAllowed;
-  }
-  return ADDRESS_REFUSED.plainHttpInternet;
+  return url.protocol === 'https:' ? null : ADDRESS_REFUSED.plainHttp;
 }
 
 /**
@@ -229,8 +215,6 @@ export function onlyGateway(gateway: GatewaySetting): SwarmSettings {
   return {
     gateways: [gateway],
     defaultId: gateway.id,
-    kinds: [gateway.kind],
-    beeNodes: DEFAULT_BEE_NODE_ACCESS,
   };
 }
 

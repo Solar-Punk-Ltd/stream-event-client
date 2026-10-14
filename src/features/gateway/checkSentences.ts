@@ -133,12 +133,9 @@ export const ADDRESS_REFUSED = {
   empty: `Enter the address of your Bee node, for example ${THIS_COMPUTER_EXAMPLE}.`,
   notAnAddress: `That is not an address. Enter one such as ${THIS_COMPUTER_EXAMPLE}.`,
   notJustTheOrigin: `Enter only the scheme, host and port, such as ${THIS_COMPUTER_EXAMPLE}.`,
-  thisComputerOnly: `Only a Bee node on this computer can be used here, at ${THIS_COMPUTER_HOSTS}.`,
   ipv6Loopback: `This site cannot use the address [::1]. Use localhost or 127.0.0.1 with your node's port instead, such as ${THIS_COMPUTER_EXAMPLE}.`,
   otherLoopbackHost: `A node on this computer has to be named ${THIS_COMPUTER_HOSTS}, because this site allows only those. Use ${THIS_COMPUTER_EXAMPLE} with your node's port.`,
-  localHttpNotAllowed: `This site does not allow plain http to a node on your local network. Enter the node's https address instead, or run the node on this computer and use ${THIS_COMPUTER_EXAMPLE}.`,
-  plainHttpInternet:
-    "A browser blocks plain http to a node on the internet from a site served over https. Enter the node's address starting with https:// instead.",
+  plainHttp: `A node on another machine has to be reached at its https address, starting with https://. Or run the node on this computer and use ${THIS_COMPUTER_EXAMPLE}.`,
 } as const;
 
 /** A Bee node that answers and cannot serve this viewer yet, each with what to do about it. */

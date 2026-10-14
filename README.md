@@ -42,7 +42,7 @@ live with the deployment, never in this repository.
 | Field           | What it is                                                                                                                                                         |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `gatewayUrl`    | The event gateway: a path on this site such as `/bee`, which the site proxies to Bee, or an http or https address of a Bee node. Set this or `providers`, not both |
-| `providers`     | Optional in place of `gatewayUrl`. The gateways offered, the default and the kinds offered, below                                                                  |
+| `providers`     | Optional in place of `gatewayUrl`. The gateways offered and the default, below                                                                                     |
 | `catalog.owner` | The Ethereum address that owns the stream list feed                                                                                                                |
 | `catalog.topic` | The stream list feed's topic, as text                                                                                                                              |
 | `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                                                   |
@@ -81,25 +81,21 @@ read as one Bee gateway and the default, so a deployment written before `provide
 Nothing switches source by itself: a part reads from the source the viewer picked and from nothing else,
 and when that source fails the page says so and the viewer picks another. The chat reads from
 `chat.readUrl` unless a viewer picks another source for it.
-Every gateway in `providers.gateways` whose `url` is an address rather than a path on this site must
-also be named in the image's `EXTRA_GATEWAY_URLS` (below), or the page's policy refuses it. The one
-exception is the image's own `BEE_GATEWAY_URL` in direct mode, which the policy already allows.
+The page's policy allows every https address, so a gateway in `providers.gateways` at an https address
+needs nothing more. One at a plain http address must also be named in the image's `EXTRA_GATEWAY_URLS`
+(below), or the policy refuses it, unless it is the image's own `BEE_GATEWAY_URL` in direct mode.
 
-| Field                       | What it is                                                                                                                                                                                                                    |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `providers.gateways`        | The gateways offered, at least one. Each has an `id`, a `kind`, an optional `label` and its own settings                                                                                                                      |
-| `providers.gateways[].kind` | `bee-http`, a Bee node's HTTP API, the only kind a deployment may offer as a gateway. Any other kind is refused                                                                                                               |
-| `providers.gateways[].url`  | For `bee-http`: a path on this site such as `/bee`, or an http or https address, as `gatewayUrl` takes                                                                                                                        |
-| `providers.default`         | The `id` of the gateway every reader starts on                                                                                                                                                                                |
-| `providers.kinds`           | Optional. The kinds a viewer may add a gateway of their own of. Every kind a gateway may be when absent. The node in this browser is offered by `weeb3.enabled`, not here                                                     |
-| `providers.beeNodes`        | Optional. How far a Bee node of the viewer's own may be: `off`, this computer only, the default. `https`, also any https address. `https-and-local-http`, also plain http on the local network. Match the image's `BEE_NODES` |
+The page, not the deployment, decides which kinds of source a viewer may add: a gateway at an https
+address, a Bee node on this computer or at an https address, and the node in this browser. No setting
+turns a kind on or off. A deployment written for an earlier release may still name `providers.fallback`,
+`providers.kinds`, `providers.beeNodes` or a `weeb3` block, and the page reads none of them.
 
-The `weeb3` block lets a viewer run a Swarm node in their own browser, described under
-[The node in this browser](#the-node-in-this-browser-weeb-3). Off unless set.
-
-| Field           | What it is                                                                                                                         |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `weeb3.enabled` | `true` offers "Node in this browser (weeb-3)" on the Sources screen. Needs the image's `WEEB3=on`, or the page's policy refuses it |
+| Field                       | What it is                                                                                                      |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `providers.gateways`        | The gateways offered, at least one. Each has an `id`, a `kind`, an optional `label` and its own settings        |
+| `providers.gateways[].kind` | `bee-http`, a Bee node's HTTP API, the only kind a deployment may offer as a gateway. Any other kind is refused |
+| `providers.gateways[].url`  | For `bee-http`: a path on this site such as `/bee`, or an http or https address, as `gatewayUrl` takes          |
+| `providers.default`         | The `id` of the gateway every reader starts on                                                                  |
 
 Serve `config.json` with `Cache-Control: no-store`, so a changed setting reaches every page opened
 after the change.
@@ -254,53 +250,41 @@ docker run -p 8080:80 \
 | Setting              | What it is                                                                                                                                                                                                      |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GATEWAY_MODE`       | `proxy`, the default: the page reads the gateway at `/bee` on its own origin, so `config.json` names `/bee` as `gatewayUrl`. `direct`: the page reads the gateway at its own address, which `config.json` names |
-| `BEE_GATEWAY_URL`    | Required. The gateway's address, with no path. In proxy mode `/bee` forwards to it. In direct mode the page is allowed to reach it                                                                              |
-| `CHAT_READ_URL`      | The chat's read endpoint, the same as `chat.readUrl` in `config.json`, which the page is then allowed to reach. Leave it out when there is no chat                                                              |
-| `CHAT_WRITE_URL`     | The chat's write endpoint, the same as `chat.writeUrl`, allowed the same way. The one `CHAT_BEE_URL` of before stops the container                                                                              |
-| `EXTRA_GATEWAY_URLS` | Optional. The addresses of the further gateways `config.json` offers in `providers.gateways`, separated by spaces, each with no path. The page is allowed to reach each of them, in either mode                 |
-| `BEE_NODES`          | Optional. Which Bee nodes of their own a viewer may watch through: `off`, the default, `https` or `https-and-local-http`. See below                                                                             |
-| `WEEB3`              | Optional. `on` serves the node in the browser's files at `/weeb-3/` and widens the policy for it, `off`, the default, serves neither. Match `weeb3.enabled` in `config.json`. See below                         |
+| `BEE_GATEWAY_URL`    | Required. The gateway's address, with no path. In proxy mode `/bee` forwards to it. In direct mode the page reads it, which the policy allows at https, and names at plain http                                 |
+| `CHAT_READ_URL`      | The chat's read endpoint, the same as `chat.readUrl` in `config.json`. Checked at start, and named in the policy when it is plain http. Leave it out when there is no chat                                      |
+| `CHAT_WRITE_URL`     | The chat's write endpoint, the same as `chat.writeUrl`, checked and allowed the same way. The one `CHAT_BEE_URL` of before stops the container                                                                  |
+| `EXTRA_GATEWAY_URLS` | Optional. The addresses of the further gateways `config.json` offers in `providers.gateways`, separated by spaces, each with no path. Checked at start, and the plain http ones named in the policy             |
 | `SWARM_ID_URL`       | Optional. The Swarm ID site, the identical origin to `swarmId.url` in `config.json`, which the page is then allowed to frame. Leave it out when there is no sign-in                                             |
 | `config.json`        | Mounted over the image's example at `/usr/share/nginx/html/config.json`. Without it the page shows the example's placeholders as a configuration problem                                                        |
 
 A setting that is missing or malformed stops the container at start, and its log says which one.
 
-### Watching through a Bee node of the viewer's own
+### What the page may reach
 
-`BEE_NODES` decides which addresses the page may read a viewer's own Bee node at, beside the gateways
-above. It sets the page's content security policy. `providers.beeNodes` in `config.json` must name the
-same level, because that is what the Sources screen offers, and the deployment repository writes both
-from one setting.
+The policy is the same on every deployment, because the page decides which sources it offers:
 
-| Level                  | What the page may reach                                                                                                                                                     |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `off`, the default     | A node on the viewer's own machine at `localhost` or `127.0.0.1`, any port, over plain http. This is what the image did before the setting existed                          |
-| `https`                | Also a node at any https address, such as a node on another machine behind TLS                                                                                              |
-| `https-and-local-http` | Also a node at any plain http address, which is how a node on the viewer's local network is reached. Chrome and Edge allow this from an https page, after asking the viewer |
+- **Any gateway, and a Bee node, at an https address.** `https:` in `connect-src` and `img-src`, so the
+  page reads it and shows its pictures. A gateway's address is the viewer's to choose, so no list of
+  hosts could hold them all.
+- **A Bee node on the viewer's own machine**, at `localhost` or `127.0.0.1`, any port, over plain http,
+  in `connect-src` and `img-src`. A policy cannot name `[::1]`, so that address is refused where it is
+  typed, with what to type instead.
+- **The node in this browser, weeb-3.** `'wasm-unsafe-eval'` in `script-src`, so the page and its
+  workers may compile the WebAssembly module, and `wss:` in `connect-src`, so the node can reach its
+  peers. That is every secure websocket host, on purpose. The package's mainnet bootnodes are all
+  `*.libp2p.direct` names, which `wss://*.libp2p.direct:*` would cover, but the node also dials any peer
+  that announces a public DNS name with TLS, and a narrower list would refuse those.
 
-The last level is weaker than it sounds. A policy can name schemes and hosts but not private address
-ranges, so allowing plain http on the local network means allowing every plain http address on the
-internet too. Choose it only for a deployment that means to offer local network nodes.
+Plain http beyond the viewer's own machine is never allowed, apart from the addresses the image's
+settings name, because a browser blocks it from an https page and a policy cannot tell the local network
+from the internet. Blob URLs stay media, image and worker sources and are never added to what the page
+connects to.
 
-The page tells the local network from the internet by the address as written, which has two known
-limits. A link-local address, in 169.254.0.0/16 or fe80::/10, counts as an internet address. A name
-that resolves to the local network, such as `bee.lan`, counts as an internet address too, so name such
-a node by its numeric address.
-
-Any other value stops the container at start and names the three levels. Blob URLs stay media, image
-and worker sources at every level and are never added to what the page connects to.
-
-### The node in the browser
-
-`WEEB3=on` serves weeb-3's files under `/weeb-3/`: the WebAssembly module as `application/wasm`, and its
-service worker at `/weeb-3/service.js` with `Service-Worker-Allowed: /`, because the worker answers the node's
-`/weeb-3/...` routes for a page anywhere on the site. Every file there is answered `no-cache` and a missing one is a
-404, never the page. It adds two sources to the policy and nothing else: `'wasm-unsafe-eval'` to `script-src`, so the
-page and its workers may compile the module, and `wss:` to `connect-src`, so the node can reach its peers. That is
-every secure websocket host, on purpose. The package's mainnet bootnodes are all `*.libp2p.direct` names, which
-`wss://*.libp2p.direct:*` would cover, but the node also dials any peer that announces a public DNS name with TLS, and
-a narrower list would refuse those. Off, `/weeb-3/` is a plain 404 and the policy is exactly as above. weeb-3 keeps
-every route under `/weeb-3/` at the site's root, so a deployment that offers it serves the viewer at the root.
+`/weeb-3/` always serves weeb-3's files: the WebAssembly module as `application/wasm`, and its service
+worker at `/weeb-3/service.js` with `Service-Worker-Allowed: /`, because the worker answers the node's
+`/weeb-3/...` routes for a page anywhere on the site. Every file there is answered `no-cache` and a missing
+one is a 404, never the page. weeb-3 keeps every route under `/weeb-3/` at the site's root, so the viewer is
+served at the root.
 
 ### The release tag and the build label
 
@@ -320,20 +304,17 @@ and `. _ + / -`, or a `BUILD_COMMIT` that is not hexadecimal stops the build rat
 ### Testing the image
 
 `pnpm test:image` builds the image and checks it running, in both modes: `nginx -t`, the cache
-headers and the policy on each kind of answer, reads and refused writes at `/bee`, the policy at
-`BEE_NODES=https-and-local-http`, and the refusal to start without `BEE_GATEWAY_URL` or with an unknown
-`BEE_NODES`. It needs a Docker daemon, so it is not part of `pnpm test`. `pnpm test:docker` runs it and then
+headers and the policy on each kind of answer, reads and refused writes at `/bee`, weeb-3's files, and the
+refusal to start without `BEE_GATEWAY_URL`. It needs a Docker daemon, so it is not part of `pnpm test`. `pnpm test:docker` runs it and then
 records the browser smoke test's answers, which is what a job with a Docker daemon runs.
 
 - **Caching.** The page is served `no-cache`, so a browser asks before reusing it after a deploy.
   `config.json` is served `no-store`. The bundle under `/assets/` is named by content hash and kept
   for a year.
-- **Content security policy.** The page may reach its own origin, the gateway in direct mode, the chat
-  endpoint, and a Bee node on the viewer's own machine at any port, which is what the Sources screen
-  offers, and every address named in `EXTRA_GATEWAY_URLS`. `BEE_NODES` widens it for nodes elsewhere. With
-  `SWARM_ID_URL` set it may also frame that one site, for the hidden frame the Swarm ID library talks to, and frame nothing else. A gateway in `providers.gateways` is reached
-  only when the policy allows it: a path on this site such as `/bee` always is, the gateway in direct mode
-  is, and every other address must be named in `EXTRA_GATEWAY_URLS`, or the browser refuses it. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
+- **Content security policy.** The page may reach its own origin, every https address, a Bee node on
+  the viewer's own machine at any port, secure websockets for weeb-3, and the plain http addresses the
+  image's settings name, as "What the page may reach" says. With `SWARM_ID_URL` set it may also frame
+  that one site, for the hidden frame the Swarm ID library talks to, and frame nothing else. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
   player plays through them, which is also why no gateway is named as a media source. Blob URLs are
   media, image and worker sources only, never a place the page connects to: hls.js reads a playlist
   with a request, so a stream card hands it its preview playlist from memory rather than as a blob.
@@ -490,8 +471,7 @@ once and is kept in the browser.
   `checkSentences.ts` with its test. The actions that apply sit on the status line's right: Use for a
   source not in use, Retest, and Rename and Remove for a source the viewer added, since an offered
   source cannot be renamed or removed.
-- **The node in this browser.** Where `weeb3.enabled` is set, "Node in this browser (weeb-3)" is a tile of
-  its own. It takes a name and no address, is added at once, once per browser, and has no Test. It serves the
+- **The node in this browser.** "Node in this browser (weeb-3)" is a tile of its own on every deployment. It takes a name and no address, is added at once, once per browser, and has no Test. It serves the
   video only for now: in one source its radio is greyed with "Video only for now. Pick it for Video under Per
   part.", and per part it can be picked for the video, with the stream list, previews and chat offering it greyed
   as "Video only for now". A saved setting that puts it on another part, from an older visit, reads that part from
@@ -499,9 +479,8 @@ once and is kept in the browser.
   the module's download as a percentage, then "Starting", "Connecting, N of 200 peers", and once ready "N of 200
   peers", which keeps climbing, or "Failed to start". Under 200 one short note says "200 peers is the healthy
   target", and it goes at 200.
-- **Adding a source.** A tile per type. A Bee node's address holds to `providers.beeNodes` as described
-  under the image. A gateway is an https address under the same rules, so it is greyed with its reason
-  on a site at `off`, and a type whose provider kind `providers.kinds` leaves out is greyed too. A Bee
+- **Adding a source.** A tile per type, on every deployment. A Bee node is on this computer or at an
+  https address, and a gateway is at an https address, as "What the page may reach" under the image says. A Bee
   node is checked with the node probe and a gateway with the Test before it is added, and a source
   added in one-source mode is put in use, apart from the node in this browser, which serves the video only.
 - **No fallback.** A part reads from the source picked for it and from nothing else, whatever that
@@ -542,7 +521,7 @@ controls the page, and counts as failed when it is not ready after 30 s.
 - **When it runs.** The node runs while something holds it: the video while weeb-3 is its source, the watch page's
   player while it shows, and the Sources screen from adding it until the screen closes. Listing a saved one starts
   nothing. When the last of them lets go, as when the video moves to another source or the source is removed, the
-  node is stopped and freed. A saved weeb-3 source is left out once the deployment switches weeb-3 off.
+  node is stopped and freed.
 - **Getting ready.** The page downloads the 2.2 MB WebAssembly module itself, reading it as it streams, so the
   Sources screen's row and the watch page can show how much has arrived against the length the server names. A
   download that has not finished after 60 s, or whose package fails to load, is stopped and the node counts as

@@ -35,20 +35,13 @@ describe('the address of a Bee node on the viewer’s own machine', () => {
 
   /**
    * A content security policy cannot name `[::1]`: Chrome 153 rejects `http://[::1]:*` as an invalid
-   * source and blocks the request anyway, so only a policy allowing every plain http address lets it
-   * through, which is the local http level alone.
+   * source and blocks the request anyway, so only a policy allowing every plain http address would let it
+   * through, which the page's policy does not.
    */
-  it('refuses [::1] unless the site allows plain http, and says to use localhost or 127.0.0.1', () => {
-    for (const access of ['off', 'https'] as const) {
-      const result = checkOwnNodeAddress('http://[::1]:1633', access);
-      expect(result).toEqual({ ok: false, text: ADDRESS_REFUSED.ipv6Loopback });
-    }
+  it('refuses [::1], and says to use localhost or 127.0.0.1', () => {
+    expect(checkOwnNodeAddress('http://[::1]:1633')).toEqual({ ok: false, text: ADDRESS_REFUSED.ipv6Loopback });
     expect(ADDRESS_REFUSED.ipv6Loopback).toContain('localhost');
     expect(ADDRESS_REFUSED.ipv6Loopback).toContain('127.0.0.1');
-    expect(checkOwnNodeAddress('http://[::1]:1633', 'https-and-local-http')).toEqual({
-      ok: true,
-      url: 'http://[::1]:1633',
-    });
   });
 
   it('accepts https on the same hosts', () => {
@@ -63,11 +56,11 @@ describe('the address of a Bee node on the viewer’s own machine', () => {
     expect(acceptedUrl('http://LOCALHOST:1633')).toBe('http://localhost:1633');
   });
 
-  it('refuses a node on another machine, and says which hosts it takes', () => {
+  it('refuses a node on another machine over plain http, and says what to use instead', () => {
     for (const input of ['http://192.168.1.20:1633', 'http://bee.example.com:1633', 'http://10.0.0.5:1633']) {
       const text = refusal(input);
+      expect(text).toContain('https://');
       expect(text).toContain('localhost');
-      expect(text).toContain('127.0.0.1');
     }
   });
 

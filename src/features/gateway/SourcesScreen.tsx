@@ -55,7 +55,7 @@ function nameIn(sources: readonly Source[], id: string): string {
  */
 export function SourcesScreen() {
   const app = useAppContext();
-  const { swarmSettings: settings, sources, routing, parts, swarm, chat, catalogFeed } = app;
+  const { sources, routing, parts, swarm, chat, catalogFeed } = app;
   const { isOpen, open, close: closeScreen } = useConnect();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tests, setTests] = useState<Record<string, SourceTest>>({});
@@ -231,14 +231,7 @@ export function SourcesScreen() {
   ));
 
   const addSource = (
-    <AddSource
-      access={settings.beeNodes}
-      kinds={settings.kinds}
-      addedTypes={sources.map(({ type }) => type)}
-      check={checkNew}
-      onAdd={add}
-      onOpenChange={setIsAdding}
-    />
+    <AddSource addedTypes={sources.map(({ type }) => type)} check={checkNew} onAdd={add} onOpenChange={setIsAdding} />
   );
 
   return (

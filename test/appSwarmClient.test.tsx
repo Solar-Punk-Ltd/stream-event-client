@@ -246,7 +246,7 @@ describe("the app's Swarm client", () => {
   });
 
   it('reads the video through the node in this browser alone once it is picked for the video, never through a gateway behind it', async () => {
-    start({ weeb3: { enabled: true } });
+    start();
     await settle();
     const id = current().addSource({ type: 'weeb-3', name: '', url: '' });
     await settle();
@@ -279,7 +279,7 @@ describe("the app's Swarm client", () => {
       }),
     );
 
-    start({ weeb3: { enabled: true }, chat: CHAT });
+    start({ chat: CHAT });
     await settle();
 
     expect(current().parts).toEqual({

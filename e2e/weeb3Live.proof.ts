@@ -70,7 +70,7 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
       segments.push(match[1]);
     }
   });
-  await serveConfig(page, { gatewayUrl: '/bee', catalog: CATALOG, weeb3: { enabled: true } });
+  await serveConfig(page, { gatewayUrl: '/bee', catalog: CATALOG });
   await answerStreamList(page);
   await page.goto('/');
 
