@@ -1,6 +1,6 @@
 {
   "stream": {
-    "owner": "dc014b8a826c0875427aac8bd3736b1b1b27c0f4",
+    "owner": "59278999a008d96514f705f75e565580f26d8b9e",
     "topic": "recorded-finished-stream",
     "title": "Recorded test pattern",
     "segments": 3
@@ -20,7 +20,14 @@
       "alan",
       "ada",
       "grace"
-    ]
+    ],
+    "swarmId": {
+      "text": "second message",
+      "account": "0x1a949b169cb0ec821acd9dd9b39871058c38ae38"
+    },
+    "ownStamp": {
+      "text": "third message"
+    }
   },
   "bee": {
     "version": "2.8.2"
