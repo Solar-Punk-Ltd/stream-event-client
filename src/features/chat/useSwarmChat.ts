@@ -240,16 +240,24 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
   );
   const sendReply = useCallback((parentId: string, text: string) => send(text, MessageType.THREAD, parentId), [send]);
 
-  const { chatTopic } = settings.infra;
-  const { nickname } = settings.user;
+  const { chatTopic, via } = settings.infra;
+  const { nickname, binding } = settings.user;
   const checkMessage = useCallback(
-    (text: string) => draftProblem({ topic: chatTopic, name: nickname, type: MessageType.TEXT, text }),
-    [chatTopic, nickname],
+    (text: string) => draftProblem({ topic: chatTopic, name: nickname, type: MessageType.TEXT, text, via, binding }),
+    [chatTopic, nickname, via, binding],
   );
   const checkReply = useCallback(
     (parentId: string, text: string) =>
-      draftProblem({ topic: chatTopic, name: nickname, type: MessageType.THREAD, target: parentId, text }),
-    [chatTopic, nickname],
+      draftProblem({
+        topic: chatTopic,
+        name: nickname,
+        type: MessageType.THREAD,
+        target: parentId,
+        text,
+        via,
+        binding,
+      }),
+    [chatTopic, nickname, via, binding],
   );
 
   const fetchOlderMessages = useCallback(async () => {

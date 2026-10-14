@@ -1,4 +1,4 @@
-import type { ChatSettings } from '@solarpunkltd/swarm-chat-js';
+import { type ChatSettings, MessageVia } from '@solarpunkltd/swarm-chat-js';
 
 import type { ChatConfig } from '@/config/runtimeConfig';
 
@@ -18,17 +18,20 @@ const SOC_READ_TIMEOUT_MS = 5_000;
 /**
  * One chat per stream. The topic and the owner follow the aggregator's conventions: the stream's chat
  * feed is `chat-<stream topic>`, written by the chat feed owner. The chat is read through one endpoint and
- * written through another. No stamp is passed, because the write endpoint stamps what is written through it.
+ * written through another. No stamp is passed, because the write endpoint stamps what is written through it, which
+ * every message says in its `via`.
  */
 export function chatSettings(config: ChatConfig, streamTopic: string, session: Session | null): ChatSettings {
   return {
     user: {
       privateKey: session?.privateKey ?? READ_ONLY_PRIVATE_KEY,
       nickname: session?.username ?? '',
+      ...(session?.binding ? { binding: session.binding } : {}),
     },
     infra: {
       beeUrl: config.readUrl,
       writeUrl: config.writeUrl,
+      via: MessageVia.GATEWAY,
       gsocResourceId: config.gsocResourceId,
       gsocTopic: config.gsocTopic,
       chatTopic: `chat-${streamTopic}`,
