@@ -191,7 +191,7 @@ describe('the image start-up script', () => {
       expect(csp).not.toContain('frame-src');
     });
 
-    it("lets that one site read /bee from its frame, for GET alone and with the gateway's own CORS headers replaced", () => {
+    it("lets that one site read /bee from its frame, for GET and its preflight alone, with the gateway's own CORS headers replaced", () => {
       const started = start({
         BEE_GATEWAY_URL: 'https://gateway.example.com',
         SWARM_ID_URL: 'https://id.example.com/',
@@ -202,7 +202,9 @@ describe('the image start-up script', () => {
       expect(bee).toContain('add_header Access-Control-Allow-Origin "https://id.example.com" always;');
       expect(bee).not.toMatch(/Access-Control-Allow-Origin "\*"/);
       expect(bee).toContain('proxy_hide_header Access-Control-Allow-Origin;');
-      expect(bee).toContain('limit_except GET { deny all; }');
+      expect(bee, 'limit_except is chosen before the preflight answer runs, so OPTIONS must pass it').toContain(
+        'limit_except GET OPTIONS { deny all; }',
+      );
       expect(bee).toContain('include /etc/nginx/stream-event-client/headers.conf;');
 
       const preflight = bee.slice(bee.indexOf('if ($request_method = OPTIONS) {'));
