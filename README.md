@@ -373,6 +373,12 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 - **A broadcast that comes back.** After a feed finishes, the player keeps asking for the slot after
   the finished playlist, about every 30 seconds and spread per viewer. When the broadcast returns and
   the viewer has reached the end of what they were playing, the player rejoins it live.
+- **Coming back to the page.** A phone that locks pauses the video, and Safari on an iPhone does not
+  start it again on unlock. When the page is visible again on a live stream, a pause that came while
+  the page was hidden, or up to a second before, is resumed at the live position, and a stream still
+  playing but further behind live than hls.js's jump limit is moved there. A pause the viewer made
+  while watching stays paused, a stream playing close to live is left alone, and a recording is never
+  touched.
 - **The quality ladder.** A stream published in several qualities is one feed per quality plus a
   master playlist on a feed of its own. When the stream list names the stream's renditions, the
   player builds the master from the list and never reads the master feed. hls.js chooses the
