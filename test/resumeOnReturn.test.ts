@@ -4,139 +4,117 @@ import { describe, it, vi } from 'vitest';
 import {
   attachResumeOnReturn,
   decideOnReturn,
-  type LivePlayer,
+  isViewerPause,
   type ReturnPage,
   type ReturnSnapshot,
 } from '../src/features/player/resumeOnReturn';
 
-/** A live viewer playing close to the live edge, which a return must leave alone. */
-const PLAYING_NEAR_LIVE: ReturnSnapshot = {
+/** A live stream the lock paused, with no pause event seen, which a return must play again. */
+const PAUSED_UNSEEN: ReturnSnapshot = {
   isLive: true,
-  isPaused: false,
-  pausedAtMs: null,
+  isPaused: true,
+  lastPause: null,
   hiddenAtMs: 10_000,
-  behindLiveS: 14,
-  maxLatencyS: 24,
 };
 
 /**
  * SPDV-1655. An iPhone pauses the video when the phone locks and Safari does not resume it on unlock,
- * so a live viewer came back to a stopped player. A return resumes a pause the system made, and only
- * that one.
+ * so a live viewer came back to a stopped player. A return plays it again unless the viewer paused it.
  *
- * Written in milliseconds and seconds rather than against the module's constants, so that a change to
- * the window is a change a test notices.
+ * Written in milliseconds rather than against the module's constant, so that a change to the window is
+ * a change a test notices.
  */
-describe('what the player does when the page becomes visible again', () => {
-  it('resumes at live a pause that came while the page was hidden', () => {
-    const decision = decideOnReturn({ ...PLAYING_NEAR_LIVE, isPaused: true, pausedAtMs: 10_050 });
-    assert.equal(decision, 'resume-at-live');
+describe('whose pause it was', () => {
+  it("is the viewer's, made while watching more than a second before the page was hidden", () => {
+    assert.equal(isViewerPause({ atMs: 8_900, whilePageVisible: true }, 10_000), true);
   });
 
-  it('resumes at live a pause that came just before the page was hidden', () => {
-    const decision = decideOnReturn({ ...PLAYING_NEAR_LIVE, isPaused: true, pausedAtMs: 9_200 });
-    assert.equal(decision, 'resume-at-live');
+  it("is the system's, made in the second before the page was hidden", () => {
+    assert.equal(isViewerPause({ atMs: 9_000, whilePageVisible: true }, 10_000), false);
+    assert.equal(isViewerPause({ atMs: 9_800, whilePageVisible: true }, 10_000), false);
   });
 
-  it('resumes at live a pause that came exactly one second before the page was hidden', () => {
-    const decision = decideOnReturn({ ...PLAYING_NEAR_LIVE, isPaused: true, pausedAtMs: 9_000 });
-    assert.equal(decision, 'resume-at-live');
+  it("is the system's, made while the page was hidden", () => {
+    assert.equal(isViewerPause({ atMs: 10_050, whilePageVisible: false }, 10_000), false);
   });
 
-  it('leaves a pause the viewer made while the page was visible', () => {
-    const decision = decideOnReturn({ ...PLAYING_NEAR_LIVE, isPaused: true, pausedAtMs: 8_900 });
-    assert.equal(decision, 'leave');
-  });
-
-  it('leaves a paused player whose pause it never saw', () => {
-    const decision = decideOnReturn({ ...PLAYING_NEAR_LIVE, isPaused: true, pausedAtMs: null });
-    assert.equal(decision, 'leave');
-  });
-
-  it('leaves a paused player when it never saw the page hidden', () => {
-    const decision = decideOnReturn({ ...PLAYING_NEAR_LIVE, isPaused: true, pausedAtMs: 10_050, hiddenAtMs: null });
-    assert.equal(decision, 'leave');
-  });
-
-  it('leaves a player that is playing close to live', () => {
-    assert.equal(decideOnReturn(PLAYING_NEAR_LIVE), 'leave');
-  });
-
-  it('leaves a player that is playing exactly at the live limit', () => {
-    assert.equal(decideOnReturn({ ...PLAYING_NEAR_LIVE, behindLiveS: 24 }), 'leave');
-  });
-
-  it('moves to live a player that is playing further behind than the live limit allows', () => {
-    assert.equal(decideOnReturn({ ...PLAYING_NEAR_LIVE, behindLiveS: 24.5 }), 'jump-to-live');
-  });
-
-  it('leaves a playing player whose distance from live is not known', () => {
-    assert.equal(decideOnReturn({ ...PLAYING_NEAR_LIVE, behindLiveS: null }), 'leave');
-  });
-
-  it('leaves a recording, paused by the system or far behind', () => {
-    assert.equal(decideOnReturn({ ...PLAYING_NEAR_LIVE, isLive: false, isPaused: true, pausedAtMs: 10_050 }), 'leave');
-    assert.equal(decideOnReturn({ ...PLAYING_NEAR_LIVE, isLive: false, behindLiveS: 600 }), 'leave');
+  it("is the viewer's, made while watching a page never hidden", () => {
+    assert.equal(isViewerPause({ atMs: 8_900, whilePageVisible: true }, null), true);
   });
 });
 
-type PageEventName = 'visibilitychange' | 'pagehide' | 'pageshow';
-type MediaEventName = 'pause' | 'play';
+describe('what the player does when the page becomes visible again', () => {
+  it('plays a paused live stream whose pause it never saw', () => {
+    assert.equal(decideOnReturn(PAUSED_UNSEEN), 'play');
+  });
+
+  it('plays a paused live stream the system paused', () => {
+    assert.equal(decideOnReturn({ ...PAUSED_UNSEEN, lastPause: { atMs: 10_050, whilePageVisible: false } }), 'play');
+  });
+
+  it('leaves a live stream the viewer paused', () => {
+    assert.equal(decideOnReturn({ ...PAUSED_UNSEEN, lastPause: { atMs: 3_000, whilePageVisible: true } }), 'leave');
+  });
+
+  it('leaves a live stream that is playing, whatever its last pause was', () => {
+    assert.equal(decideOnReturn({ ...PAUSED_UNSEEN, isPaused: false }), 'leave');
+  });
+
+  it('leaves a recording', () => {
+    assert.equal(decideOnReturn({ ...PAUSED_UNSEEN, isLive: false }), 'leave');
+  });
+});
+
+type EventName = 'visibilitychange' | 'pagehide' | 'pageshow' | 'pause';
 
 /** Listeners keyed on their event type, as a real target keeps them, so a wrong event name fails. */
-function makeTarget<T extends string>() {
+function makeTarget() {
   const listeners = new Map<string, Set<(event: Event) => void>>();
   return {
-    addEventListener: (type: T, listener: (event: Event) => void) => {
+    addEventListener: (type: EventName, listener: (event: Event) => void) => {
       const forType = listeners.get(type) ?? new Set();
       forType.add(listener);
       listeners.set(type, forType);
     },
-    removeEventListener: (type: T, listener: (event: Event) => void) => {
+    removeEventListener: (type: EventName, listener: (event: Event) => void) => {
       listeners.get(type)?.delete(listener);
     },
-    emit: (type: T, event: Partial<Event> & Record<string, unknown> = {}) => {
+    emit: (type: EventName, event: Record<string, unknown> = {}) => {
       for (const listener of [...(listeners.get(type) ?? [])]) {
-        listener(event as Event);
+        listener(event as unknown as Event);
       }
     },
     count: () => [...listeners.values()].reduce((total, forType) => total + forType.size, 0),
   };
 }
 
-function makeStage(options: { isLive?: boolean; currentTime?: number; play?: () => Promise<void> } = {}) {
+function makeStage(options: { isLive?: boolean; play?: () => Promise<void> } = {}) {
   let clockMs = 0;
-  const page = { ...makeTarget<PageEventName>(), visibilityState: 'visible' as DocumentVisibilityState };
-  const mediaEvents = makeTarget<MediaEventName>();
-  const play = vi.fn(options.play ?? (() => Promise.resolve()));
+  const page = { ...makeTarget(), visibilityState: 'visible' as DocumentVisibilityState };
+  const mediaEvents = makeTarget();
   const media = {
     ...mediaEvents,
     paused: false,
-    currentTime: options.currentTime ?? 100,
-    play,
-  };
-  const startLoad = vi.fn();
-  const player: LivePlayer = {
-    liveSyncPosition: 130,
-    maxLatency: 24,
-    latestLevelDetails: { live: options.isLive ?? true, edge: 140, age: 2 },
-    startLoad,
+    currentTime: 100,
+    play: vi.fn((): Promise<void> => {
+      media.paused = false;
+      return options.play?.() ?? Promise.resolve();
+    }),
   };
   const reportPlayFailure = vi.fn();
   const detach = attachResumeOnReturn(
     media as unknown as HTMLMediaElement,
     { document: page, window: page } as unknown as ReturnPage,
-    player,
+    () => options.isLive ?? true,
     reportPlayFailure,
     () => clockMs,
   );
   return {
     media,
     page,
-    play,
-    startLoad,
     reportPlayFailure,
     detach,
+    plays: () => media.play.mock.calls.length,
     at: (ms: number) => {
       clockMs = ms;
     },
@@ -148,7 +126,7 @@ function makeStage(options: { isLive?: boolean; currentTime?: number; play?: () 
       page.visibilityState = 'visible';
       page.emit('visibilitychange');
     },
-    systemPause: () => {
+    pause: () => {
       media.paused = true;
       mediaEvents.emit('pause');
     },
@@ -157,111 +135,142 @@ function makeStage(options: { isLive?: boolean; currentTime?: number; play?: () 
 }
 
 describe('the player wired to the page coming back', () => {
-  it('resumes at the live position a playback the lock paused', async () => {
-    const stage = makeStage({ currentTime: 100 });
+  it('plays a live stream the lock paused without a pause event', () => {
+    const stage = makeStage();
+    stage.at(5_000);
+    stage.hide();
+    stage.media.paused = true;
+    stage.at(65_000);
+    stage.show();
+
+    assert.equal(stage.plays(), 1);
+    assert.equal(stage.media.currentTime, 100, 'a return never seeks, hls.js moves the viewer to live');
+  });
+
+  it('plays a live stream the lock paused while the page was hidden', () => {
+    const stage = makeStage();
     stage.at(5_000);
     stage.hide();
     stage.at(5_200);
-    stage.systemPause();
+    stage.pause();
     stage.at(65_000);
     stage.show();
-    await Promise.resolve();
 
-    assert.equal(stage.media.currentTime, 130);
-    assert.deepEqual(stage.startLoad.mock.calls, [[130]]);
-    assert.equal(stage.play.mock.calls.length, 1);
+    assert.equal(stage.plays(), 1);
   });
 
-  it('resumes a pause that landed in the second before the page was hidden', () => {
+  it('plays a live stream paused in the second before the page was hidden', () => {
     const stage = makeStage();
     stage.at(4_400);
-    stage.systemPause();
+    stage.pause();
     stage.at(5_000);
     stage.hide();
     stage.at(65_000);
     stage.show();
 
-    assert.equal(stage.play.mock.calls.length, 1);
+    assert.equal(stage.plays(), 1);
   });
 
-  it('leaves a pause the viewer made before leaving the page', () => {
+  it('leaves a live stream the viewer paused while watching, then hid', () => {
     const stage = makeStage();
     stage.at(1_000);
-    stage.systemPause();
+    stage.pause();
     stage.at(5_000);
     stage.hide();
     stage.at(65_000);
     stage.show();
 
-    assert.equal(stage.play.mock.calls.length, 0);
-    assert.equal(stage.startLoad.mock.calls.length, 0);
-    assert.equal(stage.media.currentTime, 100);
+    assert.equal(stage.plays(), 0);
   });
 
-  it('acts on a page restored from the back-forward cache', () => {
+  it('plays a live stream whose system pause arrives just after the page is back', () => {
     const stage = makeStage();
     stage.at(5_000);
-    stage.page.emit('pagehide', { persisted: true });
-    stage.at(5_100);
-    stage.systemPause();
+    stage.hide();
     stage.at(65_000);
-    stage.page.emit('pageshow', { persisted: true });
+    stage.show();
+    assert.equal(stage.plays(), 0);
+    stage.at(65_400);
+    stage.pause();
 
-    assert.equal(stage.play.mock.calls.length, 1);
+    assert.equal(stage.plays(), 1);
   });
 
-  it('ignores a first page load, which is not a return', () => {
+  it('leaves a pause the viewer makes once the page has been back a while', () => {
     const stage = makeStage();
     stage.at(5_000);
-    stage.page.emit('pagehide', { persisted: true });
-    stage.systemPause();
-    stage.page.emit('pageshow', { persisted: false });
+    stage.hide();
+    stage.at(65_000);
+    stage.show();
+    stage.at(70_000);
+    stage.pause();
 
-    assert.equal(stage.play.mock.calls.length, 0);
+    assert.equal(stage.plays(), 0);
   });
 
-  it('leaves a recording paused by the lock', () => {
+  it('leaves a playing live stream alone', () => {
+    const stage = makeStage();
+    stage.at(5_000);
+    stage.hide();
+    stage.at(65_000);
+    stage.show();
+
+    assert.equal(stage.plays(), 0);
+  });
+
+  it('leaves a recording the lock paused', () => {
     const stage = makeStage({ isLive: false });
     stage.at(5_000);
     stage.hide();
-    stage.systemPause();
+    stage.pause();
+    stage.at(65_000);
     stage.show();
+    stage.at(65_200);
+    stage.pause();
 
-    assert.equal(stage.play.mock.calls.length, 0);
+    assert.equal(stage.plays(), 0);
   });
 
-  it('leaves a player that resumed by itself close to live', () => {
-    const stage = makeStage({ currentTime: 125 });
+  it('plays once on a back-forward cache restore, which fires both a visibility change and a page show', () => {
+    const stage = makeStage();
     stage.at(5_000);
+    stage.page.emit('pagehide', { persisted: true });
     stage.hide();
+    stage.pause();
+    stage.at(65_000);
+    stage.page.emit('pageshow', { persisted: true });
     stage.show();
 
-    assert.equal(stage.play.mock.calls.length, 0);
-    assert.equal(stage.startLoad.mock.calls.length, 0);
+    assert.equal(stage.plays(), 1);
   });
 
-  it('moves to live a player that resumed by itself too far behind', () => {
-    // Live edge 140 played two seconds ago, so 142 now, and 100 is 42 s behind against a limit of 24.
-    const stage = makeStage({ currentTime: 100 });
-    stage.at(5_000);
-    stage.hide();
-    stage.show();
+  it('ignores a page show that is a first load', () => {
+    const stage = makeStage();
+    stage.media.paused = true;
+    stage.page.emit('pageshow', { persisted: false });
 
-    assert.equal(stage.media.currentTime, 130);
-    assert.deepEqual(stage.startLoad.mock.calls, [[130]]);
-    assert.equal(stage.play.mock.calls.length, 1);
+    assert.equal(stage.plays(), 0);
   });
 
-  it('reports a refused play rather than throwing it', async () => {
+  it('reports a refused play once, and does nothing else', async () => {
     const refusal = new Error('NotAllowedError');
-    const stage = makeStage({ play: () => Promise.reject(refusal) });
+    const stage = makeStage({
+      play: () => {
+        stage.media.paused = true;
+        return Promise.reject(refusal);
+      },
+    });
     stage.at(5_000);
     stage.hide();
-    stage.systemPause();
+    stage.pause();
+    stage.at(65_000);
+    stage.page.emit('pageshow', { persisted: true });
     stage.show();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
+    assert.equal(stage.plays(), 1);
     assert.deepEqual(stage.reportPlayFailure.mock.calls, [[refusal]]);
+    assert.equal(stage.media.currentTime, 100);
   });
 
   it('removes every listener it added', () => {
