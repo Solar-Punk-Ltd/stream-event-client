@@ -27,7 +27,7 @@ export type SwarmIdState =
 
 export const WINDOW_FAILED = 'The Swarm ID window did not open. Try again.';
 export const SIGN_IN_INCOMPLETE = 'Swarm ID signed you in without confirming a chat address for this site.';
-const NO_CHAT_KEY = 'Swarm ID did not give this site its chat key. Try again.';
+export const NO_CHAT_KEY = 'Swarm ID did not give this site its chat key. Try again.';
 const SIGN_OUT_FAILED = 'Swarm ID did not end the session, so it may sign you in again on your next visit.';
 
 /**
@@ -131,7 +131,14 @@ export function createSwarmIdSignIn({
         if (asked !== generation) {
           return;
         }
-        const result = swarmIdSession(identity, chatBinding, chatKey, scope);
+        // A key the signer cannot take throws. Its error is never shown, so nothing of the key reaches a message.
+        let result: ReturnType<typeof swarmIdSession>;
+        try {
+          result = swarmIdSession(identity, chatBinding, chatKey, scope);
+        } catch {
+          set({ status: SWARM_ID_SIGNED_OUT, problem: NO_CHAT_KEY });
+          return;
+        }
         set(
           result.ok
             ? { status: SWARM_ID_SIGNED_IN, session: result.session }

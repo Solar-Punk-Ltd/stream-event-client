@@ -7,6 +7,7 @@ import { chatSettings } from '../../src/features/chat/chatSettings';
 import {
   createSwarmIdSignIn,
   frameRefusedWarning,
+  NO_CHAT_KEY,
   SIGN_IN_INCOMPLETE,
   SWARM_ID_BLOCKED,
   SWARM_ID_SIGNED_IN,
@@ -172,6 +173,27 @@ describe('signing in with Swarm ID', () => {
     await settled();
 
     expect(signIn.getState()).toEqual({ status: SWARM_ID_SIGNED_OUT, problem: SIGN_IN_INCOMPLETE });
+  });
+
+  it('stays signed out with the no-key reason, and no key bytes in it, when the key the frame gives is unusable', async () => {
+    const swarmId = await fakeSwarmId();
+    const signIn = await started(swarmId);
+    swarmId.client().chatKey = Uint8Array.from([0xab, 0xcd, 0xef, 0x12, 0x34]);
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      swarmId.client().handOver(SIGNED_IN);
+      for (let turn = 0; turn < 100 && !(signIn.getState() as { problem?: string }).problem; turn += 1) {
+        await settled();
+      }
+
+      expect(signIn.getState()).toEqual({ status: SWARM_ID_SIGNED_OUT, problem: NO_CHAT_KEY });
+      expect(JSON.stringify(signIn.getState())).not.toMatch(/abcdef1234/i);
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
   });
 
   it('comes back signed in on a reload, from the session the library restores, with no window', async () => {
