@@ -72,22 +72,23 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
   });
   await serveConfig(page, { gatewayUrl: '/bee', catalog: CATALOG });
   await answerStreamList(page);
+  // The node as an earlier visit added it, so the proof measures playing through it rather than its checks.
+  await page.addInitScript(() => {
+    localStorage.setItem('swarm-sources', JSON.stringify([{ id: 'added-1', type: 'weeb-3', name: 'Weeb3', url: '' }]));
+  });
   await page.goto('/');
 
-  await page.getByRole('button', { name: /^Sources/ }).click();
-  const screen = page.getByRole('dialog', { name: 'Sources' });
-  await screen.getByRole('button', { name: 'Add source', exact: true }).click();
-  await screen.getByRole('button', { name: /^Node in this browser/ }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  const connect = page.getByRole('dialog');
+  const useFor = connect.getByRole('region', { name: 'Use for' });
   const addedAtMs = Date.now();
-  await screen.getByRole('button', { name: 'Add', exact: true }).click();
-  await screen.locator('label.sources-mode', { hasText: 'Per part' }).click();
-  await screen.getByLabel('Video', { exact: true }).selectOption({ label: 'Node in this browser' });
-  await screen.locator('button.sources-disclosure').click();
-  const status = screen.locator('[data-source-row]', { hasText: 'Node in this browser' }).getByRole('status');
-  await expect(status, 'the node reaches ready with peers').toHaveText(/^\d+ of 200 peers$/, { timeout: 90_000 });
+  await useFor.getByRole('button', { name: 'Per feature', exact: true }).click();
+  await useFor.getByLabel('Video', { exact: true }).selectOption({ label: 'Weeb3' });
+  const status = connect.locator('[data-source-row]', { hasText: 'Weeb3' }).locator('.connect-row-meta');
+  await expect(status, 'the node reaches ready with peers').toHaveText(/\d+ of 200 peers/, { timeout: 90_000 });
   report.readyMs = since(addedAtMs);
   report.readyLine = await status.textContent();
-  await screen.getByRole('button', { name: 'Done', exact: true }).click();
+  await connect.getByRole('button', { name: 'Close Connect', exact: true }).click();
 
   const openedAtMs = Date.now();
   await page.goto(`/#/watch/video/${STREAM.owner}/${STREAM.topic}`);
@@ -146,11 +147,11 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
 
   // Whether freeing the page's node ends the shared worker's: the video moves off weeb-3, which frees the node, and a
   // fresh handle on the same shared worker, never started, asks how many peers the worker still has.
-  await page.getByRole('button', { name: /^Sources/ }).click();
-  await screen.getByLabel('Video', { exact: true }).selectOption({ label: 'Event gateway' });
-  await expect(status, 'the node is stopped once nothing holds it').toHaveText('Not started', { timeout: 10_000 });
+  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await useFor.getByLabel('Video', { exact: true }).selectOption({ label: 'Event gateway' });
+  await expect(status, 'the node is stopped once nothing holds it').toContainText('Not started', { timeout: 10_000 });
   report.rowAfterFree = await status.textContent();
-  await screen.getByRole('button', { name: 'Done', exact: true }).click();
+  await connect.getByRole('button', { name: 'Close Connect', exact: true }).click();
   const peersAfterFree: Record<string, number | string> = {};
   for (const afterMs of [2_000, 15_000]) {
     await page.waitForTimeout(afterMs - (afterMs === 2_000 ? 0 : 2_000));

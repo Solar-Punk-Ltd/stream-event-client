@@ -3,13 +3,13 @@ import type { Help } from './checkSentences';
 /** The steps of a fix that takes more than one sentence, with any text to copy set apart as code. */
 export function HelpSteps({ help }: { help: Help }) {
   return (
-    <div className="sources-help">
+    <div className="connect-help">
       <p>{help.intro}</p>
-      <ul className="sources-help-steps">
+      <ul className="connect-help-steps">
         {help.steps.map((step) => (
           <li key={step.label}>
-            <span className="sources-help-label">{step.label}</span>{' '}
-            {step.code !== undefined && <code className="sources-help-code">{step.code}</code>}
+            <span className="connect-help-label">{step.label}</span>{' '}
+            {step.code !== undefined && <code className="connect-help-code">{step.code}</code>}
             {step.text}
           </li>
         ))}

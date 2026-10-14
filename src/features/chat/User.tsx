@@ -11,7 +11,6 @@ import {
 
 import { checkDisplayName, type DisplayNameCheck, nicknameLogin, type Session } from './auth/login';
 import { persistUserSession, purgeUserSession, restoreUserSession } from './auth/persistence';
-import { LoginModal } from './LoginModal/LoginModal';
 import { type LoadSwarmIdClient, loadSwarmIdLibrary } from './swarmId/swarmIdClient';
 import {
   createSwarmIdSignIn,
@@ -30,7 +29,7 @@ interface ChatUserContextValue {
   session: Session | null;
   /** The name and key this browser keeps for a guest, kept while the viewer is also signed in with Swarm ID. */
   guestSession: Session | null;
-  /** Signs in and closes the dialog, or hands back why the name was refused. */
+  /** Chats as a guest under the name, or hands back why the name was refused. */
   loginAsUser: (name: string) => DisplayNameCheck;
   /** Leaves as a guest, forgetting the name and the key this browser kept. */
   logout: () => void;
@@ -40,8 +39,6 @@ interface ChatUserContextValue {
   /** Opens the Swarm ID window. Called from a click only, or the browser blocks the window. */
   signInWithSwarmId: () => void;
   signOutOfSwarmId: () => void;
-  isLoginModalOpen: boolean;
-  setIsLoginModalOpen: (open: boolean) => void;
 }
 
 const ChatUserContext = createContext<ChatUserContextValue | undefined>(undefined);
@@ -98,7 +95,7 @@ function useSwarmIdSignIn(
   return [state, signIn];
 }
 
-/** Who the viewer is in the chat, and the dialog that asks for a name. A guest is remembered by this browser. */
+/** Who the viewer is in the chat. A guest is remembered by this browser. */
 export function ChatUserProvider({
   children,
   swarmIdUrl = null,
@@ -106,7 +103,6 @@ export function ChatUserProvider({
   loadSwarmIdClient = loadSwarmIdLibrary,
 }: ChatUserProviderProps) {
   const [guestSession, setGuestSession] = useState<Session | null>(restoreUserSession);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [swarmId, signIn] = useSwarmIdSignIn(swarmIdUrl, appName, loadSwarmIdClient);
 
   const loginAsUser = useCallback((name: string): DisplayNameCheck => {
@@ -117,7 +113,6 @@ export function ChatUserProvider({
     const next = nicknameLogin(checked.name);
     persistUserSession(next);
     setGuestSession(next);
-    setIsLoginModalOpen(false);
     return checked;
   }, []);
 
@@ -132,12 +127,6 @@ export function ChatUserProvider({
   const swarmIdSession = swarmId?.status === SWARM_ID_SIGNED_IN ? swarmId.session : null;
   const session = swarmIdSession ?? guestSession;
 
-  useEffect(() => {
-    if (swarmIdSession) {
-      setIsLoginModalOpen(false);
-    }
-  }, [swarmIdSession]);
-
   const value = useMemo(
     () => ({
       session,
@@ -148,26 +137,9 @@ export function ChatUserProvider({
       swarmIdSession,
       signInWithSwarmId,
       signOutOfSwarmId,
-      isLoginModalOpen,
-      setIsLoginModalOpen,
     }),
-    [
-      session,
-      guestSession,
-      loginAsUser,
-      logout,
-      swarmId,
-      swarmIdSession,
-      signInWithSwarmId,
-      signOutOfSwarmId,
-      isLoginModalOpen,
-    ],
+    [session, guestSession, loginAsUser, logout, swarmId, swarmIdSession, signInWithSwarmId, signOutOfSwarmId],
   );
 
-  return (
-    <ChatUserContext.Provider value={value}>
-      {children}
-      {isLoginModalOpen && <LoginModal />}
-    </ChatUserContext.Provider>
-  );
+  return <ChatUserContext.Provider value={value}>{children}</ChatUserContext.Provider>;
 }

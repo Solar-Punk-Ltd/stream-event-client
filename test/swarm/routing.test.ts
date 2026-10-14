@@ -1,16 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  CHAT_SERVICE_ID,
+  chooseSource,
   defaultRouting,
   parseRouting,
   resolveRouting,
   type Routing,
   serializeRouting,
-  setLinked,
   setMode,
   setPart,
-  chooseSource,
   withoutSource,
 } from '../../src/swarm/routing';
 
@@ -18,43 +16,32 @@ const KNOWN = ['event', 'backup', 'added-1'];
 const DEFAULT = defaultRouting('event');
 
 describe('the default routing', () => {
-  it('reads every part from the default gateway as one source, video and stream list linked', () => {
+  it('reads every part from the default gateway, the chat history included', () => {
     expect(DEFAULT).toEqual({
       mode: 'one',
       source: 'event',
-      parts: { player: 'event', 'stream-list': 'event', previews: 'event', chat: CHAT_SERVICE_ID },
-      linked: true,
+      parts: { player: 'event', 'stream-list': 'event', previews: 'event', chat: 'event' },
     });
-  });
-
-  it("sends the chat to the event's chat service", () => {
-    expect(resolveRouting(DEFAULT, KNOWN, 'event')).toEqual({
-      player: 'event',
-      'stream-list': 'event',
-      previews: 'event',
-      chat: CHAT_SERVICE_ID,
-    });
+    expect(resolveRouting(DEFAULT, KNOWN, 'event')).toEqual(DEFAULT.parts);
   });
 });
 
-describe('one source', () => {
-  it('reads the video, the stream list and the previews from the source in use, the chat from its service', () => {
-    const routing = chooseSource(DEFAULT, 'added-1');
-
-    expect(resolveRouting(routing, KNOWN, 'event')).toEqual({
+describe('all features', () => {
+  it('read every part from the source in use, the chat history included', () => {
+    expect(resolveRouting(chooseSource(DEFAULT, 'added-1'), KNOWN, 'event')).toEqual({
       player: 'added-1',
       'stream-list': 'added-1',
       previews: 'added-1',
-      chat: CHAT_SERVICE_ID,
+      chat: 'added-1',
     });
   });
 
-  it('falls back to the default gateway for a source that is gone', () => {
+  it('read from the default gateway for a source that is gone', () => {
     expect(resolveRouting(chooseSource(DEFAULT, 'added-7'), KNOWN, 'event').player).toBe('event');
   });
 });
 
-describe('per part', () => {
+describe('per feature', () => {
   const perPart = setMode(chooseSource(DEFAULT, 'backup'), 'per-part');
 
   it('starts from the one source in use, so switching the mode changes nothing yet', () => {
@@ -63,46 +50,34 @@ describe('per part', () => {
     );
   });
 
-  it('reads each part from the source it picks', () => {
-    const routing = setPart(setPart(perPart, 'previews', 'added-1'), 'chat', 'backup');
+  it('reads each part from the source it picks, each on its own', () => {
+    const routing = setPart(
+      setPart(setPart(perPart, 'previews', 'added-1'), 'chat', 'event'),
+      'stream-list',
+      'added-1',
+    );
 
     expect(resolveRouting(routing, KNOWN, 'event')).toEqual({
       player: 'backup',
-      'stream-list': 'backup',
+      'stream-list': 'added-1',
       previews: 'added-1',
-      chat: 'backup',
+      chat: 'event',
     });
   });
 
-  it('moves the video and the stream list together while they are linked', () => {
-    const routing = setPart(perPart, 'stream-list', 'added-1');
-
-    expect(resolveRouting(routing, KNOWN, 'event')).toMatchObject({ player: 'added-1', 'stream-list': 'added-1' });
-  });
-
-  it('moves them apart once unlinked, and together again from the video when linked again', () => {
-    const unlinked = setPart(setLinked(perPart, false), 'stream-list', 'added-1');
-    expect(resolveRouting(unlinked, KNOWN, 'event')).toMatchObject({ player: 'backup', 'stream-list': 'added-1' });
-
-    expect(resolveRouting(setLinked(unlinked, true), KNOWN, 'event')).toMatchObject({
-      player: 'backup',
-      'stream-list': 'backup',
-    });
-  });
-
-  it('reads a part whose source is gone from the default gateway, and the chat from its service', () => {
+  it('reads a part whose source is gone from the default gateway', () => {
     const routing = setPart(setPart(perPart, 'previews', 'added-7'), 'chat', 'added-7');
 
-    expect(resolveRouting(routing, KNOWN, 'event')).toMatchObject({ previews: 'event', chat: CHAT_SERVICE_ID });
+    expect(resolveRouting(routing, KNOWN, 'event')).toMatchObject({ previews: 'event', chat: 'event' });
   });
 
-  it('goes back to one source without forgetting which that was', () => {
+  it('goes back to all features without forgetting which source that was', () => {
     expect(setMode(setPart(perPart, 'previews', 'added-1'), 'one').source).toBe('backup');
   });
 });
 
 describe('removing a source', () => {
-  it('moves every part that read from it to the default gateway, and the chat to its service', () => {
+  it('moves every part that read from it to the default gateway, the chat history included', () => {
     const routing = setPart(
       setPart(setMode(chooseSource(DEFAULT, 'added-1'), 'per-part'), 'chat', 'added-1'),
       'previews',
@@ -112,15 +87,14 @@ describe('removing a source', () => {
     expect(withoutSource(routing, 'added-1', 'event')).toEqual({
       mode: 'per-part',
       source: 'event',
-      parts: { player: 'event', 'stream-list': 'event', previews: 'backup', chat: CHAT_SERVICE_ID },
-      linked: true,
+      parts: { player: 'event', 'stream-list': 'event', previews: 'backup', chat: 'event' },
     });
   });
 });
 
 describe('the routing as the browser keeps it', () => {
   it('survives a round trip', () => {
-    const routing: Routing = setPart(setLinked(setMode(DEFAULT, 'per-part'), false), 'stream-list', 'backup');
+    const routing: Routing = setPart(setMode(DEFAULT, 'per-part'), 'stream-list', 'backup');
 
     expect(parseRouting(serializeRouting(routing), DEFAULT)).toEqual(routing);
   });
@@ -133,14 +107,21 @@ describe('the routing as the browser keeps it', () => {
   });
 
   it('takes the parts it can read and the default for the rest', () => {
-    expect(
-      parseRouting('{"mode":"per-part","source":"backup","parts":{"previews":"added-1"},"linked":false}', DEFAULT),
-    ).toEqual({
+    expect(parseRouting('{"mode":"per-part","source":"backup","parts":{"previews":"added-1"}}', DEFAULT)).toEqual({
       mode: 'per-part',
       source: 'backup',
       parts: { ...DEFAULT.parts, previews: 'added-1' },
-      linked: false,
     });
+  });
+
+  it("reads an older visit's chat service, which is gone, as the default gateway", () => {
+    const saved = parseRouting(
+      '{"mode":"per-part","source":"event","parts":{"player":"backup","chat":"chat-read"},"linked":true}',
+      DEFAULT,
+    );
+
+    expect(resolveRouting(saved, KNOWN, 'event')).toMatchObject({ player: 'backup', chat: 'event' });
+    expect(saved).not.toHaveProperty('linked');
   });
 });
 
@@ -148,14 +129,14 @@ describe('a source that serves the video only, the node in this browser', () => 
   const WITH_NODE = [...KNOWN, 'added-2'];
   const VIDEO_ONLY = ['added-2'];
 
-  it('reads the video per part, and every other part from where it would read otherwise', () => {
-    const linked = setPart(setMode(DEFAULT, 'per-part'), 'player', 'added-2');
+  it('reads the video per feature, and every other part from where it would read otherwise', () => {
+    const routing = setPart(setMode(DEFAULT, 'per-part'), 'player', 'added-2');
 
-    expect(resolveRouting(linked, WITH_NODE, 'event', VIDEO_ONLY)).toEqual({
+    expect(resolveRouting(routing, WITH_NODE, 'event', VIDEO_ONLY)).toEqual({
       player: 'added-2',
       'stream-list': 'event',
       previews: 'event',
-      chat: CHAT_SERVICE_ID,
+      chat: 'event',
     });
   });
 
@@ -165,19 +146,18 @@ describe('a source that serves the video only, the node in this browser', () => 
     );
   });
 
-  it('reads a part an older saved routing put on it from the default, the chat from its service', () => {
+  it('reads a part an older saved routing put on it from the default', () => {
     const saved: Routing = {
       mode: 'per-part',
       source: 'event',
       parts: { player: 'backup', 'stream-list': 'added-2', previews: 'added-2', chat: 'added-2' },
-      linked: false,
     };
 
     expect(resolveRouting(saved, WITH_NODE, 'event', VIDEO_ONLY)).toEqual({
       player: 'backup',
       'stream-list': 'event',
       previews: 'event',
-      chat: CHAT_SERVICE_ID,
+      chat: 'event',
     });
   });
 });

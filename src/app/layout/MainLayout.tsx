@@ -1,10 +1,9 @@
 import { Link } from 'react-router';
 
 import { useAppContext } from '@/app/AppProvider';
-import { LoginButton } from '@/features/chat/LoginButton/LoginButton';
 import { SwarmIdPageNotice } from '@/features/chat/swarmId/SwarmIdParts';
+import { Connect } from '@/features/connect/Connect';
 import { FailureBars } from '@/features/connect/FailureBars';
-import { SourcesScreen } from '@/features/gateway/SourcesScreen';
 
 import './MainLayout.scss';
 
@@ -22,8 +21,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           <img src={themeContent.logoUrl} alt={themeContent.logoAlt} className="main-layout-logo" />
         </Link>
         <div className="main-layout-actions">
-          <SourcesScreen />
-          {chat && <LoginButton />}
+          <Connect />
         </div>
       </header>
       <FailureBars />

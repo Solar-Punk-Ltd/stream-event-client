@@ -14,8 +14,9 @@ import type { ChatConfig } from '../../src/config/runtimeConfig';
 import { nicknameLogin, type Session } from '../../src/features/chat/auth/login';
 import { persistUserSession } from '../../src/features/chat/auth/persistence';
 import { Chat, READ_ONLY_PRIVATE_KEY } from '../../src/features/chat/Chat/Chat';
-import { LoginButton } from '../../src/features/chat/LoginButton/LoginButton';
 import { ChatUserProvider } from '../../src/features/chat/User';
+import { ConnectProvider, useConnect } from '../../src/features/connect/ConnectContext';
+import { IdSection } from '../../src/features/connect/IdSection';
 import type { ChatReads } from '../../src/features/chat/chatParts';
 import { FakeSwarmChat } from '../helpers/fakeSwarmChat';
 import { createMessageVerifier } from '../../src/features/chat/verify/messageVerifier';
@@ -173,8 +174,27 @@ async function emit(event: string, data: unknown, chat = FakeSwarmChat.latest())
   await checked();
 }
 
+/** Connect's ID part while Connect is open, which is where the chat's join button leads, and the header's way to open it. */
+function JoinWhereConnectOpens() {
+  const { isOpen, open } = useConnect();
+  return isOpen
+    ? createElement(IdSection, { onLeave: () => {} })
+    : createElement('button', { type: 'button', onClick: open }, 'Connect');
+}
+
 function panel(topic = 'stream-one', chat: ChatConfig = CHAT): ReactNode {
-  return createElement(ChatUserProvider, null, createElement(Chat, { chat, topic, reads: () => CHAT_READS.reads }));
+  return withThemeChoice(
+    createElement(
+      ChatUserProvider,
+      null,
+      createElement(
+        ConnectProvider,
+        null,
+        createElement(Chat, { chat, topic, reads: () => CHAT_READS.reads }),
+        createElement(JoinWhereConnectOpens),
+      ),
+    ),
+  );
 }
 
 async function open(node: ReactNode = panel()) {
@@ -351,20 +371,11 @@ describe('the chat on a watch page', () => {
   });
 
   it('reads again, and shows the chat once it answers, after a sign-in while it could not be reached', async () => {
-    await open(
-      withThemeChoice(
-        createElement(
-          ChatUserProvider,
-          null,
-          createElement(LoginButton),
-          createElement(Chat, { chat: CHAT, topic: 'stream-one', reads: () => CHAT_READS.reads }),
-        ),
-      ),
-    );
+    await open();
     await emit(EVENTS.CRITICAL_ERROR, new Error('unreachable'));
-    click(button('Join chat'));
-    type(input('Display name'), 'Ada');
-    click(button('Join'));
+    click(button('Connect'));
+    type(input('Your name'), 'Ada');
+    click(button('Chat as guest'));
     await settle();
     expect(FakeSwarmChat.instances).toHaveLength(2);
     await emit(EVENTS.LOADING_INIT, false);
@@ -648,11 +659,10 @@ describe('sending', () => {
     await open();
     expect(document.querySelector('input[aria-label="Message"]')).toBeNull();
     click(button('Join the chat to send messages'));
-    expect(dialog()?.textContent).toContain('Join the chat');
-    type(input('Display name'), 'Ada');
-    click(button('Join'));
+    expect(text()).toContain('Chat as a guest with just a name.');
+    type(input('Your name'), 'Ada');
+    click(button('Chat as guest'));
     await settle();
-    expect(dialog()).toBeNull();
     expect(input('Message')).toBeTruthy();
     expect(FakeSwarmChat.latest().settings.user.nickname).toBe('Ada');
   });
@@ -931,7 +941,7 @@ describe('reactions', () => {
     await emit(EVENTS.MESSAGE_RECEIVED, reaction('r1', 'm', '👍', GUEST_KEY));
     click(button('👍 1'));
     expect(chat.sendMessage).not.toHaveBeenCalled();
-    expect(dialog()?.textContent).toContain('Join the chat');
+    expect(text()).toContain('Chat as a guest with just a name.');
   });
 });
 

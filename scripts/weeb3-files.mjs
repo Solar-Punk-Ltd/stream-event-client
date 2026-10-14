@@ -58,6 +58,19 @@ export function wasmBytesOf(packageFolder) {
   return existsSync(file) ? statSync(file).size : null;
 }
 
+/** The installed package's version, which a source's settings name, or null without the package. */
+export function weeb3VersionOf(packageFolder) {
+  if (packageFolder === null) {
+    return null;
+  }
+  try {
+    const { version } = JSON.parse(readFileSync(join(packageFolder, 'package.json'), 'utf8'));
+    return typeof version === 'string' ? version : null;
+  } catch {
+    return null;
+  }
+}
+
 /** How the package's page-side module names its WebAssembly module when it is handed none. */
 const DEFAULT_WASM_URL = "new URL('weeb_3_bg.wasm', import.meta.url)";
 
@@ -121,7 +134,12 @@ export function weeb3Files(root) {
     {
       name: 'weeb-3-files',
       config() {
-        return { define: { __WEEB3_WASM_BYTES__: JSON.stringify(wasmBytesOf(packageFolder)) } };
+        return {
+          define: {
+            __WEEB3_WASM_BYTES__: JSON.stringify(wasmBytesOf(packageFolder)),
+            __WEEB3_VERSION__: JSON.stringify(weeb3VersionOf(packageFolder)),
+          },
+        };
       },
       configResolved(config) {
         logger = config.logger;

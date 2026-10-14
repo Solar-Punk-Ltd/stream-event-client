@@ -65,6 +65,8 @@ export type RequestKind =
   | 'miss'
   /** A segment of a quality. */
   | 'segment'
+  /** A segment's root chunk, which the checks before adding a source read as a chunk. */
+  | 'chunk'
   /** A segment the journey had the gateway refuse, answered 404 as a node answers media it cannot retrieve. */
   | 'refusedSegment'
   /** Any read of the master feed, which a stream list that names the renditions makes unnecessary. */
@@ -75,7 +77,7 @@ export type RequestKind =
   | 'marker'
   /** A read of a ladder time marker that was not written, answered 404. */
   | 'markerMiss'
-  /** Bee's health check, which the Sources screen asks a Bee node of the viewer's own. */
+  /** Bee's health, readiness or peers, which the checks of a source ask for its version and whether it is ready. */
   | 'health'
   /** A stream's picture. */
   | 'picture'
@@ -218,6 +220,7 @@ export class LadderGateway {
   private readonly segments = recordedSegments();
   /** Segment sequences every quality refuses. See {@link refuseSegment}. */
   private readonly refusedSequences = new Set<number>();
+  private isDown = false;
 
   constructor(options: LadderGatewayOptions = {}) {
     this.markers = options.markers ?? true;
@@ -261,10 +264,36 @@ export class LadderGateway {
 
   async attach(page: Page): Promise<void> {
     await page.route(`${PREVIEW_ORIGIN}${GATEWAY_PATH}/**`, async (route) => {
-      const reply = this.decide(route);
+      const reply = this.decide(route, GATEWAY_PATH);
       await sleep(ROUND_TRIP_MS);
       await reply();
     });
+  }
+
+  /**
+   * Serves this gateway at an https origin of its own, as a gateway a viewer adds, allowing the page's origin to read
+   * its answers. Nothing leaves the browser: the page's route answers before any request would.
+   */
+  async attachAt(page: Page, origin: string): Promise<void> {
+    await page.route(`${origin}/**`, async (route) => {
+      if (this.isDown) {
+        await route.abort('failed');
+        return;
+      }
+      const reply = this.decide(allowingAnyOrigin(route), '');
+      await sleep(ROUND_TRIP_MS);
+      await reply();
+    });
+  }
+
+  /** Every request from now on fails as a gateway that went away does, nothing answering. */
+  goDown(): void {
+    this.isDown = true;
+  }
+
+  /** How many requests of any kind were made since a moment. */
+  requestsSince(sinceMs: number): number {
+    return this.requests.filter((request) => request.atMs >= sinceMs).length;
   }
 
   /** The newest index this quality has published by now. */
@@ -353,19 +382,24 @@ export class LadderGateway {
    * Works out the answer to a request when it arrives, and hands back the reply to send once the round trip is over.
    * Whether a slot is there is decided on arrival, as a node decides it early in its own round trip.
    */
-  private decide(route: Route): Reply {
-    const path = new URL(route.request().url()).pathname.slice(GATEWAY_PATH.length);
+  private decide(route: Route, prefix: string): Reply {
+    const path = new URL(route.request().url()).pathname.slice(prefix.length);
     const [, resource, owner, id] = path.split('/');
 
     if (resource === 'bytes' && owner) {
       return this.decideSegment(route, path, owner);
     }
-    if (resource === 'health' && owner === undefined) {
+    if (resource === 'chunks' && owner && SEGMENT_REF.test(owner)) {
+      this.log('chunk', null, path);
+      return () => route.fulfill({ status: 200, contentType: 'application/octet-stream', body: Buffer.alloc(4104) });
+    }
+    if ((resource === 'health' || resource === 'readiness' || resource === 'peers') && owner === undefined) {
       this.log('health', null, path);
       if (this.refusesHealth) {
         return () => route.abort('failed');
       }
-      return () => route.fulfill({ status: 200, contentType: 'application/json', body: '{"status":"ok"}' });
+      const body = resource === 'peers' ? '{"peers":[{"address":"' + 'cd'.repeat(32) + '"}]}' : '{"status":"ok"}';
+      return () => route.fulfill({ status: 200, contentType: 'application/json', body });
     }
     if (resource === 'bzz' && owner === PICTURE_REF && this.pictureStatus !== null) {
       this.log('picture', null, path);
@@ -537,6 +571,20 @@ export class LadderGateway {
     }
     return `${lines.join('\n')}\n`;
   }
+}
+
+/** The route with every answer it fulfils readable by a page on any origin, as a gateway that allows every site. */
+function allowingAnyOrigin(route: Route): Route {
+  return new Proxy(route, {
+    get(target, property) {
+      if (property === 'fulfill') {
+        return (options: Parameters<Route['fulfill']>[0] = {}) =>
+          target.fulfill({ ...options, headers: { ...options.headers, 'access-control-allow-origin': '*' } });
+      }
+      const value: unknown = Reflect.get(target, property);
+      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+    },
+  });
 }
 
 function fulfill(route: Route, body: string): Promise<void> {

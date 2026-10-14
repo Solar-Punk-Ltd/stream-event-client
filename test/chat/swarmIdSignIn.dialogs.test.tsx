@@ -1,62 +1,30 @@
 // @vitest-environment jsdom
 // @vitest-environment-options {"url":"https://example.com/"}
-import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { nicknameLogin } from '../../src/features/chat/auth/login';
 import { persistUserSession, restoreUserSession } from '../../src/features/chat/auth/persistence';
-import { LoginButton } from '../../src/features/chat/LoginButton/LoginButton';
-import { SwarmIdPageNotice } from '../../src/features/chat/swarmId/SwarmIdParts';
 import { frameRefusedWarning } from '../../src/features/chat/swarmId/swarmIdSignIn';
-import { ChatUserProvider, useChatUser } from '../../src/features/chat/User';
-import {
-  button,
-  click,
-  dialog,
-  input,
-  mount,
-  queryButton,
-  settle,
-  text,
-  type,
-  type Mounted,
-  waitFor,
-} from '../helpers/dom';
+import type { useChatUser } from '../../src/features/chat/User';
+import { connectPage, seen } from '../helpers/connectPage';
+import { button, click, dialog, input, queryButton, settle, text, type, type Mounted, waitFor } from '../helpers/dom';
 import { type FakeSwarmId, fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
 import { BOUND_SITE, CHAT_BINDING, chatKeyFor } from '../helpers/signedChat';
-import { withThemeChoice } from '../helpers/themeChoice';
 
 let mounted: Mounted | null = null;
-let chatsAs: ReturnType<typeof useChatUser>['session'] = null;
+const realFetch = globalThis.fetch;
 
-function WhoChats() {
-  chatsAs = useChatUser().session;
-  return null;
-}
+/** Who the viewer chats as now. */
+const chatsAs = (): ReturnType<typeof useChatUser>['session'] => seen.chatUser?.session ?? null;
 
 async function header(swarmId: FakeSwarmId | null) {
-  const children = [
-    createElement(LoginButton, { key: 'button' }),
-    createElement(SwarmIdPageNotice, { key: 'notice' }),
-    createElement(WhoChats, { key: 'who' }),
-  ];
-  mounted = mount(
-    withThemeChoice(
-      createElement(
-        ChatUserProvider,
-        swarmId
-          ? { swarmIdUrl: 'https://id.example.com', appName: 'Devcon streams', loadSwarmIdClient: swarmId.load }
-          : {},
-        children,
-      ),
-    ),
-  );
+  mounted = connectPage({ swarmId });
   await settle();
   await settle();
 }
 
 /** The session lands once the frame has answered with the chat key, some turns after the handover. */
-const signedIn = () => waitFor(() => (chatsAs?.binding ? chatsAs : null));
+const signedIn = () => waitFor(() => (chatsAs()?.binding ? chatsAs() : null));
 
 /** Every value this browser keeps, so a test can say a key is in none of them. */
 function everythingStored(): string {
@@ -68,31 +36,32 @@ function everythingStored(): string {
 
 beforeEach(() => {
   localStorage.clear();
-  chatsAs = null;
+  globalThis.fetch = (async () => new Response('', { status: 404 })) as typeof fetch;
 });
 
 afterEach(() => {
   mounted?.unmount();
   mounted = null;
+  globalThis.fetch = realFetch;
   document.body.innerHTML = '';
 });
 
 describe('a deployment without Swarm ID', () => {
   it('offers the guest name alone, as before', async () => {
     await header(null);
-    click(button('Join chat'));
+    click(button('Connect'));
 
     expect(queryButton('Sign in with Swarm ID')).toBeNull();
-    type(input('Display name'), 'Ada');
-    click(button('Join'));
+    type(input('Your name'), 'Ada');
+    click(button('Chat as guest'));
     expect(restoreUserSession()?.username).toBe('Ada');
   });
 });
 
-describe('signing in with Swarm ID from the join dialog', () => {
+describe('signing in with Swarm ID from Connect', () => {
   it('offers both ways in, a guest name and Swarm ID', async () => {
     await header(await fakeSwarmId());
-    click(button('Join chat'));
+    click(button('Connect'));
 
     expect(dialog()?.textContent).toContain('Or sign in with your Swarm ID.');
     expect(queryButton('Chat as guest')).toBeTruthy();
@@ -113,7 +82,7 @@ describe('signing in with Swarm ID from the join dialog', () => {
     expect(document.getElementById(menuSignIn.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
       'Connecting to Swarm ID',
     );
-    click(button(/^Ada/));
+    click(button('Close Connect'));
 
     mounted?.unmount();
     localStorage.clear();
@@ -122,7 +91,7 @@ describe('signing in with Swarm ID from the join dialog', () => {
         client.initializeHangs = true;
       }),
     );
-    click(button('Join chat'));
+    click(button('Connect'));
     const dialogSignIn = button('Sign in with Swarm ID');
     expect(dialogSignIn.disabled).toBe(true);
     expect(document.getElementById(dialogSignIn.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
@@ -133,29 +102,29 @@ describe('signing in with Swarm ID from the join dialog', () => {
   it('opens the Swarm ID window on the click, and chats with the key and binding it hands over', async () => {
     const swarmId = await fakeSwarmId();
     await header(swarmId);
-    click(button('Join chat'));
+    click(button('Connect'));
 
     click(button('Sign in with Swarm ID'));
     expect(swarmId.client().connectCalls).toBe(1);
     swarmId.client().handOver(SIGNED_IN);
     await signedIn();
 
-    expect(dialog()).toBeNull();
-    expect(chatsAs?.username).toBe('Ida');
-    expect(chatsAs?.privateKey).toBe(await chatKeyFor(BOUND_SITE));
-    expect(chatsAs?.binding).toEqual(CHAT_BINDING);
+    expect(dialog()?.textContent).toContain('Swarm ID · Ida');
+    expect(chatsAs()?.username).toBe('Ida');
+    expect(chatsAs()?.privateKey).toBe(await chatKeyFor(BOUND_SITE));
+    expect(chatsAs()?.binding).toEqual(CHAT_BINDING);
   });
 
   it('never writes the chat key, the binding or the session anywhere the browser keeps', async () => {
     const swarmId = await fakeSwarmId();
     await header(swarmId);
-    click(button('Join chat'));
+    click(button('Connect'));
     click(button('Sign in with Swarm ID'));
     swarmId.client().handOver(SIGNED_IN);
     await signedIn();
 
     const key = await chatKeyFor(BOUND_SITE);
-    expect(chatsAs?.privateKey).toBe(key);
+    expect(chatsAs()?.privateKey).toBe(key);
     expect(everythingStored()).not.toContain(key);
     expect(everythingStored()).not.toContain(CHAT_BINDING.sig);
     expect(restoreUserSession()).toBeNull();
@@ -172,8 +141,8 @@ describe('signing in with Swarm ID from the join dialog', () => {
     await settle();
 
     expect(swarmId.client().disconnectCalls).toBe(1);
-    expect(chatsAs).toBeNull();
-    expect(queryButton('Join chat')).toBeTruthy();
+    expect(chatsAs()).toBeNull();
+    expect(queryButton('Connect')).toBeTruthy();
   });
 });
 
@@ -194,12 +163,12 @@ describe('a guest beside Swarm ID', () => {
     swarmId.client().handOver(SIGNED_IN);
     await signedIn();
 
-    expect(chatsAs?.username).toBe('Ida');
+    expect(chatsAs()?.username).toBe('Ida');
     expect(restoreUserSession()?.privateKey).toBe(guestKey);
 
     click(button('Sign out'));
     await settle();
-    expect(chatsAs?.privateKey).toBe(guestKey);
+    expect(chatsAs()?.privateKey).toBe(guestKey);
   });
 
   it('leaves as a guest, which forgets the name and the key as before', async () => {
@@ -211,11 +180,11 @@ describe('a guest beside Swarm ID', () => {
     click(button('Leave'));
 
     expect(restoreUserSession()).toBeNull();
-    expect(chatsAs).toBeNull();
+    expect(chatsAs()).toBeNull();
   });
 });
 
-describe("the header's name button", () => {
+describe("the header's connect button", () => {
   const badgeIn = (name: RegExp) => button(name).querySelector('svg')?.getAttribute('class');
 
   it('shows a guest with the grey hexagon, with and without Swarm ID offered', async () => {
@@ -242,7 +211,7 @@ describe('a blocked Swarm ID window', () => {
       client.nextWindow = 'blocked';
     });
     await header(swarmId);
-    click(button('Join chat'));
+    click(button('Connect'));
 
     click(button('Sign in with Swarm ID'));
     await settle();
@@ -256,15 +225,15 @@ describe('a blocked Swarm ID window', () => {
     expect(text()).not.toContain('Your browser blocked the Swarm ID window.');
   });
 
-  it('shows the line under the header once the dialog is closed', async () => {
+  it('shows the line under the header once Connect is closed', async () => {
     const swarmId = await fakeSwarmId({}, (client) => {
       client.nextWindow = 'blocked';
     });
     await header(swarmId);
-    click(button('Join chat'));
+    click(button('Connect'));
     click(button('Sign in with Swarm ID'));
     await settle();
-    click(button('Cancel'));
+    click(button('Close Connect'));
 
     expect(dialog()).toBeNull();
     expect(queryButton('Open Swarm ID')).toBeTruthy();
@@ -319,17 +288,17 @@ describe('a Swarm ID frame the page policy refuses', () => {
 });
 
 describe('a Swarm ID site that cannot be used', () => {
-  it('says so in the join dialog and offers no sign-in, while guests chat as before', async () => {
+  it('says so in Connect and offers no sign-in, while guests chat as before', async () => {
     await header(
       await fakeSwarmId({}, (client) => {
         client.initializeFails = true;
       }),
     );
-    click(button('Join chat'));
+    click(button('Connect'));
 
     expect(queryButton('Sign in with Swarm ID')).toBeNull();
     expect(dialog()?.textContent).toContain('Swarm ID cannot be reached right now.');
-    type(input('Display name'), 'Ada');
+    type(input('Your name'), 'Ada');
     click(button('Chat as guest'));
     expect(restoreUserSession()?.username).toBe('Ada');
   });

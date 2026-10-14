@@ -6,9 +6,11 @@ import { LadderGateway } from './ladderGateway';
 /**
  * The node in this browser, weeb-3, against a fake of its package: the chunk the page loads it from is answered with a
  * module of the package's shape, and its WebAssembly module with a few bytes. The page is told a service worker
- * controls it, which the real package's worker would, so the node can be ready. Picked on the Sources screen, its row
- * shows how far the node has got, and on the watch page it plays bare in its own player once the node is ready. A node
- * that fails says so and nothing takes its place. The real package and the network are never reached.
+ * controls it, which the real package's worker would, so the node can be ready. A viewer who added it before picks it
+ * for the video in Connect, where its row shows how far the node has got, and on the watch page it plays bare in its
+ * own player once the node is ready. A node that fails says so and nothing takes its place. Adding it, which reads real
+ * chunks through it, is the unit suite's, since a fake package serves none. The real package and the network are never
+ * reached.
  */
 
 test.describe.configure({ timeout: 120_000 });
@@ -45,23 +47,26 @@ async function serveFakeWeeb3(page: Page, module: string): Promise<void> {
   );
 }
 
-async function pickNodeInThisBrowser(page: Page, rowSays: string): Promise<void> {
-  await page.getByRole('button', { name: /^Sources/ }).click();
-  const screen = page.getByRole('dialog', { name: 'Sources' });
-  await screen.getByRole('button', { name: 'Add source', exact: true }).click();
-  await screen.getByRole('button', { name: /^Node in this browser/ }).click();
-  await screen.getByRole('button', { name: 'Add', exact: true }).click();
-  await expect(
-    screen.getByRole('radio', { name: 'Node in this browser' }),
-    'it serves the video only, so it cannot be the one source',
-  ).toBeDisabled();
-  const row = screen.locator('[data-source-row]', { hasText: 'Node in this browser' });
-  await expect(row.getByRole('status'), 'the row says how far the node has got').toHaveText(rowSays, {
-    timeout: 20_000,
+/** The node in this browser as an earlier visit added it, which this browser keeps. */
+async function keepAddedNode(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    localStorage.setItem('swarm-sources', JSON.stringify([{ id: 'added-1', type: 'weeb-3', name: 'Weeb3', url: '' }]));
   });
-  await screen.locator('label.sources-mode', { hasText: 'Per part' }).click();
-  await screen.getByLabel('Video', { exact: true }).selectOption({ label: 'Node in this browser' });
-  await screen.getByRole('button', { name: 'Done', exact: true }).click();
+}
+
+async function pickNodeInThisBrowser(page: Page, rowSays: string): Promise<void> {
+  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  const connect = page.getByRole('dialog');
+  const useFor = connect.getByRole('region', { name: 'Use for' });
+  await expect(
+    useFor.getByLabel('All features', { exact: true }).locator('option', { hasText: 'Weeb3' }),
+    'it serves the video only, so it cannot be the one source for all features',
+  ).toBeDisabled();
+  await useFor.getByRole('button', { name: 'Per feature', exact: true }).click();
+  await useFor.getByLabel('Video', { exact: true }).selectOption({ label: 'Weeb3' });
+  const row = connect.locator('[data-source-row]', { hasText: 'Weeb3' });
+  await expect(row, 'the row says how far the node has got').toContainText(rowSays, { timeout: 20_000 });
+  await connect.getByRole('button', { name: 'Close Connect', exact: true }).click();
 }
 
 async function openWatchPage(page: Page, gateway: LadderGateway, module: string, rowSays: string): Promise<void> {
@@ -70,6 +75,7 @@ async function openWatchPage(page: Page, gateway: LadderGateway, module: string,
   await serveFakeWeeb3(page, module);
   await serveConfig(page, gateway.config());
   await gateway.attach(page);
+  await keepAddedNode(page);
   await page.goto('/');
   await pickNodeInThisBrowser(page, rowSays);
   await page.goto(gateway.watchPath());

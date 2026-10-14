@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { ADDRESS_PLACEHOLDERS } from '../src/features/connect/connectWords';
 import { ADDRESS_REFUSED } from '../src/features/gateway/checkSentences';
-import { checkOwnNodeAddress, OWN_NODE_DEFAULT_ADDRESS } from '../src/features/gateway/gatewayProbe';
+import { checkOwnNodeAddress } from '../src/features/gateway/gatewayProbe';
 
 function acceptedUrl(input: string): string {
   const result = checkOwnNodeAddress(input);
@@ -21,8 +22,8 @@ function refusal(input: string): string {
 
 describe('the address of a Bee node on the viewer’s own machine', () => {
   it('is prefilled with the Bee API on this machine', () => {
-    expect(OWN_NODE_DEFAULT_ADDRESS).toBe('http://localhost:1633');
-    expect(acceptedUrl(OWN_NODE_DEFAULT_ADDRESS)).toBe('http://localhost:1633');
+    expect(ADDRESS_PLACEHOLDERS['bee-node']).toBe('http://localhost:1633');
+    expect(acceptedUrl(ADDRESS_PLACEHOLDERS['bee-node'])).toBe('http://localhost:1633');
   });
 
   it('accepts another port on localhost', () => {

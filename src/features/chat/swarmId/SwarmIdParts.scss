@@ -2,9 +2,6 @@
   display: grid;
   justify-items: start;
   gap: var(--spacing-sm);
-  margin-top: var(--spacing-lg);
-  padding-top: var(--spacing-lg);
-  border-top: 1px solid var(--color-border);
 }
 
 .swarm-id-hint,
@@ -28,8 +25,7 @@
   color: var(--color-error-text);
 }
 
-// Under the header on the page and in the join dialog alike, outlined in the warning colour the way the design
-// draws it.
+// Under the header on the page and in Connect alike, outlined in the warning colour the way the design draws it.
 .swarm-id-blocked {
   display: flex;
   flex-wrap: wrap;
@@ -49,7 +45,6 @@
 .swarm-id-you {
   display: grid;
   gap: var(--spacing-sm);
-  padding: var(--spacing-md) var(--spacing-base);
 }
 
 .swarm-id-row {

@@ -331,6 +331,9 @@ class CheckRun {
 
   private async findReference(): Promise<string | CheckFailure> {
     const streams = this.context.knownStreams.length > 0 ? this.context.knownStreams : await this.readStreams();
+    if ('reason' in streams) {
+      return streams;
+    }
     const stream = streamToTest(streams);
     let failure: CheckFailure = NOTHING_TO_READ;
     if (stream !== null) {
@@ -363,9 +366,13 @@ class CheckRun {
       : reader.readFeedHead(owner, Topic.fromString(topic), this.window);
   }
 
-  private async readStreams(): Promise<Stream[]> {
+  /** The streams this source's stream list names, or why it could not be read. */
+  private async readStreams(): Promise<readonly Stream[] | CheckFailure> {
     const answer = await this.readStreamListAnswer();
-    return answer.kind === 'content' ? (streamListIn(contentText(answer)) ?? []) : [];
+    if (answer.kind !== 'content') {
+      return readFailure("this event's stream list", answer);
+    }
+    return streamListIn(contentText(answer)) ?? NOT_THE_STREAM_LIST;
   }
 
   private async readsStreamList(): Promise<Outcome> {

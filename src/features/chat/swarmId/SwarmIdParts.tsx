@@ -1,5 +1,6 @@
 import { useId } from 'react';
 
+import { useConnect } from '@/features/connect/ConnectContext';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { GuestBadgeIcon } from '@/shared/components/Icons/GuestBadgeIcon';
 import { SwarmIdBadgeIcon } from '@/shared/components/Icons/SwarmIdBadgeIcon';
@@ -70,13 +71,13 @@ function SwarmIdBlocked() {
   );
 }
 
-/** The blocked line under the header, where the join dialog is not already showing it. */
+/** The blocked line under the header, where Connect is not already showing it. */
 export function SwarmIdPageNotice() {
-  const { isLoginModalOpen } = useChatUser();
-  return isLoginModalOpen ? null : <SwarmIdBlocked />;
+  const { isOpen } = useConnect();
+  return isOpen ? null : <SwarmIdBlocked />;
 }
 
-/** The second way into the chat, in the join dialog: sign in with a Swarm ID account. */
+/** The second way into the chat, in Connect: sign in with a Swarm ID account. */
 export function SwarmIdOffer() {
   const { swarmId } = useChatUser();
   if (!swarmId) {
@@ -98,14 +99,14 @@ export function SwarmIdOffer() {
 }
 
 /**
- * Who the viewer is, at the top of their name's menu: signed in with Swarm ID and able to sign out, or a guest who can
- * leave and can show it is really them by signing in.
+ * Who the viewer is, in Connect: signed in with Swarm ID and able to sign out, or a guest who can leave and can show it
+ * is really them by signing in.
  */
 export function SwarmIdYou({ onLeave }: { onLeave: () => void }) {
   const { swarmId, swarmIdSession, guestSession, signOutOfSwarmId } = useChatUser();
   if (swarmIdSession) {
     return (
-      <div className="login-dropdown-group swarm-id-you">
+      <div className="swarm-id-you">
         <div className="swarm-id-row">
           <span className="swarm-id-who">
             <b className="swarm-id-name linked">{swarmIdSession.username}</b>
@@ -124,7 +125,7 @@ export function SwarmIdYou({ onLeave }: { onLeave: () => void }) {
   }
   const canSignIn = swarmId !== null && swarmId.status !== SWARM_ID_UNAVAILABLE;
   return (
-    <div className="login-dropdown-group swarm-id-you">
+    <div className="swarm-id-you">
       <div className="swarm-id-row">
         <span className="swarm-id-who">
           <b className="swarm-id-name">{guestSession.username}</b>

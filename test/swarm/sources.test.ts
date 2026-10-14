@@ -159,7 +159,7 @@ describe('the node in this browser as a source', () => {
   });
 
   it('is added with no address, under the name of what it is when the viewer gives none', () => {
-    expect(addSource([], { type: 'weeb-3', name: '', url: '' }).sources).toEqual([IN_BROWSER]);
+    expect(addSource([], { type: 'weeb-3', name: '', url: '' }).sources).toEqual([{ ...IN_BROWSER, name: 'Weeb3' }]);
   });
 
   it('is read through the weeb-3 kind', () => {

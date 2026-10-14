@@ -9,7 +9,7 @@
 import { type AddressSpace, addressSpaceOf, supportsLocalNetworkRequests } from '@/swarm/addressSpace';
 import type { ProbeResult } from '@/swarm/provider';
 
-export type UnreachableCause =
+type UnreachableCause =
   /** Nothing answered, and nothing suggests the browser stopped the request. */
   | { readonly kind: 'unreachable' }
   /** Something answered, and did not allow this site to read its answer. */

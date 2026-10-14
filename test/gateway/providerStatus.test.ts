@@ -9,7 +9,7 @@ const OWNER = '1'.repeat(40);
 const TOPIC = Topic.fromString('status-test');
 const NAMES: Record<string, string> = {
   event: 'Event gateway',
-  'chat-read': "The chat's gateway",
+  'chat-source': 'Chat source',
 };
 const nameOf = (id: string) => NAMES[id] ?? id;
 
@@ -19,7 +19,7 @@ function world() {
   let nowMs = 1_000_000;
   const client = new SwarmClient({
     chosen: { id: 'event', provider: event },
-    routes: { chat: { id: 'chat-read', provider: chat } },
+    routes: { chat: { id: 'chat-source', provider: chat } },
     now: () => nowMs,
   });
   return { event, chat, client, advance: (ms: number) => (nowMs += ms) };
@@ -58,7 +58,7 @@ describe('the status view', () => {
       {
         feature: 'chat',
         label: 'Chat',
-        route: "Reads from The chat's gateway.",
+        route: 'Reads from Chat source.',
         answered: 'Nothing read in the last minute.',
       },
     ]);

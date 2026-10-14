@@ -1,0 +1,509 @@
+@use '@/design/media';
+
+// Connect as the design draws it: groups under small capital labels, one hairline between them, rows in one
+// outlined list, the checks as marked lines. Its controls are smaller than a page's, with a finger's worth on a
+// touch screen.
+
+@mixin visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.connect-visually-hidden {
+  @include visually-hidden;
+}
+
+// The header's trigger: the chat name with its badge, or Connect. The name gives way to the ellipsis, so the badge
+// always shows.
+.connect-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  max-width: var(--size-connect-button-width);
+  min-height: var(--size-touch-target);
+  padding: 0 var(--spacing-md);
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--color-text-tertiary);
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.connect-button-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.connect-body {
+  display: grid;
+  gap: var(--spacing-base);
+  font-size: var(--font-size-base);
+}
+
+.connect-group {
+  display: grid;
+  gap: var(--spacing-sm-md);
+
+  & + & {
+    padding-top: var(--spacing-base);
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+.connect-section-label {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-label);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.connect-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.connect-muted {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.connect-problem {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-error-text);
+
+  &:empty {
+    display: none;
+  }
+}
+
+.connect-ex {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-tertiary);
+}
+
+.connect-big {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-3xl);
+  font-variant-numeric: tabular-nums;
+}
+
+.connect-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.connect-between {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.connect-guest .connect-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.connect-parts {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+// A label beside its field from a large phone up, above it on a small one.
+.connect-part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-xs);
+  align-items: center;
+
+  @include media.large-phone-up {
+    grid-template-columns: var(--size-connect-label-width) minmax(0, 1fr);
+    gap: var(--spacing-md);
+  }
+
+  label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+}
+
+.connect-input {
+  width: 100%;
+  min-height: var(--size-dialog-button-height);
+  padding: var(--spacing-xs-sm) var(--spacing-sm-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-input);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-base);
+
+  &:focus {
+    border-color: var(--color-primary);
+    outline: none;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+.connect-report {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+}
+
+.button.connect-small {
+  min-height: 0;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+
+  @media (pointer: coarse) {
+    min-height: var(--size-touch-target);
+  }
+}
+
+.button.connect-danger {
+  color: var(--color-error-text);
+}
+
+.connect-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+
+// The sources in one outlined list.
+.connect-rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  list-style: none;
+}
+
+.connect-row {
+  display: grid;
+  grid-template-columns: var(--spacing-md) minmax(0, 1fr) auto;
+  gap: var(--spacing-sm-md) var(--spacing-md);
+  align-items: center;
+  padding: var(--spacing-sm-md) var(--spacing-md);
+
+  & + & {
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+.connect-row-text {
+  min-width: 0;
+}
+
+.connect-row-name {
+  font-weight: var(--font-weight-semibold);
+}
+
+.connect-row-meta {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.connect-badge {
+  margin-left: var(--spacing-xs-sm);
+  padding: 1px var(--spacing-xs);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+// A source's light check at a glance, the dot alone in a row, the dot and its words in settings.
+.source-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs-sm);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.source-status-dot {
+  flex: none;
+  width: var(--size-badge-dot);
+  height: var(--size-badge-dot);
+  border-radius: var(--radius-full);
+  background: var(--color-text-tertiary);
+
+  .ok > & {
+    background: var(--color-success);
+  }
+
+  .warning > & {
+    background: var(--color-warning);
+  }
+
+  .failing > & {
+    background: var(--color-error-text);
+  }
+}
+
+.source-status-words {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// All features or per feature: two halves of one outlined control, the one in force filled.
+.connect-seg {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+
+  button {
+    padding: var(--spacing-xs-sm) var(--spacing-md);
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+
+    &[aria-pressed='true'] {
+      background: var(--color-text);
+      color: var(--color-background);
+      font-weight: var(--font-weight-semibold);
+    }
+  }
+}
+
+.connect-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--size-connect-tile-width), 1fr));
+  gap: var(--spacing-sm-md);
+}
+
+.connect-tile {
+  display: grid;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-input);
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-primary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  span {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+  }
+}
+
+.connect-box {
+  display: grid;
+  gap: var(--spacing-sm-md);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.connect-progress {
+  height: var(--size-connect-progress-height);
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--color-input);
+
+  i {
+    display: block;
+    height: 100%;
+    background: var(--color-primary);
+    transition: width var(--duration-base) ease;
+  }
+}
+
+.connect-kv {
+  display: grid;
+  grid-template-columns: var(--size-connect-label-width) minmax(0, 1fr);
+  gap: var(--spacing-xs-sm) var(--spacing-md);
+  margin: 0;
+  font-size: var(--font-size-sm);
+
+  dt {
+    color: var(--color-text-tertiary);
+  }
+
+  dd {
+    margin: 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+  }
+}
+
+// One line a check, its mark, its words and its time.
+.connect-checks {
+  display: grid;
+  gap: var(--spacing-xs-sm);
+  margin: 0;
+  padding: 0;
+  font-size: var(--font-size-sm);
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: var(--spacing-base-lg) minmax(0, 1fr) auto;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+  }
+}
+
+.connect-check-mark {
+  color: var(--color-text-tertiary);
+
+  &.passed {
+    color: var(--color-success);
+  }
+
+  &.failed {
+    color: var(--color-error-text);
+  }
+}
+
+.connect-check-ms {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-tertiary);
+}
+
+// What to fix, outlined in the warning colour.
+.connect-warn {
+  display: grid;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-sm);
+
+  strong {
+    color: var(--color-warning);
+  }
+}
+
+.connect-help {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+
+  p {
+    margin: 0;
+  }
+}
+
+.connect-help-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin: 0;
+  padding-left: var(--spacing-base);
+}
+
+.connect-help-label {
+  font-weight: var(--font-weight-semibold);
+}
+
+.connect-help-code {
+  display: block;
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-input);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+// The theme switcher under the viewer's ID.
+.connect-theme {
+  display: grid;
+  gap: var(--spacing-xs);
+}
+
+.connect-theme-heading {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-label);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.connect-theme-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm-md);
+  min-height: var(--size-dialog-button-height);
+  padding: 0 var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+
+  &[aria-checked='true'] {
+    border-color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+.connect-theme-check {
+  margin-left: auto;
+  color: var(--color-primary);
+}

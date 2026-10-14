@@ -14,8 +14,8 @@ const STEP_KEYS: Record<string, (index: number, count: number) => number> = {
 };
 
 /**
- * The theme switcher in the name's menu: one radio per theme, named, and a tick on the worn one. One Tab stop for the group, the checked option, and the
- * arrows move the pick.
+ * The theme switcher under the viewer's ID in Connect: one radio per theme, named, and a tick on the worn one. One Tab
+ * stop for the group, the checked option, and the arrows move the pick.
  */
 export function ThemeOptions() {
   const { look, chooseLook } = useThemeChoice();
@@ -33,8 +33,8 @@ export function ThemeOptions() {
   };
 
   return (
-    <div role="radiogroup" aria-label="Theme" className="login-dropdown-group" onKeyDown={step}>
-      <p className="login-dropdown-heading" aria-hidden="true">
+    <div role="radiogroup" aria-label="Theme" className="connect-theme" onKeyDown={step}>
+      <p className="connect-theme-heading" aria-hidden="true">
         Theme
       </p>
       {THEME_NAMES.map((name) => (
@@ -47,12 +47,12 @@ export function ThemeOptions() {
           role="radio"
           aria-checked={look === name}
           tabIndex={look === name ? 0 : -1}
-          className="login-dropdown-item login-dropdown-theme"
+          className="connect-theme-option"
           onClick={() => chooseLook(name)}
         >
           {THEME_LABELS[name]}
           {look === name && (
-            <span className="login-dropdown-check" aria-hidden="true">
+            <span className="connect-theme-check" aria-hidden="true">
               ✓
             </span>
           )}

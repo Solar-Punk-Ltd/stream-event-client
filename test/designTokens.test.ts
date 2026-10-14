@@ -234,8 +234,6 @@ const TEXT_ON_SURFACE: Array<[text: string, surface: string]> = [
   ['text-soft', 'surface-glass'],
   ['on-scrim', 'scrim'],
   ['on-scrim-secondary', 'scrim'],
-  ['on-button-light', 'button-light'],
-  ['on-button-light', 'button-light-hover'],
   ['on-scrim', 'scrim-strong'],
   ['on-scrim-secondary', 'scrim-strong'],
   ['error-text', 'scrim-strong'],

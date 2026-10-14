@@ -92,8 +92,9 @@ export async function watchAndChat(page: Page, published: Published): Promise<vo
   await badgesAndDetails(chat, published);
 
   await chat.getByRole('button', { name: 'Join the chat to send messages', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Display name', exact: true }).fill(SMOKE_USER);
-  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  await page.getByRole('dialog').getByRole('textbox', { name: 'Your name', exact: true }).fill(SMOKE_USER);
+  await page.getByRole('dialog').getByRole('button', { name: 'Chat as guest', exact: true }).click();
+  await page.getByRole('button', { name: 'Close Connect', exact: true }).click();
   await chat.getByRole('textbox', { name: 'Message', exact: true }).fill(SMOKE_MESSAGE);
   await chat.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(chat.getByText(SMOKE_MESSAGE, { exact: true }), 'the sent message is shown').toBeVisible();

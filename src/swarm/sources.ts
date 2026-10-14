@@ -7,7 +7,7 @@ import type { ProviderKindName } from './providerKinds';
 import { choiceForAddress, gatewayName, type GatewaySetting, type SwarmSettings } from './settings';
 
 /** What a viewer adds a source as, and what the Sources screen groups them by. */
-export const SOURCE_TYPES = ['gateway', 'bee-node', 'weeb-3'] as const;
+const SOURCE_TYPES = ['gateway', 'bee-node', 'weeb-3'] as const;
 
 export type SourceType = (typeof SOURCE_TYPES)[number];
 
@@ -34,9 +34,9 @@ export function servesVideoOnly(type: SourceType): boolean {
 
 /** What a source a viewer leaves unnamed is called. */
 const DEFAULT_NAMES: Readonly<Record<SourceType, string>> = {
-  gateway: 'Gateway',
-  'bee-node': 'Bee node',
-  'weeb-3': 'Node in this browser',
+  gateway: 'My gateway',
+  'bee-node': 'My Bee node',
+  'weeb-3': 'Weeb3',
 };
 
 /** A source the viewer added, as the browser keeps it. */

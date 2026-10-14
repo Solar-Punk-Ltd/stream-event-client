@@ -33,7 +33,7 @@ export function streamToTest(streams: readonly Stream[]): Stream | null {
 }
 
 /** A playlist the player would read, or the answer that kept it from being read. */
-export type PlaylistRead =
+type PlaylistRead =
   | { readonly kind: 'served'; readonly text: string }
   | { readonly kind: 'failed'; readonly answer: Exclude<SwarmAnswer, { kind: 'content' }> | null };
 

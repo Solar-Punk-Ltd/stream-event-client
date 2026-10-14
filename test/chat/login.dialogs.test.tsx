@@ -1,117 +1,119 @@
 // @vitest-environment jsdom
-import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { nicknameLogin } from '../../src/features/chat/auth/login';
 import { persistUserSession, restoreUserSession } from '../../src/features/chat/auth/persistence';
-import { LoginButton } from '../../src/features/chat/LoginButton/LoginButton';
-import { ChatUserProvider } from '../../src/features/chat/User';
-import { button, click, dialog, input, mount, press, queryButton, text, type, type Mounted } from '../helpers/dom';
-import { withThemeChoice } from '../helpers/themeChoice';
+import { connectPage } from '../helpers/connectPage';
+import { button, click, dialog, input, press, queryButton, settle, text, type, type Mounted } from '../helpers/dom';
+import { minimalConfig } from '../helpers/themeChoice';
 
 let mounted: Mounted | null = null;
+const realFetch = globalThis.fetch;
 
-function header() {
-  mounted = mount(withThemeChoice(createElement(ChatUserProvider, null, createElement(LoginButton))));
+async function header() {
+  mounted = connectPage();
+  await settle();
 }
 
 beforeEach(() => {
   localStorage.clear();
+  globalThis.fetch = (async () => new Response('', { status: 404 })) as typeof fetch;
 });
 
 afterEach(() => {
   mounted?.unmount();
   mounted = null;
+  globalThis.fetch = realFetch;
   document.body.innerHTML = '';
 });
 
-describe('the header when signed out', () => {
-  it('offers to join the chat, which asks for a display name', () => {
-    header();
-    click(button('Join chat'));
+describe('joining the chat from Connect', () => {
+  it('offers to chat as a guest with just a name', async () => {
+    await header();
+    click(button('Connect'));
+
     expect(dialog()?.getAttribute('aria-modal')).toBe('true');
-    expect(dialog()?.textContent).toContain('Join the chat');
-    expect(document.activeElement).toBe(input('Display name'));
+    expect(dialog()?.textContent).toContain('Chat as a guest with just a name.');
+    expect(input('Your name')).toBeTruthy();
   });
 
-  it('closes the dialog on Cancel without signing in', () => {
-    header();
-    click(button('Join chat'));
-    click(button('Cancel'));
+  it('closes Connect on Escape without joining', async () => {
+    await header();
+    click(button('Connect'));
+    press(document.body, 'Escape');
+
     expect(dialog()).toBeNull();
     expect(restoreUserSession()).toBeNull();
-    expect(queryButton('Join chat')).toBeTruthy();
   });
 
-  it('signs in with the trimmed name, keeps it for the next visit, and shows it', () => {
-    header();
-    click(button('Join chat'));
-    type(input('Display name'), '  Ada  ');
-    click(button('Join'));
-    expect(dialog()).toBeNull();
+  it('chats under the trimmed name, keeps it for the next visit, and shows it in the header and in Connect', async () => {
+    await header();
+    click(button('Connect'));
+    type(input('Your name'), '  Ada  ');
+    click(button('Chat as guest'));
+    await settle();
+
     expect(restoreUserSession()?.username).toBe('Ada');
     expect(queryButton(/^Ada/)).toBeTruthy();
+    expect(dialog()?.textContent).toContain('Guest');
+    expect(queryButton('Leave')).toBeTruthy();
   });
 
-  it('signs in on Enter', () => {
-    header();
-    click(button('Join chat'));
-    type(input('Display name'), 'Ada');
-    press(input('Display name'), 'Enter');
+  it('chats on Enter', async () => {
+    await header();
+    click(button('Connect'));
+    type(input('Your name'), 'Ada');
+    press(input('Your name'), 'Enter');
+
     expect(restoreUserSession()?.username).toBe('Ada');
   });
 
-  it('says what a name must be, and keeps the dialog open, for an empty or too long name', () => {
-    header();
-    click(button('Join chat'));
+  it('says what a name must be, and keeps the form, for an empty or too long name', async () => {
+    await header();
+    click(button('Connect'));
     for (const name of ['', '   ', 'x'.repeat(21)]) {
-      type(input('Display name'), name);
-      click(button('Join'));
+      type(input('Your name'), name);
+      click(button('Chat as guest'));
       expect(dialog()?.textContent).toContain('1 to 20 characters');
       expect(restoreUserSession()).toBeNull();
     }
   });
 });
 
-describe('the header when signed in', () => {
+describe('a guest leaving', () => {
   beforeEach(() => {
     persistUserSession(nicknameLogin('Ada'));
   });
 
-  it('shows the name, with a menu that offers to log out', () => {
-    header();
-    const name = button(/^Ada/);
-    expect(name.getAttribute('aria-expanded')).toBe('false');
-    click(name);
-    expect(name.getAttribute('aria-expanded')).toBe('true');
-    expect(queryButton('Log out')).toBeTruthy();
-  });
-
-  it('closes the menu on Escape', () => {
-    header();
+  it('asks before leaving, and keeps the name on Cancel', async () => {
+    await header();
     click(button(/^Ada/));
-    press(document.body, 'Escape');
-    expect(queryButton('Log out')).toBeNull();
-  });
-
-  it('asks before logging out, and keeps the name on Cancel', () => {
-    header();
-    click(button(/^Ada/));
-    click(button('Log out'));
+    click(button('Leave'));
     expect(dialog()?.textContent).toContain('your display name');
     click(button('Cancel'));
-    expect(dialog()).toBeNull();
+
     expect(restoreUserSession()?.username).toBe('Ada');
+    expect(dialog()?.querySelector('h2')?.textContent).toBe('Connect');
   });
 
-  it('logs out once confirmed, forgetting the name', () => {
-    header();
+  it('leaves once confirmed, forgetting the name', async () => {
+    await header();
     click(button(/^Ada/));
-    click(button('Log out'));
-    const confirm = [...(dialog()?.querySelectorAll('button') ?? [])].find((node) => node.textContent === 'Log out');
-    click(confirm as HTMLButtonElement);
-    expect(dialog()).toBeNull();
+    click(button('Leave'));
+    click(button('Leave'));
+    await settle();
+
     expect(restoreUserSession()).toBeNull();
-    expect(text()).toContain('Join chat');
+    expect(text()).toContain('Chat as a guest with just a name.');
+  });
+});
+
+describe('a site with no chat', () => {
+  it('offers no way into the chat in Connect', async () => {
+    mounted = connectPage({ config: minimalConfig() });
+    await settle();
+    click(button('Connect'));
+
+    expect(text()).not.toContain('Chat as a guest');
   });
 });

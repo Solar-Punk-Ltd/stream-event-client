@@ -1,5 +1,5 @@
 // What every theme shares: the neutral washes and lines over a dark page, what sits over a picture or
-// the video, the dialog's light button, the error, live and warning colours, and the chat's name hues.
+// the video, the error, live and warning colours, and the chat's name hues.
 // A theme file merges its brand values over these, so a change here reaches every theme at once and a
 // theme names only what makes it that brand.
 
@@ -30,10 +30,6 @@ $color: (
   'info': rgba(30, 100, 230, 0.62),
   'info-border': rgba(120, 170, 255, 0.45),
   'signal': #4ade80,
-  // The light button of a dialog, the one that backs out.
-  'button-light': #fafafa,
-  'button-light-hover': #ffffff,
-  'on-button-light': #242424,
   'error-surface': rgba(251, 44, 54, 0.15),
   'error-border': rgba(251, 44, 54, 0.4),
   // Behind a letterboxed picture, where anything but black reads as part of the video.

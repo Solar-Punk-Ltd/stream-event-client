@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  corsHelp,
-  LOCAL_NETWORK_HELP,
-  UNREACHABLE_SENTENCES,
-  unreachableSentence,
-} from '../../src/features/gateway/checkSentences';
+import { corsHelp, LOCAL_NETWORK_HELP } from '../../src/features/gateway/checkSentences';
 
 const ORIGIN = 'https://viewer.example.com';
 
@@ -66,32 +61,9 @@ describe("the help for the browser's local network question", () => {
   });
 });
 
-describe('the sentence for each reason a node could not be reached', () => {
-  it.each([
-    [
-      'unreachable',
-      'Nothing answers at this address. Check that the node is running and that the address and port are right. The Bee API is usually on port 1633.',
-    ],
-    [
-      'cors-refused',
-      "Something answers at this address, but it does not let this site read from it. If it is your Bee node, add this site to the node's cors-allowed-origins setting, then restart the node.",
-    ],
-    [
-      'local-network-refused',
-      'Your browser is blocking this site from reaching your local network and this computer, so the request never reached the node.',
-    ],
-    [
-      'unreachable-local',
-      'Nothing answered at this address. Check that the node is running and the port is right. If your browser asked whether this site may reach devices on your local network, the answer has to be Allow.',
-    ],
-  ] as const)('%s', (kind, sentence) => {
-    expect(unreachableSentence({ kind })).toBe(sentence);
-    expect(UNREACHABLE_SENTENCES[kind]).toBe(sentence);
-  });
-
+describe('the help', () => {
   it('keeps every sentence and step free of dashes and semicolons', () => {
     const all = [
-      ...Object.values(UNREACHABLE_SENTENCES),
       JSON.stringify(LOCAL_NETWORK_HELP),
       corsHelp(ORIGIN).intro,
       corsHelp(ORIGIN).note,

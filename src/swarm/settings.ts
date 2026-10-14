@@ -49,9 +49,6 @@ export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'pr
 /** The id a Bee node of the viewer's own goes by, one the settings do not offer. */
 export const OWN_GATEWAY_ID = 'own-node';
 
-/** The id the event's chat read address goes by in the client's counts. */
-export const CHAT_READ_GATEWAY_ID = 'chat-read';
-
 /**
  * What a viewer is shown a provider as: its label, or what it is. Never its address, so a name can go
  * anywhere an address must not, such as the diagnostics a viewer copies.
@@ -59,9 +56,6 @@ export const CHAT_READ_GATEWAY_ID = 'chat-read';
 export function gatewayName(settings: SwarmSettings, id: string): string {
   if (id === OWN_GATEWAY_ID) {
     return 'Your own node';
-  }
-  if (id === CHAT_READ_GATEWAY_ID) {
-    return "The chat's gateway";
   }
   const offered = settings.gateways.find((gateway) => gateway.id === id);
   if (offered?.label) {

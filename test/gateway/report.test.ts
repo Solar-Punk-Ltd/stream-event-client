@@ -4,11 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { parseRuntimeConfig } from '../../src/config/runtimeConfig';
 import { onlyGateway } from '../../src/features/gateway/gatewayProbe';
 import { statusRows } from '../../src/features/gateway/providerStatus';
-import { testProvider } from '../../src/features/gateway/providerTest';
 import { reportText } from '../../src/features/gateway/report';
-import { loadUrl } from '../../src/swarm/client';
+import { runSourceChecks } from '../../src/features/gateway/sourceChecks';
 import { createSwarmClient } from '../../src/swarm/createSwarmClient';
-import { CHAT_READ_GATEWAY_ID, gatewayName, swarmSettingsFrom } from '../../src/swarm/settings';
+import { gatewayName, swarmSettingsFrom } from '../../src/swarm/settings';
 
 const EVENT = 'https://event.example.com';
 const BACKUP = 'https://backup.example.com';
@@ -38,21 +37,20 @@ const parsed = parseRuntimeConfig({
     pollIntervalMs: 500,
   },
 });
-if (!parsed.ok || !parsed.config.chat?.enabled) {
+if (!parsed.ok) {
   throw new Error('the test config does not parse');
 }
 const config = parsed.config;
-const chat = parsed.config.chat;
 const settings = swarmSettingsFrom(config);
 
-/** Answers every request with a 502, so every sentence about a failure is in the report. */
+/** Answers every request with a 502, so the report carries a failure. */
 const failing = (async () => new Response('', { status: 502 })) as typeof fetch;
 
 async function reportOfBackup(): Promise<string> {
-  // The app's own client, on the viewer's own node, with the chat routed to its gateway.
+  // The app's own client, on the viewer's own node, with the chat history read at the chat read address.
   const inUse = createSwarmClient(settings, {
     choice: { id: 'own-node', kind: 'bee-http', url: SAVED_OWN_NODE },
-    routes: { chat: { id: CHAT_READ_GATEWAY_ID, kind: 'bee-http', url: CHAT_READ } },
+    routes: { chat: { id: 'event', kind: 'bee-http', url: CHAT_READ } },
     environment: { fetcher: failing },
   });
   await inUse.reader('player').readBytes('ab'.repeat(32));
@@ -60,29 +58,20 @@ async function reportOfBackup(): Promise<string> {
   await inUse.reader('stream-list').readFeedHead(CATALOG_OWNER, Topic.fromString('event-streams'));
 
   const backup = settings.gateways.find(({ id }) => id === 'backup')!;
-  const results = await testProvider({
-    client: createSwarmClient(onlyGateway(backup), { environment: { fetcher: failing } }),
-    address: backup.url,
-    catalog: config.catalog,
-    knownStreams: [
-      {
-        owner: 'e'.repeat(40),
-        topic: 'main-stage',
-        title: 'Main stage',
-        timestamp: 0,
-        mediatype: 'video',
-        state: 'vod',
-        index: 3,
-        thumbnail: 'f'.repeat(64),
-      },
-    ],
-    chat,
-    pageProtocol: 'https:',
-    loadUrl: (url, options) => loadUrl(url, { ...options, fetcher: failing }),
-  });
+  const results = await runSourceChecks(
+    { type: 'gateway', url: backup.url },
+    {
+      client: createSwarmClient(onlyGateway(backup), { environment: { fetcher: failing } }),
+      catalog: config.catalog,
+      knownStreams: [],
+      pageOrigin: 'https://viewer.example.com',
+      pageProtocol: 'https:',
+      localNetworkRequests: false,
+    },
+  );
 
   return reportText({
-    tested: { name: gatewayName(settings, backup.id), address: backup.url, results },
+    tested: { name: gatewayName(settings, backup.id), address: backup.url, type: 'gateway', results },
     status: statusRows(inUse.activity(), (id) => gatewayName(settings, id)),
     build: 'stream-event-client 0.1.0, built 2026-10-07T00:00:00.000Z',
     browser: 'Mozilla/5.0 (test)',
@@ -90,21 +79,21 @@ async function reportOfBackup(): Promise<string> {
   });
 }
 
-describe("the Sources screen's diagnostics", () => {
-  it('holds the test, the status, the build and the browser', async () => {
+describe('the diagnostics a viewer copies', () => {
+  it('holds the checks, the status, the build and the browser', async () => {
     const report = await reportOfBackup();
 
-    expect(report).toContain('Test of Gateway backup (https://backup.example.com)');
-    expect(report).toContain(
-      'Video: failed. The gateway answered with an error (HTTP 502). Test again in a minute, or pick another gateway.',
-    );
-    expect(report).toContain("Chat: Reads from The chat's gateway");
-    expect(report).toContain('Video: Reads from Your own node');
+    expect(report).toContain('Checks of Gateway backup (https://backup.example.com)');
+    expect(report).toContain('Answers over https: passed');
+    expect(report).toContain('Reads a chunk: failed. It answers with an error (HTTP 502).');
+    expect(report).toContain("Reads this event's stream list: not run, an earlier check failed.");
+    expect(report).toContain('Chat: Reads from Event gateway.');
+    expect(report).toContain('Video: Reads from Your own node.');
     expect(report).toContain('Build: stream-event-client 0.1.0');
     expect(report).toContain('Browser: Mozilla/5.0 (test)');
   });
 
-  it('holds no address but the tested gateway, no key and nothing from the viewer’s saved node', async () => {
+  it('holds no address but the checked source, no key and nothing from the viewer’s saved node', async () => {
     const report = await reportOfBackup();
 
     for (const kept of [EVENT, CHAT_READ, CHAT_WRITE, SAVED_OWN_NODE, 'localhost', KEY]) {
@@ -114,9 +103,9 @@ describe("the Sources screen's diagnostics", () => {
     expect(report).not.toMatch(/[0-9a-f]{40}/i);
   });
 
-  it('says when no gateway was tested', () => {
+  it('says when no source was checked', () => {
     expect(reportText({ tested: null, status: [], build: 'b', browser: 'x', atMs: 0 })).toContain(
-      'No gateway was tested.',
+      'No source was checked.',
     );
   });
 });

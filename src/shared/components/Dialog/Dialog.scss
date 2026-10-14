@@ -13,6 +13,14 @@
   background: var(--color-overlay-modal);
   backdrop-filter: blur(var(--blur-base));
   -webkit-backdrop-filter: blur(var(--blur-base));
+
+  // A panel the header opens sits under the header's right end on a wider screen, and as any dialog on a phone.
+  &.at-side {
+    @include media.tablet-up {
+      justify-content: flex-end;
+      padding-top: var(--spacing-base);
+    }
+  }
 }
 
 // Only the body scrolls, so the title and the footer's buttons stay in view however long it grows. A
@@ -70,6 +78,7 @@
 }
 
 // As quiet as the title beside it, and a full touch target, since on a phone it is the plain way out.
+.dialog-back,
 .dialog-close {
   display: inline-flex;
   flex: none;
@@ -79,6 +88,7 @@
   height: var(--size-touch-target);
   margin: calc(-1 * var(--spacing-sm)) calc(-1 * var(--spacing-sm)) 0 0;
   padding: 0;
+  flex: none;
   border: none;
   border-radius: var(--radius-base);
   background: none;
@@ -93,7 +103,14 @@
   }
 }
 
+.dialog-back {
+  margin: calc(-1 * var(--spacing-sm)) 0 0 calc(-1 * var(--spacing-sm));
+  font-size: var(--font-size-xl);
+}
+
 .dialog-title {
+  flex: 1 1 auto;
+  min-width: 0;
   font-family: var(--font-family-heading);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-heading);

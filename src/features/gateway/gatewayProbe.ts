@@ -1,31 +1,13 @@
 /**
- * What the Sources screen's add form does with an address before it lets a viewer switch to it, so a
- * viewer who mistyped a port, or whose node refused this site's origin, is told which of those it was
- * rather than left on a browse page with nothing on it. Everything here is pure or takes an injected
- * prober, because this package runs vitest without a DOM and a rule left inside the component is a
- * rule nothing covers.
+ * What Connect does with an address a viewer types before it checks it: the base URL it means, whether this
+ * site lets a viewer use it at all, and whether the browser would refuse it before asking. Pure, because a rule
+ * left inside the component is a rule nothing covers.
  */
-import { createSwarmClient } from '@/swarm/createSwarmClient';
-import { type NotReadyReason, PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
-import { addressSpaceOf, supportsLocalNetworkRequests } from '@/swarm/addressSpace';
-import { type GatewaySetting, OWN_GATEWAY_ID, type SwarmSettings } from '@/swarm/settings';
+import { addressSpaceOf } from '@/swarm/addressSpace';
+import type { GatewaySetting, SwarmSettings } from '@/swarm/settings';
 import type { SourceType } from '@/swarm/sources';
 
-import {
-  ADDRESS_REFUSED,
-  type Help,
-  LOCAL_HTTP_UNSUPPORTED,
-  MIXED_CONTENT,
-  notReadySentence,
-  unreachableHelp,
-  unreachableSentence,
-} from './checkSentences';
-import {
-  awaitsLocalNetworkAnswer,
-  type ReachabilityOptions,
-  unreachableCause,
-  type UnreachableCause,
-} from './reachability';
+import { ADDRESS_REFUSED } from './checkSentences';
 
 /** Both a viewer's typing and a saved address, since every caller joins with a path of its own. */
 function withoutTrailingSlash(url: string): string {
@@ -46,9 +28,6 @@ export function beeBaseUrlFromTypedAddress(input: string): string {
   }
   return `http://${trimmed}`;
 }
-
-/** What the Sources screen's add form offers for a viewer's own node: the Bee API port on this machine, as Swarm Desktop runs it. */
-export const OWN_NODE_DEFAULT_ADDRESS = 'http://localhost:1633';
 
 /**
  * The hosts a node on this computer may be named by at every level. The page's content security policy
@@ -179,163 +158,10 @@ export function isBlockedAsMixedContent(
   }
 }
 
-/** Whether a blocked address is on the local network, which a browser other than this one could reach. */
-export function isLocalHttp(gatewayUrl: string): boolean {
-  return gatewayUrl.startsWith('http://') && addressSpaceOf(gatewayUrl) === 'local';
-}
-
-type GatewayProbeOutcome =
-  | { kind: 'ok' }
-  | { kind: 'rejected'; status: number }
-  /** An `http` node named from an `https` page, which the browser refuses before anything is sent. */
-  | { kind: 'mixed-content' }
-  /** The same on the local network, in a browser without Local Network Access, which Chrome and Edge have. */
-  | { kind: 'local-http-unsupported' }
-  /**
-   * Something answered 2xx and it was not Bee's health document. A web server with a single-page
-   * fallback route answers any path with its index page and a 200, which is the case a status-only
-   * check waves through.
-   */
-  | { kind: 'not-bee' }
-  /**
-   * Nothing came back in the window. `awaitingLocalNetwork` is whether the browser has yet to ask the
-   * viewer about reaching the node, which holds the request just as a quiet node does.
-   */
-  | { kind: 'timed-out'; awaitingLocalNetwork: boolean }
-  /** A Bee node answered its health and cannot serve this viewer yet. */
-  | { kind: 'not-ready'; reason: NotReadyReason }
-  /** No readable answer, and what a second look at the address found: nothing, CORS, or the browser. */
-  | { kind: 'unreachable'; cause: UnreachableCause };
-
-/** What can ask an address whether a Swarm node is there: a provider's own probe. */
-type Prober = (gatewayUrl: string) => { probe(options?: ReadOptions): Promise<ProbeResult> };
-
 /** The settings of one gateway alone, so a test of it is a test of it and nothing else. */
 export function onlyGateway(gateway: GatewaySetting): SwarmSettings {
   return {
     gateways: [gateway],
     defaultId: gateway.id,
   };
-}
-
-/** A Bee node over HTTP at the address, which is the kind of node the Sources screen's add form offers to use. */
-const beeHttpProber: Prober = (gatewayUrl) =>
-  createSwarmClient(onlyGateway({ id: OWN_GATEWAY_ID, kind: 'bee-http', url: gatewayUrl }));
-
-interface GatewayProbeOptions {
-  /** Injected only by tests. Production asks the Bee HTTP provider the add form would switch to. */
-  prober?: Prober;
-  /**
-   * The scheme this page is served over. Injected only by tests, and read lazily in production
-   * because this package runs vitest with no DOM, where touching `window` at module load is a
-   * `ReferenceError`.
-   */
-  pageProtocol?: string;
-  /** Whether this browser can mark a request as meant for the local network. Read from the page when absent. */
-  localNetworkRequests?: boolean;
-  /** Injected only by tests. Production reads the page and asks the browser's Permissions API. */
-  reachability?: ReachabilityOptions;
-}
-
-/** Empty off a browser, where nothing is being loaded into a page and nothing can be blocked. */
-function currentPageProtocol(): string {
-  return typeof window === 'undefined' ? '' : window.location.protocol;
-}
-
-/**
- * Ask an address whether a Bee node is behind it, through the `probe()` of the provider that would
- * read from it. Never throws: every failure is an outcome.
- *
- * The window covers headers and body together. A node that accepts the connection and answers
- * nothing is therefore a `timed-out` rather than an add form held open, and it reaches a viewer as its
- * own message: that node exists and is slow, which is a different next step from one that cannot be
- * reached at all.
- */
-export async function probeGateway(
-  gatewayUrl: string,
-  {
-    prober = beeHttpProber,
-    pageProtocol = currentPageProtocol(),
-    localNetworkRequests: injectedLocalNetworkRequests,
-    reachability = {},
-  }: GatewayProbeOptions = {},
-): Promise<GatewayProbeOutcome> {
-  const localNetworkRequests = injectedLocalNetworkRequests ?? (await supportsLocalNetworkRequests());
-  // Asked before the fetch, because this is the one failure that is knowable without one and the
-  // only one whose cause survives: once the browser has refused it, what reaches this code is
-  // indistinguishable from a closed port.
-  if (isBlockedAsMixedContent(gatewayUrl, pageProtocol, localNetworkRequests)) {
-    return isLocalHttp(gatewayUrl) ? { kind: 'local-http-unsupported' } : { kind: 'mixed-content' };
-  }
-
-  // A browser reports a CORS refusal, a closed port and a DNS miss identically, as a rejected fetch
-  // with no status, so the probe finds every one of them unreachable and the diagnosis tells them apart.
-  const found = await prober(gatewayUrl).probe({ timeoutMs: PROBE_TIMEOUT_MS });
-  switch (found.kind) {
-    case 'ok':
-      return { kind: 'ok' };
-    case 'not-ready':
-      return { kind: 'not-ready', reason: found.reason };
-    case 'not-swarm':
-      return { kind: 'not-bee' };
-    case 'rejected':
-      return { kind: 'rejected', status: found.status };
-    case 'timed-out':
-      return {
-        kind: 'timed-out',
-        awaitingLocalNetwork: await awaitsLocalNetworkAnswer(gatewayUrl, { localNetworkRequests, ...reachability }),
-      };
-    case 'unreachable':
-    case 'refuses-this-site':
-      return {
-        kind: 'unreachable',
-        cause: await unreachableCause(gatewayUrl, found, { localNetworkRequests, ...reachability }),
-      };
-  }
-}
-
-/** Both answers a wrong port produces need the same next step, so the sentence is written once. */
-const CHECK_THE_PORT = 'Check the port: the Bee API is usually 1633.';
-
-/** Success is not described. The add form closes on it, so a sentence for it is one no viewer reads. */
-type GatewayProbeFailure = Exclude<GatewayProbeOutcome, { kind: 'ok' }>;
-
-/**
- * What the add form tells a viewer about each way this can fail, kept beside the rule so a new failure
- * cannot ship without its copy. The declared return type is what enforces that: a switch that misses
- * a case returns undefined on it and stops compiling. Written for someone who runs a node and does
- * not read network logs.
- */
-export function describeProbeFailure(failure: GatewayProbeFailure): string {
-  switch (failure.kind) {
-    case 'rejected':
-      return `Something answered at this address with an error (HTTP ${failure.status}). ${CHECK_THE_PORT}`;
-    case 'not-bee':
-      return `Something answered at this address, but it is not a Bee node. ${CHECK_THE_PORT}`;
-    case 'local-http-unsupported':
-      return LOCAL_HTTP_UNSUPPORTED;
-    case 'not-ready':
-      return notReadySentence(failure.reason);
-    case 'mixed-content':
-      return MIXED_CONTENT;
-    case 'timed-out':
-      if (failure.awaitingLocalNetwork) {
-        return unreachableSentence({ kind: 'unreachable-local' });
-      }
-      return 'The node accepted the connection and then stopped answering. Check that it has finished starting up, then try again.';
-    case 'unreachable':
-      return unreachableSentence(failure.cause);
-  }
-}
-
-/** The help a failure needs beyond its sentence, for this page's origin, or null when the sentence is enough. */
-export function probeFailureHelp(failure: GatewayProbeFailure, origin: string): Help | null {
-  switch (failure.kind) {
-    case 'unreachable':
-      return unreachableHelp(failure.cause, origin);
-    case 'timed-out':
-      return failure.awaitingLocalNetwork ? unreachableHelp({ kind: 'unreachable-local' }, origin) : null;
-    default:
-      return null;
-  }
 }

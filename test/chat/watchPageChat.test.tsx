@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatConfig } from '../../src/config/runtimeConfig';
 import { StreamWatcher } from '../../src/features/player/StreamWatcher/StreamWatcher';
 import { ChatUserProvider } from '../../src/features/chat/User';
+import { ConnectProvider } from '../../src/features/connect/ConnectContext';
 import { FakeSwarmChat } from '../helpers/fakeSwarmChat';
 import { mount, settle, text, waitFor, type Mounted } from '../helpers/dom';
 
@@ -51,12 +52,16 @@ function openWatchPage() {
       ChatUserProvider,
       null,
       createElement(
-        MemoryRouter,
-        { initialEntries: [`/watch/video/${'a'.repeat(40)}/stream-one`] },
+        ConnectProvider,
+        null,
         createElement(
-          Routes,
-          null,
-          createElement(Route, { path: '/watch/:mediatype/:owner/:topic', element: createElement(StreamWatcher) }),
+          MemoryRouter,
+          { initialEntries: [`/watch/video/${'a'.repeat(40)}/stream-one`] },
+          createElement(
+            Routes,
+            null,
+            createElement(Route, { path: '/watch/:mediatype/:owner/:topic', element: createElement(StreamWatcher) }),
+          ),
         ),
       ),
     ),

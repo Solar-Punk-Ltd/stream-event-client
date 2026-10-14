@@ -8,8 +8,8 @@ import { answerSlotNotesAsAbsent, refuseOtherOrigins, serveConfig } from './jour
 import { GATEWAY_URL_PATTERN, type Published, RECORDED_DIR, RecordingFile, SMOKE_USER } from './recording';
 
 /**
- * The theme switcher in the logged-in name's menu, against the recorded deployment: a pick dresses the page in that
- * theme's colours and typefaces, leaves the deployment's words and tab alone, and survives a reload and a logout.
+ * The theme switcher under the viewer's ID in Connect, against the recorded deployment: a pick dresses the page in that
+ * theme's colours and typefaces, leaves the deployment's words and tab alone, and survives a reload and a guest leaving.
  * Set `THEME_SCREENSHOTS_DIR` to a folder outside the repository to keep a picture of the browse page in every
  * theme at 1440 and 390 wide.
  */
@@ -35,7 +35,14 @@ async function wornTheme(page: Page) {
 
 async function openNameMenu(page: Page) {
   await page.getByRole('banner').getByRole('button', { name: SMOKE_USER, exact: true }).click();
-  return page.getByRole('radiogroup', { name: 'Theme' });
+  return page.getByRole('dialog').getByRole('radiogroup', { name: 'Theme' });
+}
+
+async function joinAsGuest(page: Page) {
+  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('dialog').getByRole('textbox', { name: 'Your name', exact: true }).fill(SMOKE_USER);
+  await page.getByRole('dialog').getByRole('button', { name: 'Chat as guest', exact: true }).click();
+  await page.keyboard.press('Escape');
 }
 
 async function screenshots(page: Page, theme: ThemeName): Promise<void> {
@@ -69,9 +76,7 @@ test("a logged-in viewer switches the look, keeps the deployment's words, and ke
   expect(before.theme).toBe('swarm');
   expect(await page.getByRole('radiogroup', { name: 'Theme' }).count(), 'no switcher before logging in').toBe(0);
 
-  await page.getByRole('banner').getByRole('button', { name: 'Join chat', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Display name', exact: true }).fill(SMOKE_USER);
-  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  await joinAsGuest(page);
 
   const heroTitle = await page.getByRole('heading', { level: 1 }).textContent();
   for (const theme of THEME_NAMES) {
@@ -106,10 +111,11 @@ test("a logged-in viewer switches the look, keeps the deployment's words, and ke
   expect((await wornTheme(page)).theme, 'the pick survives a reload').toBe('web3privacy');
 
   await page.getByRole('banner').getByRole('button', { name: SMOKE_USER, exact: true }).click();
-  await page.getByRole('button', { name: 'Log out', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Log out', exact: true }).click();
-  await expect(page.getByRole('banner').getByRole('button', { name: 'Join chat', exact: true })).toBeVisible();
-  expect((await wornTheme(page)).theme, 'the pick survives a logout').toBe('web3privacy');
+  await page.getByRole('dialog').getByRole('button', { name: 'Leave', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Leave', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
+  expect((await wornTheme(page)).theme, 'the pick survives a guest leaving').toBe('web3privacy');
 });
 
 test('pictures of the watch page, its chat and the dialogs in every look', async ({ page, context }) => {
@@ -123,9 +129,7 @@ test('pictures of the watch page, its chat and the dialogs in every look', async
   await serveConfig(page, { ...config, theme: 'swarm' });
   await answerSlotNotesAsAbsent(page, published.chat.topic, config.chat.feedOwner);
   await page.goto('/');
-  await page.getByRole('banner').getByRole('button', { name: 'Join chat', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Display name', exact: true }).fill(SMOKE_USER);
-  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  await joinAsGuest(page);
   await page.getByRole('link', { name: new RegExp(published.stream.title) }).click();
   const chat = page.getByRole('region', { name: 'Chat', exact: true });
   await expect(chat.getByText(published.chat.texts[0], { exact: true })).toBeVisible({ timeout: 20_000 });
@@ -139,14 +143,12 @@ test('pictures of the watch page, its chat and the dialogs in every look', async
       await page.setViewportSize({ width, height: width > 800 ? 1000 : 844 });
       await page.screenshot({ path: join(dir, `watch-${theme}-${width}.png`), fullPage: true });
 
-      await page.getByRole('button', { name: /^Sources/ }).click();
-      await page.screenshot({ path: join(dir, `sources-${theme}-${width}.png`) });
-      await page.keyboard.press('Escape');
-
       await page.getByRole('banner').getByRole('button', { name: SMOKE_USER, exact: true }).click();
-      await page.getByRole('button', { name: 'Log out', exact: true }).click();
-      await page.screenshot({ path: join(dir, `logout-${theme}-${width}.png`) });
+      await page.screenshot({ path: join(dir, `connect-${theme}-${width}.png`) });
+      await page.getByRole('dialog').getByRole('button', { name: 'Leave', exact: true }).click();
+      await page.screenshot({ path: join(dir, `leave-${theme}-${width}.png`) });
       await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.keyboard.press('Escape');
     }
     await page.setViewportSize({ width: 1280, height: 720 });
   }

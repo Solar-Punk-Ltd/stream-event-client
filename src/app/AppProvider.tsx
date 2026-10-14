@@ -10,16 +10,18 @@ import { THEME_CONTENT, type ThemeContent } from '@/design/themes';
 import { gatewayClock } from '@/shared/gatewayClock';
 import type { SwarmClient, SwarmReader } from '@/swarm/client';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
-import { CHAT_SERVICE_ID, type PartSources, resolveRouting, type Routing, withoutSource } from '@/swarm/routing';
-import { CHAT_READ_GATEWAY_ID, type GatewaySetting, type SwarmSettings, swarmSettingsFrom } from '@/swarm/settings';
+import { type PartSources, resolveRouting, type Routing, withoutSource } from '@/swarm/routing';
+import { type SwarmSettings, swarmSettingsFrom } from '@/swarm/settings';
 import {
   type AddedSource,
   addSource as withSourceAdded,
   allSources,
+  chatHistorySettingOf,
   gatewaySettingOf,
   type NewSource,
   removeSource as withSourceRemoved,
   renameSource as withSourceRenamed,
+  hasAddress,
   type Source,
   servesVideoOnly,
 } from '@/swarm/sources';
@@ -62,13 +64,18 @@ type AppContextState = {
   /** The one way the app reads Swarm, each part from its own source and nothing else. */
   swarm: SwarmClient;
   /**
-   * The chat reader of the client in use when it is called, routed to the event's chat read address.
+   * The chat reader of the client in use when it is called, on the source picked for the chat history.
    * The same function for the life of the page, so a running chat follows a rebuilt client.
    */
   chatReads: () => SwarmReader;
+  /**
+   * The source picked for the chat history as the base URL of a Bee node's API, which Swarm ID reads the chat
+   * through for this site, or null for a source with no such address, the node in this browser.
+   */
+  chatHistoryBeeUrl: () => string | null;
   /** The gateways this deployment offers, and its default. */
   swarmSettings: SwarmSettings;
-  /** The stream list feed this event publishes, which the Sources screen's checks read. */
+  /** The stream list feed this event publishes, which the checks of a source read. */
   catalogFeed: { readonly owner: string; readonly topic: string };
   /** The deployment's gateways, then the gateways and Bee nodes the viewer added. */
   sources: readonly Source[];
@@ -105,14 +112,7 @@ type Props = {
   children: ReactNode;
 };
 
-/** What a part's source id reads from: a source, or for the chat its service, or the chosen source on a site without chat. */
-function gatewayOf(sources: readonly Source[], id: string, chat: ChatConfig | null): GatewaySetting | null {
-  if (id === CHAT_SERVICE_ID) {
-    return chat ? { id: CHAT_READ_GATEWAY_ID, kind: 'bee-http', url: chat.readUrl } : null;
-  }
-  const source = sources.find((candidate) => candidate.id === id);
-  return source ? gatewaySettingOf(source) : null;
-}
+const sourceOf = (sources: readonly Source[], id: string) => sources.find((candidate) => candidate.id === id) ?? null;
 
 interface Wiring {
   readonly sources: readonly Source[];
@@ -140,20 +140,35 @@ function clientKey({ sources, parts }: Wiring): string {
 
 /**
  * The client for the parts' sources, sharing the one gateway clock the player's time markers read, so
- * the player's answers correct it as well as the stream list's. The chat reads from the event's chat
- * read address unless the viewer picked another source for it, because the chat server writes its feed
- * there and the gateways the deployment offers refuse the chat's paths.
+ * the player's answers correct it as well as the stream list's. The chat history reads from its source
+ * where that source serves the chat's paths, which for the event gateway is the chat read address.
  */
 function swarmClientFor(settings: SwarmSettings, wiring: Wiring, chat: ChatConfig | null): SwarmClient {
   const { sources, parts } = wiring;
-  const player = gatewayOf(sources, parts.player, chat) ?? undefined;
+  const player = sourceOf(sources, parts.player);
   const routes = Object.fromEntries(
     (['stream-list', 'previews', 'chat'] as const).flatMap((part) => {
-      const gateway = gatewayOf(sources, parts[part], chat);
-      return gateway ? [[part, gateway]] : [];
+      const source = sourceOf(sources, parts[part]);
+      if (source === null) {
+        return [];
+      }
+      const gateway =
+        part === 'chat'
+          ? chatHistorySettingOf(source, settings.defaultId, chat?.readUrl ?? null)
+          : gatewaySettingOf(source);
+      return [[part, gateway]];
     }),
   );
-  return createSwarmClient(settings, { choice: player, routes, client: { clock: gatewayClock } });
+  return createSwarmClient(settings, {
+    choice: player ? gatewaySettingOf(player) : undefined,
+    routes,
+    client: { clock: gatewayClock },
+  });
+}
+
+/** An address the browser reaches, a path on this site such as `/bee` resolved against the page. */
+function absoluteUrl(url: string): string {
+  return new URL(url, typeof location === 'undefined' ? 'http://localhost' : location.origin).href.replace(/\/+$/, '');
 }
 
 export const AppContextProvider = ({ config, children }: Props) => {
@@ -170,6 +185,15 @@ export const AppContextProvider = ({ config, children }: Props) => {
   });
   const swarmRef = useRef(swarm);
   const chatReads = useCallback(() => swarmRef.current.reader('chat'), []);
+  const wiringRef = useRef(wiring);
+  wiringRef.current = wiring;
+  const chatHistoryBeeUrl = useCallback(() => {
+    const source = sourceOf(wiringRef.current.sources, wiringRef.current.parts.chat);
+    if (source === null || !hasAddress(source.type)) {
+      return null;
+    }
+    return absoluteUrl(chatHistorySettingOf(source, settings.defaultId, chat?.readUrl ?? null).url);
+  }, [settings, chat]);
   const choicesRef = useRef(choices);
   const clientKeyRef = useRef(clientKey(wiring));
 
@@ -328,6 +352,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
         readNextStreamListSlot,
         swarm,
         chatReads,
+        chatHistoryBeeUrl,
         swarmSettings: settings,
         catalogFeed: config.catalog,
         sources: wiring.sources,

@@ -3,6 +3,7 @@ import { useCallback, useId, useMemo, useState } from 'react';
 import { FeedStatus } from '@solarpunkltd/swarm-chat-js';
 
 import type { ChatConfig } from '@/config/runtimeConfig';
+import { useConnect } from '@/features/connect/ConnectContext';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 
 import type { ChatReads } from '../chatParts';
@@ -33,7 +34,8 @@ type PendingReactions = Record<string, string>;
 
 /** The chat beside a stream: read by anyone, written to by a viewer who has chosen a name. */
 export function Chat({ chat, topic, reads }: ChatProps) {
-  const { session, setIsLoginModalOpen } = useChatUser();
+  const { session } = useChatUser();
+  const { open: openConnect } = useConnect();
   const settings = useMemo(() => chatSettings(chat, topic, session), [chat, topic, session]);
   const ownAddress = session?.address ?? null;
   const {
@@ -60,7 +62,7 @@ export function Chat({ chat, topic, reads }: ChatProps) {
   const [isFolded, setIsFolded] = useState(false);
   const bodyId = useId();
 
-  const askForName = useCallback(() => setIsLoginModalOpen(true), [setIsLoginModalOpen]);
+  const askForName = openConnect;
   /** Before the library has reported a state nothing has gone wrong, so that counts as live. */
   const isFeedLive = feedStatus === null || feedStatus === FeedStatus.LIVE;
 
