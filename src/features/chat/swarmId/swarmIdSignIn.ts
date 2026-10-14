@@ -51,6 +51,11 @@ interface SwarmIdSignInOptions {
   scope: VerifyScope;
   load: LoadSwarmIdClient;
   warn?: (message: string) => void;
+  /**
+   * The Bee API base URL of the source the viewer picked for the chat history, which this site's content in Swarm ID
+   * follows, or null for a source with no such address.
+   */
+  beeApiUrl?: string | null;
 }
 
 /**
@@ -64,6 +69,8 @@ export interface SwarmIdSignIn {
   /** Opens the Swarm ID window. Call it from a click and from nothing else, or the browser blocks the window. */
   signIn(): void;
   signOut(): Promise<void>;
+  /** The chat history moved to another source: its Bee API base URL, or null for one with none, which changes nothing. */
+  useBeeApiUrl(url: string | null): void;
   stop(): void;
 }
 
@@ -75,7 +82,21 @@ export function createSwarmIdSignIn({
   scope,
   load,
   warn = (message) => console.warn(message),
+  beeApiUrl = null,
 }: SwarmIdSignInOptions): SwarmIdSignIn {
+  /** The newest address asked for, handed to the client when it is built and on every change after. */
+  let wantedBeeApiUrl = beeApiUrl;
+  /** The address the client was given last, so the same one is not sent twice. */
+  let givenBeeApiUrl: string | null = null;
+  /** Hands the client the newest address once it can take one, which is once it has started. */
+  const sendBeeApiUrl = () => {
+    if (!client || !isReady || wantedBeeApiUrl === null || wantedBeeApiUrl === givenBeeApiUrl) {
+      return;
+    }
+    givenBeeApiUrl = wantedBeeApiUrl;
+    // A refused address leaves this site's content on the one before, which still serves it.
+    client.setBeeApiUrl(wantedBeeApiUrl).catch(() => undefined);
+  };
   let state: SwarmIdState = { status: SWARM_ID_STARTING };
   const listeners = new Set<() => void>();
   let client: SwarmIdClient | null = null;
@@ -177,7 +198,8 @@ export function createSwarmIdSignIn({
       if (hasDocument) {
         document.addEventListener(POLICY_VIOLATION, onPolicyViolation);
       }
-      load({ url, appName, onConnectionChange })
+      givenBeeApiUrl = wantedBeeApiUrl;
+      load({ url, appName, onConnectionChange, ...(wantedBeeApiUrl === null ? {} : { beeApiUrl: wantedBeeApiUrl }) })
         .then((loaded) => {
           client = loaded;
           if (isStopped) {
@@ -186,6 +208,7 @@ export function createSwarmIdSignIn({
           }
           return loaded.initialize().then(() => {
             isReady = true;
+            sendBeeApiUrl();
             apply(reportedEarly ?? loaded.connectionInfo);
             reportedEarly = null;
           });
@@ -223,6 +246,14 @@ export function createSwarmIdSignIn({
       } catch {
         set({ status: SWARM_ID_SIGNED_OUT, problem: SIGN_OUT_FAILED });
       }
+    },
+
+    useBeeApiUrl(next) {
+      if (next === null) {
+        return;
+      }
+      wantedBeeApiUrl = next;
+      sendBeeApiUrl();
     },
 
     stop() {

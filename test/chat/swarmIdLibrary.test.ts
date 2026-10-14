@@ -3,7 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createLibraryClient } from '../../src/features/chat/swarmId/swarmIdLibrary';
 
-const built = vi.hoisted(() => ({ options: [] as Array<Record<string, unknown>>, destroyed: 0 }));
+const built = vi.hoisted(() => ({
+  options: [] as Array<Record<string, unknown>>,
+  destroyed: 0,
+  beeApiUrls: [] as string[],
+}));
 
 /** The library's client, as far as building it and taking it down go. Nothing is framed. */
 vi.mock('@solarpunkltd/swarm-id', () => ({
@@ -15,6 +19,9 @@ vi.mock('@solarpunkltd/swarm-id', () => ({
     connect = async () => {};
     disconnect = async () => {};
     getChatKey = async () => new Uint8Array();
+    setBeeApiUrl = async (url: string) => {
+      built.beeApiUrls.push(url);
+    };
     get connectionInfo() {
       return {};
     }
@@ -30,6 +37,7 @@ afterEach(() => {
   document.body.innerHTML = '';
   built.options.length = 0;
   built.destroyed = 0;
+  built.beeApiUrls.length = 0;
 });
 
 describe("the library's client", () => {
@@ -43,6 +51,21 @@ describe("the library's client", () => {
       metadata: { name: 'Devcon streams' },
       containerId: container?.id,
     });
+  });
+
+  it("hands the library the chat history's Bee address at construction and on every change, and none it was not given", async () => {
+    const client = createLibraryClient({
+      url: 'https://id.example.com',
+      appName: 'Devcon streams',
+      onConnectionChange: () => {},
+      beeApiUrl: 'https://event.example.com/chat',
+    });
+    await client.setBeeApiUrl('http://localhost:1633');
+    createLibraryClient({ url: 'https://id.example.com', appName: 'Devcon streams', onConnectionChange: () => {} });
+
+    expect(built.options[0]).toMatchObject({ beeApiUrl: 'https://event.example.com/chat' });
+    expect(built.beeApiUrls).toEqual(['http://localhost:1633']);
+    expect(built.options[1]).not.toHaveProperty('beeApiUrl');
   });
 
   it('takes the container away with the client', () => {

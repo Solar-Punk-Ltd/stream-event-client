@@ -26,7 +26,12 @@ const FALLBACK_APP_NAME = 'Swarm streams';
  * The one place the viewer builds the library's client. Assigning it to our shape checks the two still agree, and
  * taking it down takes the container with it.
  */
-export function createLibraryClient({ url, appName, onConnectionChange }: SwarmIdClientOptions): SwarmIdClient {
+export function createLibraryClient({
+  url,
+  appName,
+  onConnectionChange,
+  beeApiUrl,
+}: SwarmIdClientOptions): SwarmIdClient {
   const container = frameContainer();
   const client: SwarmIdClient = new LibraryClient({
     iframeOrigin: url,
@@ -34,12 +39,14 @@ export function createLibraryClient({ url, appName, onConnectionChange }: SwarmI
     popupMode: 'popup',
     containerId: container.id,
     onConnectionChange,
+    ...(beeApiUrl === undefined ? {} : { beeApiUrl }),
   });
   return {
     initialize: () => client.initialize(),
     connect: () => client.connect(),
     disconnect: () => client.disconnect(),
     getChatKey: () => client.getChatKey(),
+    setBeeApiUrl: (address) => client.setBeeApiUrl(address),
     get connectionInfo() {
       return client.connectionInfo;
     },

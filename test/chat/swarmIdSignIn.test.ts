@@ -51,13 +51,18 @@ async function until(signIn: SwarmIdSignIn, status: SwarmIdState['status']): Pro
   return signIn.getState();
 }
 
-async function started(swarmId: FakeSwarmId, warn: (message: string) => void = () => {}): Promise<SwarmIdSignIn> {
+async function started(
+  swarmId: FakeSwarmId,
+  warn: (message: string) => void = () => {},
+  beeApiUrl: string | null = null,
+): Promise<SwarmIdSignIn> {
   const signIn = createSwarmIdSignIn({
     url: 'https://id.example.com',
     appName: 'Devcon streams',
     scope: PAGE,
     load: swarmId.load,
     warn,
+    beeApiUrl,
   });
   signIn.start();
   await settled();
@@ -71,6 +76,69 @@ function signedInSession(state: SwarmIdState) {
   }
   return state.session;
 }
+
+describe("the Bee address Swarm ID reads this site's content through", () => {
+  const CHAT_HISTORY = 'https://event.example.com/chat';
+
+  it("is the chat history's source when the client is built", async () => {
+    const swarmId = await fakeSwarmId();
+    await started(swarmId, () => {}, CHAT_HISTORY);
+
+    expect(swarmId.client().options.beeApiUrl).toBe(CHAT_HISTORY);
+    expect(swarmId.client().beeApiUrls).toEqual([]);
+  });
+
+  it('follows the chat history to another source, once each time it moves', async () => {
+    const swarmId = await fakeSwarmId();
+    const signIn = await started(swarmId, () => {}, CHAT_HISTORY);
+
+    signIn.useBeeApiUrl('http://localhost:1633');
+    signIn.useBeeApiUrl('http://localhost:1633');
+    signIn.useBeeApiUrl(CHAT_HISTORY);
+
+    expect(swarmId.client().beeApiUrls).toEqual(['http://localhost:1633', CHAT_HISTORY]);
+  });
+
+  it('is left to Swarm ID for a source with no Bee address, and given once one has it', async () => {
+    const swarmId = await fakeSwarmId();
+    const signIn = await started(swarmId);
+
+    expect(swarmId.client().options).not.toHaveProperty('beeApiUrl');
+    signIn.useBeeApiUrl(null);
+    expect(swarmId.client().beeApiUrls).toEqual([]);
+    signIn.useBeeApiUrl(CHAT_HISTORY);
+    expect(swarmId.client().beeApiUrls).toEqual([CHAT_HISTORY]);
+  });
+
+  it('is the newest one when the source moves before the library has loaded', async () => {
+    const swarmId = await fakeSwarmId();
+    const signIn = createSwarmIdSignIn({
+      url: 'https://id.example.com',
+      appName: 'Devcon streams',
+      scope: PAGE,
+      load: swarmId.load,
+      beeApiUrl: CHAT_HISTORY,
+    });
+    signIn.useBeeApiUrl('http://localhost:1633');
+    signIn.start();
+    await settled();
+    await settled();
+
+    expect(swarmId.client().options.beeApiUrl).toBe('http://localhost:1633');
+    expect(swarmId.client().beeApiUrls).toEqual([]);
+  });
+
+  it('waits for the library to start before moving the address, which it refuses before', async () => {
+    const swarmId = await fakeSwarmId({}, (client) => {
+      client.initializeHangs = true;
+    });
+    const signIn = await started(swarmId, () => {}, CHAT_HISTORY);
+
+    signIn.useBeeApiUrl('http://localhost:1633');
+
+    expect(swarmId.client().beeApiUrls).toEqual([]);
+  });
+});
 
 describe('signing in with Swarm ID', () => {
   it('builds the client for the configured site under this site name, and starts signed out', async () => {

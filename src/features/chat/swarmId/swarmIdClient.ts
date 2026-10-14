@@ -32,6 +32,11 @@ export interface SwarmIdClient {
   /** This site's chat key, which the frame gives only to a signed-in session. */
   getChatKey(): Promise<Uint8Array>;
   readonly connectionInfo: SwarmIdConnectionInfo;
+  /**
+   * Moves the Bee node this site's content is read and written through, which the viewer's chat history source is.
+   * Refused before {@link initialize} has resolved.
+   */
+  setBeeApiUrl(url: string): Promise<void>;
   destroy(): void;
 }
 
@@ -41,6 +46,8 @@ export interface SwarmIdClientOptions {
   /** What the Swarm ID window calls this site. */
   appName: string;
   onConnectionChange: (info: SwarmIdConnectionInfo) => void;
+  /** The Bee node this site's content goes through at first, a Bee API base URL. Swarm ID's own default when absent. */
+  beeApiUrl?: string;
 }
 
 export type LoadSwarmIdClient = (options: SwarmIdClientOptions) => Promise<SwarmIdClient>;

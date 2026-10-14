@@ -72,7 +72,7 @@ type AppContextState = {
    * The source picked for the chat history as the base URL of a Bee node's API, which Swarm ID reads the chat
    * through for this site, or null for a source with no such address, the node in this browser.
    */
-  chatHistoryBeeUrl: () => string | null;
+  chatHistoryBeeUrl: string | null;
   /** The gateways this deployment offers, and its default. */
   swarmSettings: SwarmSettings;
   /** The stream list feed this event publishes, which the checks of a source read. */
@@ -185,15 +185,13 @@ export const AppContextProvider = ({ config, children }: Props) => {
   });
   const swarmRef = useRef(swarm);
   const chatReads = useCallback(() => swarmRef.current.reader('chat'), []);
-  const wiringRef = useRef(wiring);
-  wiringRef.current = wiring;
-  const chatHistoryBeeUrl = useCallback(() => {
-    const source = sourceOf(wiringRef.current.sources, wiringRef.current.parts.chat);
+  const chatHistoryBeeUrl = useMemo(() => {
+    const source = sourceOf(wiring.sources, wiring.parts.chat);
     if (source === null || !hasAddress(source.type)) {
       return null;
     }
     return absoluteUrl(chatHistorySettingOf(source, settings.defaultId, chat?.readUrl ?? null).url);
-  }, [settings, chat]);
+  }, [wiring, settings, chat]);
   const choicesRef = useRef(choices);
   const clientKeyRef = useRef(clientKey(wiring));
 

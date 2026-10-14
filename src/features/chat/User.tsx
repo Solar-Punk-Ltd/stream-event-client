@@ -58,6 +58,11 @@ interface ChatUserProviderProps {
   /** What the Swarm ID window calls this site. */
   appName?: string;
   loadSwarmIdClient?: LoadSwarmIdClient;
+  /**
+   * The Bee API base URL of the source the viewer picked for the chat history, which Swarm ID reads and writes this
+   * site's content through, or null for a source with none.
+   */
+  beeApiUrl?: string | null;
 }
 
 const NO_SWARM_ID = (): null => null;
@@ -71,10 +76,12 @@ function useSwarmIdSignIn(
   url: string | null,
   appName: string,
   load: LoadSwarmIdClient,
+  beeApiUrl: string | null,
 ): [SwarmIdState | null, SwarmIdSignIn | null] {
   const [signIn] = useState(() =>
-    url ? createSwarmIdSignIn({ url, appName, scope: pageScope(window.location), load }) : null,
+    url ? createSwarmIdSignIn({ url, appName, scope: pageScope(window.location), load, beeApiUrl }) : null,
   );
+  useEffect(() => signIn?.useBeeApiUrl(beeApiUrl), [signIn, beeApiUrl]);
   useEffect(() => {
     if (!signIn) {
       return;
@@ -101,9 +108,10 @@ export function ChatUserProvider({
   swarmIdUrl = null,
   appName = '',
   loadSwarmIdClient = loadSwarmIdLibrary,
+  beeApiUrl = null,
 }: ChatUserProviderProps) {
   const [guestSession, setGuestSession] = useState<Session | null>(restoreUserSession);
-  const [swarmId, signIn] = useSwarmIdSignIn(swarmIdUrl, appName, loadSwarmIdClient);
+  const [swarmId, signIn] = useSwarmIdSignIn(swarmIdUrl, appName, loadSwarmIdClient, beeApiUrl);
 
   const loginAsUser = useCallback((name: string): DisplayNameCheck => {
     const checked = checkDisplayName(name);

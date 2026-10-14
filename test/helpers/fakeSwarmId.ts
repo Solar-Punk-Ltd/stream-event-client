@@ -40,6 +40,8 @@ class FakeSwarmIdClient implements SwarmIdClient {
   initializeHangs = false;
   /** The chat key the frame gives, per site, as the fork derives it. */
   chatKey: Uint8Array = new Uint8Array();
+  /** Every Bee address the viewer moved this site's content to after the client was built, in order. */
+  readonly beeApiUrls: string[] = [];
 
   constructor(
     readonly options: SwarmIdClientOptions,
@@ -73,6 +75,10 @@ class FakeSwarmIdClient implements SwarmIdClient {
       throw Object.assign(new Error('Not authenticated'), { code: 'not-authenticated' });
     }
     return this.chatKey;
+  }
+
+  async setBeeApiUrl(url: string): Promise<void> {
+    this.beeApiUrls.push(url);
   }
 
   get connectionInfo(): SwarmIdConnectionInfo {

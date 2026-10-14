@@ -298,7 +298,7 @@ describe("the app's Swarm client", () => {
     await chatReads().readChunk(REFERENCE);
 
     expect(asked.slice(before)).toEqual([`${CHAT_READ}/chunks/${REFERENCE}`]);
-    expect(current().chatHistoryBeeUrl()).toBe(CHAT_READ);
+    expect(current().chatHistoryBeeUrl).toBe(CHAT_READ);
   });
 
   it('reads the chat history from the source picked for all features, as every other part', async () => {
@@ -312,7 +312,7 @@ describe("the app's Swarm client", () => {
 
     expect(current().chatReads).toBe(chatReads);
     expect(asked.slice(before)).toEqual([`${OWN_NODE}/chunks/${REFERENCE}`, `${OWN_NODE}/bytes/${REFERENCE}`]);
-    expect(current().chatHistoryBeeUrl()).toBe(OWN_NODE);
+    expect(current().chatHistoryBeeUrl).toBe(OWN_NODE);
   });
 
   it('reads the chat from a source the viewer picks for it per part', async () => {
@@ -325,7 +325,7 @@ describe("the app's Swarm client", () => {
     await chatReads().readChunk(REFERENCE);
 
     expect(asked.slice(before)[0]).toBe(`${BACKUP_GATEWAY}/chunks/${REFERENCE}`);
-    expect(current().chatHistoryBeeUrl()).toBe(BACKUP_GATEWAY);
+    expect(current().chatHistoryBeeUrl).toBe(BACKUP_GATEWAY);
   });
 
   it("keeps the chat history's Bee address while the video reads from the node in this browser", async () => {
@@ -336,7 +336,7 @@ describe("the app's Swarm client", () => {
     current().setRouting(setPart(setMode(current().routing, 'per-part'), 'player', id));
     await settle();
 
-    expect(current().chatHistoryBeeUrl()).toBe(CHAT_READ);
+    expect(current().chatHistoryBeeUrl).toBe(CHAT_READ);
   });
 
   it("keeps the shared gateway clock from the player's answers' server time", async () => {

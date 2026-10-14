@@ -167,6 +167,12 @@ with that key and carries the binding, so every reader shows the Swarm ID badge.
 connects a wallet and never sees the account's own key. Messages still go through the event gateway,
 which stamps them.
 
+- **The Bee node Swarm ID uses for this site.** The page hands Swarm ID the address of the source picked
+  for the chat history, as a Bee API base, when it starts the library and again whenever that source
+  changes, so this site's content in Swarm ID follows the viewer's choice. For the event gateway that is
+  `chat.readUrl`. A source with no Bee address, the node in this browser, is never handed over, and Swarm
+  ID then keeps the address it had. Swarm ID's coordination of the person's account and devices stays
+  on their own node whatever this page names.
 - **The chat name** is the account's name, trimmed and cut to the chat's 20 characters. An account
   with no name chats under its short address. The header shows the chat name with its badge, the grey
   hexagon of a guest or the filled one of Swarm ID, as every message does. Connect says "Swarm ID" and the account's name

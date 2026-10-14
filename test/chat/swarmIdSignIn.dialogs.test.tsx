@@ -303,3 +303,18 @@ describe('a Swarm ID site that cannot be used', () => {
     expect(restoreUserSession()?.username).toBe('Ada');
   });
 });
+
+describe("the Bee address Swarm ID reads this site's content through", () => {
+  it("is the chat history's source, and follows it when the viewer picks another", async () => {
+    const swarmId = await fakeSwarmId();
+    await header(swarmId);
+
+    expect(swarmId.client().options.beeApiUrl).toBe('https://chat-read.example.com');
+    const id = seen.app!.addSource({ type: 'bee-node', name: 'Desk node', url: 'http://localhost:1633' });
+    await settle();
+    seen.app!.setRouting({ mode: 'one', source: id, parts: seen.app!.routing.parts });
+    await settle();
+
+    expect(swarmId.client().beeApiUrls).toEqual(['http://localhost:1633']);
+  });
+});

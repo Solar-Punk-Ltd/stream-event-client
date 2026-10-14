@@ -4,7 +4,8 @@ import { AppContextProvider, useAppContext } from '../../src/app/AppProvider';
 import { ThemeChoiceProvider } from '../../src/app/ThemeChoiceProvider';
 import type { RuntimeConfig } from '../../src/config/runtimeConfig';
 import { SwarmIdPageNotice } from '../../src/features/chat/swarmId/SwarmIdParts';
-import { ChatUserProvider, useChatUser } from '../../src/features/chat/User';
+import { AppChatUserProvider } from '../../src/app/AppChatUserProvider';
+import { useChatUser } from '../../src/features/chat/User';
 import { Connect } from '../../src/features/connect/Connect';
 import { ConnectProvider, useConnect } from '../../src/features/connect/ConnectContext';
 
@@ -75,7 +76,7 @@ export function connectPage({
         ThemeChoiceProvider,
         { config },
         createElement(
-          ChatUserProvider,
+          AppChatUserProvider,
           swarmId
             ? { swarmIdUrl: 'https://id.example.com', appName: 'Devcon streams', loadSwarmIdClient: swarmId.load }
             : {},
