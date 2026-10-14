@@ -658,7 +658,10 @@ controls the page, and counts as failed when it is not ready after 30 s.
   a time: entry 0 and every power of four less one, then wider steps past the newest entry found until one misses,
   then even cuts of the gap until the newest entry and the missing one above it touch. A miss costs weeb-3 about
   17 s, so a head read takes a few of those, about a minute for a feed of a few hundred entries, and the answer it
-  gives is always an entry read with the one above it read missing. A single-owner chunk comes back as the chunk it
+  gives is always an entry read with the one above it read missing. A later head read of the same feed starts from the
+  head found before, reading it and the five entries above it at once, so a polled chat, stream list or own feed that
+  gained up to four entries costs one round. When the head found before is missing, the head went back below it, and
+  the search starts again from scratch rather than keep the old one. A single-owner chunk comes back as the chunk it
   wraps, without the identifier and signature that prove it the owner's, so a read of one by its address answers
   unsupported, and plainly. The chat reads its slots, its notes and a sender's own copies by the owner and the
   identifier instead (`readUnsignedSoc`), and takes weeb-3's word for whose chunk it is

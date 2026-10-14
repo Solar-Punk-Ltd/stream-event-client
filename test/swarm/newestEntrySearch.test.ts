@@ -38,3 +38,28 @@ describe("a feed's newest entry, found by reading entries by index", () => {
     expect(indexOf(await findNewestEntry(feedOf(entries).read))).toBe(expected);
   });
 });
+
+describe('a later search, from the newest entry found before', () => {
+  it.each<[string, number[], number, number | string, number]>([
+    ['a feed that has not moved, one round', upTo(300), 300, 300, 8],
+    ['a feed that grew by three, one round', upTo(303), 300, 303, 8],
+    ['a feed that grew by four, one round', upTo(304), 300, 304, 8],
+    ['a feed that grew by five, two rounds', upTo(305), 300, 305, 16],
+    ['a feed that grew far, galloping on from there', upTo(900), 300, 900, 56],
+    ['a head that went back below what was found, searched again from scratch', upTo(120), 300, 120, 50],
+    ['a feed that is gone, not found', [], 300, 'not-found', 16],
+  ])('%s', async (_, entries, from, expected, mostReads) => {
+    const feed = feedOf(entries);
+
+    expect(indexOf(await findNewestEntry(feed.read, from))).toBe(expected);
+    expect(feed.asked.length).toBeLessThanOrEqual(mostReads);
+  });
+
+  it('asks the entry found before and the ones just above it first', async () => {
+    const feed = feedOf(upTo(300));
+
+    await findNewestEntry(feed.read, 300);
+
+    expect(feed.asked.slice(0, 3)).toEqual([300, 301, 302]);
+  });
+});

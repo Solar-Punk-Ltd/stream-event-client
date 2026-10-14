@@ -221,6 +221,33 @@ describe('the weeb-3 provider', () => {
     expect(log.urls.length).toBeLessThan(40);
   });
 
+  it("searches a feed's head again from the head it found before, so a poll costs one round", async () => {
+    const topic = Topic.fromString('a-polled-feed');
+    let newest = 137;
+    const log: AskedLog = { urls: [] };
+    const growing = (async (input: RequestInfo | URL) => feedFetch(topic, newest, log)(input)) as typeof fetch;
+    const { provider } = weeb3(growing);
+
+    await provider.readFeedHead(OWNER, topic);
+    const first = log.urls.length;
+    newest = 139;
+    const again = await provider.readFeedHead(OWNER, topic);
+
+    expect(again).toMatchObject({ kind: 'content', feedIndex: 139 });
+    expect(log.urls.length - first).toBe(8);
+  });
+
+  it('finds a head that went back below the one it found before, rather than keeping the old one', async () => {
+    const topic = Topic.fromString('a-shrunk-feed');
+    let newest = 137;
+    const { provider } = weeb3((async (input: RequestInfo | URL) => feedFetch(topic, newest)(input)) as typeof fetch);
+
+    await provider.readFeedHead(OWNER, topic);
+    newest = 40;
+
+    expect(await provider.readFeedHead(OWNER, topic)).toMatchObject({ kind: 'content', feedIndex: 40 });
+  });
+
   it('keeps at most eight reads open at once while it searches', async () => {
     const topic = Topic.fromString('a-counted-feed');
     let open = 0;

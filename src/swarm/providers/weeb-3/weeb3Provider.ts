@@ -94,6 +94,8 @@ export class Weeb3Provider implements SwarmProvider {
   private readonly runtime: Weeb3RuntimeView;
   private readonly fetcher: typeof fetch;
   private readonly pageOrigin: string;
+  /** The newest entry found of each feed, by owner and topic, which the next head read starts from. */
+  private readonly headsFound = new Map<string, number>();
 
   constructor(options: Weeb3ProviderOptions) {
     this.runtime = options.runtime;
@@ -105,13 +107,24 @@ export class Weeb3Provider implements SwarmProvider {
 
   /**
    * weeb-3's feed route is its own player's playlist and reports no index, so the newest entry is found by reading
-   * entries by index. A miss costs weeb-3 about 17 s, so a head read takes a few of those.
+   * entries by index. A miss costs weeb-3 about 17 s, so a first head read takes a few of those, and every later one
+   * starts from the head found before, which costs a polled feed one round.
    */
   async readFeedHead(owner: string, topic: Topic, options?: ReadOptions): Promise<SwarmAnswer> {
     if (options?.signal?.aborted) {
       return ABORTED;
     }
-    return findNewestEntry((index) => this.readFeedEntry(owner, topic, index, options));
+    const feed = `${owner.toLowerCase()}/${topic.toHex()}`;
+    const answer = await findNewestEntry(
+      (index) => this.readFeedEntry(owner, topic, index, options),
+      this.headsFound.get(feed),
+    );
+    if (answer.kind === 'content' && answer.feedIndex !== null) {
+      this.headsFound.set(feed, answer.feedIndex);
+    } else if (answer.kind === 'not-found') {
+      this.headsFound.delete(feed);
+    }
+    return answer;
   }
 
   async readFeedEntry(owner: string, topic: Topic, index: number, options?: ReadOptions): Promise<SwarmAnswer> {

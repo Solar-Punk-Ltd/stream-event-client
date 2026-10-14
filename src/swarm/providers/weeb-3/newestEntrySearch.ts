@@ -10,6 +10,16 @@ const FIRST_ROUND: readonly number[] = Array.from({ length: PARALLEL_READS }, (_
 
 type ReadEntry = (index: number) => Promise<SwarmAnswer>;
 
+/**
+ * A later search's first round, as steps above the entry found before: that entry, the five after it, so a polled
+ * chat or stream list that gained up to four costs one round, and two longer steps for a feed that moved further.
+ */
+const STEPS_FROM_BEFORE: readonly number[] = [0, 1, 2, 3, 4, 5, 16, 64];
+
+function roundFrom(from: number): number[] {
+  return STEPS_FROM_BEFORE.map((step) => from + step);
+}
+
 type ContentAnswer = Extract<SwarmAnswer, { kind: 'content' }>;
 
 interface Bracket {
@@ -43,11 +53,17 @@ function nextRound(bracket: Bracket, gallop: number): number[] {
  *
  * Every read answers as it does: the search ends on the first round that met anything but content or not found, and
  * answers that, since a head it could not prove would be a wrong one. The answer found carries its index.
+ *
+ * `from` is the newest entry an earlier search found. A later search starts there, reading it and the entries just
+ * above, so a feed that moved a little costs one round rather than the few misses of a search from scratch. When that
+ * entry is missing, the head went back below it, and the search starts again from scratch rather than keep it.
  */
-export async function findNewestEntry(read: ReadEntry): Promise<SwarmAnswer> {
+export async function findNewestEntry(read: ReadEntry, from?: number): Promise<SwarmAnswer> {
   const bracket: Bracket = { newest: null, firstMissing: null };
-  let wanted = [...FIRST_ROUND];
+  const hinted = from !== undefined && Number.isSafeInteger(from) && from >= 0;
+  let wanted = hinted ? roundFrom(from) : [...FIRST_ROUND];
   let gallop = 1;
+  let firstRound = true;
   for (;;) {
     const indexes = [...new Set(wanted)].filter((index) => Number.isSafeInteger(index) && index >= 0);
     const answers = await Promise.all(indexes.map((index) => read(index)));
@@ -55,6 +71,11 @@ export async function findNewestEntry(read: ReadEntry): Promise<SwarmAnswer> {
     if (fault) {
       return fault;
     }
+    if (hinted && firstRound && answers[0].kind !== 'content') {
+      // The entry found before is gone, so the head went back below it, and only a search from scratch finds it.
+      return findNewestEntry(read);
+    }
+    firstRound = false;
     const misses: number[] = bracket.firstMissing === null ? [] : [bracket.firstMissing];
     answers.forEach((answer, at) => {
       const index = indexes[at];
