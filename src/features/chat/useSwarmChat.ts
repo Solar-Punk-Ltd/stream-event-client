@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type ChatEvent,
+  type ChatIdentity,
   type ChatEventPayloads,
   type ChatSettings,
   EVENTS,
@@ -13,6 +14,7 @@ import {
 import { type ChatReads, chatParts } from './chatParts';
 import { draftProblem } from './draftCheck';
 import { groupReactions, type ReactionsByMessage } from './reactions';
+import { chatVerifier } from './verify/chatVerifier';
 
 /** Where a message stands on its way from this browser to the chat feed, as the library's sender reports it. */
 interface DeliveryState {
@@ -26,7 +28,13 @@ interface DeliveryState {
   error?: boolean;
 }
 
-export interface VisibleMessage extends MessageData, DeliveryState {}
+/** A message whose signature, and Swarm ID binding if it carries one, passed the check for this page. */
+export interface CheckedMessage extends MessageData {
+  /** The Swarm ID account that vouched for the sender, or null for a guest. */
+  identity: ChatIdentity | null;
+}
+
+export interface VisibleMessage extends CheckedMessage, DeliveryState {}
 
 export const CHAT_LOADING = 'loading';
 export const CHAT_READY = 'ready';
@@ -37,7 +45,7 @@ export type ChatStatus = typeof CHAT_LOADING | typeof CHAT_READY | typeof CHAT_U
 const PENDING_INDEX = -1;
 
 /**
- * Published messages by their place in the chat feed, then pending ones by the sender's clock, as library 7.0 orders
+ * Published messages by their place in the chat feed, then pending ones by the sender's clock, as the library orders
  * them. A timestamp cannot order the two kinds together: a published one is the server's, a pending one the sender's.
  */
 function inChatOrder(a: MessageData, b: MessageData): number {
@@ -52,7 +60,7 @@ function inChatOrder(a: MessageData, b: MessageData): number {
 /** One entry per message id, the latest delivery state laid over what was known, in chat order. */
 export function mergeMessage(
   messages: VisibleMessage[],
-  incoming: MessageData,
+  incoming: CheckedMessage,
   delivery: DeliveryState,
 ): VisibleMessage[] {
   const index = messages.findIndex((message) => message.id === incoming.id);
@@ -95,6 +103,9 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
   const [feedStatus, setFeedStatus] = useState<FeedStatus | null>(null);
+  const [refusedCount, setRefusedCount] = useState(0);
+  /** The refused messages of the chat on screen, so one carried by several events is counted once. */
+  const refusedRef = useRef(new Set<string>());
 
   useEffect(() => {
     const current = JSON.parse(settingsKey) as ChatSettings;
@@ -102,6 +113,8 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
     if (shownChatKeyRef.current !== currentChatKey) {
       shownChatKeyRef.current = currentChatKey;
       setMessages([]);
+      refusedRef.current = new Set();
+      setRefusedCount(0);
       setStatus(CHAT_LOADING);
       setHasOlder(false);
       setIsLoadingOlder(false);
@@ -130,9 +143,24 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
         removeListeners.push(() => off(event, listener));
       };
       const onMessage = (delivery: DeliveryState) => (data: MessageData) => {
-        if (!stopped) {
-          setMessages((previous) => mergeMessage(previous, data, delivery));
-        }
+        // verify never rejects. The events of one message carry the same signed message, so their verdicts
+        // come back in the order they were asked for.
+        void chatVerifier()
+          .verify(data.signedMessage)
+          .then((verdict) => {
+            if (stopped) {
+              return;
+            }
+            if (verdict.ok) {
+              setMessages((previous) => mergeMessage(previous, { ...data, identity: verdict.identity }, delivery));
+              return;
+            }
+            const key = JSON.stringify(data.signedMessage) ?? data.id;
+            if (!refusedRef.current.has(key)) {
+              refusedRef.current.add(key);
+              setRefusedCount((count) => count + 1);
+            }
+          });
       };
 
       listen(EVENTS.MESSAGE_REQUEST_INITIATED, onMessage({ error: false, requested: true }));
@@ -291,5 +319,7 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
     fetchOlderMessages,
     retrySendMessage,
     restart,
+    /** Messages the chat delivered that failed their check, never shown. */
+    refusedCount,
   };
 }

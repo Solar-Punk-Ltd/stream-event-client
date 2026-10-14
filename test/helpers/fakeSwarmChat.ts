@@ -59,7 +59,7 @@ export class FakeSwarmChat {
   previousMessages = false;
 
   start = vi.fn(async () => {});
-  /** Library 7.0 keeps the listeners through a stop, so a later start reports to them again. */
+  /** The library keeps the listeners through a stop, so a later start reports to them again. */
   stop = vi.fn(async () => {});
   sendMessage = vi.fn(async () => {});
   retrySendMessage = vi.fn(async () => {});

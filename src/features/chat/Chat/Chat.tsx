@@ -52,6 +52,7 @@ export function Chat({ chat, topic, reads }: ChatProps) {
     fetchOlderMessages,
     retrySendMessage,
     restart,
+    refusedCount,
   } = useSwarmChat(settings, ownAddress, reads);
 
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -186,7 +187,11 @@ export function Chat({ chat, topic, reads }: ChatProps) {
   };
 
   return (
-    <section className={isFolded ? 'chat-container folded' : 'chat-container'} aria-labelledby={`${bodyId}-title`}>
+    <section
+      className={isFolded ? 'chat-container folded' : 'chat-container'}
+      aria-labelledby={`${bodyId}-title`}
+      data-refused-messages={refusedCount}
+    >
       <header className="chat-header">
         <h2 id={`${bodyId}-title`} className="chat-title">
           Chat
