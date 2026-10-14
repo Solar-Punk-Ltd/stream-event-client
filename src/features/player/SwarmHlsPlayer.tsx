@@ -386,6 +386,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
 
       const restartStream = () => {
         console.warn('Restarting stream due to manifest parsing error.');
+        detachResumeOnReturn?.();
         hls?.destroy();
         setRestartTrigger((prev) => prev + 1);
       };

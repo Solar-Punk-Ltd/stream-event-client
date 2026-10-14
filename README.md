@@ -374,11 +374,12 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   the finished playlist, about every 30 seconds and spread per viewer. When the broadcast returns and
   the viewer has reached the end of what they were playing, the player rejoins it live.
 - **Coming back to the page.** A phone that locks pauses the video, and Safari on an iPhone does not
-  start it again on unlock. When the page is visible again on a live stream, a pause that came while
-  the page was hidden, or up to a second before, is resumed at the live position, and a stream still
-  playing but further behind live than hls.js's jump limit is moved there. A pause the viewer made
-  while watching stays paused, a stream playing close to live is left alone, and a recording is never
-  touched.
+  start it again on unlock. When the page is visible again on a live stream that is paused, playback
+  starts again, and it catches up to live once the player has read the newest playlist. A pause the
+  viewer made while watching, more than a second before the page was hidden, stays paused, a stream
+  that is already playing is left to the player, and a recording is never touched. A pause the viewer
+  makes while the page is hidden, from the lock screen's controls, by taking out earphones or with a
+  media key, is undone when the page comes back.
 - **The quality ladder.** A stream published in several qualities is one feed per quality plus a
   master playlist on a feed of its own. When the stream list names the stream's renditions, the
   player builds the master from the list and never reads the master feed. hls.js chooses the
