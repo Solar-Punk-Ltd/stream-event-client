@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router';
 
-import { loadRuntimeConfig, selectedTheme } from '@/config/runtimeConfig';
+import { loadRuntimeConfig, selectedTheme, swarmIdUrl } from '@/config/runtimeConfig';
 import { applyLook, applyThemeContent } from '@/design';
 import { ChatUserProvider } from '@/features/chat/User';
 
@@ -33,7 +33,7 @@ void loadRuntimeConfig().then((result) => {
       {result.ok ? (
         <AppProvider config={result.config}>
           <ThemeChoiceProvider config={result.config}>
-            <ChatUserProvider>
+            <ChatUserProvider swarmIdUrl={swarmIdUrl(result.config)} appName={document.title}>
               <HashRouter>
                 <BaseRouter />
               </HashRouter>

@@ -1,15 +1,45 @@
-import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { checkDisplayName, type DisplayNameCheck, nicknameLogin, type Session } from './auth/login';
 import { persistUserSession, purgeUserSession, restoreUserSession } from './auth/persistence';
 import { LoginModal } from './LoginModal/LoginModal';
+import { type LoadSwarmIdClient, loadSwarmIdLibrary } from './swarmId/swarmIdClient';
+import {
+  createSwarmIdSignIn,
+  SWARM_ID_SIGNED_IN,
+  type SwarmIdSignIn,
+  type SwarmIdState,
+} from './swarmId/swarmIdSignIn';
+import type { SwarmIdSession } from './swarmId/swarmIdSession';
+import { pageScope } from './verify/verdicts';
 
 interface ChatUserContextValue {
-  /** Null for a viewer who has not chosen a name, who can read the chat and not write to it. */
+  /**
+   * Who the viewer chats as: the Swarm ID session when there is one, else the guest. Null for a viewer who has done
+   * neither, who can read the chat and not write to it.
+   */
   session: Session | null;
+  /** The name and key this browser keeps for a guest, kept while the viewer is also signed in with Swarm ID. */
+  guestSession: Session | null;
   /** Signs in and closes the dialog, or hands back why the name was refused. */
   loginAsUser: (name: string) => DisplayNameCheck;
+  /** Leaves as a guest, forgetting the name and the key this browser kept. */
   logout: () => void;
+  /** Null on a deployment that offers no Swarm ID. */
+  swarmId: SwarmIdState | null;
+  swarmIdSession: SwarmIdSession | null;
+  /** Opens the Swarm ID window. Called from a click only, or the browser blocks the window. */
+  signInWithSwarmId: () => void;
+  signOutOfSwarmId: () => void;
   isLoginModalOpen: boolean;
   setIsLoginModalOpen: (open: boolean) => void;
 }
@@ -24,10 +54,60 @@ export function useChatUser(): ChatUserContextValue {
   return context;
 }
 
-/** Who the viewer is in the chat, remembered by this browser, and the dialog that asks for a name. */
-export function ChatUserProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(restoreUserSession);
+interface ChatUserProviderProps {
+  children: ReactNode;
+  /** The Swarm ID site to offer sign-in with, or nothing for a guest name only. */
+  swarmIdUrl?: string | null;
+  /** What the Swarm ID window calls this site. */
+  appName?: string;
+  loadSwarmIdClient?: LoadSwarmIdClient;
+}
+
+const NO_SWARM_ID = (): null => null;
+const NO_LISTENER = () => () => {};
+
+/**
+ * The Swarm ID sign-in for the page, started a tick after its effect runs, so StrictMode's second mount starts one
+ * library and one frame rather than two.
+ */
+function useSwarmIdSignIn(
+  url: string | null,
+  appName: string,
+  load: LoadSwarmIdClient,
+): [SwarmIdState | null, SwarmIdSignIn | null] {
+  const [signIn] = useState(() =>
+    url ? createSwarmIdSignIn({ url, appName, scope: pageScope(window.location), load }) : null,
+  );
+  useEffect(() => {
+    if (!signIn) {
+      return;
+    }
+    let isStarted = false;
+    const timer = setTimeout(() => {
+      isStarted = true;
+      signIn.start();
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      if (isStarted) {
+        signIn.stop();
+      }
+    };
+  }, [signIn]);
+  const state = useSyncExternalStore(signIn ? signIn.subscribe : NO_LISTENER, signIn ? signIn.getState : NO_SWARM_ID);
+  return [state, signIn];
+}
+
+/** Who the viewer is in the chat, and the dialog that asks for a name. A guest is remembered by this browser. */
+export function ChatUserProvider({
+  children,
+  swarmIdUrl = null,
+  appName = '',
+  loadSwarmIdClient = loadSwarmIdLibrary,
+}: ChatUserProviderProps) {
+  const [guestSession, setGuestSession] = useState<Session | null>(restoreUserSession);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [swarmId, signIn] = useSwarmIdSignIn(swarmIdUrl, appName, loadSwarmIdClient);
 
   const loginAsUser = useCallback((name: string): DisplayNameCheck => {
     const checked = checkDisplayName(name);
@@ -36,19 +116,52 @@ export function ChatUserProvider({ children }: { children: ReactNode }) {
     }
     const next = nicknameLogin(checked.name);
     persistUserSession(next);
-    setSession(next);
+    setGuestSession(next);
     setIsLoginModalOpen(false);
     return checked;
   }, []);
 
   const logout = useCallback(() => {
     purgeUserSession();
-    setSession(null);
+    setGuestSession(null);
   }, []);
 
+  const signInWithSwarmId = useCallback(() => signIn?.signIn(), [signIn]);
+  const signOutOfSwarmId = useCallback(() => void signIn?.signOut(), [signIn]);
+
+  const swarmIdSession = swarmId?.status === SWARM_ID_SIGNED_IN ? swarmId.session : null;
+  const session = swarmIdSession ?? guestSession;
+
+  useEffect(() => {
+    if (swarmIdSession) {
+      setIsLoginModalOpen(false);
+    }
+  }, [swarmIdSession]);
+
   const value = useMemo(
-    () => ({ session, loginAsUser, logout, isLoginModalOpen, setIsLoginModalOpen }),
-    [session, loginAsUser, logout, isLoginModalOpen],
+    () => ({
+      session,
+      guestSession,
+      loginAsUser,
+      logout,
+      swarmId,
+      swarmIdSession,
+      signInWithSwarmId,
+      signOutOfSwarmId,
+      isLoginModalOpen,
+      setIsLoginModalOpen,
+    }),
+    [
+      session,
+      guestSession,
+      loginAsUser,
+      logout,
+      swarmId,
+      swarmIdSession,
+      signInWithSwarmId,
+      signOutOfSwarmId,
+      isLoginModalOpen,
+    ],
   );
 
   return (

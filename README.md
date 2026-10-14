@@ -48,6 +48,7 @@ live with the deployment, never in this repository.
 | `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                                                   |
 | `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused                                               |
 | `themeSwitcher` | Optional. Whether a viewer logged in to the chat may switch the colours and typefaces between the build's themes, `true` by default                                |
+| `swarmId.url`   | Optional. The Swarm ID site a viewer may sign in to the chat with, an origin such as `https://id.example.com`. Without it, or without a chat, there is no sign-in  |
 
 A theme has two halves. Its look, the colours and typefaces, is in `src/design/themes/`. Its content, the
 logo, the hero, the footer links and the tab's title and icon, is in `src/design/themes.ts`. The deployment's
@@ -108,7 +109,8 @@ after the change.
 
 One chat per stream, beside the video on a desktop and under it on a phone, where it folds away.
 Anyone can read it. Writing asks once for a display name, 1 to 20 characters, and there is no
-password, wallet or account. A viewer can send a message, react with an emoji, reply in a thread,
+password, wallet or account. A deployment that names a Swarm ID site in `swarmId.url` also offers
+signing in with Swarm ID, described [below](#signing-in-with-swarm-id). A viewer can send a message, react with an emoji, reply in a thread,
 load older messages, and retry a message that did not send. The chat and its library are a file of
 the bundle of their own, fetched as the watch page opens, beside the video rather than after it, and
 the emoji picker is fetched the first time one is drawn: the emoji bar above the message field, or a
@@ -130,9 +132,10 @@ viewer's page carries the same key. It is chosen so the address lands where the 
 and it owns nothing but that shared chat address, which every viewer writes to anyway. A check for
 keys in the tree has to know it.
 
-**What the browser keeps.** The display name, the chat key made for it (32 random bytes from the
+**What the browser keeps.** A guest's display name, the chat key made for it (32 random bytes from the
 browser's own crypto) and its address sit in local storage under `stream-event-client:chat-session`,
-so a reload keeps the name. Logging out removes them. The key proves only that two messages came from
+so a reload keeps the name. Logging out, or Leave beside Swarm ID, removes them. Nothing of a Swarm ID
+sign-in is kept there. The key proves only that two messages came from
 the same browser, and anyone may choose any name. So the badge beside a guest's name opens the
 details, where the sender's full public address tells apart two people who chose the same name.
 
@@ -158,6 +161,58 @@ their own. Every message this page sends says the event gateway paid. The badge,
 there is one, open the message's details: the name, the identity, the public chat address, that the signature
 matches the text, for a Swarm ID the link Swarm ID confirmed for this site and the account's address,
 and who paid for the write.
+
+### Signing in with Swarm ID
+
+Join chat offers two ways in. **Chat as guest** takes a name, as above. **Sign in with Swarm ID**
+opens the Swarm ID window, which the Swarm ID site draws, not this page. The person picks an account
+there, or makes one. The ID then gives this site its chat key for that account and a chat binding, the
+account's signed statement that the key's address on this site is its own. Every message is signed
+with that key and carries the binding, so every reader shows the Swarm ID badge. The page never
+connects a wallet and never sees the account's own key. Messages still go through the event gateway,
+which stamps them.
+
+- **The chat name** is the account's name, trimmed and cut to the chat's 20 characters. An account
+  with no name chats under its short address. The header shows the chat name with its badge, the grey
+  hexagon of a guest or the filled one of Swarm ID, as every message does. The name's menu says "Swarm ID" and the account's name
+  beside it, with Sign out.
+- **A guest can sign in later.** The menu of a guest says "Show it's really you" beside Sign in with
+  Swarm ID. Signing in keeps the guest's name and key in this browser, and signing out chats as that
+  guest again. Leave forgets the guest, as Log out did.
+- **What stays in memory only.** The chat key, the binding and who is signed in are never written to
+  storage. A reload asks the Swarm ID library, whose frame keeps its own session for this site and
+  signs the person in again without a window. When that session has ended, the person signs in again
+  and the window opens again. Sign out ends that session too, so a reload does not restore it.
+- **A blocked window.** A browser opens the window only on a click. When it blocks it anyway, the page
+  says "Your browser blocked the Swarm ID window." with an Open Swarm ID button, whose click opens it.
+- **A binding the chat would refuse** is refused at sign-in rather than at every message: one made for
+  another site, naming another address than the key's, or signed by another account than the one the
+  frame says is signed in, leaves the person signed out with the reason.
+- **When the Swarm ID site cannot be used**, as for a site it does not serve, the join dialog says it
+  cannot be reached and guests chat as before.
+
+**How the page talks to Swarm ID.** The library, `@solarpunkltd/swarm-id` from the Solar Punk fork, is a file
+of the bundle of its own, fetched when the page starts on a deployment that offers Swarm ID, because
+restoring a session needs it. It embeds a hidden frame of the Swarm ID site, which is why the image's
+`SWARM_ID_URL` adds that site to the policy's `frame-src`, and talks to it with `postMessage`. The
+window is a window of its own, opened by the frame or by the page, which the policy does not govern.
+`config.json` is mounted rather than written by the image, so the site is named twice, and
+`SWARM_ID_URL` and `swarmId.url` must be the identical origin. When they differ the policy refuses the
+frame, the page offers no sign-in, and the console warns once, naming both settings. It warns the same
+when the Swarm ID site does not start for this page at all.
+Everything the viewer uses of the library goes through `src/features/chat/swarmId/`, and only
+`swarmIdLibrary.ts` there imports it.
+
+**What the Swarm ID site requires.** It serves only the sites on its allow list, an ENS text record
+(the fork's `docs/Site-Allow-List.md`), and refuses any other: the library cannot start and the page
+offers no sign-in. A site is added by its exact origin, `https://` and the host as the browser reports
+it. For local work, a development build of the Swarm ID site also serves the origins named in its
+`PUBLIC_SITE_ALLOW_LIST_DEV_ORIGINS`, which may be local http, such as the dev server at
+`http://127.0.0.1:5173`. Serve the viewer and the Swarm ID site on different sites, such as the viewer
+at `127.0.0.1` and the Swarm ID site at `localhost`. On the same site the frame reads the session from
+storage it shares with the Swarm ID site, and a session read that way carries no binding, so the page
+says Swarm ID signed in without confirming a chat address and stays signed out. A binding for a local
+http site passes only on a page served over local http, as `pageScope` decides for every check.
 
 ## Build it
 
@@ -206,6 +261,7 @@ docker run -p 8080:80 \
 | `EXTRA_GATEWAY_URLS` | Optional. The addresses of the further gateways `config.json` offers in `providers.gateways`, separated by spaces, each with no path. The page is allowed to reach each of them, in either mode                 |
 | `BEE_NODES`          | Optional. Which Bee nodes of their own a viewer may watch through: `off`, the default, `https` or `https-and-local-http`. See below                                                                             |
 | `WEEB3`              | Optional. `on` serves the node in the browser's files at `/weeb-3/` and widens the policy for it, `off`, the default, serves neither. Match `weeb3.enabled` in `config.json`. See below                         |
+| `SWARM_ID_URL`       | Optional. The Swarm ID site, the identical origin to `swarmId.url` in `config.json`, which the page is then allowed to frame. Leave it out when there is no sign-in                                             |
 | `config.json`        | Mounted over the image's example at `/usr/share/nginx/html/config.json`. Without it the page shows the example's placeholders as a configuration problem                                                        |
 
 A setting that is missing or malformed stops the container at start, and its log says which one.
@@ -275,7 +331,8 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   for a year.
 - **Content security policy.** The page may reach its own origin, the gateway in direct mode, the chat
   endpoint, and a Bee node on the viewer's own machine at any port, which is what the Sources screen
-  offers, and every address named in `EXTRA_GATEWAY_URLS`. `BEE_NODES` widens it for nodes elsewhere. A gateway in `providers.gateways` is reached
+  offers, and every address named in `EXTRA_GATEWAY_URLS`. `BEE_NODES` widens it for nodes elsewhere. With
+  `SWARM_ID_URL` set it may also frame that one site, for the hidden frame the Swarm ID library talks to, and frame nothing else. A gateway in `providers.gateways` is reached
   only when the policy allows it: a path on this site such as `/bee` always is, the gateway in direct mode
   is, and every other address must be named in `EXTRA_GATEWAY_URLS`, or the browser refuses it. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
   player plays through them, which is also why no gateway is named as a media source. Blob URLs are

@@ -139,6 +139,20 @@ export type ProvidersConfig = z.infer<typeof providersSchema>;
  */
 const weeb3Schema = z.object({ enabled: z.boolean({ message: 'must be true or false' }) });
 
+/** A scheme, a host and an optional port, exactly as a browser reports an origin. */
+const ORIGIN = /^https?:\/\/[A-Za-z0-9.-]+(:[0-9]{1,5})?$/;
+
+/**
+ * The Swarm ID site a viewer signs in to the chat with. Its library builds the frame's address from this and checks
+ * every answer's origin against it, so it is an origin with nothing after it. The page's policy must allow it as a
+ * frame, which the image does from its SWARM_ID_URL setting.
+ */
+const swarmIdSchema = z.object({
+  url: filledIn.refine((value) => ORIGIN.test(value), {
+    message: 'must be an origin such as https://id.example.com, with no path and no trailing slash',
+  }),
+});
+
 const runtimeConfigSchema = z
   .object({
     /** Which of this build's themes the page wears. Absent means the default. */
@@ -151,6 +165,7 @@ const runtimeConfigSchema = z
     catalog: catalogSchema,
     chat: chatSchema.optional(),
     weeb3: weeb3Schema.optional(),
+    swarmId: swarmIdSchema.optional(),
   })
   .superRefine((config, context) => {
     if (config.gatewayUrl !== undefined && config.providers !== undefined) {
@@ -189,6 +204,11 @@ export function themeSwitcherEnabled(config: RuntimeConfig): boolean {
 /** The chat's settings when chat is on, and null when it is off or not configured. */
 export function enabledChat(config: RuntimeConfig): ChatConfig | null {
   return config.chat?.enabled ? config.chat : null;
+}
+
+/** The Swarm ID site to offer sign-in with, or null when there is none or no chat for it to sign in to. */
+export function swarmIdUrl(config: RuntimeConfig): string | null {
+  return enabledChat(config) && config.swarmId ? config.swarmId.url : null;
 }
 
 export function parseRuntimeConfig(raw: unknown): RuntimeConfigResult {

@@ -1,0 +1,15 @@
+// The two identity badges, drawn the same beside a message and in the viewer's own menu.
+.sender-badge-guest path {
+  stroke: var(--color-text-muted);
+}
+
+.sender-badge-swarm-id {
+  .sender-badge-hexagon {
+    fill: var(--color-primary);
+    stroke: var(--color-primary);
+  }
+
+  .sender-badge-check {
+    stroke: var(--color-on-primary);
+  }
+}

@@ -1,5 +1,7 @@
 import React from 'react';
 
+import './BadgeIcons.scss';
+
 /** An outline hexagon, for a chat guest told apart only by a key their browser keeps. */
 export const GuestBadgeIcon: React.FC = () => (
   <svg className="sender-badge-guest" width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">

@@ -230,7 +230,32 @@ describe('the image start-up script', () => {
     });
   });
 
+  describe('SWARM_ID_URL, the Swarm ID site config.json names as swarmId.url', () => {
+    it('lets the page frame that one site and nothing else, and adds it to no other directive', () => {
+      const started = start({
+        BEE_GATEWAY_URL: 'https://gateway.example.com',
+        SWARM_ID_URL: 'https://id.example.com/',
+      });
+      expect(started.status).toBe(0);
+      const csp = policy(started.headers);
+      expect(csp).toContain('; frame-src https://id.example.com;');
+      expect(csp.split('; ').filter((part) => part.includes('id.example.com'))).toEqual([
+        'frame-src https://id.example.com',
+      ]);
+      expect(started.stdout).toContain('Swarm ID https://id.example.com');
+    });
+
+    it('keeps exactly the policy it had before when it is not set', () => {
+      const csp = policy(start({ BEE_GATEWAY_URL: 'https://gateway.example.com' }).headers);
+      expect(csp).not.toContain('frame-src');
+    });
+  });
+
   it.each([
+    [
+      { BEE_GATEWAY_URL: 'https://gateway.example.com', SWARM_ID_URL: 'https://id.example.com/proxy' },
+      'SWARM_ID_URL must be an address',
+    ],
     [{ BEE_GATEWAY_URL: 'https://gateway.example.com', WEEB3: 'yes' }, 'WEEB3 must be off or on. It is "yes".'],
     [{}, 'BEE_GATEWAY_URL is not set'],
     [{ BEE_GATEWAY_URL: 'gateway.example.com' }, 'BEE_GATEWAY_URL must be an address'],
@@ -264,6 +289,16 @@ describe('the image start-up script', () => {
     [
       { BEE_GATEWAY_URL: 'https://gateway.example.com', EXTRA_GATEWAY_URLS: 'ftp://second.example.com' },
       'EXTRA_GATEWAY_URLS must be an address',
+    ],
+    // grep tests each line on its own, so a second line must be refused before the pattern sees the value.
+    [{ BEE_GATEWAY_URL: 'https://gateway.example.com\nhttps://other.example.com' }, 'BEE_GATEWAY_URL must be one'],
+    [
+      { BEE_GATEWAY_URL: 'https://gateway.example.com', CHAT_READ_URL: 'https://chat.example.com\r' },
+      'CHAT_READ_URL must be one',
+    ],
+    [
+      { BEE_GATEWAY_URL: 'https://gateway.example.com', SWARM_ID_URL: 'https://id.example.com\nhttps://x.example.com' },
+      'SWARM_ID_URL must be one',
     ],
   ])('refuses to start on %j', (settings, reason) => {
     const started = start(settings);
