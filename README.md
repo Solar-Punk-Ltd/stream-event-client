@@ -191,7 +191,7 @@ which stamps them.
 - **When the Swarm ID site cannot be used**, as for a site it does not serve, the join dialog says it
   cannot be reached and guests chat as before.
 
-**How the page talks to Swarm ID.** The library, `@snaha/swarm-id` from the Solar Punk fork, is a file
+**How the page talks to Swarm ID.** The library, `@solarpunkltd/swarm-id` from the Solar Punk fork, is a file
 of the bundle of its own, fetched when the page starts on a deployment that offers Swarm ID, because
 restoring a session needs it. It embeds a hidden frame of the Swarm ID site, which is why the image's
 `SWARM_ID_URL` adds that site to the policy's `frame-src`, and talks to it with `postMessage`. The

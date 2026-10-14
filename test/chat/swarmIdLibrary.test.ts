@@ -6,7 +6,7 @@ import { createLibraryClient } from '../../src/features/chat/swarmId/swarmIdLibr
 const built = vi.hoisted(() => ({ options: [] as Array<Record<string, unknown>>, destroyed: 0 }));
 
 /** The library's client, as far as building it and taking it down go. Nothing is framed. */
-vi.mock('@snaha/swarm-id', () => ({
+vi.mock('@solarpunkltd/swarm-id', () => ({
   SwarmIdClient: class {
     constructor(options: Record<string, unknown>) {
       built.options.push(options);

@@ -1,4 +1,4 @@
-import { SwarmIdClient as LibraryClient } from '@snaha/swarm-id';
+import { SwarmIdClient as LibraryClient } from '@solarpunkltd/swarm-id';
 
 import type { SwarmIdClient, SwarmIdClientOptions } from './swarmIdClient';
 
