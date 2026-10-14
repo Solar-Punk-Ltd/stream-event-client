@@ -7,7 +7,7 @@ import { findNewestFromHint, type SwitchHint } from './following/findNewestFromH
 import { FeedRung, IndexSearchFinder, NewestIndex, NewestIndexFinder } from './newestIndexFinder';
 import { LadderMarkerReads } from './ladderMarkerReads';
 import type { PlayerReader } from './playerReads';
-import { RungFeedReader } from './rungFeedReader';
+import { keepingFound, RungFeedReader } from './rungFeedReader';
 
 /**
  * How long a marker just read serves every rung of its ladder. A switch right after the start, or the
@@ -62,7 +62,8 @@ export class MarkerFinder implements NewestIndexFinder {
     }
 
     const reader = new RungFeedReader(this.reader, rung.owner, rung.topic, this.clock.now, isStopped);
-    const { newest } = await findNewestFromHint(reader, this.clock, {
+    const kept = keepingFound(reader);
+    const { newest } = await findNewestFromHint(kept.reader, this.clock, {
       index,
       // The newest segment of that index ended a little before the marker was written, by the upload's
       // own lag. Close enough to steer a second round, which the first one rarely leaves.
@@ -74,7 +75,7 @@ export class MarkerFinder implements NewestIndexFinder {
     if (newest === null || playlist === undefined) {
       return null;
     }
-    return { index: FeedIndex.fromBigInt(BigInt(newest.index)), playlist };
+    return { index: FeedIndex.fromBigInt(BigInt(newest.index)), playlist, searched: kept.found };
   }
 
   /**

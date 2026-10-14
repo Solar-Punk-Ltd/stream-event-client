@@ -4,7 +4,7 @@ import type { FollowClock } from './following/feedReader';
 import { findNewestFromHint, type SwitchHint } from './following/findNewestFromHint';
 import { findNewestFromScratch } from './following/findNewestFromScratch';
 import type { PlayerReader } from './playerReads';
-import { RungFeedReader } from './rungFeedReader';
+import { keepingFound, RungFeedReader } from './rungFeedReader';
 
 export type { SwitchHint };
 
@@ -23,6 +23,11 @@ export interface FeedRung {
 export interface NewestIndex {
   readonly index: FeedIndex;
   readonly playlist: string;
+  /**
+   * Every playlist the search found on its way, by index, the newest included. A switch reading back to
+   * the viewer's position takes a slot from here rather than asking the gateway for it again.
+   */
+  readonly searched?: ReadonlyMap<number, string>;
 }
 
 /**
@@ -64,14 +69,15 @@ export class IndexSearchFinder implements NewestIndexFinder {
     isStopped: () => boolean = () => false,
   ): Promise<NewestIndex | null> {
     const reader = new RungFeedReader(this.reader, rung.owner, rung.topic, this.clock.now, isStopped);
+    const kept = keepingFound(reader);
     const { newest } =
       hint === null
-        ? await findNewestFromScratch(reader, this.clock)
-        : await findNewestFromHint(reader, this.clock, hint);
+        ? await findNewestFromScratch(kept.reader, this.clock)
+        : await findNewestFromHint(kept.reader, this.clock, hint);
     const playlist = newest === null ? undefined : reader.playlistOf(newest);
     if (newest === null || playlist === undefined) {
       return null;
     }
-    return { index: FeedIndex.fromBigInt(BigInt(newest.index)), playlist };
+    return { index: FeedIndex.fromBigInt(BigInt(newest.index)), playlist, searched: kept.found };
   }
 }

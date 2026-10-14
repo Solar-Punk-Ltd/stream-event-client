@@ -117,3 +117,25 @@ export class RungFeedReader implements FeedReader {
     return this.playlists.get(entry);
   }
 }
+
+/**
+ * A reader that keeps every playlist it found, by index, for a search to hand on with its answer. Only
+ * for a search, which reads a few slots once: a follower kept this way would hold every playlist of the
+ * session.
+ */
+export function keepingFound(reader: RungFeedReader): { reader: FeedReader; found: ReadonlyMap<number, string> } {
+  const found = new Map<number, string>();
+  return {
+    reader: {
+      read: async (index) => {
+        const read = await reader.read(index);
+        const playlist = read.found ? reader.playlistOf(read.entry) : undefined;
+        if (playlist !== undefined) {
+          found.set(index, playlist);
+        }
+        return read;
+      },
+    },
+    found,
+  };
+}
