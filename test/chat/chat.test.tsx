@@ -477,6 +477,18 @@ describe('who sent a message', () => {
     return message({ id: label, key: await chatKeyFor(BOUND_SITE), binding: CHAT_BINDING, username: 'Ida', ...fields });
   }
 
+  it('writes the time the message was published after the badge and the stamp, once', async () => {
+    await open();
+    const at = new Date(2026, 10, 12, 9, 5).getTime();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'timed', via: MessageVia.OWN_STAMP, timestamp: at }));
+
+    const time = sender().querySelector('time');
+    expect(time?.textContent).toBe('09:05');
+    expect(time?.getAttribute('dateTime')).toBe(new Date(at).toISOString());
+    expect(sender().lastElementChild).toBe(time);
+    expect(document.querySelectorAll('.chat-message time')).toHaveLength(1);
+  });
+
   it('marks a guest with a grey outline hexagon after the name, in the guest weight', async () => {
     await open();
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'guest', username: 'Bea' }));

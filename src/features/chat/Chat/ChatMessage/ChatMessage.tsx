@@ -103,6 +103,7 @@ export function ChatMessage({
           name={message.username}
           badge={badge}
           ownStamp={ownStamp}
+          timestamp={message.timestamp}
           detailsId={detailsId}
           areDetailsShown={areDetailsShown}
           onToggleDetails={() => {

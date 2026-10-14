@@ -22,6 +22,11 @@
   }
 }
 
+.chat-message-time {
+  font-family: var(--font-family-mono);
+  color: var(--color-text-tertiary);
+}
+
 .sender-badge {
   @include touch.touch-target;
 
