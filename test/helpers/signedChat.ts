@@ -47,7 +47,7 @@ export async function chatKeyFor(site: string): Promise<string> {
 export const GUEST_KEY = 'a1'.repeat(32);
 export const SECOND_GUEST_KEY = 'b2'.repeat(32);
 
-export const TEST_TOPIC = 'chat-stream-one';
+const TEST_TOPIC = 'chat-stream-one';
 
 export function addressOf(key: string): string {
   return new PrivateKey(key).publicKey().address().toHex();
@@ -62,7 +62,7 @@ export function idOf(label: string): string {
   return hex.padEnd(32, '0');
 }
 
-export interface SignedFields {
+interface SignedFields {
   key?: string;
   topic?: string;
   type?: MessageType;

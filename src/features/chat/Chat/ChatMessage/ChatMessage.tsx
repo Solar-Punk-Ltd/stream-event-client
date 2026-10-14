@@ -1,13 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
+
+import { MessageVia } from '@solarpunkltd/swarm-chat-js';
 
 import type { ReactionSummary } from '../../reactions';
 import type { VisibleMessage } from '../../useSwarmChat';
 import { nameColor } from '../nameColor';
 
 import { MessageActions } from './MessageActions/MessageActions';
+import { MessageDetails } from './MessageDetails/MessageDetails';
 import { MessageReactionsWrapper } from './MessageReactionsWrapper/MessageReactionsWrapper';
 import { MessageThreadWrapper } from './MessageThreadWrapper/MessageThreadWrapper';
 import { ProfilePicture } from './ProfilePicture/ProfilePicture';
+import { senderBadge } from './senderBadge';
+import { SenderLine } from './SenderLine/SenderLine';
 
 import './ChatMessage.scss';
 
@@ -75,6 +80,10 @@ export function ChatMessage({
   const color = nameColor(message.username);
   const canAct = received && !error;
   const [areActionsShown, setAreActionsShown] = useState(false);
+  const [areDetailsShown, setAreDetailsShown] = useState(false);
+  const detailsId = useId();
+  const badge = senderBadge(message.identity);
+  const ownStamp = message.signedMessage.via === MessageVia.OWN_STAMP;
 
   const classes = [
     'chat-message',
@@ -90,7 +99,33 @@ export function ChatMessage({
       <ProfilePicture name={message.username} address={message.address} color={color} />
 
       <div className="chat-message-text">
+        <SenderLine
+          name={message.username}
+          badge={badge}
+          ownStamp={ownStamp}
+          detailsId={detailsId}
+          areDetailsShown={areDetailsShown}
+          onToggleDetails={() => {
+            setAreDetailsShown((shown) => !shown);
+            onHeightChange?.();
+          }}
+        />
         <span className="message">{message.message}</span>
+
+        {areDetailsShown && (
+          <MessageDetails
+            id={detailsId}
+            name={message.username}
+            address={message.address}
+            badge={badge}
+            identity={message.identity}
+            ownStamp={ownStamp}
+            onClose={() => {
+              setAreDetailsShown(false);
+              onHeightChange?.();
+            }}
+          />
+        )}
 
         {error && (
           <p className="chat-message-status error">

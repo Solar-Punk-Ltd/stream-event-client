@@ -119,7 +119,7 @@ reaction's picker beside a message.
 - **Two Bee endpoints for the chat.** `chat.readUrl` serves the chat's feed and history files.
   `chat.writeUrl` takes the messages and stamps every write, because the page holds no postage stamp.
   A message costs one stamped chunk, and one more for each resend while it has not been read back.
-- **The chat aggregator**, which listens on the shared address the key and topic above name, and
+- **The chat aggregator**, on swarm-chat-js 8, which listens on the shared address the key and topic above name, and
   appends each message to the stream's chat feed, `chat-<stream topic>` under `chat.feedOwner`.
   Opening a chat reads the newest history file the chat feed points to, then the entries after it. The endpoint viewers write
   through must be a different Bee node from the one the aggregator listens on, because Bee hands a
@@ -136,6 +136,25 @@ so a reload keeps the name. Logging out removes them. The key proves only that t
 the same browser, and anyone may choose any name. So each message shows its sender's initial, and the
 name with the last six digits of the sender's address floats over it while the pointer rests there. A
 screen reader reads the same words as the initial's name.
+
+**What the chat checks, and the badges.** Every message is signed by its sender's chat key. The page
+checks each one, live, from history and the viewer's own while it is still sending, in a Web Worker
+with swarm-chat-js's `verifyChatMessage` and the page's own origin, so a long history never holds up
+the page. History is checked in batches of 25, and each batch shows as soon as it passed. A message is
+shown only once it passed. One that fails, whether its text was changed after signing, its Swarm ID
+binding was made for another site, or it is in the format before version 8, is never shown, and the
+panel counts them in its `data-refused-messages` attribute. A chat whose history is all of the older
+format opens as an empty chat. The worker is the bundle's own file, so the page's policy allows it with
+`worker-src 'self'`.
+
+Above each message are the sender's name and a badge. A grey outline hexagon after a name in the
+plain weight is a guest, told apart only by the key their browser keeps. A filled hexagon with a check
+after a name in the accent colour is a Swarm ID account, which signed a statement that this chat address
+on this site is its own. A stamp after the badge says the sender paid for the write with a stamp of
+their own, and opens nothing yet. Every message this page sends says the event gateway paid. The badge
+opens the message's details: the name, the identity, the public chat address, that the signature
+matches the text, for a Swarm ID the link Swarm ID confirmed for this site and the account's address,
+and who paid for the write.
 
 ## Build it
 

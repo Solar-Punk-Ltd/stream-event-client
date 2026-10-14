@@ -29,7 +29,7 @@ interface DeliveryState {
 }
 
 /** A message whose signature, and Swarm ID binding if it carries one, passed the check for this page. */
-export interface CheckedMessage extends MessageData {
+interface CheckedMessage extends MessageData {
   /** The Swarm ID account that vouched for the sender, or null for a guest. */
   identity: ChatIdentity | null;
 }

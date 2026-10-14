@@ -5,7 +5,7 @@ import {
   EVENTS,
   type MessageData,
   MessageType,
-  type MessageVia,
+  MessageVia,
 } from '@solarpunkltd/swarm-chat-js';
 import { act, createElement, StrictMode, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,7 +23,9 @@ import { createMessageVerifier } from '../../src/features/chat/verify/messageVer
 import {
   addressOf,
   BOUND_SITE,
+  CHAT_BINDING,
   chatKeyFor,
+  FORK_ACCOUNT,
   GUEST_KEY,
   idOf,
   inThreadPort,
@@ -284,14 +286,14 @@ describe('the chat on a watch page', () => {
     expect(messageTexts()).toEqual(['text of earlier-in-feed', 'text of later-in-feed', 'text of sending']);
   });
 
-  it('shows who wrote a message by an initial, with the name and its short address named on it rather than written in the row', async () => {
+  it('shows who wrote a message by an initial named with the name and its short address, and the name above the text', async () => {
     await open();
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm', username: 'Bea' }));
     const avatar = document.querySelector('.chat-message [role="img"]');
 
     expect(avatar?.textContent).toBe('B');
     expect(avatar?.getAttribute('aria-label')).toBe(BEA);
-    expect(document.querySelector('.chat-message-author')).toBeNull();
+    expect(document.querySelector('.chat-message-sender .chat-message-name')?.textContent).toBe('Bea');
   });
 
   it('floats the name and short address over the page while the initial is pointed at, as the Swarm site does', async () => {
@@ -457,6 +459,91 @@ describe('what the chat checks', () => {
     await emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
     expect(messageTexts()).toEqual(['text of own']);
     expect(text()).toContain('Sending');
+  });
+});
+
+describe('who sent a message', () => {
+  function sender(): Element {
+    const line = document.querySelector('.chat-message .chat-message-sender');
+    if (!line) throw new Error('no sender line');
+    return line;
+  }
+
+  function details(): HTMLElement | null {
+    return document.querySelector('[role="region"][aria-label="Details for this message"]');
+  }
+
+  async function swarmIdMessage(label: string, fields: Partial<MessageFixture> = {}): Promise<MessageData> {
+    return message({ id: label, key: await chatKeyFor(BOUND_SITE), binding: CHAT_BINDING, username: 'Ida', ...fields });
+  }
+
+  it('marks a guest with a grey outline hexagon after the name, in the guest weight', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'guest', username: 'Bea' }));
+
+    expect(sender().querySelector('.chat-message-name')?.classList.contains('guest')).toBe(true);
+    const badge = button('Guest');
+    expect(badge.querySelector('svg.sender-badge-guest')).not.toBeNull();
+    expect(sender().querySelector('[aria-label="Own stamp"]')).toBeNull();
+  });
+
+  it('marks a Swarm ID sender with the filled hexagon and its check, and the name in the accent colour', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, await swarmIdMessage('bound'));
+
+    expect(sender().querySelector('.chat-message-name')?.classList.contains('linked')).toBe(true);
+    expect(button('Swarm ID').querySelector('svg.sender-badge-swarm-id')).not.toBeNull();
+    expect(queryButton('Guest')).toBeNull();
+  });
+
+  it("opens a Swarm ID sender's details from the badge, with the account that vouched for the address", async () => {
+    await open();
+    const bound = await swarmIdMessage('bound');
+    await emit(EVENTS.MESSAGE_RECEIVED, bound);
+    click(button('Swarm ID'));
+
+    const card = details();
+    expect(card).not.toBeNull();
+    const rows = Object.fromEntries(
+      [...card!.querySelectorAll('dt')].map((term) => [term.textContent, term.nextElementSibling?.textContent]),
+    );
+    expect(rows).toEqual({
+      Name: 'Ida',
+      Identity: 'Swarm ID, confirmed for this chat address',
+      'Public address': `0x${bound.address}`,
+      Signature: 'matches this text',
+      'ID link': 'confirmed by Swarm ID for this site',
+      'Swarm ID account': FORK_ACCOUNT,
+      Sent: 'by the event gateway',
+    });
+    expect(document.querySelector('.message-actions.visible')).toBeNull();
+  });
+
+  it("opens a guest's details with no ID link and no account, and closes them again", async () => {
+    await open();
+    const guest = message({ id: 'guest', username: 'Bea' });
+    await emit(EVENTS.MESSAGE_RECEIVED, guest);
+    click(button('Guest'));
+
+    const card = details()!;
+    const terms = [...card.querySelectorAll('dt')].map((term) => term.textContent);
+    expect(terms).toEqual(['Name', 'Identity', 'Public address', 'Signature', 'Sent']);
+    expect(card.textContent).toContain('Guest, a key this browser keeps');
+    expect(card.textContent).toContain(`0x${guest.address}`);
+
+    click(button('Close'));
+    expect(details()).toBeNull();
+  });
+
+  it('shows a stamp after the badge for a message sent with its own stamp, and says so in the details', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'stamped', via: MessageVia.OWN_STAMP }));
+
+    const stamp = sender().querySelector('[aria-label="Own stamp"]');
+    expect(stamp).not.toBeNull();
+    expect(stamp?.tagName).not.toBe('BUTTON');
+    click(button('Guest'));
+    expect(details()?.textContent).toContain('with their own stamp');
   });
 });
 
