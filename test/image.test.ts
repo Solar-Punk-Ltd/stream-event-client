@@ -230,7 +230,32 @@ describe('the image start-up script', () => {
     });
   });
 
+  describe('SWARM_ID_URL, the Swarm ID site config.json names as swarmId.url', () => {
+    it('lets the page frame that one site and nothing else, and adds it to no other directive', () => {
+      const started = start({
+        BEE_GATEWAY_URL: 'https://gateway.example.com',
+        SWARM_ID_URL: 'https://id.example.com/',
+      });
+      expect(started.status).toBe(0);
+      const csp = policy(started.headers);
+      expect(csp).toContain('; frame-src https://id.example.com;');
+      expect(csp.split('; ').filter((part) => part.includes('id.example.com'))).toEqual([
+        'frame-src https://id.example.com',
+      ]);
+      expect(started.stdout).toContain('Swarm ID https://id.example.com');
+    });
+
+    it('keeps exactly the policy it had before when it is not set', () => {
+      const csp = policy(start({ BEE_GATEWAY_URL: 'https://gateway.example.com' }).headers);
+      expect(csp).not.toContain('frame-src');
+    });
+  });
+
   it.each([
+    [
+      { BEE_GATEWAY_URL: 'https://gateway.example.com', SWARM_ID_URL: 'https://id.example.com/proxy' },
+      'SWARM_ID_URL must be an address',
+    ],
     [{ BEE_GATEWAY_URL: 'https://gateway.example.com', WEEB3: 'yes' }, 'WEEB3 must be off or on. It is "yes".'],
     [{}, 'BEE_GATEWAY_URL is not set'],
     [{ BEE_GATEWAY_URL: 'gateway.example.com' }, 'BEE_GATEWAY_URL must be an address'],

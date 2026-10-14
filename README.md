@@ -48,6 +48,7 @@ live with the deployment, never in this repository.
 | `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                                                   |
 | `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused                                               |
 | `themeSwitcher` | Optional. Whether a viewer logged in to the chat may switch the colours and typefaces between the build's themes, `true` by default                                |
+| `swarmId.url`   | Optional. The Swarm ID site a viewer may sign in to the chat with, an origin such as `https://id.example.com`. Without it, or without a chat, there is no sign-in  |
 
 A theme has two halves. Its look, the colours and typefaces, is in `src/design/themes/`. Its content, the
 logo, the hero, the footer links and the tab's title and icon, is in `src/design/themes.ts`. The deployment's
@@ -206,6 +207,7 @@ docker run -p 8080:80 \
 | `EXTRA_GATEWAY_URLS` | Optional. The addresses of the further gateways `config.json` offers in `providers.gateways`, separated by spaces, each with no path. The page is allowed to reach each of them, in either mode                 |
 | `BEE_NODES`          | Optional. Which Bee nodes of their own a viewer may watch through: `off`, the default, `https` or `https-and-local-http`. See below                                                                             |
 | `WEEB3`              | Optional. `on` serves the node in the browser's files at `/weeb-3/` and widens the policy for it, `off`, the default, serves neither. Match `weeb3.enabled` in `config.json`. See below                         |
+| `SWARM_ID_URL`       | Optional. The Swarm ID site, the same as `swarmId.url` in `config.json`, which the page is then allowed to frame. Leave it out when there is no sign-in                                                         |
 | `config.json`        | Mounted over the image's example at `/usr/share/nginx/html/config.json`. Without it the page shows the example's placeholders as a configuration problem                                                        |
 
 A setting that is missing or malformed stops the container at start, and its log says which one.
@@ -275,7 +277,8 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   for a year.
 - **Content security policy.** The page may reach its own origin, the gateway in direct mode, the chat
   endpoint, and a Bee node on the viewer's own machine at any port, which is what the Sources screen
-  offers, and every address named in `EXTRA_GATEWAY_URLS`. `BEE_NODES` widens it for nodes elsewhere. A gateway in `providers.gateways` is reached
+  offers, and every address named in `EXTRA_GATEWAY_URLS`. `BEE_NODES` widens it for nodes elsewhere. With
+  `SWARM_ID_URL` set it may also frame that one site, for the hidden frame the Swarm ID library talks to, and frame nothing else. A gateway in `providers.gateways` is reached
   only when the policy allows it: a path on this site such as `/bee` always is, the gateway in direct mode
   is, and every other address must be named in `EXTRA_GATEWAY_URLS`, or the browser refuses it. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
   player plays through them, which is also why no gateway is named as a media source. Blob URLs are

@@ -10,6 +10,7 @@ import {
   loadRuntimeConfig,
   parseRuntimeConfig,
   type RuntimeConfigResult,
+  swarmIdUrl,
 } from '../src/config/runtimeConfig';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -200,6 +201,37 @@ describe('the chat settings', () => {
     expect(on.ok && enabledChat(on.config)).toEqual(CHAT);
     expect(off.ok && enabledChat(off.config)).toBeNull();
     expect(absent.ok && enabledChat(absent.config)).toBeNull();
+  });
+});
+
+describe('the Swarm ID setting', () => {
+  it('accepts the Swarm ID site as an http or https origin, and no setting at all', () => {
+    for (const url of ['https://id.example.com', 'https://id.example.com:8443', 'http://localhost:5500']) {
+      expect(parseRuntimeConfig({ ...VALID, chat: CHAT, swarmId: { url } }).ok).toBe(true);
+    }
+    expect(parseRuntimeConfig({ ...VALID, chat: CHAT }).ok).toBe(true);
+  });
+
+  it('refuses an address with a path, a trailing slash or another scheme, naming the field', () => {
+    for (const url of ['https://id.example.com/', 'https://id.example.com/proxy', 'id.example.com', 'wss://id.x']) {
+      expect(problemOf(parseRuntimeConfig({ ...VALID, chat: CHAT, swarmId: { url } }))).toContain('swarmId.url');
+    }
+  });
+
+  it('refuses the example placeholder', () => {
+    const swarmId = { url: '<Swarm ID site>' };
+    expect(problemOf(parseRuntimeConfig({ ...VALID, chat: CHAT, swarmId }))).toContain('placeholder');
+  });
+
+  it('offers Swarm ID only beside a chat that is on, since it signs chat messages and nothing else', () => {
+    const swarmId = { url: 'https://id.example.com' };
+    const on = parseRuntimeConfig({ ...VALID, chat: CHAT, swarmId });
+    const off = parseRuntimeConfig({ ...VALID, chat: { ...CHAT, enabled: false }, swarmId });
+    const unset = parseRuntimeConfig({ ...VALID, chat: CHAT });
+
+    expect(on.ok && swarmIdUrl(on.config)).toBe('https://id.example.com');
+    expect(off.ok && swarmIdUrl(off.config)).toBeNull();
+    expect(unset.ok && swarmIdUrl(unset.config)).toBeNull();
   });
 });
 

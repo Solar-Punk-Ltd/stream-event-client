@@ -23,6 +23,9 @@
 #                 with weeb3.enabled. off (default): /weeb-3/ is not served and the policy is as above.
 #                 on: /weeb-3/ serves the node's files, and the policy lets the page compile WebAssembly and open
 #                 secure websockets to any host, because the node dials whatever Swarm peers announce for browsers.
+# SWARM_ID_URL    Optional. The Swarm ID site a viewer signs in to the chat with, which config.json names as
+#                 swarmId.url. The policy lets the page frame that one site, because the library talks to it through a
+#                 hidden frame of that site. Its window opens as a window of its own, which the policy does not govern.
 set -eu
 
 OUT_DIR="${STREAM_CLIENT_NGINX_DIR:-/etc/nginx/stream-event-client}"
@@ -54,6 +57,13 @@ for setting in CHAT_READ_URL CHAT_WRITE_URL; do
     CHAT_SOURCE="$CHAT_SOURCE $(origin_of "$setting" "$value")"
   fi
 done
+
+SWARM_ID_DIRECTIVE=""
+SWARM_ID=""
+if [ -n "${SWARM_ID_URL:-}" ]; then
+  SWARM_ID="$(origin_of SWARM_ID_URL "$SWARM_ID_URL")"
+  SWARM_ID_DIRECTIVE="; frame-src $SWARM_ID"
+fi
 
 EXTRA_SOURCE=""
 # The list is split on spaces unquoted, so globbing is off while it is, or a stray * would expand to file names.
@@ -158,7 +168,7 @@ POLICY="default-src 'self'; script-src 'self'$WEEB3_SCRIPT; style-src 'self' 'un
 POLICY="$POLICY; img-src 'self' data: blob:$GATEWAY_SOURCE$EXTRA_SOURCE $OWN_NODE$BEE_NODE_SOURCE"
 POLICY="$POLICY; media-src 'self' blob:; worker-src 'self' blob:"
 POLICY="$POLICY; connect-src 'self'$GATEWAY_SOURCE$EXTRA_SOURCE$CHAT_SOURCE $OWN_NODE$BEE_NODE_SOURCE$WEEB3_CONNECT"
-POLICY="$POLICY; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
+POLICY="$POLICY$SWARM_ID_DIRECTIVE; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
 
 cat > "$OUT_DIR/headers.conf" <<CONF
 # Written at start. Included in every location that sets headers of its own, because nginx drops the server's
@@ -168,4 +178,4 @@ add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "no-referrer" always;
 CONF
 
-echo "stream-event-client: gateway $MODE at $GATEWAY${EXTRA_SOURCE:+, extra gateways$EXTRA_SOURCE}${CHAT_SOURCE:+, chat endpoints$CHAT_SOURCE}${BEE_NODE_SOURCE:+, Bee nodes $BEE_NODES}${WEEB3_CONNECT:+, weeb-3 on}"
+echo "stream-event-client: gateway $MODE at $GATEWAY${EXTRA_SOURCE:+, extra gateways$EXTRA_SOURCE}${CHAT_SOURCE:+, chat endpoints$CHAT_SOURCE}${BEE_NODE_SOURCE:+, Bee nodes $BEE_NODES}${WEEB3_CONNECT:+, weeb-3 on}${SWARM_ID:+, Swarm ID $SWARM_ID}"
