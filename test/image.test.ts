@@ -190,6 +190,40 @@ describe('the image start-up script', () => {
       const csp = policy(start({ BEE_GATEWAY_URL: 'https://gateway.example.com' }).headers);
       expect(csp).not.toContain('frame-src');
     });
+
+    it("lets that one site read /bee from its frame, for GET alone and with the gateway's own CORS headers replaced", () => {
+      const started = start({
+        BEE_GATEWAY_URL: 'https://gateway.example.com',
+        SWARM_ID_URL: 'https://id.example.com/',
+      });
+      expect(started.status).toBe(0);
+      const bee = started.gateway;
+
+      expect(bee).toContain('add_header Access-Control-Allow-Origin "https://id.example.com" always;');
+      expect(bee).not.toMatch(/Access-Control-Allow-Origin "\*"/);
+      expect(bee).toContain('proxy_hide_header Access-Control-Allow-Origin;');
+      expect(bee).toContain('limit_except GET { deny all; }');
+      expect(bee).toContain('include /etc/nginx/stream-event-client/headers.conf;');
+
+      const preflight = bee.slice(bee.indexOf('if ($request_method = OPTIONS) {'));
+      expect(preflight, 'a preflight is answered here, never forwarded').toContain('return 204;');
+      expect(preflight).toContain('add_header Access-Control-Allow-Origin "https://id.example.com" always;');
+      expect(preflight).toContain('add_header Access-Control-Allow-Methods "GET" always;');
+      expect(preflight).toContain(
+        'add_header Access-Control-Allow-Headers $http_access_control_request_headers always;',
+      );
+    });
+
+    it('adds no CORS header to /bee when it is not set, and has no /bee to add one to in direct mode', () => {
+      expect(start({ BEE_GATEWAY_URL: 'https://gateway.example.com' }).gateway).not.toContain('Access-Control');
+      const direct = start({
+        GATEWAY_MODE: 'direct',
+        BEE_GATEWAY_URL: 'https://gateway.example.com',
+        SWARM_ID_URL: 'https://id.example.com',
+      });
+      expect(direct.gateway).not.toContain('Access-Control');
+      expect(direct.gateway).toContain('return 404;');
+    });
   });
 
   it.each([

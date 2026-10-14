@@ -20,6 +20,7 @@ const NETWORK = 'stream-event-client-image-test';
 const GATEWAY = 'http://127.0.0.1:1633';
 const CHAT_READ = 'https://chat-read.example.com';
 const CHAT_WRITE = 'https://chat-write.example.com';
+const SWARM_ID = 'https://id.example.com';
 const CONFIG = JSON.stringify({ gatewayUrl: '/bee', catalog: { owner: `0x${'1'.repeat(40)}`, topic: 'image-test' } });
 
 function docker(args, { allowFailure = false, timeoutMs } = {}) {
@@ -163,6 +164,45 @@ void describe('proxy mode, the default', () => {
   void it('forwards reads at /bee to the gateway and refuses writes', async () => {
     // Nothing listens at the gateway address, so a forwarded read fails upstream rather than serving the page.
     assert.equal((await get(`${base}/bee/health`)).status, 502);
+    const write = await get(`${base}/bee/soc/${'a'.repeat(40)}/${'b'.repeat(64)}`, { method: 'POST', body: 'x' });
+    assert.equal(write.status, 403);
+  });
+});
+
+void it('passes nginx -t in proxy mode with SWARM_ID_URL set', () => {
+  const settings = ['-e', `BEE_GATEWAY_URL=${GATEWAY}`, '-e', `SWARM_ID_URL=${SWARM_ID}`];
+  const result = docker(['run', '--rm', '--label', LABEL, ...settings, IMAGE, 'nginx', '-t'], { allowFailure: true });
+  assert.equal(result.status, 0, `nginx -t with SWARM_ID_URL:\n${result.stdout}\n${result.stderr}`);
+});
+
+void describe('proxy mode with SWARM_ID_URL', () => {
+  let base;
+  before(async () => {
+    base = startContainer('image-test-swarm-id', { BEE_GATEWAY_URL: GATEWAY, SWARM_ID_URL: SWARM_ID });
+    await waitForServer(base, 'image-test-swarm-id');
+  });
+
+  void it('lets the Swarm ID site read /bee, even an answer that failed upstream, and keeps the policy on it', async () => {
+    const read = await get(`${base}/bee/health`, { headers: { Origin: SWARM_ID } });
+    assert.equal(read.status, 502);
+    assert.equal(read.headers.get('access-control-allow-origin'), SWARM_ID);
+    assert.equal(read.headers.get('access-control-expose-headers'), '*');
+    policyOf(read);
+  });
+
+  void it('answers a preflight for GET itself, and still refuses writes', async () => {
+    const preflight = await get(`${base}/bee/chunks/${'a'.repeat(64)}`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: SWARM_ID,
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'swarm-redundancy-level',
+      },
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get('access-control-allow-origin'), SWARM_ID);
+    assert.equal(preflight.headers.get('access-control-allow-methods'), 'GET');
+    assert.equal(preflight.headers.get('access-control-allow-headers'), 'swarm-redundancy-level');
     const write = await get(`${base}/bee/soc/${'a'.repeat(40)}/${'b'.repeat(64)}`, { method: 'POST', body: 'x' });
     assert.equal(write.status, 403);
   });

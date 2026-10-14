@@ -21,6 +21,8 @@
 # SWARM_ID_URL    Optional. The Swarm ID site a viewer signs in to the chat with, which config.json names as
 #                 swarmId.url. The policy lets the page frame that one site, because the library talks to it through a
 #                 hidden frame of that site. Its window opens as a window of its own, which the policy does not govern.
+#                 In proxy mode /bee also lets that one site read it, since the frame reads this site's content through
+#                 /bee from its own origin. A chat read endpoint on another host has to allow that site itself.
 set -eu
 
 OUT_DIR="${STREAM_CLIENT_NGINX_DIR:-/etc/nginx/stream-event-client}"
@@ -92,10 +94,32 @@ mkdir -p "$OUT_DIR"
 case "$MODE" in
   proxy)
     GATEWAY_SOURCE=""
+    SWARM_ID_CORS=""
+    if [ -n "$SWARM_ID" ]; then
+      # The Swarm ID frame reads from its own origin, so it is a cross-origin reader of /bee, the one allowed. The
+      # gateway's own CORS headers are replaced rather than repeated, because a second Allow-Origin fails the read. A
+      # preflight is answered here, since the gateway would see a method that is not GET.
+      SWARM_ID_CORS="
+  if (\$request_method = OPTIONS) {
+    add_header Access-Control-Allow-Origin \"$SWARM_ID\" always;
+    add_header Access-Control-Allow-Methods \"GET\" always;
+    add_header Access-Control-Allow-Headers \$http_access_control_request_headers always;
+    add_header Access-Control-Max-Age 600 always;
+    return 204;
+  }
+  proxy_hide_header Access-Control-Allow-Origin;
+  proxy_hide_header Access-Control-Allow-Methods;
+  proxy_hide_header Access-Control-Allow-Headers;
+  proxy_hide_header Access-Control-Allow-Credentials;
+  proxy_hide_header Access-Control-Expose-Headers;
+  add_header Access-Control-Allow-Origin \"$SWARM_ID\" always;
+  add_header Access-Control-Expose-Headers \"*\" always;
+  include /etc/nginx/stream-event-client/headers.conf;"
+    fi
     cat > "$OUT_DIR/gateway.conf" <<CONF
 # Written at start for GATEWAY_MODE=proxy. The page reads the gateway here, on its own origin. Only reads pass, so
 # this origin cannot be used to write to the gateway.
-location /bee/ {
+location /bee/ {$SWARM_ID_CORS
   limit_except GET { deny all; }
   proxy_pass $GATEWAY/;
   proxy_http_version 1.1;

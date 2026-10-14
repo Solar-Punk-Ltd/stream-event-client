@@ -6,7 +6,7 @@ import { nicknameLogin } from '../../src/features/chat/auth/login';
 import { persistUserSession, restoreUserSession } from '../../src/features/chat/auth/persistence';
 import { frameRefusedWarning } from '../../src/features/chat/swarmId/swarmIdSignIn';
 import type { useChatUser } from '../../src/features/chat/User';
-import { connectPage, seen } from '../helpers/connectPage';
+import { CHAT, chatConfig, connectPage, seen } from '../helpers/connectPage';
 import { button, click, dialog, input, queryButton, settle, text, type, type Mounted, waitFor } from '../helpers/dom';
 import { type FakeSwarmId, fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
 import { BOUND_SITE, CHAT_BINDING, chatKeyFor } from '../helpers/signedChat';
@@ -316,5 +316,14 @@ describe("the Bee address Swarm ID reads this site's content through", () => {
     await settle();
 
     expect(swarmId.client().beeApiUrls).toEqual(['http://localhost:1633']);
+  });
+
+  it("is absolute, since Swarm ID reads it from its own origin, when the site names it by this site's path", async () => {
+    const swarmId = await fakeSwarmId();
+    mounted = connectPage({ swarmId, config: chatConfig({ chat: { ...CHAT, readUrl: '/bee/' } }) });
+    await settle();
+    await settle();
+
+    expect(swarmId.client().options.beeApiUrl).toBe(`${location.origin}/bee`);
   });
 });
