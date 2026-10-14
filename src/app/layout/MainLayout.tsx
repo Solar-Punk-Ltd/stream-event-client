@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { useAppContext } from '@/app/AppProvider';
 import { LoginButton } from '@/features/chat/LoginButton/LoginButton';
 import { SwarmIdPageNotice } from '@/features/chat/swarmId/SwarmIdParts';
+import { FailureBars } from '@/features/connect/FailureBars';
 import { SourcesScreen } from '@/features/gateway/SourcesScreen';
 
 import './MainLayout.scss';
@@ -25,6 +26,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           {chat && <LoginButton />}
         </div>
       </header>
+      <FailureBars />
       {chat && <SwarmIdPageNotice />}
       <main className="main-layout-content">{children}</main>
     </div>

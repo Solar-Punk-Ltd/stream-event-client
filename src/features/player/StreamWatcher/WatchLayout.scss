@@ -38,6 +38,10 @@
 
 .watch-layout-back {
   grid-area: back;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
 }
 
 .watch-layout-stage {

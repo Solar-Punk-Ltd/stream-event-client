@@ -7,6 +7,7 @@ import { ChevronIcon } from '@/shared/components/Icons/ChevronIcon';
 import { CopyIcon } from '@/shared/components/Icons/CopyIcon';
 import { SourcesIcon } from '@/shared/components/Icons/SourcesIcon';
 import { BUILD_LABEL } from '@/shared/buildLabel';
+import { useConnect } from '@/features/connect/ConnectContext';
 import type { SwarmClient } from '@/swarm/client';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
 import { chooseSource, CHAT_SERVICE_ID, ROUTING_MODES, type RoutingMode, setMode } from '@/swarm/routing';
@@ -55,7 +56,7 @@ function nameIn(sources: readonly Source[], id: string): string {
 export function SourcesScreen() {
   const app = useAppContext();
   const { swarmSettings: settings, sources, routing, parts, swarm, chat, catalogFeed } = app;
-  const [isOpen, setIsOpen] = useState(false);
+  const { isOpen, open, close: closeScreen } = useConnect();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tests, setTests] = useState<Record<string, SourceTest>>({});
   const [lastTested, setLastTested] = useState<TestedGateway | null>(null);
@@ -121,7 +122,7 @@ export function SourcesScreen() {
     // A stopped Test never reaches its result, so its row would stay testing with Retest disabled.
     setTests((current) => Object.fromEntries(Object.entries(current).filter(([, test]) => test.state === 'done')));
     setExpandedId(null);
-    setIsOpen(false);
+    closeScreen();
   };
 
   const toggle = (source: Source) => {
@@ -247,7 +248,7 @@ export function SourcesScreen() {
         className="sources-button"
         onClick={() => {
           setCopy(NOT_COPIED);
-          setIsOpen(true);
+          open();
         }}
         aria-haspopup="dialog"
         aria-expanded={isOpen}

@@ -5,6 +5,7 @@ import { HashRouter } from 'react-router';
 import { loadRuntimeConfig, selectedTheme, swarmIdUrl } from '@/config/runtimeConfig';
 import { applyLook, applyThemeContent } from '@/design';
 import { ChatUserProvider } from '@/features/chat/User';
+import { ConnectProvider } from '@/features/connect/ConnectContext';
 
 import { AppContextProvider as AppProvider } from './AppProvider';
 import { ConfigProblem } from './ConfigProblem';
@@ -34,9 +35,11 @@ void loadRuntimeConfig().then((result) => {
         <AppProvider config={result.config}>
           <ThemeChoiceProvider config={result.config}>
             <ChatUserProvider swarmIdUrl={swarmIdUrl(result.config)} appName={document.title}>
-              <HashRouter>
-                <BaseRouter />
-              </HashRouter>
+              <ConnectProvider>
+                <HashRouter>
+                  <BaseRouter />
+                </HashRouter>
+              </ConnectProvider>
             </ChatUserProvider>
           </ThemeChoiceProvider>
         </AppProvider>

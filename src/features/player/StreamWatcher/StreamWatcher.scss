@@ -24,6 +24,17 @@
   }
 }
 
+// Above the video's right edge, quiet as the design draws it, so the viewer knows where it loads from.
+.watch-via {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text-tertiary);
+}
+
 .watch-notice {
   display: flex;
   flex-direction: column;

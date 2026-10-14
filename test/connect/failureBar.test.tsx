@@ -1,0 +1,91 @@
+// @vitest-environment jsdom
+import { createElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { AppContextProvider } from '../../src/app/AppProvider';
+import { parseRuntimeConfig, type RuntimeConfig } from '../../src/config/runtimeConfig';
+import { ConnectProvider, useConnect } from '../../src/features/connect/ConnectContext';
+import { FailureBars } from '../../src/features/connect/FailureBars';
+import { type FeatureFailure, SwarmClient } from '../../src/swarm/client';
+import { button, click, mount, type Mounted, queryButton, settle, text } from '../helpers/dom';
+
+function config(): RuntimeConfig {
+  const result = parseRuntimeConfig({
+    catalog: { owner: '0x' + '1'.repeat(40), topic: 'event-streams' },
+    providers: {
+      gateways: [{ id: 'event', kind: 'bee-http', label: 'Event gateway', url: 'https://event.example.com' }],
+      default: 'event',
+    },
+  });
+  if (!result.ok) {
+    throw new Error(result.problem);
+  }
+  return result.config;
+}
+
+const realFetch = globalThis.fetch;
+let mounted: Mounted | null = null;
+let connect: ReturnType<typeof useConnect> | null = null;
+let failures: FeatureFailure[] = [];
+
+function Probe() {
+  connect = useConnect();
+  return null;
+}
+
+async function start(): Promise<void> {
+  mounted = mount(
+    createElement(AppContextProvider, {
+      config: config(),
+      children: createElement(ConnectProvider, null, createElement(FailureBars), createElement(Probe)),
+    }),
+  );
+  await settle();
+}
+
+describe('the failure bar', () => {
+  beforeEach(() => {
+    failures = [];
+    globalThis.fetch = (async () => new Response('', { status: 404 })) as typeof fetch;
+    vi.spyOn(SwarmClient.prototype, 'failures').mockImplementation(() => failures);
+  });
+
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = null;
+    connect = null;
+    vi.restoreAllMocks();
+    globalThis.fetch = realFetch;
+  });
+
+  it('shows nothing while every part loads', async () => {
+    await start();
+
+    expect(queryButton('Choose another source')).toBeNull();
+  });
+
+  it('says which part cannot load from which source and why, and opens Connect to choose another', async () => {
+    failures = [{ feature: 'player', provider: 'event', forMs: 12_000, cause: { kind: 'no-answer' } }];
+    await start();
+
+    expect(text()).toContain('Video cannot load from Event gateway.');
+    expect(text()).toContain('No answer for 12 s.');
+    expect(connect!.isOpen).toBe(false);
+    click(button('Choose another source'));
+    expect(connect!.isOpen).toBe(true);
+  });
+
+  it('gives each failing part a bar of its own', async () => {
+    failures = [
+      { feature: 'stream-list', provider: 'event', forMs: 15_000, cause: { kind: 'status', status: 503 } },
+      { feature: 'chat', provider: 'event', forMs: 11_000, cause: { kind: 'rate-limited' } },
+    ];
+    await start();
+
+    expect(text()).toContain('Stream list cannot load from Event gateway.');
+    expect(text()).toContain('It answers with an error (HTTP 503).');
+    expect(text()).toContain('Chat history cannot load from Event gateway.');
+    expect(text()).toContain('It asks to be asked less often.');
+    expect(document.querySelectorAll('[data-failing-part]')).toHaveLength(2);
+  });
+});

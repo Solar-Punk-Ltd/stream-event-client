@@ -17,6 +17,8 @@ const appContext = vi.hoisted(() => ({
     isStreamListLoaded: true,
     chat: null,
     readNextStreamListSlot: () => {},
+    sources: [{ id: 'gateway', type: 'gateway', name: 'Event gateway', url: '/bee', offered: true }],
+    parts: { player: 'gateway', 'stream-list': 'gateway', previews: 'gateway', chat: 'gateway' },
   } as Record<string, unknown>,
 }));
 
@@ -83,6 +85,12 @@ describe('the watch page', () => {
 
     expect(back?.textContent).toBe('← Back');
     expect(back?.getAttribute('href')).toBe('/');
+  });
+
+  it('says which source the video loads from', () => {
+    openWatchPage({ state: 'live' });
+
+    expect(document.querySelector('.watch-via')?.textContent).toBe('via Event gateway');
   });
 
   it('titles the stream and puts its description under the title', () => {

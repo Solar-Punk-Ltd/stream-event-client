@@ -74,6 +74,8 @@ vi.mock('../src/app/AppProvider', () => ({
       isStreamListLoaded: true,
       chat: null,
       streamListSourceId: 'waiting-page-markers',
+      sources: [],
+      parts: { player: 'waiting-page-markers' },
       swarm: { reader: () => gateway.reader, clockOffsetMs: () => 0, ownPlayer: () => null },
       fetchAppState: () => app.readNextSlot(),
       setNewStreamList: app.apply,

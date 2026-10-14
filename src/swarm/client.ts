@@ -3,6 +3,7 @@ import type { Topic } from '@ethersphere/bee-js';
 import { GatewayClock } from '@/shared/gatewayClock';
 
 import { type AnswerKind, serverTimeOf, type SwarmAnswer } from './answers';
+import { FeatureFailureLog, type FeatureFailure } from './featureFailures';
 import {
   DEFAULT_READ_TIMEOUT_MS,
   type OwnPlayer,
@@ -14,6 +15,7 @@ import {
 } from './provider';
 
 export { loadUrl, type UrlLoadOptions } from './urlLoad';
+export type { FailureCause, FeatureFailure } from './featureFailures';
 
 /** The parts of the app that read Swarm, each of which the client may send to a provider of its own. */
 export const SWARM_FEATURES = ['player', 'stream-list', 'previews', 'chat'] as const;
@@ -103,7 +105,8 @@ type Ask = (provider: SwarmProvider, options: ReadOptions) => Promise<SwarmAnswe
 /**
  * The one way the app reads Swarm. Each feature reads from its own provider and from nothing else: a
  * read that fails is answered as it failed, and only the viewer picks another source. It counts every
- * read and keeps the gateway's clock from the server time of the player's and the stream list's answers.
+ * read, says which features keep failing, and keeps the gateway's clock from the server time of the
+ * player's and the stream list's answers.
  */
 export class SwarmClient {
   private readonly chosen: NamedProvider;
@@ -114,6 +117,7 @@ export class SwarmClient {
   private readonly countByKey = new Map<string, ReadCount>();
   /** Oldest first, never older than {@link ACTIVITY_WINDOW_MS}. */
   private readonly recent: RecentAnswer[] = [];
+  private readonly failureLog = new FeatureFailureLog();
 
   constructor(options: SwarmClientOptions) {
     this.chosen = options.chosen;
@@ -159,6 +163,11 @@ export class SwarmClient {
       }
       return { feature, primary: this.primaryFor(feature).id, answers: [...byKey.values()] };
     });
+  }
+
+  /** The features whose reads have kept failing on their source, for the page to say so. */
+  failures(): FeatureFailure[] {
+    return this.failureLog.failures(this.now());
   }
 
   /** What to add to the viewer's clock to read the gateway's. */
@@ -226,8 +235,10 @@ export class SwarmClient {
   ): Promise<SwarmAnswer> {
     const { id, provider } = this.primaryFor(feature);
     const timeoutMs = Math.max(options?.timeoutMs ?? DEFAULT_READ_TIMEOUT_MS, provider.shortestReadWindowMs ?? 0);
+    const startedAtMs = this.now();
     const answer = await ask(provider, { ...options, timeoutMs });
     this.count(feature, read, id, answer.kind);
+    this.failureLog.note(feature, id, startedAtMs, answer, this.now());
     const serverTimeMs = serverTimeOf(answer);
     if (serverTimeMs !== null && CLOCK_FEATURES.has(feature)) {
       this.clock.noteServerTime(serverTimeMs);

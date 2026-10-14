@@ -4,6 +4,7 @@ import { OwnPlayerStage } from '@/features/player/OwnPlayerStage';
 import { SwarmHlsPlayer } from '@/features/player/SwarmHlsPlayer';
 import { useAppContext } from '@/app/AppProvider';
 import type { SwarmClient } from '@/swarm/client';
+import { sourceName } from '@/swarm/sources';
 import { watchPageCatalogPollMs } from '@/features/catalog/catalogPoll';
 import { useCatalogPoll } from '@/features/catalog/useCatalogPoll';
 import { ROUTES } from '@/app/routes';
@@ -46,7 +47,7 @@ export function StreamWatcher() {
     topic: string;
   }>();
   const [searchParams] = useSearchParams();
-  const { streamList, isStreamListLoaded, chat, swarm, readNextStreamListSlot } = useAppContext();
+  const { streamList, isStreamListLoaded, chat, swarm, readNextStreamListSlot, sources, parts } = useAppContext();
 
   // The ladder lives in the catalog, keyed by the primary feed the browser links to. Current
   // entries name the master, older ones the lowest rung. Waiting for the first catalog read
@@ -63,9 +64,12 @@ export function StreamWatcher() {
   const streamKey = `${owner}/${topic}`;
 
   const back = (
-    <Link className="watch-back" to={ROUTES.STREAM_BROWSER}>
-      <span aria-hidden="true">←</span> Back
-    </Link>
+    <>
+      <Link className="watch-back" to={ROUTES.STREAM_BROWSER}>
+        <span aria-hidden="true">←</span> Back
+      </Link>
+      <span className="watch-via">via {sourceName(sources, parts.player)}</span>
+    </>
   );
 
   if (!mediatype || !owner || !topic || !isMediaType(mediatype)) {

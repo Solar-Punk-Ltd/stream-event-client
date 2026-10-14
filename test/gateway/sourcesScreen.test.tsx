@@ -11,6 +11,7 @@ import {
   NODE_NOT_READY,
   UNREACHABLE_SENTENCES,
 } from '../../src/features/gateway/checkSentences';
+import { ConnectProvider } from '../../src/features/connect/ConnectContext';
 import { SourcesScreen } from '../../src/features/gateway/SourcesScreen';
 import type { SwarmClient } from '../../src/swarm/client';
 import { sharedWeeb3Runtime } from '../../src/swarm/providers/weeb-3/weeb3Runtime';
@@ -88,7 +89,12 @@ function render(extra: Record<string, unknown> = {}) {
   mounted = mount(
     createElement(AppContextProvider, {
       config: config(extra),
-      children: [createElement(SourcesScreen, { key: 'screen' }), createElement(Probe, { key: 'probe' })],
+      children: createElement(
+        ConnectProvider,
+        null,
+        createElement(SourcesScreen, { key: 'screen' }),
+        createElement(Probe, { key: 'probe' }),
+      ),
     }),
   );
 }
