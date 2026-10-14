@@ -8,7 +8,7 @@ export function StatusDot({ status = UNCHECKED, withWords = true }: { status?: S
       {withWords ? (
         <span className="source-status-words">{sourceStatusWords(status)}</span>
       ) : (
-        <span className="sources-visually-hidden">{sourceHealthWord(status.health)}</span>
+        <span className="connect-visually-hidden">{sourceHealthWord(status.health)}</span>
       )}
     </span>
   );
