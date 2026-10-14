@@ -28,6 +28,7 @@ import { createSwarmClient } from '../../src/swarm/createSwarmClient';
 import {
   faultyFetch,
   RECORDED_GATEWAY,
+  recordedBody,
   recordedCatalog,
   recordedFetch,
   recordedStream,
@@ -47,6 +48,10 @@ const RECORDED_CHAT = (() => {
 })();
 
 const HEALTH = `${RECORDED_GATEWAY}/health`;
+
+/** The feed heads the recording read, named from its config, so a new recording needs no change here. */
+const CATALOG_HEAD = `/feeds/${recordedCatalog().owner}/${Topic.fromString(recordedCatalog().topic).toHex()}`;
+const CHAT_HEAD = `/feeds/${RECORDED_CHAT.feedOwner.replace(/^0x/, '').toLowerCase()}/${Topic.fromString(`chat-${recordedStream().topic}`).toHex()}`;
 
 /** What one request is answered with: a response, a refusal as a browser reports one, or nothing. */
 type Answer = Response | 'refuse' | 'hang';
@@ -216,7 +221,7 @@ describe("the Sources screen's Test, on the event's recorded content", () => {
   it('does not pass the chat when this gateway cannot find its feed, and says why', async () => {
     // Nothing in the stream list says a stream has a chat, so a feed this gateway cannot find proves nothing.
     const results = await run({
-      fetcher: gateway((url) => (url.includes('/feeds/c1ba847e') ? new Response('', { status: 404 }) : undefined)),
+      fetcher: gateway((url) => (url.includes(CHAT_HEAD) ? new Response('', { status: 404 }) : undefined)),
     });
 
     expect(results.chat).toEqual({
@@ -230,7 +235,7 @@ describe("the Sources screen's Test, on the event's recorded content", () => {
   });
 
   it('skips the chat on a site that has none, and every stream check on an empty list', async () => {
-    const empty = gateway((url) => (url.includes('/feeds/dc014b8a') ? Response.json([]) : undefined));
+    const empty = gateway((url) => (url.includes(CATALOG_HEAD) ? Response.json([]) : undefined));
     const results = await run({ fetcher: empty, chat: null });
 
     expect(results.chat).toEqual({ check: 'chat', outcome: 'skipped', sentence: SKIPPED.noChat });
@@ -337,9 +342,6 @@ async function runOnTestClock(args: Run): Promise<Record<string, CheckResult>> {
   await vi.advanceTimersByTimeAsync(60_000);
   return pending;
 }
-
-const CATALOG_HEAD = `/feeds/${recordedCatalog().owner}/${Topic.fromString(recordedCatalog().topic).toHex()}`;
-const CHAT_HEAD = '/feeds/c1ba847e';
 
 describe('the window the Test gives each read', () => {
   afterEach(() => {
@@ -639,7 +641,5 @@ describe("the Sources screen's Test, on a live ladder and pictures", () => {
 });
 
 function recordedStreams(): Stream[] {
-  return JSON.parse(
-    readFileSync(join(ROOT, 'e2e', 'recorded', '3097357c1d783f7029ce55baf2cf022419041e6e.bin'), 'utf8'),
-  ) as Stream[];
+  return JSON.parse(new TextDecoder().decode(recordedBody(`${RECORDED_GATEWAY}${CATALOG_HEAD}`))) as Stream[];
 }
