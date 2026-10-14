@@ -243,7 +243,9 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   so each push has a minute (`WEEB3_PUSH_DEADLINE_MS`, measured pushes took 7 to 15 s). A push with no answer by then
   fails the message at once, "Weeb3 did not confirm it within a minute.", and the chat does not send it again by
   itself, since a second try on the same stamp would wait the same minute. Retry tries once more. A refusal weeb-3
-  names fails at once too, and a node that is not running is started again by the chat's own resend. The own-feed
+  names fails at once too, and a node that is not running is started again by the chat's own resend. A stamp from
+  Swarm ID that is not exactly 113 bytes never reaches weeb-3: the message fails at once, "Swarm ID gave a stamp of
+  the wrong size." The own-feed
   copy goes through Weeb3 the same way, before the message.
 - **The stamp's figures.** With My stamp picked, Connect shows the site's stamp: its name, how full it is, its days
   left, and **Change stamp in Swarm ID**, which opens this site's row on Swarm ID's Apps screen,

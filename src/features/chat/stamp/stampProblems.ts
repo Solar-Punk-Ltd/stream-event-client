@@ -79,6 +79,7 @@ const FIRST_SERVER_ERROR = 500;
 const WEEB3_NO_ANSWER =
   'Weeb3 did not confirm it within a minute. It gives no answer for a stamp it will not take, so it is not sent again by itself.';
 const WEEB3_NOT_RUNNING = 'The Swarm node in this browser is not running.';
+const STAMP_WRONG_SIZE = 'Swarm ID gave a stamp of the wrong size.';
 
 /**
  * What a failed push through the node in this browser means for the message. weeb-3 answers a stamp it will not take
@@ -93,6 +94,8 @@ function weeb3Problem(error: Weeb3PushError): SendProblem {
       return refused(`Weeb3 refused it${error.detail ? ` (${error.detail})` : ''}.`);
     case 'node':
       return retried(WEEB3_NOT_RUNNING);
+    case 'stamp-size':
+      return refused(STAMP_WRONG_SIZE);
   }
 }
 

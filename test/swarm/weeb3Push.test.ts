@@ -116,4 +116,19 @@ describe('a stamped single-owner chunk pushed through weeb-3', () => {
     expect(pushed).toEqual([]);
     expect(runtime.holds).toBe(0);
   });
+
+  it.each([112, 114, 0])(
+    'refuses a stamp of %i bytes before asking the node, since a stamp is exactly 113',
+    async (bytes) => {
+      const { runtime, pushed } = runtimeWith(async () => 'Upload result: success');
+
+      const error = await pushStampedSocThroughWeeb3({ ...CHUNK, stamp: 'cd'.repeat(bytes) }, { runtime }).catch(
+        (reason: unknown) => reason,
+      );
+
+      expect(error).toMatchObject({ reason: 'stamp-size' });
+      expect(pushed).toEqual([]);
+      expect(runtime.holds).toBe(0);
+    },
+  );
 });

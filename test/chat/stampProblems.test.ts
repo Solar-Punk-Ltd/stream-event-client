@@ -78,4 +78,11 @@ describe('why the node in this browser did not push a message', () => {
       final: false,
     });
   });
+
+  it('fails at once on a stamp of the wrong size, which a resend would hand over again', () => {
+    expect(uploadProblem(new Weeb3PushError('stamp-size', null))).toEqual({
+      text: 'Swarm ID gave a stamp of the wrong size.',
+      final: true,
+    });
+  });
 });

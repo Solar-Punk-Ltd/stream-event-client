@@ -13,8 +13,15 @@ export const WEEB3_PUSH_DEADLINE_MS = 60_000;
 
 const SUCCESS = /success/i;
 
-/** Why a push through weeb-3 did not go out: no answer by the deadline, a refusal it named, or no node to push with. */
-type Weeb3PushFailure = 'deadline' | 'refused' | 'node';
+/** A postage stamp: batch id, chunk index, timestamp and the batch owner's signature. */
+const STAMP_BYTES = 113;
+const STAMP_HEX = new RegExp(`^(?:0x)?[0-9a-f]{${STAMP_BYTES * 2}}$`, 'i');
+
+/**
+ * Why a push through weeb-3 did not go out: no answer by the deadline, a refusal it named, no node to push with, or a
+ * stamp that is not one, which is never handed to the node.
+ */
+type Weeb3PushFailure = 'deadline' | 'refused' | 'node' | 'stamp-size';
 
 export class Weeb3PushError extends Error {
   constructor(
@@ -27,7 +34,9 @@ export class Weeb3PushError extends Error {
         ? `the node in this browser did not confirm the push in ${WEEB3_PUSH_DEADLINE_MS / 1000} s`
         : reason === 'node'
           ? 'the node in this browser is not running'
-          : `the node in this browser refused the push${detail ? `: ${detail}` : ''}`,
+          : reason === 'stamp-size'
+            ? `the stamp is not ${STAMP_BYTES} bytes`
+            : `the node in this browser refused the push${detail ? `: ${detail}` : ''}`,
       options,
     );
     this.name = 'Weeb3PushError';
@@ -46,10 +55,13 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
  * node in this browser, with `postPushChunk`. The node is held for the push, started if nothing held it, and let go
  * after. Nothing else is asked to send it, whatever happens.
  *
- * @throws Weeb3PushError when the node cannot run, refuses the chunk, or has not answered by
+ * @throws Weeb3PushError when the stamp is not {@link STAMP_BYTES} bytes, the node cannot run, refuses the chunk, or has not answered by
  *   {@link WEEB3_PUSH_DEADLINE_MS}.
  */
 export async function pushStampedSocThroughWeeb3(chunk: StampedSoc, options: PushOptions = {}): Promise<void> {
+  if (!STAMP_HEX.test(chunk.stamp)) {
+    throw new Weeb3PushError('stamp-size', null);
+  }
   const runtime = options.runtime ?? sharedWeeb3Runtime();
   const identifier = new Identifier(chunk.identifier);
   const address = new Bytes(singleOwnerChunkAddress(identifier, chunk.owner)).toUint8Array();
