@@ -167,6 +167,32 @@ describe('the chat stamp in Connect', () => {
     expect(group()?.textContent).toContain('Another stamp');
   });
 
+  it('still reads the stamp again when the window is already on the Swarm ID site and refuses to drop its opener', async () => {
+    chatOnMyBeeNode();
+    const appsWindow = {
+      closed: false,
+      set opener(_value: unknown) {
+        throw new DOMException('Blocked a frame from accessing a cross-origin frame.', 'SecurityError');
+      },
+    };
+    vi.spyOn(window, 'open').mockReturnValue(appsWindow as unknown as Window);
+    const swarmId = await openConnect();
+    click(radio('My stamp')!);
+    await settle();
+
+    vi.useFakeTimers();
+    try {
+      expect(() => click(button('Change stamp in Swarm ID'))).not.toThrow();
+      swarmId.client().postageBatch = { ...BATCH, label: 'Picked again' };
+      appsWindow.closed = true;
+      await vi.advanceTimersByTimeAsync(2_000);
+    } finally {
+      vi.useRealTimers();
+    }
+    await settle();
+    expect(group()?.textContent).toContain('Picked again');
+  });
+
   it('says a stamp that ran out has run out', async () => {
     chatOnMyBeeNode();
     await openConnect({ ...BATCH, utilization: 1 });

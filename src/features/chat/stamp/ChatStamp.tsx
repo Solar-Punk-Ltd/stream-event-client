@@ -221,8 +221,13 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
             if (!opened) {
               return;
             }
-            // Kept as a handle only, to see it close: the Swarm ID site gets no way back into this page.
-            opened.opener = null;
+            // Kept as a handle only, to see it close: the Swarm ID site gets no way back into this page. A window of
+            // this name already showing the Swarm ID site may refuse the assignment, and is watched all the same.
+            try {
+              opened.opener = null;
+            } catch {
+              // Its opener stays, as it was for the window that was already open.
+            }
             const watch = window.setInterval(() => {
               if (opened.closed) {
                 window.clearInterval(watch);
