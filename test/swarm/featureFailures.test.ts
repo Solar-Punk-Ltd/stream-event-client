@@ -1,3 +1,4 @@
+import { Topic } from '@ethersphere/bee-js';
 import { describe, expect, it } from 'vitest';
 
 import { SwarmClient } from '../../src/swarm/client';
@@ -5,6 +6,7 @@ import { FAILING_AFTER_MS, QUIET_AFTER_MS } from '../../src/swarm/featureFailure
 import { content, fault, notFound, ScriptedProvider } from '../helpers/scriptedProvider';
 
 const REFERENCE = 'ef'.repeat(32);
+const TOPIC = Topic.fromString('failures-test');
 const timeout = { kind: 'unavailable' as const, cause: { kind: 'timeout' as const, timeoutMs: 10_000 } };
 
 function world() {
@@ -106,5 +108,38 @@ describe('which parts fail on the source they read from', () => {
     expect(client.failures()).toEqual([
       { feature: 'chat', provider: 'chat-source', forMs: FAILING_AFTER_MS, cause: { kind: 'no-answer' } },
     ]);
+  });
+
+  it('fails a part whose feeds answer while the URLs the browser loads for it keep failing', async () => {
+    const { event, client, advance } = world();
+    event.answer = content();
+    const player = client.reader('player');
+    player.reportUrlLoad({ loaded: false, status: 503 });
+    for (let turn = 0; turn < 5; turn += 1) {
+      await player.readFeedEntry('1'.repeat(40), TOPIC, turn);
+      advance(FAILING_AFTER_MS / 4);
+    }
+    player.reportUrlLoad({ loaded: false, status: 503 });
+
+    expect(client.failures()).toEqual([
+      {
+        feature: 'player',
+        provider: 'event',
+        forMs: (5 * FAILING_AFTER_MS) / 4,
+        cause: { kind: 'status', status: 503 },
+      },
+    ]);
+  });
+
+  it('clears that part at the first URL that loads, and counts one that never answered as no answer', async () => {
+    const { client, advance } = world();
+    const previews = client.reader('previews');
+    previews.reportUrlLoad({ loaded: false, status: null });
+    advance(FAILING_AFTER_MS);
+    previews.reportUrlLoad({ loaded: false, status: null });
+    expect(client.failures()[0]).toMatchObject({ feature: 'previews', cause: { kind: 'no-answer' } });
+
+    previews.reportUrlLoad({ loaded: true });
+    expect(client.failures()).toEqual([]);
   });
 });

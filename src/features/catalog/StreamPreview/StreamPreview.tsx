@@ -16,6 +16,7 @@ import { previewMode, thumbnailFailed } from '@/features/catalog/StreamPreview/p
 import { PREVIEW_PLAYLIST_URL, previewPlaylistLoader } from '@/features/catalog/StreamPreview/previewPlaylistLoader';
 import { previewSourceFrom } from '@/features/catalog/StreamPreview/previewSource';
 import { CustomFragmentLoader } from '@/features/player/CustomManifestLoader';
+import { segmentLoadFailure } from '@/features/player/segmentLoads';
 import { useAppContext } from '@/app/AppProvider';
 import {
   MediaType,
@@ -183,6 +184,7 @@ export const StreamPreview = ({
           };
           abort.signal.addEventListener('abort', done, { once: true });
 
+          hls.on(Events.FRAG_LOADED, () => previews.reportUrlLoad({ loaded: true }));
           hls.on(Events.FRAG_CHANGED, () => {
             if (videoRef.current) {
               videoRef.current.currentTime = 0;
@@ -194,7 +196,11 @@ export const StreamPreview = ({
             done();
           });
 
-          hls.on(Events.ERROR, () => {
+          hls.on(Events.ERROR, (_event, data) => {
+            const segmentFailure = segmentLoadFailure(data);
+            if (segmentFailure) {
+              previews.reportUrlLoad(segmentFailure);
+            }
             setIsLoading(false);
             done();
           });
@@ -245,7 +251,11 @@ export const StreamPreview = ({
             src={previews.urlFor(thumbnail, 'thumbnail') ?? undefined}
             // Empty because the title names the stream, and the link reads it out.
             alt=""
-            onError={() => setFailedThumbnail(thumbnail)}
+            onLoad={() => previews.reportUrlLoad({ loaded: true })}
+            onError={() => {
+              previews.reportUrlLoad({ loaded: false, status: null });
+              setFailedThumbnail(thumbnail);
+            }}
           />
         )}
         {mode === 'probe' && (

@@ -3,7 +3,7 @@ import type { Topic } from '@ethersphere/bee-js';
 import { GatewayClock } from '@/shared/gatewayClock';
 
 import { type AnswerKind, serverTimeOf, type SwarmAnswer } from './answers';
-import { FeatureFailureLog, type FeatureFailure } from './featureFailures';
+import { answerOfUrlLoad, FeatureFailureLog, type FeatureFailure, type UrlLoadOutcome } from './featureFailures';
 import {
   DEFAULT_READ_TIMEOUT_MS,
   type OwnPlayer,
@@ -15,7 +15,7 @@ import {
 } from './provider';
 
 export { loadUrl, type UrlLoadOptions } from './urlLoad';
-export type { FailureCause, FeatureFailure } from './featureFailures';
+export type { FailureCause, FeatureFailure, UrlLoadOutcome } from './featureFailures';
 
 /** The parts of the app that read Swarm, each of which the client may send to a provider of its own. */
 export const SWARM_FEATURES = ['player', 'stream-list', 'previews', 'chat'] as const;
@@ -57,6 +57,8 @@ export interface SwarmReader {
   readBytes(reference: string, options?: ReadOptions): Promise<SwarmAnswer>;
   /** A URL from the feature's provider, or null when it gives none. */
   urlFor(reference: string, use: UrlUse): string | null;
+  /** How the browser's or hls.js's load of one of those URLs ended, which counts toward whether the feature fails. */
+  reportUrlLoad(outcome: UrlLoadOutcome): void;
 }
 
 interface ReadCount {
@@ -141,6 +143,10 @@ export class SwarmClient {
       readBytes: (reference, options) =>
         this.read(feature, 'bytes', options, (provider, windowed) => provider.readBytes(reference, windowed)),
       urlFor: (reference, use) => this.primaryFor(feature).provider.urlFor(reference, use),
+      reportUrlLoad: (outcome) => {
+        const nowMs = this.now();
+        this.failureLog.note(feature, this.primaryFor(feature).id, nowMs, answerOfUrlLoad(outcome), nowMs, 'urls');
+      },
     };
   }
 

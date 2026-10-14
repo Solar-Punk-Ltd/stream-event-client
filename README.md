@@ -508,7 +508,7 @@ once and is kept in the browser, and nothing switches a source by itself.
   and the weeb-3 build. Copy diagnostics is there for every source.
 - **No fallback.** A part reads from the source picked for it and from nothing else, whatever that source answers.
   The player's own retries ask the same source again.
-- **A source that fails.** When a part's reads have had no answer it can use for 10 s, a bar under the header says
+- **A source that fails.** When a part's reads, or the segments and pictures loaded for it, have had no answer it can use for 10 s, a bar under the header says
   so, such as "Video cannot load from Event gateway." and "No answer for 12 s.", with a Choose another source button
   that opens Connect. One bar per failing part, gone at the part's next answer, or 30 s after it stopped reading. A not
   found is an answer, so a chat slot not written yet never shows one. The watch page names the video's source above
@@ -593,8 +593,10 @@ so the player brings its own loaders:
 - **CustomFragmentLoader** hands each segment to hls.js's own loader, staggered by a bounded random
   delay so a crowd at the live edge does not ask in the same instant. Segments, preview segments and
   stream pictures are loaded by hls.js and the browser from the URLs the client gives (`urlFor`),
-  written into the playlist or the page, not read through the client. So those loads are not counted
-  and a failed one is asked again of the same source by hls.js. `fetchSegmentBytes` is the one place segment
+  written into the playlist or the page, not read through the client. Each load's outcome is still
+  reported to the client (`reportUrlLoad`): a segment hls.js loads or fails for the video, and a preview
+  segment or a picture for the previews, so a source that serves feeds and fails every segment shows the
+  failure bar. A failed one is asked again of the same source by hls.js. `fetchSegmentBytes` is the one place segment
   bytes are fetched, where a provider without URLs can plug in.
 - **ManifestStateManager** merges each live playlist into a growing EVENT playlist, so segments stay
   playable longer than the publisher's sliding window.

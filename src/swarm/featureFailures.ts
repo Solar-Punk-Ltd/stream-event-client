@@ -55,15 +55,48 @@ function causeOf(answer: SwarmAnswer): FailureCause | null {
   }
 }
 
-export class FeatureFailureLog {
-  private readonly byFeature = new Map<SwarmFeature, FeatureReads>();
+/**
+ * What a feature fetched: its reads through the client, or the URLs the browser and hls.js load for it, such as
+ * segments and pictures. Each is judged on its own, so a source that serves feeds and fails every segment still fails.
+ */
+type FetchChannel = 'reads' | 'urls';
 
-  /** One read of a feature, from when it started, ended in an answer from a provider. */
-  note(feature: SwarmFeature, provider: string, startedAtMs: number, answer: SwarmAnswer, nowMs: number): void {
+/** How a URL the browser or hls.js loaded for a feature ended: loaded, or failed with the status it answered, if any. */
+export type UrlLoadOutcome = { readonly loaded: true } | { readonly loaded: false; readonly status: number | null };
+
+/** A URL load's outcome as the answer a read would have ended in. */
+export function answerOfUrlLoad(outcome: UrlLoadOutcome): SwarmAnswer {
+  if (outcome.loaded) {
+    return { kind: 'content', bytes: new Uint8Array(), feedIndex: null, serverTimeMs: null };
+  }
+  return outcome.status === null
+    ? { kind: 'unavailable', cause: { kind: 'network', error: null } }
+    : { kind: 'unavailable', cause: { kind: 'status', status: outcome.status } };
+}
+
+export class FeatureFailureLog {
+  private readonly byChannel = new Map<string, FeatureReads & { feature: SwarmFeature }>();
+
+  /** One fetch of a feature, from when it started, ended in an answer from a provider. */
+  note(
+    feature: SwarmFeature,
+    provider: string,
+    startedAtMs: number,
+    answer: SwarmAnswer,
+    nowMs: number,
+    channel: FetchChannel = 'reads',
+  ): void {
     if (answer.kind === 'aborted') {
       return;
     }
-    const reads = this.byFeature.get(feature) ?? { provider, failingSinceMs: null, lastCause: null, lastReadAtMs: 0 };
+    const key = `${feature}|${channel}`;
+    const reads = this.byChannel.get(key) ?? {
+      feature,
+      provider,
+      failingSinceMs: null,
+      lastCause: null,
+      lastReadAtMs: 0,
+    };
     reads.provider = provider;
     reads.lastReadAtMs = nowMs;
     const cause = causeOf(answer);
@@ -74,21 +107,25 @@ export class FeatureFailureLog {
       reads.failingSinceMs ??= startedAtMs;
       reads.lastCause = cause;
     }
-    this.byFeature.set(feature, reads);
+    this.byChannel.set(key, reads);
   }
 
-  /** The features failing now, in the order they first read. */
+  /** The features failing now, in the order they first fetched, each once, by the fetch that has failed longest. */
   failures(nowMs: number): FeatureFailure[] {
-    return [...this.byFeature].flatMap(([feature, reads]): FeatureFailure[] => {
-      const { failingSinceMs, lastCause, lastReadAtMs, provider } = reads;
+    const byFeature = new Map<SwarmFeature, FeatureFailure>();
+    for (const { feature, failingSinceMs, lastCause, lastReadAtMs, provider } of this.byChannel.values()) {
       if (failingSinceMs === null || lastCause === null) {
-        return [];
+        continue;
       }
       const forMs = nowMs - failingSinceMs;
       if (forMs < FAILING_AFTER_MS || nowMs - lastReadAtMs > QUIET_AFTER_MS) {
-        return [];
+        continue;
       }
-      return [{ feature, provider, forMs, cause: lastCause }];
-    });
+      const known = byFeature.get(feature);
+      if (!known || known.forMs < forMs) {
+        byFeature.set(feature, { feature, provider, forMs, cause: lastCause });
+      }
+    }
+    return [...byFeature.values()];
   }
 }

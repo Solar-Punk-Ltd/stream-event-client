@@ -15,7 +15,7 @@ import { Rendition } from '@/features/catalog/stream';
 import { gatewayClock } from '@/shared/gatewayClock';
 import { RequestJitter } from '@/shared/requestJitter';
 import { UNSUPPORTED } from '@/swarm/answers';
-import type { SwarmReader } from '@/swarm/client';
+import type { SwarmReader, UrlLoadOutcome } from '@/swarm/client';
 
 import { FEED_RETURN_WATCH_INTERVAL_MS, FeedReturnWatch, feedReturnWatchWaitMs } from './feedReturn';
 import { FeedHealthTracker, UNSERVED_POLLS_PROBE_CEILING } from './feedState';
@@ -545,6 +545,7 @@ const NO_SWARM: SwarmReader = {
   readChunk: async () => UNSUPPORTED,
   readBytes: async () => UNSUPPORTED,
   urlFor: () => null,
+  reportUrlLoad: () => {},
 };
 
 export class ManifestFetcher {
@@ -649,6 +650,11 @@ export class ManifestFetcher {
    */
   useSwarm(reader: SwarmReader): void {
     this.swarm = reader;
+  }
+
+  /** How a segment load of the player ended, counted against the source the player reads from now. */
+  reportSegmentLoad(outcome: UrlLoadOutcome): void {
+    this.swarm.reportUrlLoad(outcome);
   }
 
   /** How segments are named now: by the provider the current reader reads from. */

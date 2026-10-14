@@ -19,6 +19,7 @@ import { buildPlayerConfig, HLS_TUNING } from './playerConfig';
 import { buildSwarmUri } from './playlist';
 import { attachReturningBroadcastRejoin } from './returningBroadcast';
 import { attachActiveRungFollower, attachRungFailover, attachWatchedRungReporter } from './rungHealth';
+import { segmentLoadFailure } from './segmentLoads';
 
 import './SwarmHlsPlayer.scss';
 
@@ -395,7 +396,12 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
       video.addEventListener('pause', onHlsPause);
       video.addEventListener('play', onHlsPlay);
 
+      hls.on(Events.FRAG_LOADED, () => manifestFetcher.reportSegmentLoad({ loaded: true }));
       hls.on(Events.ERROR, (_event, data) => {
+        const segmentFailure = segmentLoadFailure(data);
+        if (segmentFailure) {
+          manifestFetcher.reportSegmentLoad(segmentFailure);
+        }
         if (
           hls &&
           skipFailedLiveSegment(
