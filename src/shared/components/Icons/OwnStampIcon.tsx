@@ -1,8 +1,21 @@
 import React from 'react';
 
+import './BadgeIcons.scss';
+
+interface OwnStampIconProps {
+  /** Drawn grey, for a stamp that ran out. */
+  readonly spent?: boolean;
+}
+
 /** A postage stamp with a hexagon inside: the sender paid for the write with a stamp of their own. */
-export const OwnStampIcon: React.FC = () => (
-  <svg className="sender-own-stamp" width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+export const OwnStampIcon: React.FC<OwnStampIconProps> = ({ spent = false }) => (
+  <svg
+    className={spent ? 'sender-own-stamp spent' : 'sender-own-stamp'}
+    width="15"
+    height="15"
+    viewBox="0 0 16 16"
+    aria-hidden="true"
+  >
     <path
       className="sender-own-stamp-edge"
       d="M2.5 2.5h11v11h-11z"

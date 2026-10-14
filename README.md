@@ -115,7 +115,8 @@ reaction's picker beside a message.
 
 - **Two Bee endpoints for the chat.** `chat.readUrl` serves the chat's feed and history files.
   `chat.writeUrl` takes the messages and stamps every write, because the page holds no postage stamp.
-  A message costs one stamped chunk, and one more for each resend while it has not been read back.
+  A message costs one stamped chunk, and one more for each resend while it has not been read back. A viewer who
+  pays with their own stamp, [below](#who-pays-for-a-message), writes through their own Bee node instead.
 - **The chat aggregator**, on swarm-chat-js 8, which listens on the shared address the key and topic above name, and
   appends each message to the stream's chat feed, `chat-<stream topic>` under `chat.feedOwner`.
   Opening a chat reads the newest history file the chat feed points to, then the entries after it. The endpoint viewers write
@@ -130,7 +131,8 @@ keys in the tree has to know it.
 **What the browser keeps.** A guest's display name, the chat key made for it (32 random bytes from the
 browser's own crypto) and its address sit in local storage under `stream-event-client:chat-session`,
 so a reload keeps the name. Logging out, or Leave beside Swarm ID, removes them. Nothing of a Swarm ID
-sign-in is kept there. The key proves only that two messages came from
+sign-in is kept there. Who pays for the viewer's messages, and whether they keep an own feed, sit under
+`stream-event-client:chat-stamp`, read only while they are signed in with Swarm ID. The key proves only that two messages came from
 the same browser, and anyone may choose any name. So the badge beside a guest's name opens the
 details, where the sender's full public address tells apart two people who chose the same name.
 
@@ -152,7 +154,7 @@ is no initial and nothing floats over the row. A grey outline hexagon after a na
 is a guest, told apart only by the key their browser keeps. A filled hexagon with a check
 after a name in the accent colour is a Swarm ID account, which signed a statement that this chat address
 on this site is its own. A stamp after the badge says the sender paid for the write with a stamp of
-their own. Every message this page sends says the event gateway paid. The badge, and the stamp where
+their own. Every message this page sends says who paid, the event gateway or the viewer's own stamp. The badge, and the stamp where
 there is one, open the message's details: the name, the identity, the public chat address, that the signature
 matches the text, for a Swarm ID the link Swarm ID confirmed for this site and the account's address,
 and who paid for the write.
@@ -164,8 +166,8 @@ opens the Swarm ID window, which the Swarm ID site draws, not this page. The per
 there, or makes one. The ID then gives this site its chat key for that account and a chat binding, the
 account's signed statement that the key's address on this site is its own. Every message is signed
 with that key and carries the binding, so every reader shows the Swarm ID badge. The page never
-connects a wallet and never sees the account's own key. Messages still go through the event gateway,
-which stamps them.
+connects a wallet and never sees the account's own key. Messages go through the event gateway, which
+stamps them, unless the person picks their own stamp, as the next section says.
 
 - **The Bee node Swarm ID uses for this site.** The page hands Swarm ID the address of the source picked
   for the chat history, as a Bee API base, when it starts the library and again whenever that source
@@ -200,6 +202,52 @@ which stamps them.
   frame says is signed in, leaves the person signed out with the reason.
 - **When the Swarm ID site cannot be used**, as for a site it does not serve, Connect says it
   cannot be reached and guests chat as before.
+
+### Who pays for a message
+
+Connect has a **Chat stamp** group, between ID and Swarm access, once the viewer is chatting. Every message on
+Swarm needs a postage stamp, and the group offers two ways to pay.
+
+- **Gateway pays**, the default for everyone, as before: the message goes to `chat.writeUrl`, which stamps it.
+- **My stamp**, offered once signed in with Swarm ID. The stamp is the one Swarm ID gives this site. It is bought,
+  topped up, made bigger and chosen for the site in Swarm ID, never in this page, which holds no stamp and no stamp
+  key. For each message the page builds the chunk, Swarm ID signs and stamps it in its frame with `stampChunk`,
+  and the page sends the stamped chunk itself, `POST /soc/<owner>/<id>?sig=...` with the stamp in Bee's
+  `swarm-postage-stamp` header, through the source picked for **Chat history** in Use for. Every message says
+  `via: "own-stamp"`. The chat's inbox is one single-owner chunk address, which Swarm ID stamps again in the slot
+  it already holds, so a busy chat costs one slot of the stamp rather than one per message.
+- **Which source can send it.** Only a Bee node of the viewer's own stores a chunk under a stamp it is handed, so
+  My stamp needs a Bee node picked for Chat history. The event gateway's chat path stamps every write with the
+  gateway's own batch, a `/bee` path on the site passes reads alone, and the page cannot tell what any other gateway
+  does with a stamp, so with a gateway picked My stamp says why it cannot be used, and names the fix. The node in
+  this browser sends chat messages in a later release. The Bee node must allow this site's origin
+  (`cors-allowed-origins`) for the write as for its reads, and needs the stamp's chain to check it, so a light
+  node or a full one, not an ultra-light one.
+- **Nothing switches by itself.** A message Swarm ID will not stamp, or the node refuses, shows "Not sent." with
+  the reason, and is never resent through the gateway. A refusal a resend cannot mend, such as a stamp that ran
+  out, fails the message at once, and Retry tries it again on the same stamp. A node that did not answer, or a
+  busy Swarm ID, is resent by the chat on its own, on the same stamp and through the same node. When the source
+  picked for Chat history changes to one that cannot send on the stamp, the choice stays, sending is held with
+  the reason, and the viewer picks a Bee node again or presses Let the gateway pay.
+- **The stamp's figures.** With My stamp picked, Connect shows the site's stamp: its name, how full it is, its days
+  left, and **Change stamp in Swarm ID**, which opens this site's row on Swarm ID's Apps screen,
+  `<swarmId.url>/#apps/<this site's origin>`, in a window of its own. The figures are read from Swarm ID's
+  `getPostageBatch` when the person signs in, when Connect opens, when that window closes, when the page comes back
+  into focus, and after messages sent, at most every 15 seconds. **A known limit:** in the hosted Swarm ID, a site
+  on another domain does not hear of a stamp change, live or on reload, until the person signs in with Swarm ID
+  again, so a changed stamp may show its old figures until then. With no stamp given, Connect says so and offers
+  Choose a stamp in Swarm ID.
+- **Warnings above the message field.** At 80% used, or 3 days left, the field says how much is used and when it
+  runs out, and sending goes on. When the stamp ran out, is not usable yet, or Swarm ID gives this site none, the
+  field says so, sending is held with what was typed kept, and two buttons offer Change stamp in Swarm ID and Let
+  the gateway pay.
+- **Also write my own feed.** Off by default, and offered only with My stamp. With it on, every message is first
+  copied into the sender's own feed, `ownFeedTopic(chatTopic)` from swarm-chat-js under the chat key's address,
+  one entry per message at the next index, stamped by Swarm ID too, and only then sent, so a message that says
+  `own: true` always has its copy. swarm-chat-js 8 signs every message with `own: false`, so the page signs it
+  again with `own: true`, the same id, time and text. The feed's newest index is read once, through the chat
+  history's source, and counted on from there. When it cannot be read, the message waits with the reason rather
+  than going out without its copy. Each message then costs two stamped chunks.
 
 **How the page talks to Swarm ID.** The library, `@solarpunkltd/swarm-id` from the Solar Punk fork, is a file
 of the bundle of its own, fetched when the page starts on a deployment that offers Swarm ID, because

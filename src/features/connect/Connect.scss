@@ -507,3 +507,45 @@
   margin-left: auto;
   color: var(--color-primary);
 }
+
+// A choice drawn as an outlined row, its explanation under its name, the picked one outlined in the accent.
+.connect-choice {
+  display: flex;
+  gap: var(--spacing-sm-md);
+  align-items: flex-start;
+  padding: var(--spacing-sm-md) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+
+  &:has(input:checked) {
+    border-color: var(--color-primary);
+  }
+
+  &.off {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  input {
+    margin-top: var(--spacing-2xs);
+    accent-color: var(--color-primary);
+  }
+
+  small {
+    display: block;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+  }
+}
+
+.connect-stamp-meter {
+  &.low i {
+    background: var(--color-warning);
+  }
+
+  &.ran-out i,
+  &.not-usable i {
+    background: var(--color-border-strong);
+  }
+}

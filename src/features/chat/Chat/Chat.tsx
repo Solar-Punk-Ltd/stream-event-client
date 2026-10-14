@@ -8,6 +8,7 @@ import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 
 import type { ChatReads } from '../chatParts';
 import { chatSettings } from '../chatSettings';
+import { useChatStamp } from '../stamp/ChatStamp';
 import { useChatUser } from '../User';
 import { CHAT_LOADING, CHAT_UNREACHABLE, useSwarmChat, type VisibleMessage } from '../useSwarmChat';
 
@@ -15,6 +16,7 @@ import { ChatMessage } from './ChatMessage/ChatMessage';
 import { FeedNotice } from './FeedNotice/FeedNotice';
 import { MessageSender } from './MessageSender/MessageSender';
 import { ScrollableMessageList } from './ScrollableMessageList/ScrollableMessageList';
+import { StampWarningBar } from './StampWarningBar/StampWarningBar';
 import { ThreadView } from './ThreadView/ThreadView';
 
 import './Chat.scss';
@@ -36,7 +38,9 @@ type PendingReactions = Record<string, string>;
 export function Chat({ chat, topic, reads }: ChatProps) {
   const { session } = useChatUser();
   const { open: openConnect } = useConnect();
-  const settings = useMemo(() => chatSettings(chat, topic, session), [chat, topic, session]);
+  const { sending, ownStamp, warning } = useChatStamp();
+  const settings = useMemo(() => chatSettings(chat, topic, session, sending), [chat, topic, session, sending]);
+  const isSendingHeld = warning?.blocksSending ?? false;
   const ownAddress = session?.address ?? null;
   const {
     status,
@@ -55,7 +59,7 @@ export function Chat({ chat, topic, reads }: ChatProps) {
     retrySendMessage,
     restart,
     refusedCount,
-  } = useSwarmChat(settings, ownAddress, reads);
+  } = useSwarmChat(settings, ownAddress, reads, ownStamp);
 
   const [threadId, setThreadId] = useState<string | null>(null);
   const [pendingReactions, setPendingReactions] = useState<PendingReactions>({});
@@ -143,12 +147,16 @@ export function Chat({ chat, topic, reads }: ChatProps) {
           onBack={() => setThreadId(null)}
           composer={
             session ? (
-              <MessageSender
-                label="Reply"
-                placeholder="Reply in the thread"
-                onSend={(text) => sendReply(threadParent.id, text)}
-                checkDraft={(text) => checkReply(threadParent.id, text)}
-              />
+              <>
+                <StampWarningBar />
+                <MessageSender
+                  label="Reply"
+                  placeholder="Reply in the thread"
+                  onSend={(text) => sendReply(threadParent.id, text)}
+                  checkDraft={(text) => checkReply(threadParent.id, text)}
+                  isHeld={isSendingHeld}
+                />
+              </>
             ) : (
               joinButton('Join the chat to reply')
             )
@@ -180,7 +188,16 @@ export function Chat({ chat, topic, reads }: ChatProps) {
           <p className="chat-empty">No messages yet.</p>
         )}
         {session ? (
-          <MessageSender label="Message" placeholder="Type a message" onSend={sendMessage} checkDraft={checkMessage} />
+          <>
+            <StampWarningBar />
+            <MessageSender
+              label="Message"
+              placeholder="Type a message"
+              onSend={sendMessage}
+              checkDraft={checkMessage}
+              isHeld={isSendingHeld}
+            />
+          </>
         ) : (
           joinButton('Join the chat to send messages')
         )}

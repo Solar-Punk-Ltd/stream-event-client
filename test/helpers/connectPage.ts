@@ -5,6 +5,7 @@ import { ThemeChoiceProvider } from '../../src/app/ThemeChoiceProvider';
 import type { RuntimeConfig } from '../../src/config/runtimeConfig';
 import { SwarmIdPageNotice } from '../../src/features/chat/swarmId/SwarmIdParts';
 import { AppChatUserProvider } from '../../src/app/AppChatUserProvider';
+import { ChatStampProvider, useChatStamp } from '../../src/features/chat/stamp/ChatStamp';
 import { useChatUser } from '../../src/features/chat/User';
 import { Connect } from '../../src/features/connect/Connect';
 import { ConnectProvider, useConnect } from '../../src/features/connect/ConnectContext';
@@ -44,15 +45,17 @@ interface Seen {
   app: ReturnType<typeof useAppContext> | null;
   chatUser: ReturnType<typeof useChatUser> | null;
   connect: ReturnType<typeof useConnect> | null;
+  chatStamp: ReturnType<typeof useChatStamp> | null;
 }
 
 /** What the page's providers hold as the test runs, read after each step. */
-export const seen: Seen = { app: null, chatUser: null, connect: null };
+export const seen: Seen = { app: null, chatUser: null, connect: null, chatStamp: null };
 
 function Probe() {
   seen.app = useAppContext();
   seen.chatUser = useChatUser();
   seen.connect = useConnect();
+  seen.chatStamp = useChatStamp();
   return null;
 }
 
@@ -83,10 +86,14 @@ export function connectPage({
           createElement(
             ConnectProvider,
             null,
-            createElement(Connect, { key: 'connect' }),
-            createElement(SwarmIdPageNotice, { key: 'notice' }),
-            createElement(Probe, { key: 'probe' }),
-            ...children,
+            createElement(
+              ChatStampProvider,
+              null,
+              createElement(Connect, { key: 'connect' }),
+              createElement(SwarmIdPageNotice, { key: 'notice' }),
+              createElement(Probe, { key: 'probe' }),
+              ...children,
+            ),
           ),
         ),
       ),

@@ -39,14 +39,3 @@
   line-height: 0;
   cursor: pointer;
 }
-
-.sender-own-stamp {
-  .sender-own-stamp-edge {
-    stroke: var(--color-text);
-    stroke-opacity: 0.8;
-  }
-
-  .sender-own-stamp-hexagon {
-    fill: var(--color-primary);
-  }
-}

@@ -1,4 +1,4 @@
-// The two identity badges, drawn the same beside a message and in the viewer's own menu.
+// The two identity badges and the own stamp, drawn the same beside a message and in Connect.
 .sender-badge-guest path {
   stroke: var(--color-text-muted);
 }
@@ -11,5 +11,21 @@
 
   .sender-badge-check {
     stroke: var(--color-on-primary);
+  }
+}
+
+.sender-own-stamp {
+  .sender-own-stamp-edge {
+    stroke: var(--color-text);
+    stroke-opacity: 0.8;
+  }
+
+  .sender-own-stamp-hexagon {
+    fill: var(--color-primary);
+  }
+
+  // A stamp that ran out, as Connect shows it.
+  &.spent .sender-own-stamp-hexagon {
+    fill: var(--color-border-strong);
   }
 }

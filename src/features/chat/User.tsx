@@ -11,7 +11,13 @@ import {
 
 import { checkDisplayName, type DisplayNameCheck, nicknameLogin, type Session } from './auth/login';
 import { persistUserSession, purgeUserSession, restoreUserSession } from './auth/persistence';
-import { type LoadSwarmIdClient, loadSwarmIdLibrary } from './swarmId/swarmIdClient';
+import {
+  type LoadSwarmIdClient,
+  loadSwarmIdLibrary,
+  type SwarmIdChunkToStamp,
+  type SwarmIdPostageBatch,
+  type SwarmIdStampedChunk,
+} from './swarmId/swarmIdClient';
 import {
   createSwarmIdSignIn,
   SWARM_ID_SIGNED_IN,
@@ -39,6 +45,12 @@ interface ChatUserContextValue {
   /** Opens the Swarm ID window. Called from a click only, or the browser blocks the window. */
   signInWithSwarmId: () => void;
   signOutOfSwarmId: () => void;
+  /** The Swarm ID site's origin, or null on a deployment that offers no Swarm ID. */
+  swarmIdUrl: string | null;
+  /** The stamp Swarm ID gives this site, or undefined while nobody is signed in or it gives none. */
+  getSiteStamp: () => Promise<SwarmIdPostageBatch | undefined>;
+  /** Has Swarm ID sign and stamp a chunk with the stamp it gives this site. Rejects while nobody is signed in. */
+  stampChunk: (chunk: SwarmIdChunkToStamp) => Promise<SwarmIdStampedChunk>;
 }
 
 const ChatUserContext = createContext<ChatUserContextValue | undefined>(undefined);
@@ -131,6 +143,12 @@ export function ChatUserProvider({
 
   const signInWithSwarmId = useCallback(() => signIn?.signIn(), [signIn]);
   const signOutOfSwarmId = useCallback(() => void signIn?.signOut(), [signIn]);
+  const getSiteStamp = useCallback(async () => signIn?.getPostageBatch(), [signIn]);
+  const stampChunk = useCallback(
+    (chunk: SwarmIdChunkToStamp) =>
+      signIn ? signIn.stampChunk(chunk) : Promise.reject(new Error('This deployment offers no Swarm ID')),
+    [signIn],
+  );
 
   const swarmIdSession = swarmId?.status === SWARM_ID_SIGNED_IN ? swarmId.session : null;
   const session = swarmIdSession ?? guestSession;
@@ -145,8 +163,23 @@ export function ChatUserProvider({
       swarmIdSession,
       signInWithSwarmId,
       signOutOfSwarmId,
+      swarmIdUrl,
+      getSiteStamp,
+      stampChunk,
     }),
-    [session, guestSession, loginAsUser, logout, swarmId, swarmIdSession, signInWithSwarmId, signOutOfSwarmId],
+    [
+      session,
+      guestSession,
+      loginAsUser,
+      logout,
+      swarmId,
+      swarmIdSession,
+      signInWithSwarmId,
+      signOutOfSwarmId,
+      swarmIdUrl,
+      getSiteStamp,
+      stampChunk,
+    ],
   );
 
   return <ChatUserContext.Provider value={value}>{children}</ChatUserContext.Provider>;

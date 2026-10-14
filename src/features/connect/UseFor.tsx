@@ -19,8 +19,9 @@ interface UseForProps {
 
 /**
  * What each source is used for: one source for all features, the chat history included, or a source each for the
- * video, the stream list, the previews and the chat history. Chat messages are always sent through the event's
- * chat write address, which no source here changes.
+ * video, the stream list, the previews and the chat history. While the event pays, chat messages are sent through
+ * the event's chat write address whatever is picked here. On the viewer's own stamp they go out through the source
+ * picked for the chat history, which must be a Bee node of their own.
  */
 export function UseFor({ sources, routing, parts, hasChat, onChange }: UseForProps) {
   const isOne = routing.mode === 'one';

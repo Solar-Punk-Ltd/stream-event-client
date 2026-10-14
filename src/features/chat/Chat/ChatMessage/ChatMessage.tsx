@@ -158,7 +158,7 @@ export function ChatMessage({
 
         {error && (
           <p className="chat-message-status error">
-            Not sent.{' '}
+            {message.sendProblem ? `Not sent. ${message.sendProblem}` : 'Not sent.'}{' '}
             <button type="button" className="chat-message-retry" onClick={onRetry}>
               Retry
             </button>

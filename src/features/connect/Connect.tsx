@@ -11,6 +11,7 @@ import type { SwarmClient } from '@/swarm/client';
 import type { SourceType } from '@/swarm/sources';
 
 import { AddAddressView, AddTiles, AddWeeb3View } from './AddSourceViews';
+import { ChatStampSection } from './ChatStampSection';
 import { useConnect } from './ConnectContext';
 import { ADD_VIEWS } from './connectWords';
 import { IdSection } from './IdSection';
@@ -135,7 +136,7 @@ export function Connect() {
                     <IdSection onLeave={() => showView({ kind: 'leave' })} />
                   </section>
                 )}
-                {/* The chat stamp, how a viewer's messages are paid for, sits here, between ID and Swarm access. */}
+                {chatsAs && <ChatStampSection />}
                 <section className="connect-group" aria-label="Swarm access">
                   <div className="connect-section-label">Swarm access</div>
                   <SwarmAccess

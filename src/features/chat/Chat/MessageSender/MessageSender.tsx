@@ -15,9 +15,11 @@ interface MessageSenderProps {
   placeholder: string;
   /** Why the chat would refuse this text, or null, so a draft it would refuse is never sent. */
   checkDraft?: (text: string) => string | null;
+  /** Nothing can be sent now, as when the viewer's own stamp ran out. What is typed stays in the field. */
+  isHeld?: boolean;
 }
 
-export function MessageSender({ onSend, label, placeholder, checkDraft }: MessageSenderProps) {
+export function MessageSender({ onSend, label, placeholder, checkDraft, isHeld = false }: MessageSenderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -27,7 +29,7 @@ export function MessageSender({ onSend, label, placeholder, checkDraft }: Messag
 
   const send = async () => {
     const text = draft;
-    if (!text || sending || draftRefusal) {
+    if (!text || sending || draftRefusal || isHeld) {
       return;
     }
     setSending(true);
@@ -70,7 +72,7 @@ export function MessageSender({ onSend, label, placeholder, checkDraft }: Messag
           type="button"
           className="message-sender-send-button"
           aria-label="Send"
-          disabled={sending || !draft || draftRefusal !== null}
+          disabled={sending || !draft || draftRefusal !== null || isHeld}
           onClick={() => void send()}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
