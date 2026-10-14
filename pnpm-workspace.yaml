@@ -14,7 +14,7 @@ minimumReleaseAgeExclude:
   - '@solarpunkltd/swarm-chat-js@8.0.0'
   # Our own Swarm ID library, the Solar Punk fork's lib built from its main and published by us. Registry signatures
   # and the npm malware advisories were checked at this version, which carries no provenance.
-  - '@solarpunkltd/swarm-id@0.8.0'
+  - '@solarpunkltd/swarm-id@0.8.1'
   # The in-browser Swarm node, let in younger than the one-week gate. Registry signatures, provenance and the npm
   # malware advisories were checked at this version.
   - '@lat-murmeldjur/weeb_3@0.0.354001'

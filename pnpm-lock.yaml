@@ -194,8 +194,8 @@ importers:
         specifier: 8.0.0
         version: 8.0.0(@ethersphere/bee-js@13.1.0)
       '@solarpunkltd/swarm-id':
-        specifier: 0.8.0
-        version: 0.8.0
+        specifier: 0.8.1
+        version: 0.8.1
       cafe-utility:
         specifier: 36.3.0
         version: 36.3.0
@@ -847,8 +847,8 @@ packages:
     peerDependencies:
       '@ethersphere/bee-js': ^13.1.0
 
-  '@solarpunkltd/swarm-id@0.8.0':
-    resolution: {integrity: sha512-zf+DvlhzN7qUIZOliJktywj4v7o60UWuo3fJSSUtXgIDLHazYAs8WwM6R+Wxp2I2abTZpn1O3e/VzSh30jt7fQ==}
+  '@solarpunkltd/swarm-id@0.8.1':
+    resolution: {integrity: sha512-qm2Ew0STk+YUCanceuvZwqlTGqZT21MlKXaIpJF0WQwi3OgOnlHALkN+1rkhbkjYubTkLDCAb7qy3YeWfc/S3g==}
     engines: {node: '>=22', pnpm: '>=11'}
 
   '@swc/core-darwin-arm64@1.16.2':
@@ -2007,7 +2007,7 @@ snapshots:
       '@ethersphere/core-sdk': 0.1.1
       zod: 4.6.5
 
-  '@solarpunkltd/swarm-id@0.8.0':
+  '@solarpunkltd/swarm-id@0.8.1':
     dependencies:
       '@ethersphere/bee-js': 13.1.0
       '@ethersphere/core-sdk': 0.1.1
