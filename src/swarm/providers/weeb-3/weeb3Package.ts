@@ -15,6 +15,12 @@ export interface Weeb3Node {
   connectionCount(): Promise<number>;
   /** Plays a stream into a media element the page owns, with the package's own player. */
   attachStream(media: HTMLMediaElement, owner: string, topic: string, start: HlsStart): Promise<void>;
+  /**
+   * Pushes one chunk stamped elsewhere to the network: its bytes as Bee keeps them (a single-owner chunk's identifier,
+   * signature, span and payload), whether it is a single-owner chunk, its address and the 113-byte stamp. Answers
+   * "Upload result: success" once pushed. A stamp from a key that does not own the batch never answers.
+   */
+  postPushChunk(data: Uint8Array, soc: boolean, chunkAddress: Uint8Array, stamp: Uint8Array): Promise<string>;
   free(): void;
 }
 

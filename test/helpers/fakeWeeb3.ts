@@ -7,6 +7,7 @@ interface FakeWeeb3Node extends Weeb3Node {
   peers: number;
   freed: boolean;
   readonly attached: { media: HTMLMediaElement; owner: string; topic: string; start: HlsStart }[];
+  readonly pushed: { data: Uint8Array; soc: boolean; chunkAddress: Uint8Array; stamp: Uint8Array }[];
 }
 
 interface FakeWeeb3Options {
@@ -35,6 +36,7 @@ export function fakeWeeb3Package(options: FakeWeeb3Options = {}): FakeWeeb3 {
     peers = 0;
     freed = false;
     readonly attached: FakeWeeb3Node['attached'] = [];
+    readonly pushed: FakeWeeb3Node['pushed'] = [];
 
     constructor(...args: unknown[]) {
       this.constructedWith = args;
@@ -52,6 +54,11 @@ export function fakeWeeb3Package(options: FakeWeeb3Options = {}): FakeWeeb3 {
     async attachStream(media: HTMLMediaElement, owner: string, topic: string, start: HlsStart): Promise<void> {
       this.attached.push({ media, owner, topic, start });
       await options.onAttach?.(media);
+    }
+
+    async postPushChunk(data: Uint8Array, soc: boolean, chunkAddress: Uint8Array, stamp: Uint8Array): Promise<string> {
+      this.pushed.push({ data, soc, chunkAddress, stamp });
+      return 'Upload result: success';
     }
 
     free(): void {
