@@ -3,8 +3,11 @@ import type { VerifyScope } from '../verify/verdicts';
 import {
   isWindowBlocked,
   type LoadSwarmIdClient,
+  type SwarmIdChunkToStamp,
   type SwarmIdClient,
   type SwarmIdConnectionInfo,
+  type SwarmIdPostageBatch,
+  type SwarmIdStampedChunk,
 } from './swarmIdClient';
 import { type SwarmIdSession, swarmIdSession } from './swarmIdSession';
 
@@ -71,8 +74,15 @@ export interface SwarmIdSignIn {
   signOut(): Promise<void>;
   /** The chat history moved to another source: its Bee API base URL, or null for one with none, which changes nothing. */
   useBeeApiUrl(url: string | null): void;
+  /** The stamp Swarm ID gives this site, or undefined while nobody is signed in or it gives none. */
+  getPostageBatch(): Promise<SwarmIdPostageBatch | undefined>;
+  /** Has the frame sign and stamp a chunk. Rejects with the code `not-authenticated` while nobody is signed in. */
+  stampChunk(chunk: SwarmIdChunkToStamp): Promise<SwarmIdStampedChunk>;
   stop(): void;
 }
+
+/** The library's own code for a call that needs a signed-in session. */
+const NOT_AUTHENTICATED = 'not-authenticated';
 
 const SIGNED_OUT: SwarmIdState = { status: SWARM_ID_SIGNED_OUT, problem: null };
 
@@ -272,6 +282,16 @@ export function createSwarmIdSignIn({
       }
       wantedBeeApiUrl = next;
       sendBeeApiUrl();
+    },
+
+    async getPostageBatch() {
+      return client && state.status === SWARM_ID_SIGNED_IN ? client.getPostageBatch() : undefined;
+    },
+
+    stampChunk(chunk) {
+      return client && state.status === SWARM_ID_SIGNED_IN
+        ? client.stampChunk(chunk)
+        : Promise.reject(Object.assign(new Error('Nobody is signed in with Swarm ID'), { code: NOT_AUTHENTICATED }));
     },
 
     stop() {

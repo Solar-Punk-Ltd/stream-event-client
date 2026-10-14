@@ -462,3 +462,36 @@ describe('what keeps the sign-in state honest', () => {
     expect(signedInSession(await until(signIn, SWARM_ID_SIGNED_IN)).binding.sig).toBe(CHAT_BINDING.sig);
   });
 });
+
+describe('the stamp Swarm ID gives this site', () => {
+  const BATCH = { label: 'Event chat', utilization: 0.4, usable: true, exists: true, batchTTL: 864_000 };
+  const CHUNK = {
+    kind: 'soc' as const,
+    identifier: 'e'.repeat(64),
+    data: new Uint8Array([1, 0, 0, 0, 0, 0, 0, 0, 7]),
+    signer: { privateKey: 'd4'.repeat(32) },
+  };
+
+  it('is read, and stamps a chunk, for a signed-in viewer', async () => {
+    const swarmId = await fakeSwarmId(SIGNED_IN, (client) => {
+      client.postageBatch = BATCH;
+    });
+    const signIn = await started(swarmId);
+    await until(signIn, SWARM_ID_SIGNED_IN);
+
+    expect(await signIn.getPostageBatch()).toEqual(BATCH);
+    expect(await signIn.stampChunk(CHUNK)).toMatchObject({ stamp: 'e'.repeat(226) });
+    expect(swarmId.client().stamped).toEqual([CHUNK]);
+  });
+
+  it('is none, and stamps nothing, while nobody is signed in', async () => {
+    const swarmId = await fakeSwarmId({}, (client) => {
+      client.postageBatch = BATCH;
+    });
+    const signIn = await started(swarmId);
+
+    expect(await signIn.getPostageBatch()).toBeUndefined();
+    await expect(signIn.stampChunk(CHUNK)).rejects.toMatchObject({ code: 'not-authenticated' });
+    expect(swarmId.client().stamped).toEqual([]);
+  });
+});

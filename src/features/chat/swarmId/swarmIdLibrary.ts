@@ -47,6 +47,8 @@ export function createLibraryClient({
     disconnect: () => client.disconnect(),
     getChatKey: () => client.getChatKey(),
     setBeeApiUrl: (address) => client.setBeeApiUrl(address),
+    stampChunk: (chunk) => client.stampChunk(chunk),
+    getPostageBatch: () => client.getPostageBatch(),
     get connectionInfo() {
       return client.connectionInfo;
     },

@@ -22,6 +22,37 @@ export interface SwarmIdConnectionInfo {
   readonly chatBinding?: SwarmIdChatBinding;
 }
 
+/**
+ * The stamp Swarm ID gives this site, as far as the viewer reads it. `utilization` is the share of it used, 0 to 1, and
+ * `batchTTL` its time left in seconds, absent when Swarm ID could not tell.
+ */
+export interface SwarmIdPostageBatch {
+  readonly label: string;
+  readonly utilization: number;
+  readonly usable: boolean;
+  readonly exists: boolean;
+  readonly batchTTL?: number;
+}
+
+/**
+ * A single-owner chunk for the frame to sign and stamp: the identifier as 64 hex digits, the span and payload as one,
+ * and the key it is signed with, 64 hex digits.
+ */
+export interface SwarmIdChunkToStamp {
+  readonly kind: 'soc';
+  readonly identifier: string;
+  readonly data: Uint8Array<ArrayBuffer>;
+  readonly signer: { readonly privateKey: string };
+}
+
+/** What the frame hands back: the chunk's address, the stamp as Bee's `swarm-postage-stamp` header takes it, and the signature. */
+export interface SwarmIdStampedChunk {
+  readonly address: string;
+  readonly stamp: string;
+  readonly owner?: string;
+  readonly signature?: string;
+}
+
 export interface SwarmIdClient {
   /** Embeds the Swarm ID site's hidden frame and restores the session it keeps for this site, if any. */
   initialize(): Promise<void>;
@@ -37,6 +68,13 @@ export interface SwarmIdClient {
    * Refused before {@link initialize} has resolved.
    */
   setBeeApiUrl(url: string): Promise<void>;
+  /**
+   * Has the frame sign a chunk and stamp it with the stamp Swarm ID gives this site, and hands the stamp back. The
+   * frame refuses with a `code`, and a `reason` for `upload-unavailable`, such as `no-stamp` or `stamp-expired`.
+   */
+  stampChunk(chunk: SwarmIdChunkToStamp): Promise<SwarmIdStampedChunk>;
+  /** The stamp Swarm ID gives this site, or undefined when it gives none. */
+  getPostageBatch(): Promise<SwarmIdPostageBatch | undefined>;
   destroy(): void;
 }
 

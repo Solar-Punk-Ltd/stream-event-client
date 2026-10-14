@@ -1,8 +1,13 @@
+import { PrivateKey } from '@ethersphere/bee-js';
+
 import type {
   LoadSwarmIdClient,
+  SwarmIdChunkToStamp,
   SwarmIdClient,
   SwarmIdClientOptions,
   SwarmIdConnectionInfo,
+  SwarmIdPostageBatch,
+  SwarmIdStampedChunk,
 } from '../../src/features/chat/swarmId/swarmIdClient';
 
 import { BOUND_SITE, CHAT_BINDING, chatKeyFor, FORK_ACCOUNT, OTHER_SITE, OTHER_SITE_BINDING } from './signedChat';
@@ -44,6 +49,12 @@ class FakeSwarmIdClient implements SwarmIdClient {
   readonly beeApiUrls: string[] = [];
   /** Refuses the next Bee address it is handed, as the frame does before it is ready, though it records the ask. */
   refusesNextBeeApiUrl = false;
+  /** The stamp Swarm ID gives this site, none by default. */
+  postageBatch: SwarmIdPostageBatch | undefined = undefined;
+  /** Every chunk the viewer asked the frame to stamp, in order. */
+  readonly stamped: SwarmIdChunkToStamp[] = [];
+  /** What the frame refuses the next stamp with, as the library rejects. */
+  stampRefusal: unknown = null;
 
   constructor(
     readonly options: SwarmIdClientOptions,
@@ -85,6 +96,26 @@ class FakeSwarmIdClient implements SwarmIdClient {
       this.refusesNextBeeApiUrl = false;
       throw new Error('Swarm ID is not ready');
     }
+  }
+
+  async stampChunk(chunk: SwarmIdChunkToStamp): Promise<SwarmIdStampedChunk> {
+    this.stamped.push(chunk);
+    if (this.stampRefusal) {
+      throw this.stampRefusal;
+    }
+    return {
+      address: 'f'.repeat(64),
+      stamp: 'e'.repeat(226),
+      owner: new PrivateKey(chunk.signer.privateKey).publicKey().address().toHex(),
+      signature: 'ab'.repeat(65),
+    };
+  }
+
+  async getPostageBatch(): Promise<SwarmIdPostageBatch | undefined> {
+    if (!this.info.identity) {
+      throw Object.assign(new Error('Not authenticated'), { code: 'not-authenticated' });
+    }
+    return this.postageBatch;
   }
 
   get connectionInfo(): SwarmIdConnectionInfo {

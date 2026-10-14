@@ -7,6 +7,7 @@ const built = vi.hoisted(() => ({
   options: [] as Array<Record<string, unknown>>,
   destroyed: 0,
   beeApiUrls: [] as string[],
+  stamped: [] as unknown[],
 }));
 
 /** The library's client, as far as building it and taking it down go. Nothing is framed. */
@@ -22,6 +23,11 @@ vi.mock('@solarpunkltd/swarm-id', () => ({
     setBeeApiUrl = async (url: string) => {
       built.beeApiUrls.push(url);
     };
+    stampChunk = async (chunk: unknown) => {
+      built.stamped.push(chunk);
+      return { address: 'a'.repeat(64), stamp: 'b'.repeat(226), owner: 'c'.repeat(40), signature: 'd'.repeat(130) };
+    };
+    getPostageBatch = async () => ({ label: '', utilization: 0.5, usable: true, exists: true, batchTTL: 86_400 });
     get connectionInfo() {
       return {};
     }
@@ -38,6 +44,7 @@ afterEach(() => {
   built.options.length = 0;
   built.destroyed = 0;
   built.beeApiUrls.length = 0;
+  built.stamped.length = 0;
 });
 
 describe("the library's client", () => {
@@ -79,5 +86,23 @@ describe("the library's client", () => {
 
     expect(built.destroyed).toBe(1);
     expect(document.querySelector(FRAME_CONTAINER)).toBeNull();
+  });
+
+  it("hands a chunk to the frame to stamp, and reads the site's stamp, through the library unchanged", async () => {
+    const client = createLibraryClient({
+      url: 'https://id.example.com',
+      appName: 'Devcon streams',
+      onConnectionChange: () => {},
+    });
+    const chunk = {
+      kind: 'soc' as const,
+      identifier: 'e'.repeat(64),
+      data: new Uint8Array([1, 0, 0, 0, 0, 0, 0, 0, 7]),
+      signer: { privateKey: 'f'.repeat(64) },
+    };
+
+    expect(await client.stampChunk(chunk)).toMatchObject({ stamp: 'b'.repeat(226), signature: 'd'.repeat(130) });
+    expect(built.stamped).toEqual([chunk]);
+    expect(await client.getPostageBatch()).toMatchObject({ utilization: 0.5, batchTTL: 86_400 });
   });
 });
