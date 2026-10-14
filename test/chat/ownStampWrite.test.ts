@@ -20,7 +20,7 @@ import { NOT_SIGNED_IN, STAMP_RAN_OUT } from '../../src/features/chat/stamp/stam
 import type { SwarmIdChunkToStamp, SwarmIdStampedChunk } from '../../src/features/chat/swarmId/swarmIdClient';
 import { makeFeedIdentifier } from '../../src/shared/feedFollow';
 import type { SwarmAnswer } from '../../src/swarm/answers';
-import { addressOf, GUEST_KEY, idOf } from '../helpers/signedChat';
+import { addressOf, BOUND_SITE, CHAT_BINDING, chatKeyFor, GUEST_KEY, idOf } from '../helpers/signedChat';
 
 const NODE = 'http://localhost:1633';
 const GSOC_KEY = 'd4'.repeat(32);
@@ -215,6 +215,36 @@ describe("a copy in the sender's own feed", () => {
     const check = parseChatMessage(sent, { origin: 'https://example.com' });
     expect(check.ok && check.message).toMatchObject({ id: idOf('one'), own: true, via: MessageVia.OWN_STAMP });
     expect(hexOf(sent)).toBe(hexOf(encodeChatMessage(check.ok ? check.message : ({} as never))));
+  });
+
+  it("keeps a signed-in sender's Swarm ID binding, so the copy and the message still show the account", async () => {
+    const boundKey = await chatKeyFor(BOUND_SITE);
+    const head = headReads(NOT_FOUND);
+    const { bee, writer } = setUp({
+      ownFeed: { chatKey: boundKey, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
+    });
+    const { bytes } = createChatMessage(boundKey, {
+      id: idOf('bound'),
+      topic: CHAT_TOPIC,
+      type: MessageType.TEXT,
+      text: 'signed in',
+      name: 'Ida',
+      ts: 1_000,
+      via: MessageVia.OWN_STAMP,
+      idb: CHAT_BINDING,
+    });
+
+    await writer.write(bytes);
+
+    for (const written of bee.posted) {
+      const check = parseChatMessage(written.body.subarray(8), { origin: BOUND_SITE });
+      expect(check.ok, check.ok ? '' : `${check.reason}: ${check.detail}`).toBe(true);
+      if (check.ok) {
+        expect(check.identity).not.toBeNull();
+        expect(check.message.idb).toEqual(CHAT_BINDING);
+        expect(check.message.own).toBe(true);
+      }
+    }
   });
 
   it('continues after the newest entry the feed already holds', async () => {
