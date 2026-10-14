@@ -4,15 +4,19 @@ import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { Dialog } from '@/shared/components/Dialog/Dialog';
 
 import { DISPLAY_NAME_MAX_LENGTH } from '../auth/login';
+import { SwarmIdOffer } from '../swarmId/SwarmIdParts';
 import { useChatUser } from '../User';
 
 import './LoginModal.scss';
 
 const KEY_ENTER = 'Enter';
 
-/** Asks for the display name a viewer chats under. There is no password and no account. */
+/**
+ * The two ways into the chat: a guest's display name, with no password and no account, and, where the deployment
+ * offers it, signing in with Swarm ID.
+ */
 export function LoginModal() {
-  const { loginAsUser, setIsLoginModalOpen } = useChatUser();
+  const { loginAsUser, setIsLoginModalOpen, swarmId } = useChatUser();
   const [name, setName] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const descriptionId = useId();
@@ -62,9 +66,10 @@ export function LoginModal() {
           Cancel
         </Button>
         <Button className="login-modal-button" onClick={join}>
-          Join
+          {swarmId ? 'Chat as guest' : 'Join'}
         </Button>
       </div>
+      <SwarmIdOffer />
     </Dialog>
   );
 }

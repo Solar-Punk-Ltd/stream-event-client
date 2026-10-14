@@ -4,6 +4,7 @@ import { useThemeChoice } from '@/app/ThemeChoiceProvider';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { Dialog } from '@/shared/components/Dialog/Dialog';
 
+import { SwarmIdYou } from '../swarmId/SwarmIdParts';
 import { useChatUser } from '../User';
 
 import { ThemeOptions } from './ThemeOptions';
@@ -13,6 +14,10 @@ import './LoginButton.scss';
 
 const KEY_ESCAPE = 'Escape';
 
+/** Beside a Swarm ID sign-in a guest leaves, the word the design uses. Alone, the guest logs out as before. */
+const LEAVE_AS_GUEST = { title: 'Leave the chat as a guest?', verb: 'leave', action: 'Leave' };
+const LOG_OUT = { title: 'Log out of the chat?', verb: 'log out', action: 'Log out' };
+
 /**
  * The chat name in the header, written as a plain bold link the way msrs-client writes its login: an
  * offer to join when there is none, the name and a menu when there is. The menu carries the theme
@@ -20,7 +25,7 @@ const KEY_ESCAPE = 'Escape';
  * after a logout.
  */
 export function LoginButton() {
-  const { session, setIsLoginModalOpen, logout } = useChatUser();
+  const { session, setIsLoginModalOpen, logout, swarmId } = useChatUser();
   const { canSwitch } = useThemeChoice();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isConfirmingLogout, setIsConfirmingLogout] = useState(false);
@@ -57,6 +62,13 @@ export function LoginButton() {
     );
   }
 
+  const leaving = swarmId ? LEAVE_AS_GUEST : LOG_OUT;
+
+  const askToLeave = () => {
+    setIsMenuOpen(false);
+    setIsConfirmingLogout(true);
+  };
+
   const confirmLogout = () => {
     logout();
     setIsConfirmingLogout(false);
@@ -77,30 +89,27 @@ export function LoginButton() {
 
       {isMenuOpen && (
         <div id={menuId} className="login-dropdown">
+          {swarmId && <SwarmIdYou onLeave={askToLeave} />}
           {canSwitch && <ThemeOptions />}
-          <button
-            type="button"
-            className="login-dropdown-item"
-            onClick={() => {
-              setIsMenuOpen(false);
-              setIsConfirmingLogout(true);
-            }}
-          >
-            Log out
-          </button>
+          {!swarmId && (
+            <button type="button" className="login-dropdown-item" onClick={askToLeave}>
+              Log out
+            </button>
+          )}
         </div>
       )}
 
       {isConfirmingLogout && (
-        <Dialog title="Log out of the chat?" onClose={() => setIsConfirmingLogout(false)}>
+        <Dialog title={leaving.title} onClose={() => setIsConfirmingLogout(false)}>
           <p className="login-modal-content">
-            If you log out, your display name won&apos;t be saved. You&apos;ll need to choose one again next time.
+            If you {leaving.verb}, your display name won&apos;t be saved. You&apos;ll need to choose one again next
+            time.
           </p>
           <div className="login-modal-actions">
             <Button variant={ButtonVariant.SECONDARY} onClick={() => setIsConfirmingLogout(false)}>
               Cancel
             </Button>
-            <Button onClick={confirmLogout}>Log out</Button>
+            <Button onClick={confirmLogout}>{leaving.action}</Button>
           </div>
         </Dialog>
       )}

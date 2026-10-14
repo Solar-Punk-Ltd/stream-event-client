@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 
 import { useAppContext } from '@/app/AppProvider';
 import { LoginButton } from '@/features/chat/LoginButton/LoginButton';
+import { SwarmIdPageNotice } from '@/features/chat/swarmId/SwarmIdParts';
 import { SourcesScreen } from '@/features/gateway/SourcesScreen';
 
 import './MainLayout.scss';
@@ -24,6 +25,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           {chat && <LoginButton />}
         </div>
       </header>
+      {chat && <SwarmIdPageNotice />}
       <main className="main-layout-content">{children}</main>
     </div>
   );
