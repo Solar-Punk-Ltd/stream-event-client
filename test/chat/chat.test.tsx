@@ -393,6 +393,26 @@ describe('what the chat checks', () => {
     expect(messageTexts()).toEqual(['text of waits']);
   });
 
+  it('drops a verdict that comes back after the stream changed, shown or refused', async () => {
+    const port = inThreadPort();
+    const answer = port.postMessage;
+    const held: Array<() => void> = [];
+    port.postMessage = (request) => held.push(() => answer(request));
+    verifier.current = createMessageVerifier(port, { origin: BOUND_SITE, allowLocalHttp: false });
+    await open(panel('stream-one'));
+    const signed = message({ id: 'refused' });
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'late' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, { ...signed, signedMessage: { ...signed.signedMessage, text: 'tampered' } });
+
+    mounted?.render(panel('stream-two'));
+    await settle();
+    held.forEach((release) => release());
+    await checked();
+
+    expect(messageTexts()).toEqual([]);
+    expect(document.querySelector('.chat-container')?.getAttribute('data-refused-messages')).toBe('0');
+  });
+
   it('says so when messages cannot be checked in this browser, and shows none of them', async () => {
     const port = inThreadPort();
     port.postMessage = () => port.onerror?.(new Event('error') as ErrorEvent);
