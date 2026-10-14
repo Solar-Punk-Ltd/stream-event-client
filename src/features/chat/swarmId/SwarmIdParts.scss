@@ -13,6 +13,16 @@
   color: var(--color-text-tertiary);
 }
 
+.swarm-id-sign-in {
+  display: inline-grid;
+  justify-items: start;
+  gap: var(--spacing-xs);
+
+  .swarm-id-row & {
+    justify-items: end;
+  }
+}
+
 .swarm-id-problem {
   font-size: var(--font-size-sm);
   color: var(--color-error-text);

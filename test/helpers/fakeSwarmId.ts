@@ -36,6 +36,8 @@ class FakeSwarmIdClient implements SwarmIdClient {
   /** What the browser does with the next window: open it, or block it. */
   nextWindow: 'opens' | 'blocked' = 'opens';
   initializeFails = false;
+  /** A frame that never answers, so the viewer stays starting. */
+  initializeHangs = false;
   /** The chat key the frame gives, per site, as the fork derives it. */
   chatKey: Uint8Array = new Uint8Array();
 
@@ -47,6 +49,9 @@ class FakeSwarmIdClient implements SwarmIdClient {
   }
 
   async initialize(): Promise<void> {
+    if (this.initializeHangs) {
+      return new Promise(() => {});
+    }
     if (this.initializeFails) {
       throw Object.assign(new Error('This site is not on the allow list'), { code: 'init-failed' });
     }

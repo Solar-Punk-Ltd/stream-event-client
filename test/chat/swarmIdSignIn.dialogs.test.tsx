@@ -99,6 +99,37 @@ describe('signing in with Swarm ID from the join dialog', () => {
     expect(button('Sign in with Swarm ID').disabled).toBe(false);
   });
 
+  it('says why Sign in waits while Swarm ID is still starting', async () => {
+    persistUserSession(nicknameLogin('Ada'));
+    await header(
+      await fakeSwarmId({}, (client) => {
+        client.initializeHangs = true;
+      }),
+    );
+
+    click(button(/^Ada/));
+    const menuSignIn = button('Sign in with Swarm ID');
+    expect(menuSignIn.disabled).toBe(true);
+    expect(document.getElementById(menuSignIn.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'Connecting to Swarm ID',
+    );
+    click(button(/^Ada/));
+
+    mounted?.unmount();
+    localStorage.clear();
+    await header(
+      await fakeSwarmId({}, (client) => {
+        client.initializeHangs = true;
+      }),
+    );
+    click(button('Join chat'));
+    const dialogSignIn = button('Sign in with Swarm ID');
+    expect(dialogSignIn.disabled).toBe(true);
+    expect(document.getElementById(dialogSignIn.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'Connecting to Swarm ID',
+    );
+  });
+
   it('opens the Swarm ID window on the click, and chats with the key and binding it hands over', async () => {
     const swarmId = await fakeSwarmId();
     await header(swarmId);

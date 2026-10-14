@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { GuestBadgeIcon } from '@/shared/components/Icons/GuestBadgeIcon';
 import { SwarmIdBadgeIcon } from '@/shared/components/Icons/SwarmIdBadgeIcon';
@@ -10,6 +12,32 @@ import './SwarmIdParts.scss';
 
 const SIGN_IN_LABEL = 'Sign in with Swarm ID';
 const UNAVAILABLE_TEXT = 'Swarm ID cannot be reached right now.';
+const STARTING_TEXT = 'Connecting to Swarm ID';
+
+/** Sign in with Swarm ID, which waits, and says why, while the library is still starting. */
+function SignInButton({ variant, className }: { variant?: ButtonVariant; className?: string }) {
+  const { swarmId, signInWithSwarmId } = useChatUser();
+  const reasonId = useId();
+  const isStarting = swarmId?.status === SWARM_ID_STARTING;
+  return (
+    <span className="swarm-id-sign-in">
+      <Button
+        variant={variant}
+        className={className}
+        disabled={isStarting}
+        aria-describedby={isStarting ? reasonId : undefined}
+        onClick={signInWithSwarmId}
+      >
+        {SIGN_IN_LABEL}
+      </Button>
+      {isStarting && (
+        <span id={reasonId} className="swarm-id-hint">
+          {STARTING_TEXT}
+        </span>
+      )}
+    </span>
+  );
+}
 
 /** Why the last sign-in did not get there, when it did not. */
 function SignInProblem() {
@@ -50,7 +78,7 @@ export function SwarmIdPageNotice() {
 
 /** The second way into the chat, in the join dialog: sign in with a Swarm ID account. */
 export function SwarmIdOffer() {
-  const { swarmId, signInWithSwarmId } = useChatUser();
+  const { swarmId } = useChatUser();
   if (!swarmId) {
     return null;
   }
@@ -62,9 +90,7 @@ export function SwarmIdOffer() {
       <p className="swarm-id-hint">
         Or sign in with your Swarm ID. Your messages carry its confirmed badge on every device.
       </p>
-      <Button disabled={swarmId.status === SWARM_ID_STARTING} onClick={signInWithSwarmId}>
-        {SIGN_IN_LABEL}
-      </Button>
+      <SignInButton />
       <SignInProblem />
       <SwarmIdBlocked />
     </div>
@@ -76,7 +102,7 @@ export function SwarmIdOffer() {
  * leave and can show it is really them by signing in.
  */
 export function SwarmIdYou({ onLeave }: { onLeave: () => void }) {
-  const { swarmId, swarmIdSession, guestSession, signInWithSwarmId, signOutOfSwarmId } = useChatUser();
+  const { swarmId, swarmIdSession, guestSession, signOutOfSwarmId } = useChatUser();
   if (swarmIdSession) {
     return (
       <div className="login-dropdown-group swarm-id-you">
@@ -112,14 +138,7 @@ export function SwarmIdYou({ onLeave }: { onLeave: () => void }) {
       {canSignIn && (
         <div className="swarm-id-row">
           <span className="swarm-id-hint">Show it&apos;s really you</span>
-          <Button
-            variant={ButtonVariant.SECONDARY}
-            className="swarm-id-small"
-            disabled={swarmId.status === SWARM_ID_STARTING}
-            onClick={signInWithSwarmId}
-          >
-            {SIGN_IN_LABEL}
-          </Button>
+          <SignInButton variant={ButtonVariant.SECONDARY} className="swarm-id-small" />
         </div>
       )}
       {canSignIn && <SignInProblem />}
