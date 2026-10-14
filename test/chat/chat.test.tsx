@@ -494,9 +494,9 @@ describe('who sent a message', () => {
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'guest', username: 'Bea' }));
 
     expect(sender().querySelector('.chat-message-name')?.classList.contains('guest')).toBe(true);
-    const badge = button('Guest');
+    const badge = button('Guest, show details');
     expect(badge.querySelector('svg.sender-badge-guest')).not.toBeNull();
-    expect(sender().querySelector('[aria-label="Own stamp"]')).toBeNull();
+    expect(queryButton('Sent with their own stamp, show details')).toBeNull();
   });
 
   it('marks a Swarm ID sender with the filled hexagon and its check, and the name in the accent colour', async () => {
@@ -504,15 +504,15 @@ describe('who sent a message', () => {
     await emit(EVENTS.MESSAGE_RECEIVED, await swarmIdMessage('bound'));
 
     expect(sender().querySelector('.chat-message-name')?.classList.contains('linked')).toBe(true);
-    expect(button('Swarm ID').querySelector('svg.sender-badge-swarm-id')).not.toBeNull();
-    expect(queryButton('Guest')).toBeNull();
+    expect(button('Swarm ID, show details').querySelector('svg.sender-badge-swarm-id')).not.toBeNull();
+    expect(queryButton('Guest, show details')).toBeNull();
   });
 
   it("opens a Swarm ID sender's details from the badge, with the account that vouched for the address", async () => {
     await open();
     const bound = await swarmIdMessage('bound');
     await emit(EVENTS.MESSAGE_RECEIVED, bound);
-    click(button('Swarm ID'));
+    click(button('Swarm ID, show details'));
 
     const card = details();
     expect(card).not.toBeNull();
@@ -535,7 +535,7 @@ describe('who sent a message', () => {
     await open();
     const guest = message({ id: 'guest', username: 'Bea' });
     await emit(EVENTS.MESSAGE_RECEIVED, guest);
-    click(button('Guest'));
+    click(button('Guest, show details'));
 
     const card = details()!;
     const terms = [...card.querySelectorAll('dt')].map((term) => term.textContent);
@@ -547,15 +547,19 @@ describe('who sent a message', () => {
     expect(details()).toBeNull();
   });
 
-  it('shows a stamp after the badge for a message sent with its own stamp, and says so in the details', async () => {
+  it('shows a stamp after the badge for a message sent with its own stamp, which opens the same details', async () => {
     await open();
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'stamped', via: MessageVia.OWN_STAMP }));
 
-    const stamp = sender().querySelector('[aria-label="Own stamp"]');
-    expect(stamp).not.toBeNull();
-    expect(stamp?.tagName).not.toBe('BUTTON');
-    click(button('Guest'));
+    const stamp = button('Sent with their own stamp, show details');
+    expect(stamp.closest('.chat-message-sender')).toBe(sender());
+    expect(stamp.getAttribute('title')).toBe('Own stamp');
+    click(stamp);
     expect(details()?.textContent).toContain('with their own stamp');
+    expect(document.querySelector('.message-actions.visible')).toBeNull();
+
+    click(button('Guest, show details'));
+    expect(details()).toBeNull();
   });
 });
 

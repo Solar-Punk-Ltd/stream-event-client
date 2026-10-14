@@ -99,7 +99,10 @@ export async function watchAndChat(page: Page, published: Published): Promise<vo
   await expect(chat.getByText(SMOKE_MESSAGE, { exact: true }), 'the sent message is shown').toBeVisible();
   await expect(chat.getByText('Not sent.'), 'the write was not refused').toHaveCount(0);
   await expect(
-    chat.getByRole('listitem').filter({ hasText: SMOKE_MESSAGE }).getByRole('button', { name: 'Guest', exact: true }),
+    chat
+      .getByRole('listitem')
+      .filter({ hasText: SMOKE_MESSAGE })
+      .getByRole('button', { name: 'Guest, show details', exact: true }),
     "the viewer's own message carries the guest badge",
   ).toBeVisible();
 }
@@ -110,13 +113,19 @@ async function badgesAndDetails(chat: Locator, published: Published): Promise<vo
   const swarmId = row(published.chat.swarmId.text);
   const guest = row(published.chat.texts[0]);
 
-  await expect(guest.getByRole('button', { name: 'Guest', exact: true }), 'a guest has the guest badge').toBeVisible();
   await expect(
-    row(published.chat.ownStamp.text).getByRole('img', { name: 'Own stamp', exact: true }),
+    guest.getByRole('button', { name: 'Guest, show details', exact: true }),
+    'a guest has the guest badge',
+  ).toBeVisible();
+  await expect(
+    row(published.chat.ownStamp.text).getByRole('button', {
+      name: 'Sent with their own stamp, show details',
+      exact: true,
+    }),
     'a message sent with its own stamp shows the stamp',
   ).toBeVisible();
 
-  await swarmId.getByRole('button', { name: 'Swarm ID', exact: true }).click();
+  await swarmId.getByRole('button', { name: 'Swarm ID, show details', exact: true }).click();
   const details = swarmId.getByRole('region', { name: 'Details for this message', exact: true });
   await expect(details, 'the badge opens the details').toBeVisible();
   await expect(details).toContainText('confirmed by Swarm ID for this site');

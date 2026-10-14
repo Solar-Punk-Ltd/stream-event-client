@@ -40,12 +40,6 @@
   cursor: pointer;
 }
 
-.sender-stamp {
-  display: inline-grid;
-  place-items: center;
-  line-height: 0;
-}
-
 .sender-badge-guest path {
   stroke: var(--color-text-muted);
 }

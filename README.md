@@ -151,8 +151,8 @@ Above each message are the sender's name and a badge. A grey outline hexagon aft
 plain weight is a guest, told apart only by the key their browser keeps. A filled hexagon with a check
 after a name in the accent colour is a Swarm ID account, which signed a statement that this chat address
 on this site is its own. A stamp after the badge says the sender paid for the write with a stamp of
-their own, and opens nothing yet. Every message this page sends says the event gateway paid. The badge
-opens the message's details: the name, the identity, the public chat address, that the signature
+their own. Every message this page sends says the event gateway paid. The badge, and the stamp where
+there is one, open the message's details: the name, the identity, the public chat address, that the signature
 matches the text, for a Swarm ID the link Swarm ID confirmed for this site and the account's address,
 and who paid for the write.
 

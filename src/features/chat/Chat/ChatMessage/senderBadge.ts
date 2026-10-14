@@ -16,4 +16,11 @@ export function senderBadge(identity: ChatIdentity | null): SenderBadge {
   return identity ? SWARM_ID : GUEST;
 }
 
-export const OWN_STAMP_LABEL = 'Own stamp';
+/** The stamp's short name, shown as its title. */
+export const OWN_STAMP_TITLE = 'Own stamp';
+export const OWN_STAMP_LABEL = 'Sent with their own stamp, show details';
+
+/** The badge button's accessible name, which says what pressing it does. */
+export function badgeLabel(badge: SenderBadge): string {
+  return `${badge.name}, show details`;
+}
