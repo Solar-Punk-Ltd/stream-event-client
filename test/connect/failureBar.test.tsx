@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createElement } from 'react';
+import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppContextProvider } from '../../src/app/AppProvider';
@@ -69,7 +69,7 @@ describe('the failure bar', () => {
     await start();
 
     expect(text()).toContain('Video cannot load from Event gateway.');
-    expect(text()).toContain('No answer for 12 s.');
+    expect(text()).toContain('No answer for more than 10 s.');
     expect(connect!.isOpen).toBe(false);
     click(button('Choose another source'));
     expect(connect!.isOpen).toBe(true);
@@ -87,5 +87,35 @@ describe('the failure bar', () => {
     expect(text()).toContain('Chat history cannot load from Event gateway.');
     expect(text()).toContain('It asks to be asked less often.');
     expect(document.querySelectorAll('[data-failing-part]')).toHaveLength(2);
+  });
+
+  it('announces only the title, and does not change the page while nothing it shows changed', async () => {
+    let forMs = 12_000;
+    vi.mocked(SwarmClient.prototype.failures).mockImplementation(() => [
+      { feature: 'player', provider: 'event', forMs, cause: { kind: 'no-answer' } },
+    ]);
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      await start();
+      const bar = document.querySelector('[data-failing-part="player"]')!;
+      expect([...document.querySelectorAll('[role="status"]')].map((part) => part.textContent)).toEqual([
+        'Video cannot load from Event gateway.',
+      ]);
+
+      const changes: MutationRecord[] = [];
+      const watcher = new MutationObserver((records) => changes.push(...records));
+      watcher.observe(bar, { subtree: true, childList: true, characterData: true, attributes: true });
+      for (let poll = 0; poll < 3; poll += 1) {
+        forMs += 2_000;
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(2_000);
+        });
+      }
+      watcher.disconnect();
+
+      expect(changes).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

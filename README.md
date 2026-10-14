@@ -509,7 +509,7 @@ once and is kept in the browser, and nothing switches a source by itself.
 - **No fallback.** A part reads from the source picked for it and from nothing else, whatever that source answers.
   The player's own retries ask the same source again.
 - **A source that fails.** When a part's reads, or the segments and pictures loaded for it, have had no answer it can use for 10 s, a bar under the header says
-  so, such as "Video cannot load from Event gateway." and "No answer for 12 s.", with a Choose another source button
+  so, such as "Video cannot load from Event gateway." and "No answer for more than 10 s.", with a Choose another source button
   that opens Connect. One bar per failing part, gone at the part's next answer, or 30 s after it stopped reading. A not
   found is an answer, so a chat slot not written yet never shows one. The watch page names the video's source above
   the player, such as "via Event gateway".

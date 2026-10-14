@@ -15,6 +15,7 @@ import {
 } from './provider';
 
 export { loadUrl, type UrlLoadOptions } from './urlLoad';
+export { FAILING_AFTER_MS } from './featureFailures';
 export type { FailureCause, FeatureFailure, UrlLoadOutcome } from './featureFailures';
 
 /** The parts of the app that read Swarm, each of which the client may send to a provider of its own. */

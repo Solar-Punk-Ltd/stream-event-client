@@ -13,8 +13,12 @@ import './FailureBars.scss';
 /** How often the bars read the client's failures again, often enough that a bar follows its part. */
 const FAILURE_READ_MS = 2_000;
 
+/** What a bar shows of a failure, which is all a change has to differ in to draw the bars again. */
+const shownOf = (failures: readonly FeatureFailure[]) =>
+  JSON.stringify(failures.map(({ feature, provider, cause }) => [feature, provider, cause]));
+
 const sameFailures = (one: readonly FeatureFailure[], other: readonly FeatureFailure[]) =>
-  JSON.stringify(one) === JSON.stringify(other);
+  shownOf(one) === shownOf(other);
 
 function useFailures(swarm: SwarmClient): readonly FeatureFailure[] {
   const [failures, setFailures] = useState<readonly FeatureFailure[]>(() => swarm.failures());
@@ -40,8 +44,8 @@ export function FailureBars() {
   const failures = useFailures(swarm);
 
   return failures.map((failure) => (
-    <div key={failure.feature} className="failure-bar" role="status" data-failing-part={failure.feature}>
-      <strong>{failureTitle(failure.feature, sourceName(sources, failure.provider))}</strong>
+    <div key={failure.feature} className="failure-bar" data-failing-part={failure.feature}>
+      <strong role="status">{failureTitle(failure.feature, sourceName(sources, failure.provider))}</strong>
       <span className="failure-bar-reason">{failureReason(failure)}</span>
       <Button variant={ButtonVariant.SECONDARY} className="failure-bar-button" onClick={open}>
         Choose another source

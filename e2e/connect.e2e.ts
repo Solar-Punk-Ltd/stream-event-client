@@ -163,7 +163,7 @@ test('a gateway the viewer adds passes its checks, is chosen for all features, a
   added.goDown();
   const bar = page.locator('[data-failing-part="player"]');
   await expect(bar).toContainText('Video cannot load from Second gateway.', { timeout: 40_000 });
-  await expect(bar).toContainText(/No answer for \d+ s\./);
+  await expect(bar).toContainText('No answer for more than 10 s.');
   expect(event.requestsSince(downAtMs), 'nothing moved to the event gateway').toBe(0);
   console.log(`the failure bar showed ${Math.round((Date.now() - downAtMs) / 1000)} s after the gateway went down`);
 

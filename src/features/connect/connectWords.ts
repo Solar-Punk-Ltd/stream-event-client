@@ -2,7 +2,7 @@
  * The words of Connect and of the failure bar: what each part of the viewer and each kind of source is called,
  * and what a failing part says about its source. In the design's wording.
  */
-import type { FeatureFailure, SwarmFeature } from '@/swarm/client';
+import { FAILING_AFTER_MS, type FeatureFailure, type SwarmFeature } from '@/swarm/client';
 import type { SourceType } from '@/swarm/sources';
 
 export const PART_LABELS: Readonly<Record<SwarmFeature, string>> = {
@@ -48,18 +48,19 @@ export const VIDEO_ONLY = 'Video only for now';
 /** On a source the deployment offers, in its settings. */
 export const OFFERED_NOTE = 'Offered by this event. It cannot be changed or removed.';
 
-const seconds = (ms: number) => Math.max(1, Math.round(ms / 1000));
-
 /** The bar's first line, such as "Video cannot load from Event gateway." */
 export function failureTitle(feature: SwarmFeature, sourceName: string): string {
   return `${PART_LABELS[feature]} cannot load from ${sourceName}.`;
 }
 
-/** Why, in one short sentence, such as "No answer for 12 s." */
-export function failureReason({ cause, forMs }: Pick<FeatureFailure, 'cause' | 'forMs'>): string {
+/**
+ * Why, in one short sentence that stays the same while the part keeps failing, so the bar is not read out again
+ * every time it is checked: "No answer for more than 10 s." rather than a count that climbs.
+ */
+export function failureReason({ cause }: Pick<FeatureFailure, 'cause'>): string {
   switch (cause.kind) {
     case 'no-answer':
-      return `No answer for ${seconds(forMs)} s.`;
+      return `No answer for more than ${FAILING_AFTER_MS / 1000} s.`;
     case 'status':
       return `It answers with an error (HTTP ${cause.status}).`;
     case 'rate-limited':
