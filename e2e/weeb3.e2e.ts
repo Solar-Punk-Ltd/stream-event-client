@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { claimServiceWorkerControl, FAILING_WEEB3, FAKE_WEEB3, serveFakeWeeb3 } from './fakeWeeb3';
 import { refuseOtherOrigins, serveConfig } from './journey';
 import { LadderGateway } from './ladderGateway';
 
@@ -8,44 +9,13 @@ import { LadderGateway } from './ladderGateway';
  * module of the package's shape, and its WebAssembly module with a few bytes. The page is told a service worker
  * controls it, which the real package's worker would, so the node can be ready. A viewer who added it before picks it
  * for the video in Connect, where its row shows how far the node has got, and on the watch page it plays bare in its
- * own player once the node is ready. A node that fails says so and nothing takes its place. Adding it, which reads real
+ * own player once the node is ready. A node that fails says so and nothing takes its place. Picked for all features,
+ * it reads the stream list through its own route and the gateway is never asked for it. Adding it, which reads real
  * chunks through it, is the unit suite's, since a fake package serves none. The real package and the network are never
  * reached.
  */
 
 test.describe.configure({ timeout: 120_000 });
-
-/** The fake package, which marks the video it was handed so the journey can see what was attached. */
-const FAKE_WEEB3 = `
-export default async function init() {}
-export class Weeb3No103 {
-  start() {}
-  async connectionCount() { return 3; }
-  async attachStream(media, owner, topic, start) { media.dataset.weeb3 = [owner, topic, start].join('/'); }
-  free() {}
-}
-`;
-
-/** The same, with a module that fails to load, so the node never starts. */
-const FAILING_WEEB3 = FAKE_WEEB3.replace(
-  'export default async function init() {}',
-  "export default async function init() { throw new Error('the fake fails'); }",
-);
-
-async function claimServiceWorkerControl(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator.serviceWorker, 'controller', { configurable: true, get: () => ({}) });
-  });
-}
-
-async function serveFakeWeeb3(page: Page, module: string): Promise<void> {
-  await page.route(/\/assets\/weeb_3-[^/]+\.js$/, (route) =>
-    route.fulfill({ status: 200, contentType: 'text/javascript', body: module }),
-  );
-  await page.route(/\/weeb-3\/weeb_3_bg\.wasm$/, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/wasm', body: Buffer.alloc(64) }),
-  );
-}
 
 /** The node in this browser as an earlier visit added it, which this browser keeps. */
 async function keepAddedNode(page: Page): Promise<void> {
@@ -104,4 +74,37 @@ test('a weeb-3 node that fails says so on the watch page, and the video stays on
 
   await expect(page.locator('.own-player-words')).toHaveText('Failed to start', { timeout: 20_000 });
   await expect(page.locator('.swarm-hls-player-wrapper'), "the app's player never takes its place").toHaveCount(0);
+});
+
+test('weeb-3 picked for all features reads the stream list through the node, and the gateway is never asked for it', async ({
+  page,
+}) => {
+  const gateway = new LadderGateway({ servesMaster: true });
+  await refuseOtherOrigins(page.context());
+  await claimServiceWorkerControl(page);
+  await serveFakeWeeb3(page, FAKE_WEEB3);
+  await serveConfig(page, gateway.config());
+  await gateway.attach(page);
+  await gateway.attachAsWeeb3(page);
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) {
+      return;
+    }
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem('swarm-sources', JSON.stringify([{ id: 'added-1', type: 'weeb-3', name: 'Weeb3', url: '' }]));
+    localStorage.setItem(
+      'swarm-routing',
+      JSON.stringify({
+        mode: 'one',
+        source: 'added-1',
+        parts: { player: 'added-1', 'stream-list': 'added-1', previews: 'added-1', chat: 'added-1' },
+      }),
+    );
+  });
+
+  await page.goto('/');
+
+  await expect(page.getByText('Ladder test stream').first()).toBeVisible({ timeout: 60_000 });
+  expect(gateway.count('weeb3Catalog'), 'the list came through the node').toBeGreaterThan(0);
+  expect(gateway.count('catalog'), 'the gateway was never asked for the list').toBe(0);
 });

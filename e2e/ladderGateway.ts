@@ -6,6 +6,7 @@ import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import type { Page, Route } from '@playwright/test';
 
 import { makeFeedIdentifier } from '../src/shared/feedFollow';
+import { singleOwnerChunkAddress } from '../src/swarm/singleOwnerChunk';
 import {
   encodeLadderMarker,
   ladderMarkerIdentifier,
@@ -73,6 +74,8 @@ export type RequestKind =
   | 'master'
   /** A read of the stream list. */
   | 'catalog'
+  /** A read of the stream list through the node in this browser, never the gateway. */
+  | 'weeb3Catalog'
   /** A read of a ladder time marker that was written. */
   | 'marker'
   /** A read of a ladder time marker that was not written, answered 404. */
@@ -267,6 +270,34 @@ export class LadderGateway {
       const reply = this.decide(route, GATEWAY_PATH);
       await sleep(ROUND_TRIP_MS);
       await reply();
+    });
+  }
+
+  /**
+   * Serves the stream list as the node in this browser would, on weeb-3's `/weeb-3/chunks/` route: its first entry, at
+   * that single-owner chunk's address, as the chunk it wraps, span and payload. Every other chunk is not there. No
+   * gateway is asked, so a journey can tell the list came through weeb-3.
+   */
+  async attachAsWeeb3(page: Page): Promise<void> {
+    const catalogTopic = Topic.fromString(CATALOG_TOPIC);
+    const firstEntry = singleOwnerChunkAddress(
+      makeFeedIdentifier(catalogTopic, FeedIndex.fromBigInt(0n)),
+      LADDER_OWNER,
+    );
+    await page.route(`${PREVIEW_ORIGIN}/weeb-3/chunks/**`, async (route) => {
+      const address = new URL(route.request().url()).pathname.split('/').pop();
+      if (address !== firstEntry) {
+        return notFound(route);
+      }
+      this.log('weeb3Catalog', null, new URL(route.request().url()).pathname);
+      const payload = Buffer.from(JSON.stringify([this.catalogEntry()]));
+      const span = Buffer.alloc(8);
+      span.writeBigUInt64LE(BigInt(payload.length));
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/octet-stream',
+        body: Buffer.concat([span, payload]),
+      });
     });
   }
 

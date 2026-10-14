@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
 import { MessageVia, parseChatMessage } from '@solarpunkltd/swarm-chat-js';
 
+import { claimServiceWorkerControl, FAKE_WEEB3, serveFakeWeeb3, weeb3Pushes } from './fakeWeeb3';
 import { answerSlotNotesAsAbsent, refuseOtherOrigins, serveConfig } from './journey';
 import {
   ACCOUNT_NAME,
@@ -26,7 +27,9 @@ import {
  * keeps a signed-in session. The viewer's own Bee node is a made-up address on this computer, answered by the page's
  * routes: its reads replay the recording, and its writes are recorded and taken. A message on the stamp is stamped by
  * the fake Swarm ID and posted to that node, never to the event gateway, and with the own feed on its copy goes first.
- * A stamp that ran out holds the message field with a way to let the gateway pay.
+ * A stamp that ran out holds the message field with a way to let the gateway pay. With Weeb3, a fake of the node in
+ * this browser, picked for the chat history instead, the chat reads through it and a message on the stamp is pushed
+ * through it, to no Bee node and not to the gateway.
  */
 
 const MY_BEE_NODE = 'http://localhost:1633';
@@ -48,11 +51,15 @@ interface Written {
   body: Buffer;
 }
 
+/** The source the chat history reads from: the viewer's own Bee node, or Weeb3, the node in this browser. */
+type ChatSource = 'bee-node' | 'weeb-3';
+
 /**
- * The deployment as recorded, with Swarm ID offered, and the viewer's own Bee node added and picked for the chat
- * history while everything else reads the event gateway, as a browser that chose so before keeps it.
+ * The deployment as recorded, with Swarm ID offered, and the viewer's own Bee node or Weeb3 added and picked for the
+ * chat history while everything else reads the event gateway, as a browser that chose so before keeps it. Weeb3's
+ * chat reads find nothing, so its chat opens empty.
  */
-async function deployment(page: Page, siteStamp: () => FakeSiteStamp | undefined) {
+async function deployment(page: Page, siteStamp: () => FakeSiteStamp | undefined, chatSource: ChatSource = 'bee-node') {
   const published = read<Published>(RecordingFile.PUBLISHED);
   const config = read<{ chat: { feedOwner: string; writeUrl: string } }>(RecordingFile.CONFIG);
   const toGateway: Written[] = [];
@@ -93,26 +100,40 @@ async function deployment(page: Page, siteStamp: () => FakeSiteStamp | undefined
     }
     return route.fallback({ url: `${PREVIEW_ORIGIN}${GATEWAY_PATH}${pathname}${search}` });
   });
+  if (chatSource === 'weeb-3') {
+    await claimServiceWorkerControl(page);
+    await serveFakeWeeb3(page, FAKE_WEEB3);
+    await page.route(`${PREVIEW_ORIGIN}/weeb-3/chunks/**`, (route) =>
+      route.fulfill({ status: 404, contentType: 'text/plain', body: 'weeb-3 did not retrieve resource' }),
+    );
+  }
   const swarmId = await serveFakeSwarmIdSite(page, siteStamp);
 
-  await page.addInitScript((node) => {
-    if (sessionStorage.getItem('seeded')) {
-      return;
-    }
-    sessionStorage.setItem('seeded', '1');
-    localStorage.setItem(
-      'swarm-sources',
-      JSON.stringify([{ id: 'added-1', type: 'bee-node', name: 'My Bee node', url: node }]),
-    );
-    localStorage.setItem(
-      'swarm-routing',
-      JSON.stringify({
-        mode: 'per-part',
-        source: 'gateway',
-        parts: { player: 'gateway', 'stream-list': 'gateway', previews: 'gateway', chat: 'added-1' },
-      }),
-    );
-  }, MY_BEE_NODE);
+  await page.addInitScript(
+    ({ node, type }) => {
+      if (sessionStorage.getItem('seeded')) {
+        return;
+      }
+      sessionStorage.setItem('seeded', '1');
+      localStorage.setItem(
+        'swarm-sources',
+        JSON.stringify([
+          type === 'weeb-3'
+            ? { id: 'added-1', type, name: 'Weeb3', url: '' }
+            : { id: 'added-1', type, name: 'My Bee node', url: node },
+        ]),
+      );
+      localStorage.setItem(
+        'swarm-routing',
+        JSON.stringify({
+          mode: 'per-part',
+          source: 'gateway',
+          parts: { player: 'gateway', 'stream-list': 'gateway', previews: 'gateway', chat: 'added-1' },
+        }),
+      );
+    },
+    { node: MY_BEE_NODE, type: chatSource },
+  );
 
   await page.goto(`/#/watch/video/${published.stream.owner}/${published.stream.topic}`);
   const chat = page.getByRole('region', { name: 'Chat', exact: true });
@@ -196,4 +217,26 @@ test('a stamp that ran out holds the message, and the viewer may let the gateway
   expect(toMyNode).toEqual([]);
   const check = messageIn(toGateway[0]);
   expect(check.ok && check.message).toMatchObject({ text: 'waiting for a stamp', via: MessageVia.GATEWAY });
+});
+
+test('a message on my own stamp with Weeb3 reading the chat is pushed through Weeb3, never to a Bee node or the gateway', async ({
+  page,
+}) => {
+  const { chat, toGateway, toMyNode, swarmId } = await deployment(page, () => SITE_STAMP, 'weeb-3');
+  await payWithMyStamp(page);
+
+  await chat.getByRole('textbox', { name: 'Message', exact: true }).fill('through weeb-3');
+  await chat.getByRole('button', { name: 'Send', exact: true }).click();
+
+  await expect.poll(async () => (await weeb3Pushes(page)).length, { message: 'weeb-3 pushed it' }).toBeGreaterThan(0);
+  const [pushed] = await weeb3Pushes(page);
+  expect(toGateway, 'nothing went to the event gateway').toEqual([]);
+  expect(toMyNode, 'nothing went to a Bee node').toEqual([]);
+  expect(swarmId.stamped).toHaveLength(1);
+  expect(pushed.soc).toBe(true);
+  expect(pushed.stamp, 'the stamp Swarm ID returned, as its 113 bytes').toBe('ee'.repeat(113));
+  const wrapped = Buffer.from(pushed.data, 'hex').subarray(32 + 65);
+  const check = messageIn({ url: '', stamp: null, body: wrapped });
+  expect(check.ok, check.ok ? '' : `${check.reason}: ${check.detail}`).toBe(true);
+  expect(check.ok && check.message).toMatchObject({ text: 'through weeb-3', via: MessageVia.OWN_STAMP });
 });
