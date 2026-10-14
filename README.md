@@ -284,7 +284,8 @@ it, or run the image below, which does both.
 
 The other scripts: `pnpm test` (vitest), `pnpm lint` (oxlint), `pnpm typecheck`, `pnpm format` and
 `pnpm format:check` (oxfmt). `pnpm e2e` builds the app and runs the browser journeys in Playwright:
-a replayed recording, the theme switcher on that recording, Connect, the weeb-3 journeys, and real hls.js against a fake gateway publishing a live stream in four
+a replayed recording, the theme switcher on that recording, Connect, the weeb-3 journeys, chat messages on the
+viewer's own stamp against a fake Swarm ID site on that recording, and real hls.js against a fake gateway publishing a live stream in four
 qualities, each answer held back 650 ms. The first run downloads the Chromium build Playwright pins.
 Beyond that they need no Bee node and no network, and they print their timings and read rates
 without asserting them. Continuous integration runs the format check, lint, typecheck, tests, build and `pnpm e2e` on every

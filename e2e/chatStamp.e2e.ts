@@ -1,0 +1,199 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { expect, type Page, test } from '@playwright/test';
+import { MessageVia, parseChatMessage } from '@solarpunkltd/swarm-chat-js';
+
+import { answerSlotNotesAsAbsent, refuseOtherOrigins, serveConfig } from './journey';
+import {
+  ACCOUNT_NAME,
+  CHAT_ADDRESS,
+  FAKE_SWARM_ID_ORIGIN,
+  type FakeSiteStamp,
+  serveFakeSwarmIdSite,
+} from './fakeSwarmIdSite';
+import {
+  GATEWAY_PATH,
+  GATEWAY_URL_PATTERN,
+  PREVIEW_ORIGIN,
+  type Published,
+  RECORDED_DIR,
+  RecordingFile,
+} from './recording';
+
+/**
+ * Sending chat messages on the viewer's own stamp, against the recorded deployment and a fake Swarm ID site whose frame
+ * keeps a signed-in session. The viewer's own Bee node is a made-up address on this computer, answered by the page's
+ * routes: its reads replay the recording, and its writes are recorded and taken. A message on the stamp is stamped by
+ * the fake Swarm ID and posted to that node, never to the event gateway, and with the own feed on its copy goes first.
+ * A stamp that ran out holds the message field with a way to let the gateway pay.
+ */
+
+const MY_BEE_NODE = 'http://localhost:1633';
+const DAY_S = 24 * 60 * 60;
+const SITE_STAMP: FakeSiteStamp = {
+  label: 'Event chat',
+  utilization: 0.25,
+  usable: true,
+  exists: true,
+  batchTTL: 30 * DAY_S,
+};
+const SPAN_BYTES = 8;
+
+const read = <T>(file: string): T => JSON.parse(readFileSync(join(RECORDED_DIR, file), 'utf8')) as T;
+
+interface Written {
+  url: string;
+  stamp: string | null;
+  body: Buffer;
+}
+
+/**
+ * The deployment as recorded, with Swarm ID offered, and the viewer's own Bee node added and picked for the chat
+ * history while everything else reads the event gateway, as a browser that chose so before keeps it.
+ */
+async function deployment(page: Page, siteStamp: () => FakeSiteStamp | undefined) {
+  const published = read<Published>(RecordingFile.PUBLISHED);
+  const config = read<{ chat: { feedOwner: string; writeUrl: string } }>(RecordingFile.CONFIG);
+  const toGateway: Written[] = [];
+  const toMyNode: Written[] = [];
+
+  await refuseOtherOrigins(page.context());
+  await page.routeFromHAR(join(RECORDED_DIR, RecordingFile.HAR), { url: GATEWAY_URL_PATTERN, notFound: 'abort' });
+  await serveConfig(page, { ...config, swarmId: { url: FAKE_SWARM_ID_ORIGIN } });
+  await answerSlotNotesAsAbsent(page, published.chat.topic, config.chat.feedOwner);
+  await page.route(`${PREVIEW_ORIGIN}${GATEWAY_PATH}/soc/**`, async (route) => {
+    if (route.request().method() !== 'POST') {
+      return route.fallback();
+    }
+    toGateway.push({
+      url: route.request().url(),
+      stamp: null,
+      body: route.request().postDataBuffer() ?? Buffer.alloc(0),
+    });
+    await route.fulfill({ status: 201, contentType: 'application/json', body: '{}' });
+  });
+  await page.route(`${MY_BEE_NODE}/**`, async (route) => {
+    const request = route.request();
+    const { pathname, search } = new URL(request.url());
+    if (request.method() === 'POST') {
+      toMyNode.push({
+        url: request.url(),
+        stamp: request.headers()['swarm-postage-stamp'] ?? null,
+        body: request.postDataBuffer() ?? Buffer.alloc(0),
+      });
+      return route.fulfill({ status: 201, contentType: 'application/json', body: '{"reference":"00"}' });
+    }
+    if (pathname.startsWith(`/feeds/${CHAT_ADDRESS}/`)) {
+      return route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: '{"message":"Not Found","code":404}',
+      });
+    }
+    return route.fallback({ url: `${PREVIEW_ORIGIN}${GATEWAY_PATH}${pathname}${search}` });
+  });
+  const swarmId = await serveFakeSwarmIdSite(page, siteStamp);
+
+  await page.addInitScript((node) => {
+    if (sessionStorage.getItem('seeded')) {
+      return;
+    }
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem(
+      'swarm-sources',
+      JSON.stringify([{ id: 'added-1', type: 'bee-node', name: 'My Bee node', url: node }]),
+    );
+    localStorage.setItem(
+      'swarm-routing',
+      JSON.stringify({
+        mode: 'per-part',
+        source: 'gateway',
+        parts: { player: 'gateway', 'stream-list': 'gateway', previews: 'gateway', chat: 'added-1' },
+      }),
+    );
+  }, MY_BEE_NODE);
+
+  await page.goto(`/#/watch/video/${published.stream.owner}/${published.stream.topic}`);
+  const chat = page.getByRole('region', { name: 'Chat', exact: true });
+  await expect(page.getByRole('banner').getByRole('button', { name: ACCOUNT_NAME })).toBeVisible({ timeout: 20_000 });
+  await expect(chat.getByRole('textbox', { name: 'Message', exact: true })).toBeVisible({ timeout: 20_000 });
+  return { chat, toGateway, toMyNode, swarmId };
+}
+
+async function payWithMyStamp(page: Page, ownFeed = false) {
+  await page.getByRole('banner').getByRole('button', { name: ACCOUNT_NAME }).click();
+  const group = page.getByRole('dialog').getByRole('region', { name: 'Chat stamp' });
+  await group.getByRole('radio', { name: /^My stamp/ }).check();
+  await expect(group.getByText('Event chat')).toBeVisible();
+  await expect(group.getByText('30 days left')).toBeVisible();
+  await expect(group.getByText(/25% used/)).toBeVisible();
+  if (ownFeed) {
+    await group.getByRole('checkbox', { name: /Also write my own feed/ }).check();
+  }
+  await page.getByRole('button', { name: 'Close Connect', exact: true }).click();
+}
+
+const messageIn = (written: Written) =>
+  parseChatMessage(new Uint8Array(written.body.subarray(SPAN_BYTES)), { origin: PREVIEW_ORIGIN, allowLocalHttp: true });
+
+test('a message on my own stamp is stamped by Swarm ID and sent through my Bee node, never the gateway', async ({
+  page,
+}) => {
+  const { chat, toGateway, toMyNode, swarmId } = await deployment(page, () => SITE_STAMP);
+  await payWithMyStamp(page);
+
+  await chat.getByRole('textbox', { name: 'Message', exact: true }).fill('on my own stamp');
+  await chat.getByRole('button', { name: 'Send', exact: true }).click();
+
+  await expect.poll(() => toMyNode.length, { message: 'the message reached my Bee node' }).toBeGreaterThan(0);
+  expect(toGateway, 'nothing went to the event gateway').toEqual([]);
+  expect(toMyNode[0].url.startsWith(`${MY_BEE_NODE}/soc/`)).toBe(true);
+  expect(toMyNode[0].stamp, 'the stamp Swarm ID returned rides in the envelope header').toBe('ee'.repeat(113));
+  expect(swarmId.stamped).toHaveLength(1);
+  const check = messageIn(toMyNode[0]);
+  expect(check.ok, check.ok ? '' : `${check.reason}: ${check.detail}`).toBe(true);
+  expect(check.ok && check.message).toMatchObject({ text: 'on my own stamp', via: MessageVia.OWN_STAMP, own: false });
+});
+
+test('with the own feed on, the copy is written first and the message says it has one', async ({ page }) => {
+  const { chat, toMyNode, swarmId } = await deployment(page, () => SITE_STAMP);
+  await payWithMyStamp(page, true);
+
+  await chat.getByRole('textbox', { name: 'Message', exact: true }).fill('kept in my own feed');
+  await chat.getByRole('button', { name: 'Send', exact: true }).click();
+
+  await expect.poll(() => toMyNode.length).toBeGreaterThanOrEqual(2);
+  expect(swarmId.stamped[0].signer, 'the copy is signed by the chat key').toBe(CHAT_ADDRESS);
+  expect(toMyNode[0].url.startsWith(`${MY_BEE_NODE}/soc/${CHAT_ADDRESS}/`)).toBe(true);
+  const copy = messageIn(toMyNode[0]);
+  const sent = messageIn(toMyNode[1]);
+  expect(copy.ok && sent.ok).toBe(true);
+  expect(sent.ok && sent.message).toMatchObject({ text: 'kept in my own feed', own: true });
+  expect(toMyNode[0].body.equals(toMyNode[1].body), 'the copy is the message as it was sent').toBe(true);
+});
+
+test('a stamp that ran out holds the message, and the viewer may let the gateway pay', async ({ page }) => {
+  const { chat, toGateway, toMyNode } = await deployment(page, () => ({ ...SITE_STAMP, utilization: 1 }));
+  await page.getByRole('banner').getByRole('button', { name: ACCOUNT_NAME }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('region', { name: 'Chat stamp' })
+    .getByRole('radio', { name: /^My stamp/ })
+    .check();
+  await page.getByRole('button', { name: 'Close Connect', exact: true }).click();
+
+  await expect(chat.getByText('Your stamp ran out.')).toBeVisible();
+  await chat.getByRole('textbox', { name: 'Message', exact: true }).fill('waiting for a stamp');
+  await expect(chat.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
+
+  await chat.getByRole('button', { name: 'Let the gateway pay', exact: true }).click();
+  await chat.getByRole('button', { name: 'Send', exact: true }).click();
+
+  await expect
+    .poll(() => toGateway.length, { message: 'the gateway took it once the viewer said so' })
+    .toBeGreaterThan(0);
+  expect(toMyNode).toEqual([]);
+  const check = messageIn(toGateway[0]);
+  expect(check.ok && check.message).toMatchObject({ text: 'waiting for a stamp', via: MessageVia.GATEWAY });
+});
