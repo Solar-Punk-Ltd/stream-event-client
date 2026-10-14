@@ -1,5 +1,5 @@
 /** A message's time as the design writes it and as a `<time>` names it. */
-export interface MessageTime {
+interface MessageTime {
   /** Hours and minutes on the viewer's own clock, 24 hour. */
   readonly shown: string;
   readonly iso: string;
