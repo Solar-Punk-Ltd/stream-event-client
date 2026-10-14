@@ -12,9 +12,10 @@ import {
   SwarmChat,
 } from '@solarpunkltd/swarm-chat-js';
 
-import { type ChatReads, chatParts } from './chatParts';
+import { type ChatReads, chatParts, type ChatPartsForPage } from './chatParts';
 import { draftProblem } from './draftCheck';
 import { groupReactions, type ReactionsByMessage } from './reactions';
+import type { ChunkStamper, SendProblem } from './stamp/ownStampWrite';
 import { chatVerifier } from './verify/chatVerifier';
 
 /** Where a message stands on its way from this browser to the chat feed, as the library's sender reports it. */
@@ -35,7 +36,21 @@ interface CheckedMessage extends MessageData {
   identity: ChatIdentity | null;
 }
 
-export interface VisibleMessage extends CheckedMessage, DeliveryState {}
+export interface VisibleMessage extends CheckedMessage, DeliveryState {
+  /** Why the viewer's own stamp did not send it, the last time it tried. */
+  sendProblem?: string;
+}
+
+/** What a chat on the viewer's own stamp needs beside its settings. */
+export interface OwnStampSetup {
+  /** Read at every write: Swarm ID while the viewer is signed in with it, null otherwise. */
+  readonly stamper: () => ChunkStamper | null;
+  readonly ownFeed: boolean;
+  /** Read at every write: why the page cannot send on the viewer's stamp now, or null when it can. */
+  readonly refusal: () => string | null;
+  /** Told after every message the viewer's node took. */
+  readonly onSent?: () => void;
+}
 
 export const CHAT_LOADING = 'loading';
 export const CHAT_READY = 'ready';
@@ -109,9 +124,20 @@ const START_DELAY_MS = 0;
  * @param reads The Swarm client's chat reader as it is now. Called on every read rather than held, so
  *   a client rebuilt for another node is followed without restarting the chat.
  */
-export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, reads: () => ChatReads) {
+export function useSwarmChat(
+  settings: ChatSettings,
+  ownAddress: string | null,
+  reads: () => ChatReads,
+  ownStamp: OwnStampSetup | null = null,
+) {
   const settingsKey = JSON.stringify(settings);
-  const chatKey = JSON.stringify(settings.infra);
+  // Who pays and where a message is written change how it is sent, not which chat is on screen.
+  const { via: _via, writeUrl: _writeUrl, ...where } = settings.infra;
+  const chatKey = JSON.stringify(where);
+  const ownFeed = ownStamp?.ownFeed ?? false;
+  const ownStampRef = useRef(ownStamp);
+  ownStampRef.current = ownStamp;
+  const partsRef = useRef<ChatPartsForPage | null>(null);
   const chatRef = useRef<SwarmChat | null>(null);
   const shownChatKeyRef = useRef(chatKey);
   const readsRef = useRef(reads);
@@ -124,17 +150,20 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
   const [hasOlder, setHasOlder] = useState(false);
   const [feedStatus, setFeedStatus] = useState<FeedStatus | null>(null);
   const [refusedCount, setRefusedCount] = useState(0);
+  const [sendProblems, setSendProblems] = useState<Record<string, SendProblem>>({});
   /** The refused messages of the chat on screen, so one carried by several events is counted once. */
   const refusedRef = useRef(new Set<string>());
 
   useEffect(() => {
     const current = JSON.parse(settingsKey) as ChatSettings;
-    const currentChatKey = JSON.stringify(current.infra);
+    const { via: _currentVia, writeUrl: _currentWriteUrl, ...currentWhere } = current.infra;
+    const currentChatKey = JSON.stringify(currentWhere);
     if (shownChatKeyRef.current !== currentChatKey) {
       shownChatKeyRef.current = currentChatKey;
       setMessages([]);
       refusedRef.current = new Set();
       setRefusedCount(0);
+      setSendProblems({});
       setStatus(CHAT_LOADING);
       setHasOlder(false);
       setIsLoadingOlder(false);
@@ -150,10 +179,19 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
     setFeedStatus(null);
 
     const timer = setTimeout(() => {
-      const started = new SwarmChat(
-        current,
-        chatParts(current, () => readsRef.current()),
-      );
+      const parts = chatParts(current, () => readsRef.current(), {
+        stamper: () => ownStampRef.current?.stamper() ?? null,
+        ownFeed,
+        refusal: () => ownStampRef.current?.refusal() ?? null,
+        onProblem: (id, problem) => {
+          if (!stopped) {
+            setSendProblems((previous) => ({ ...previous, [id]: problem }));
+          }
+        },
+        onSent: () => ownStampRef.current?.onSent?.(),
+      });
+      partsRef.current = parts;
+      const started = new SwarmChat(current, { source: parts.source, write: parts.write });
       chat = started;
       chatRef.current = started;
 
@@ -187,7 +225,17 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
 
       listen(EVENTS.MESSAGE_REQUEST_INITIATED, onMessage({ error: false, requested: true }));
       listen(EVENTS.MESSAGE_REQUEST_UPLOADED, onMessage({ error: false, uploaded: true }));
-      listen(EVENTS.MESSAGE_RECEIVED, onMessage({ error: false, received: true }));
+      const onReceived = onMessage({ error: false, received: true });
+      listen(EVENTS.MESSAGE_RECEIVED, (data: MessageData) => {
+        setSendProblems((previous) => {
+          if (!(data.id in previous)) {
+            return previous;
+          }
+          const { [data.id]: _published, ...rest } = previous;
+          return rest;
+        });
+        onReceived(data);
+      });
       listen(EVENTS.MESSAGE_REQUEST_ERROR, onMessage({ error: true }));
       listen(EVENTS.LOADING_INIT, (loading: boolean) => {
         if (stopped) {
@@ -242,13 +290,22 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
         void chat.stop();
       }
     };
-  }, [settingsKey, restarts]);
+  }, [settingsKey, ownFeed, restarts]);
+
+  const shown = useMemo(
+    () =>
+      messages.map((message) => {
+        const problem = message.received ? undefined : sendProblems[message.id];
+        return problem ? { ...message, sendProblem: problem.text, error: message.error || problem.final } : message;
+      }),
+    [messages, sendProblems],
+  );
 
   const grouped = useMemo(() => {
     const text: VisibleMessage[] = [];
     const reactions: MessageData[] = [];
     const replies: VisibleMessage[] = [];
-    for (const message of messages) {
+    for (const message of shown) {
       if (message.type === MessageType.TEXT) {
         text.push(message);
       } else if (message.type === MessageType.REACTION && !message.error) {
@@ -258,7 +315,7 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
       }
     }
     return { text, reactions, replies };
-  }, [messages]);
+  }, [shown]);
 
   const reactionsByMessage: ReactionsByMessage = useMemo(
     () => groupReactions(grouped.reactions, ownAddress),
@@ -311,6 +368,8 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
 
   /** A message that failed, or one still waiting to be read back, is sent again with its identical bytes. */
   const retrySendMessage = useCallback((message: VisibleMessage) => {
+    partsRef.current?.forgetRefusal(message.id);
+    setSendProblems(({ [message.id]: _retried, ...rest }) => rest);
     chatRef.current?.retrySendMessage(message);
   }, []);
 

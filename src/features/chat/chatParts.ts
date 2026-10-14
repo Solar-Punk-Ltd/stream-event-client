@@ -5,6 +5,7 @@ import {
   type ChatSource,
   DEFAULT_NOTE_SLOT_MS,
   HeadLookupTimeoutError,
+  MessageVia,
   noteIdentifier,
   UnreadableSlotError,
 } from '@solarpunkltd/swarm-chat-js';
@@ -15,6 +16,8 @@ import type { SwarmReader } from '@/swarm/client';
 import type { ReadOptions } from '@/swarm/provider';
 import { beeGsocWrite } from '@/swarm/providers/bee-http/gsocWrite';
 import { MAX_CHUNK_PAYLOAD, parseSingleOwnerChunk, singleOwnerChunkAddress } from '@/swarm/singleOwnerChunk';
+
+import { type ChunkStamper, ownStampWrite, type SendProblem } from './stamp/ownStampWrite';
 
 /** What the chat reads Swarm through, which the client routes to the event's chat read address. */
 export type ChatReads = Pick<SwarmReader, 'readFeedHead' | 'readChunk' | 'readBytes'>;
@@ -146,30 +149,78 @@ function chatSource(options: ChatSourceOptions): ChatSource {
   };
 }
 
+/** What a chat on the viewer's own stamp needs beside its settings, which are compared by value and cannot hold it. */
+interface OwnStampParts {
+  /** Read at every write: Swarm ID while the viewer is signed in with it, null otherwise. */
+  readonly stamper: () => ChunkStamper | null;
+  /** Whether each message also gets a copy in the sender's own feed. */
+  readonly ownFeed: boolean;
+  /** Read at every write: why the page cannot send on the viewer's stamp now, or null when it can. */
+  readonly refusal?: () => string | null;
+  readonly onProblem?: (messageId: string, problem: SendProblem) => void;
+  readonly onSent?: () => void;
+}
+
+/** The library's parts, and the way to let a message refused on the viewer's stamp be tried again. */
+export interface ChatPartsForPage extends Pick<ChatParts, 'source' | 'write'> {
+  forgetRefusal(messageId: string): void;
+}
+
+const NOTHING_REFUSED = () => {};
+
 /**
- * The two parts swarm-chat-js takes in place of reaching Bee itself: its reads, through the Swarm
- * client's chat reader, and its one write. A message always goes to the event's chat write address,
- * because it costs a stamp the viewer does not hold, so the write is the library's own, unchanged.
+ * The two parts swarm-chat-js takes in place of reaching Bee itself: its reads, through the Swarm client's chat
+ * reader, and its one write. While the event pays, a message goes to the event's chat write address, which stamps it,
+ * through the library's own write, unchanged. On the viewer's own stamp it goes to their Bee node at `writeUrl`, stamped
+ * by Swarm ID, and never anywhere else, and with no `writeUrl` it is refused.
  *
  * @param reads The client's chat reader as it is now, see {@link ChatSourceOptions.reads}.
+ * @throws When the settings say the viewer's own stamp and nothing can stamp.
  */
-export function chatParts(settings: ChatSettings, reads: () => ChatReads): Pick<ChatParts, 'source' | 'write'> {
+export function chatParts(settings: ChatSettings, reads: () => ChatReads, ownStamp?: OwnStampParts): ChatPartsForPage {
   const { infra } = settings;
+  const source = chatSource({
+    reads,
+    owner: infra.chatAddress,
+    chatTopic: infra.chatTopic,
+    slotReadMs: infra.socReadTimeout ?? SLOT_READ_MS,
+    feedReadMs: infra.feedReadTimeout ?? FEED_READ_MS,
+    noteSlotMs: infra.noteSlotMs ?? DEFAULT_NOTE_SLOT_MS,
+  });
+  const writeMs = infra.gsocWriteTimeout ?? WRITE_MS;
+  if (infra.via === MessageVia.OWN_STAMP) {
+    if (!ownStamp) {
+      throw new Error("a chat on the viewer's own stamp needs Swarm ID to stamp");
+    }
+    const { write, forgetRefusal } = ownStampWrite({
+      stamper: ownStamp.stamper,
+      url: infra.writeUrl ?? null,
+      ...(ownStamp.refusal ? { refusal: ownStamp.refusal } : {}),
+      gsocKey: bareHex(infra.gsocResourceId),
+      gsocTopic: infra.gsocTopic,
+      timeoutMs: writeMs,
+      ownFeed: ownStamp.ownFeed
+        ? {
+            chatKey: settings.user.privateKey,
+            chatTopic: infra.chatTopic,
+            reads,
+            readTimeoutMs: infra.feedReadTimeout ?? FEED_READ_MS,
+          }
+        : null,
+      ...(ownStamp.onProblem ? { onProblem: ownStamp.onProblem } : {}),
+      ...(ownStamp.onSent ? { onSent: ownStamp.onSent } : {}),
+    });
+    return { source, write, forgetRefusal };
+  }
   return {
-    source: chatSource({
-      reads,
-      owner: infra.chatAddress,
-      chatTopic: infra.chatTopic,
-      slotReadMs: infra.socReadTimeout ?? SLOT_READ_MS,
-      feedReadMs: infra.feedReadTimeout ?? FEED_READ_MS,
-      noteSlotMs: infra.noteSlotMs ?? DEFAULT_NOTE_SLOT_MS,
-    }),
+    source,
     write: beeGsocWrite({
       url: infra.writeUrl ?? infra.beeUrl,
       gsocKey: bareHex(infra.gsocResourceId),
       gsocTopic: infra.gsocTopic,
-      timeoutMs: infra.gsocWriteTimeout ?? WRITE_MS,
+      timeoutMs: writeMs,
       stamp: infra.stamp,
     }),
+    forgetRefusal: NOTHING_REFUSED,
   };
 }

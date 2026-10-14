@@ -81,6 +81,16 @@ const ALLOWED_PAST_THE_SURFACE: readonly { readonly file: string; readonly targe
     target: 'singleOwnerChunk',
     why: "the chat checks each slot is the chat owner's single-owner chunk, a codec that reads nothing",
   },
+  {
+    file: 'src/features/chat/stamp/ownStampWrite.ts',
+    target: 'providers/bee-http/stampedSocUpload',
+    why: "the chat write on the viewer's own stamp: a chunk Swarm ID stamped, sent to their Bee node, which no provider makes",
+  },
+  {
+    file: 'src/features/chat/stamp/stampProblems.ts',
+    target: 'providers/bee-http/stampedSocUpload',
+    why: "what the viewer's Bee node answered that write, read from its error",
+  },
 ];
 
 function importsPastTheSurface(file: string): string[] {

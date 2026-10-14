@@ -1,0 +1,57 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  NO_SITE_STAMP,
+  SIGNED_OUT,
+  SITE_SHARE_USED,
+  STAMP_NOT_USABLE,
+  STAMP_RAN_OUT,
+  stampRefusal,
+  SUBSIDISED,
+  uploadProblem,
+} from '../../src/features/chat/stamp/stampProblems';
+import { StampedUploadError } from '../../src/swarm/providers/bee-http/stampedSocUpload';
+
+const refusal = (code: string, reason?: string) => Object.assign(new Error(code), { code, reason });
+
+describe('why Swarm ID did not stamp a message', () => {
+  it('fails the message at once for what a resend cannot mend', () => {
+    expect(stampRefusal(refusal('not-authenticated'))).toEqual({ text: SIGNED_OUT, final: true });
+    expect(stampRefusal(refusal('upload-unavailable', 'no-stamp'))).toEqual({ text: NO_SITE_STAMP, final: true });
+    expect(stampRefusal(refusal('upload-unavailable', 'subsidised'))).toEqual({ text: SUBSIDISED, final: true });
+    expect(stampRefusal(refusal('upload-unavailable', 'stamp-expired'))).toEqual({ text: STAMP_RAN_OUT, final: true });
+    expect(stampRefusal(refusal('upload-unavailable', 'stamp-not-usable'))).toEqual({
+      text: STAMP_NOT_USABLE,
+      final: true,
+    });
+    for (const reason of ['app-stamp-count', 'app-bucket-share', 'app-slice-full']) {
+      expect(stampRefusal(refusal('upload-unavailable', reason))).toEqual({ text: SITE_SHARE_USED, final: true });
+    }
+  });
+
+  it('leaves the chat to resend what may pass a moment later', () => {
+    for (const error of [
+      refusal('upload-unavailable', 'app-stamp-rate'),
+      refusal('upload-unavailable', 'session-unconfirmed'),
+      refusal('timeout'),
+      refusal('lease-lost'),
+      new Error('anything else'),
+    ]) {
+      expect(stampRefusal(error).final).toBe(false);
+    }
+  });
+});
+
+describe("why the viewer's Bee node did not take a message", () => {
+  it('resends after no answer, a rate limit or a server error, and fails at once on a refusal', () => {
+    expect(uploadProblem(new StampedUploadError(null, null, true))).toEqual({
+      text: 'Your Bee node did not answer in time.',
+      final: false,
+    });
+    expect(uploadProblem(new StampedUploadError(429, null, false)).final).toBe(false);
+    expect(uploadProblem(new StampedUploadError(402, 'payment required', false))).toEqual({
+      text: 'Your Bee node refused it (HTTP 402: payment required).',
+      final: true,
+    });
+  });
+});

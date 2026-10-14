@@ -28,6 +28,16 @@ describe('the chat settings', () => {
     expect(chatSettings(CHAT, 'stream-one', null).infra.via).toBe(MessageVia.GATEWAY);
   });
 
+  it("send through the viewer's own Bee node on their own stamp, and say so in every message", () => {
+    const infra = chatSettings(CHAT, 'stream-one', null, {
+      via: MessageVia.OWN_STAMP,
+      url: 'http://localhost:1633',
+      ownFeed: true,
+    }).infra;
+    expect(infra).toMatchObject({ via: MessageVia.OWN_STAMP, writeUrl: 'http://localhost:1633', beeUrl: '/chat-read' });
+    expect(infra).not.toHaveProperty('stamp');
+  });
+
   it("send a guest's messages with no binding", () => {
     const guest: Session = { username: 'Ada', privateKey: GUEST_KEY, address: addressOf(GUEST_KEY) };
     expect(chatSettings(CHAT, 'stream-one', guest).user).toEqual({ privateKey: GUEST_KEY, nickname: 'Ada' });

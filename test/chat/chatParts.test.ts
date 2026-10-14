@@ -1,7 +1,10 @@
 import { Bytes, ChunkBuilder, FeedIndex, Identifier, PrivateKey, Span, Topic } from '@ethersphere/bee-js';
 import {
   type ChatSettings,
+  createChatMessage,
   DEFAULT_NOTE_SLOT_MS,
+  MessageType,
+  MessageVia,
   HeadLookupTimeoutError,
   noteIdentifier,
   UnreadableSlotError,
@@ -265,5 +268,48 @@ describe("the chat's write", () => {
     expect(posted[0].url.startsWith(`${WRITE_URL}/soc/`)).toBe(true);
     expect(posted[0].method?.toUpperCase()).toBe('POST');
     expect(posted[0].deferred).toBe('false');
+  });
+
+  it("on the viewer's own stamp, has Swarm ID stamp the inbox chunk and sends it to the viewer's node alone", async () => {
+    const posted: { url: string; stamp: string | null }[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      posted.push({ url: String(input), stamp: new Headers(init?.headers).get('swarm-postage-stamp') });
+      return new Response('{}', { status: 201 });
+    }) as typeof fetch;
+    const stamped: string[] = [];
+    const stamper = {
+      stampChunk: async (chunk: { identifier: string; signer: { privateKey: string } }) => {
+        stamped.push(chunk.identifier);
+        return {
+          address: 'f'.repeat(64),
+          stamp: 'e'.repeat(226),
+          owner: new PrivateKey(chunk.signer.privateKey).publicKey().address().toHex(),
+          signature: 'ab'.repeat(65),
+        };
+      },
+    };
+    const own = {
+      ...settings(),
+      infra: { ...settings().infra, via: MessageVia.OWN_STAMP, writeUrl: 'http://localhost:1633' },
+    };
+    const payload = createChatMessage('c3'.repeat(32), {
+      topic: CHAT_TOPIC,
+      type: MessageType.TEXT,
+      text: 'on my stamp',
+      name: 'Ada',
+      via: MessageVia.OWN_STAMP,
+    }).bytes;
+
+    await chatParts(own, () => readsAnswering({}), { stamper: () => stamper, ownFeed: false }).write(payload);
+
+    expect(stamped).toEqual([Identifier.fromString('the-inbox').toHex()]);
+    expect(posted).toHaveLength(1);
+    expect(posted[0].url.startsWith('http://localhost:1633/soc/')).toBe(true);
+    expect(posted[0].stamp).toBe('e'.repeat(226));
+  });
+
+  it('refuses to start on the own stamp with nothing to stamp', () => {
+    const own = { ...settings(), infra: { ...settings().infra, via: MessageVia.OWN_STAMP } };
+    expect(() => chatParts(own, () => readsAnswering({}))).toThrow();
   });
 });
