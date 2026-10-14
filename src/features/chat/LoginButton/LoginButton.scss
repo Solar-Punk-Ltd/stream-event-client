@@ -32,6 +32,24 @@
   }
 }
 
+// The name and its badge, the grey hexagon of a guest or the filled one of Swarm ID. The name is what gives way to the
+// ellipsis, so the badge always shows.
+.login-button-named {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.login-button-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .login-dropdown {
   position: absolute;
   top: 100%;

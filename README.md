@@ -173,7 +173,8 @@ connects a wallet and never sees the account's own key. Messages still go throug
 which stamps them.
 
 - **The chat name** is the account's name, trimmed and cut to the chat's 20 characters. An account
-  with no name chats under its short address. The name's menu says "Swarm ID" and the account's name
+  with no name chats under its short address. The header shows the chat name with its badge, the grey
+  hexagon of a guest or the filled one of Swarm ID, as every message does. The name's menu says "Swarm ID" and the account's name
   beside it, with Sign out.
 - **A guest can sign in later.** The menu of a guest says "Show it's really you" beside Sign in with
   Swarm ID. Signing in keeps the guest's name and key in this browser, and signing out chats as that

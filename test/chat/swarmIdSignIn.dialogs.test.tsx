@@ -183,6 +183,27 @@ describe('a guest beside Swarm ID', () => {
   });
 });
 
+describe("the header's name button", () => {
+  const badgeIn = (name: RegExp) => button(name).querySelector('svg')?.getAttribute('class');
+
+  it('shows a guest with the grey hexagon, with and without Swarm ID offered', async () => {
+    persistUserSession(nicknameLogin('Ada'));
+    await header(null);
+    expect(badgeIn(/^Ada/)).toBe('sender-badge-guest');
+    mounted?.unmount();
+
+    await header(await fakeSwarmId());
+    expect(badgeIn(/^Ada/)).toBe('sender-badge-guest');
+  });
+
+  it('shows a Swarm ID sign-in with the filled hexagon', async () => {
+    await header(await fakeSwarmId(SIGNED_IN));
+    await signedIn();
+
+    expect(badgeIn(/^Ida/)).toBe('sender-badge-swarm-id');
+  });
+});
+
 describe('a blocked Swarm ID window', () => {
   it('shows one line with a button, and the button opens the window from its own click', async () => {
     const swarmId = await fakeSwarmId({}, (client) => {
