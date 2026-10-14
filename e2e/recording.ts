@@ -28,7 +28,15 @@ export const RecordingFile = {
 /** The stream and the chat the recorder publishes and the smoke test looks for. */
 export interface Published {
   stream: { owner: string; topic: string; title: string; segments: number };
-  chat: { topic: string; texts: string[]; names: string[] };
+  chat: {
+    topic: string;
+    texts: string[];
+    names: string[];
+    /** The one message a Swarm ID account vouched for, and that account. Every other message is a guest's. */
+    swarmId: { text: string; account: string };
+    /** The one message sent with its sender's own stamp. */
+    ownStamp: { text: string };
+  };
   bee: { version: string };
 }
 
