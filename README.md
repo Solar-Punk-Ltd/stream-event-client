@@ -171,7 +171,8 @@ which stamps them.
   for the chat history, as a Bee API base, when it starts the library and again whenever that source
   changes, so this site's content in Swarm ID follows the viewer's choice. For the event gateway that is
   `chat.readUrl`. A source with no Bee address, the node in this browser, is never handed over, and Swarm
-  ID then keeps the address it had. Swarm ID's coordination of the person's account and devices stays
+  ID then keeps the address it had, as it does when it refuses one, which is asked for again at the
+  next change. Swarm ID's coordination of the person's account and devices stays
   on their own node whatever this page names. The address is handed over absolute, so `/bee` arrives as
   this site's own `/bee`.
 - **Swarm ID reads that address from its own origin**, through its hidden frame, so the address has to

@@ -99,6 +99,20 @@ describe("the Bee address Swarm ID reads this site's content through", () => {
     expect(swarmId.client().beeApiUrls).toEqual(['http://localhost:1633', CHAT_HISTORY]);
   });
 
+  it('is asked for again after Swarm ID refused it, rather than taken as given', async () => {
+    const swarmId = await fakeSwarmId();
+    const signIn = await started(swarmId, () => {}, CHAT_HISTORY);
+    swarmId.client().refusesNextBeeApiUrl = true;
+
+    signIn.useBeeApiUrl('http://localhost:1633');
+    await settled();
+    signIn.useBeeApiUrl('http://localhost:1633');
+    await settled();
+    signIn.useBeeApiUrl('http://localhost:1633');
+
+    expect(swarmId.client().beeApiUrls).toEqual(['http://localhost:1633', 'http://localhost:1633']);
+  });
+
   it('is left to Swarm ID for a source with no Bee address, and given once one has it', async () => {
     const swarmId = await fakeSwarmId();
     const signIn = await started(swarmId);

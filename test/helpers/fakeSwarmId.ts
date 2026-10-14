@@ -42,6 +42,8 @@ class FakeSwarmIdClient implements SwarmIdClient {
   chatKey: Uint8Array = new Uint8Array();
   /** Every Bee address the viewer moved this site's content to after the client was built, in order. */
   readonly beeApiUrls: string[] = [];
+  /** Refuses the next Bee address it is handed, as the frame does before it is ready, though it records the ask. */
+  refusesNextBeeApiUrl = false;
 
   constructor(
     readonly options: SwarmIdClientOptions,
@@ -79,6 +81,10 @@ class FakeSwarmIdClient implements SwarmIdClient {
 
   async setBeeApiUrl(url: string): Promise<void> {
     this.beeApiUrls.push(url);
+    if (this.refusesNextBeeApiUrl) {
+      this.refusesNextBeeApiUrl = false;
+      throw new Error('Swarm ID is not ready');
+    }
   }
 
   get connectionInfo(): SwarmIdConnectionInfo {

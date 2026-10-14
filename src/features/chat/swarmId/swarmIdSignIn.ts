@@ -86,16 +86,34 @@ export function createSwarmIdSignIn({
 }: SwarmIdSignInOptions): SwarmIdSignIn {
   /** The newest address asked for, handed to the client when it is built and on every change after. */
   let wantedBeeApiUrl = beeApiUrl;
-  /** The address the client was given last, so the same one is not sent twice. */
+  /** The address the client took last, so the same one is not sent twice. */
   let givenBeeApiUrl: string | null = null;
-  /** Hands the client the newest address once it can take one, which is once it has started. */
+  /** The address sent last while the client has not answered yet. */
+  let sendingBeeApiUrl: string | null = null;
+  /**
+   * Hands the client the newest address once it can take one, which is once it has started. A refused address leaves
+   * this site's content on the one before, which still serves it, and is sent again on the next change.
+   */
   const sendBeeApiUrl = () => {
-    if (!client || !isReady || wantedBeeApiUrl === null || wantedBeeApiUrl === givenBeeApiUrl) {
+    const url = wantedBeeApiUrl;
+    if (!client || !isReady || url === null || url === (sendingBeeApiUrl ?? givenBeeApiUrl)) {
       return;
     }
-    givenBeeApiUrl = wantedBeeApiUrl;
-    // A refused address leaves this site's content on the one before, which still serves it.
-    client.setBeeApiUrl(wantedBeeApiUrl).catch(() => undefined);
+    sendingBeeApiUrl = url;
+    const isLatest = () => sendingBeeApiUrl === url;
+    client.setBeeApiUrl(url).then(
+      () => {
+        if (isLatest()) {
+          givenBeeApiUrl = url;
+          sendingBeeApiUrl = null;
+        }
+      },
+      () => {
+        if (isLatest()) {
+          sendingBeeApiUrl = null;
+        }
+      },
+    );
   };
   let state: SwarmIdState = { status: SWARM_ID_STARTING };
   const listeners = new Set<() => void>();
