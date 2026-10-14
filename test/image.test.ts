@@ -290,6 +290,16 @@ describe('the image start-up script', () => {
       { BEE_GATEWAY_URL: 'https://gateway.example.com', EXTRA_GATEWAY_URLS: 'ftp://second.example.com' },
       'EXTRA_GATEWAY_URLS must be an address',
     ],
+    // grep tests each line on its own, so a second line must be refused before the pattern sees the value.
+    [{ BEE_GATEWAY_URL: 'https://gateway.example.com\nhttps://other.example.com' }, 'BEE_GATEWAY_URL must be one'],
+    [
+      { BEE_GATEWAY_URL: 'https://gateway.example.com', CHAT_READ_URL: 'https://chat.example.com\r' },
+      'CHAT_READ_URL must be one',
+    ],
+    [
+      { BEE_GATEWAY_URL: 'https://gateway.example.com', SWARM_ID_URL: 'https://id.example.com\nhttps://x.example.com' },
+      'SWARM_ID_URL must be one',
+    ],
   ])('refuses to start on %j', (settings, reason) => {
     const started = start(settings);
     expect(started.status).not.toBe(0);

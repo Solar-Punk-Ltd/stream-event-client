@@ -38,8 +38,16 @@ refuse() {
   exit 1
 }
 
-# An origin and nothing else: a scheme, a host and an optional port, with no path, query or space.
+NEWLINE='
+'
+CARRIAGE_RETURN="$(printf '\r')"
+
+# An origin and nothing else: a scheme, a host and an optional port, with no path, query or space. grep tests each
+# line on its own, so a value of two lines is refused first, or one good line would pass the other with it.
 origin_of() {
+  case "$2" in
+    *"$NEWLINE"* | *"$CARRIAGE_RETURN"*) refuse "$1 must be one address on one line, with no line break in it." ;;
+  esac
   value="${2%/}"
   if ! printf '%s' "$value" | grep -Eq '^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$'; then
     refuse "$1 must be an address such as https://gateway.example.com, with no path. It is \"$2\"."
