@@ -134,6 +134,7 @@ export function inThreadPort(): VerifierPort & { posted: VerifyRequest[] } {
     posted: [],
     onmessage: null,
     onerror: null,
+    onmessageerror: null,
     postMessage(request: VerifyRequest) {
       port.posted.push(request);
       queueMicrotask(() => {

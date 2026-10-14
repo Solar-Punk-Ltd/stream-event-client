@@ -1,7 +1,11 @@
 import { MessageVia } from '@solarpunkltd/swarm-chat-js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { createMessageVerifier, VERIFY_BATCH_SIZE } from '../../src/features/chat/verify/messageVerifier';
+import {
+  createMessageVerifier,
+  rebuildingVerifier,
+  VERIFY_BATCH_SIZE,
+} from '../../src/features/chat/verify/messageVerifier';
 import { pageScope } from '../../src/features/chat/verify/verdicts';
 import {
   BOUND_SITE,
@@ -112,6 +116,57 @@ describe('checking a chat message off the main thread', () => {
     port.onerror?.(new Event('error') as ErrorEvent);
     expect(await waiting).toMatchObject({ ok: false, reason: 'unchecked' });
     expect(await verifier.verify(signedMessage('later'))).toMatchObject({ ok: false, reason: 'unchecked' });
+  });
+});
+
+describe('a worker that fails', () => {
+  const scope = { origin: BOUND_SITE, allowLocalHttp: false };
+
+  it('fails on a message it cannot read back as it fails on an error', async () => {
+    const port = inThreadPort();
+    port.postMessage = () => {};
+    const verifier = createMessageVerifier(port, scope);
+    const waiting = verifier.verify(signedMessage('unreadable'));
+    await Promise.resolve();
+    port.onmessageerror?.(new MessageEvent('messageerror'));
+    expect(await waiting).toMatchObject({ ok: false, reason: 'unchecked' });
+    expect(verifier.failed).toBe(true);
+  });
+
+  it('is started again once after it failed, and then left failed', async () => {
+    const ports = [inThreadPort(), inThreadPort(), inThreadPort()];
+    let started = 0;
+    const current = rebuildingVerifier(
+      () => ports[started++],
+      () => scope,
+    );
+
+    const first = current();
+    expect(current()).toBe(first);
+    ports[0].onerror?.(new Event('error') as ErrorEvent);
+    const second = current();
+    expect(second).not.toBe(first);
+    expect(await second.verify(signedMessage('after a restart'))).toMatchObject({ ok: true });
+
+    ports[1].onerror?.(new Event('error') as ErrorEvent);
+    expect(current()).toBe(second);
+    expect(started).toBe(2);
+    expect(await current().verify(signedMessage('given up'))).toMatchObject({ ok: false, reason: 'unchecked' });
+  });
+
+  it('counts a worker that cannot even be started as failed, and turns every message away', async () => {
+    let started = 0;
+    const current = rebuildingVerifier(
+      () => {
+        started++;
+        throw new Error('workers are blocked here');
+      },
+      () => scope,
+    );
+
+    expect(current().failed).toBe(true);
+    expect(await current().verify(signedMessage('blocked'))).toMatchObject({ ok: false, reason: 'unchecked' });
+    expect(started).toBe(2);
   });
 });
 

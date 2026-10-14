@@ -11,11 +11,14 @@ export interface VerifierPort {
   postMessage(request: VerifyRequest): void;
   onmessage: ((event: MessageEvent<VerifiedBatch>) => void) | null;
   onerror: ((event: ErrorEvent) => void) | null;
+  onmessageerror: ((event: MessageEvent) => void) | null;
 }
 
 export interface MessageVerifier {
   /** Whether `signedMessage` passed the library's checks for this page, and who signed it. Never rejects. */
   verify(signedMessage: unknown): Promise<Verdict>;
+  /** True once its worker failed, after which every message is turned away as unchecked. */
+  readonly failed: boolean;
 }
 
 const UNCHECKED_VERDICT: Verdict = { ok: false, reason: UNCHECKED };
@@ -52,26 +55,34 @@ export function createMessageVerifier(port: VerifierPort, scope: VerifyScope): M
     waiting?.forEach((answer, at) => answer(data.verdicts[at] ?? UNCHECKED_VERDICT));
   };
   port.onerror = failAll;
+  port.onmessageerror = failAll;
 
   const flush = () => {
     const pending = queue;
     queue = [];
-    if (failed) {
-      pending.forEach(({ answer }) => answer(UNCHECKED_VERDICT));
-      return;
-    }
     for (let start = 0; start < pending.length; start += VERIFY_BATCH_SIZE) {
       const slice = pending.slice(start, start + VERIFY_BATCH_SIZE);
+      if (failed) {
+        slice.forEach(({ answer }) => answer(UNCHECKED_VERDICT));
+        continue;
+      }
       const batch = nextBatch++;
       answers.set(
         batch,
         slice.map(({ answer }) => answer),
       );
-      port.postMessage({ ...scope, batch, messages: slice.map(({ message }) => message) });
+      try {
+        port.postMessage({ ...scope, batch, messages: slice.map(({ message }) => message) });
+      } catch {
+        failAll();
+      }
     }
   };
 
   return {
+    get failed() {
+      return failed;
+    },
     verify(signedMessage) {
       const key = keyOf(signedMessage);
       const known = verdicts.get(key);
@@ -87,5 +98,35 @@ export function createMessageVerifier(port: VerifierPort, scope: VerifyScope): M
       verdicts.set(key, verdict);
       return verdict;
     },
+  };
+}
+
+/** A verifier for a worker that could not be started, which turns every message away. */
+const FAILED_VERIFIER: MessageVerifier = {
+  verify: () => Promise.resolve(UNCHECKED_VERDICT),
+  failed: true,
+};
+
+/** How many times a failed worker is started again before the page gives up on checking messages. */
+const RESTARTS = 1;
+
+/**
+ * The page's verifier, started on the first call and started again, at most {@link RESTARTS} times, on the first call
+ * after its worker failed. A worker that throws as it starts counts as one that failed.
+ */
+export function rebuildingVerifier(start: () => VerifierPort, scope: () => VerifyScope): () => MessageVerifier {
+  let current: MessageVerifier | null = null;
+  let starts = 0;
+  return () => {
+    if (current && (!current.failed || starts > RESTARTS)) {
+      return current;
+    }
+    starts++;
+    try {
+      current = createMessageVerifier(start(), scope());
+    } catch {
+      current = FAILED_VERIFIER;
+    }
+    return current;
   };
 }

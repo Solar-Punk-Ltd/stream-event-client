@@ -393,6 +393,17 @@ describe('what the chat checks', () => {
     expect(messageTexts()).toEqual(['text of waits']);
   });
 
+  it('says so when messages cannot be checked in this browser, and shows none of them', async () => {
+    const port = inThreadPort();
+    port.postMessage = () => port.onerror?.(new Event('error') as ErrorEvent);
+    verifier.current = createMessageVerifier(port, { origin: BOUND_SITE, allowLocalHttp: false });
+    await open();
+
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'unchecked' }));
+    expect(messageTexts()).toEqual([]);
+    expect(text()).toContain('Messages cannot be checked in this browser. Reload to try again.');
+  });
+
   it('never shows a message whose text was changed after it was signed, and counts it', async () => {
     await open();
     const honest = message({ id: 'honest' });

@@ -15,6 +15,7 @@ import { type ChatReads, chatParts } from './chatParts';
 import { draftProblem } from './draftCheck';
 import { groupReactions, type ReactionsByMessage } from './reactions';
 import { chatVerifier } from './verify/chatVerifier';
+import { UNCHECKED } from './verify/verdicts';
 
 /** Where a message stands on its way from this browser to the chat feed, as the library's sender reports it. */
 interface DeliveryState {
@@ -104,6 +105,8 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
   const [hasOlder, setHasOlder] = useState(false);
   const [feedStatus, setFeedStatus] = useState<FeedStatus | null>(null);
   const [refusedCount, setRefusedCount] = useState(0);
+  /** The verifier's worker failed, so no message can be shown until a reload. */
+  const [cannotCheck, setCannotCheck] = useState(false);
   /** The refused messages of the chat on screen, so one carried by several events is counted once. */
   const refusedRef = useRef(new Set<string>());
 
@@ -115,6 +118,7 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
       setMessages([]);
       refusedRef.current = new Set();
       setRefusedCount(0);
+      setCannotCheck(false);
       setStatus(CHAT_LOADING);
       setHasOlder(false);
       setIsLoadingOlder(false);
@@ -149,6 +153,10 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
           .verify(data.signedMessage)
           .then((verdict) => {
             if (stopped) {
+              return;
+            }
+            if (!verdict.ok && verdict.reason === UNCHECKED) {
+              setCannotCheck(true);
               return;
             }
             if (verdict.ok) {
@@ -321,5 +329,6 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
     restart,
     /** Messages the chat delivered that failed their check, never shown. */
     refusedCount,
+    cannotCheck,
   };
 }
