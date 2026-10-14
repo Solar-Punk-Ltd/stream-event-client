@@ -60,8 +60,8 @@ async function pickNodeInThisBrowser(page: Page, rowSays: string): Promise<void>
   const useFor = connect.getByRole('region', { name: 'Use for' });
   await expect(
     useFor.getByLabel('All features', { exact: true }).locator('option', { hasText: 'Weeb3' }),
-    'it serves the video only, so it cannot be the one source for all features',
-  ).toBeDisabled();
+    'it can be the one source for all features, as any source',
+  ).toBeEnabled();
   await useFor.getByRole('button', { name: 'Per feature', exact: true }).click();
   await useFor.getByLabel('Video', { exact: true }).selectOption({ label: 'Weeb3' });
   const row = connect.locator('[data-source-row]', { hasText: 'Weeb3' });

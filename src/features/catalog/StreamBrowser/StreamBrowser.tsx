@@ -3,6 +3,7 @@ import { Footer } from '@/app/layout/Footer/Footer';
 import { CATALOG_POLL_INTERVAL_MS } from '@/features/catalog/catalogPoll';
 import { StreamList } from '@/features/catalog/StreamList/StreamList';
 import { useCatalogPoll } from '@/features/catalog/useCatalogPoll';
+import { NodeInTabProgress } from '@/features/gateway/NodeInTabProgress';
 import { SocialLinks } from '@/shared/components/SocialLinks/SocialLinks';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 
@@ -11,7 +12,8 @@ import { CATALOG_VIEW_MESSAGE, catalogViewFrom } from './catalogView';
 import './StreamBrowser.scss';
 
 export function StreamBrowser() {
-  const { streamList, isStreamListFromCurrentGateway, themeContent } = useAppContext();
+  const { streamList, isStreamListFromCurrentGateway, themeContent, sources, parts } = useAppContext();
+  const streamListSource = sources.find(({ id }) => id === parts['stream-list']) ?? null;
   const { error, isLoading } = useCatalogPoll(CATALOG_POLL_INTERVAL_MS);
 
   const view = catalogViewFrom({
@@ -70,6 +72,7 @@ export function StreamBrowser() {
           <div className={`stream-browser-notice ${view}`} role={view === 'unreachable' ? 'alert' : 'status'}>
             {view === 'loading' && <Spinner />}
             <p>{CATALOG_VIEW_MESSAGE[view]}</p>
+            {view === 'loading' && <NodeInTabProgress source={streamListSource} />}
           </div>
         )}
       </div>

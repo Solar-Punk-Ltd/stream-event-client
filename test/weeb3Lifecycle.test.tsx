@@ -4,10 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppContextProvider, useAppContext } from '../src/app/AppProvider';
 import { parseRuntimeConfig } from '../src/config/runtimeConfig';
+import { NodeInTabProgress } from '../src/features/gateway/NodeInTabProgress';
 import { sharedWeeb3Runtime } from '../src/swarm/providers/weeb-3/weeb3Runtime';
 import { chooseSource, setMode, setPart } from '../src/swarm/routing';
 import { fakeWeeb3Package } from './helpers/fakeWeeb3';
-import { mount, settle, waitFor, type Mounted } from './helpers/dom';
+import { mount, settle, text, waitFor, type Mounted } from './helpers/dom';
 
 /** The package the page's one weeb-3 runtime loads, made afresh for each case. */
 const fakeWeeb3 = vi.hoisted(() => ({
@@ -26,7 +27,9 @@ let context: Context | null = null;
 
 function Probe() {
   context = useAppContext();
-  return null;
+  return createElement(NodeInTabProgress, {
+    source: context.sources.find(({ id }) => id === context!.parts['stream-list']) ?? null,
+  });
 }
 
 function start() {
@@ -119,5 +122,36 @@ describe('the node in this browser, over the life of the page', () => {
 
     expect(fakeWeeb3.current!.nodes).toHaveLength(1);
     expect(fakeWeeb3.current!.nodes[0].freed).toBe(false);
+  });
+
+  it('starts for the stream list as for the video, and stops once every part has moved off it', async () => {
+    start();
+    await settle();
+    const id = await addNode();
+    app().setRouting(setPart(setMode(app().routing, 'per-part'), 'stream-list', id));
+    await waitFor(() => (fakeWeeb3.current!.nodes.length === 1 ? true : null));
+    expect(state()).not.toBe('stopped');
+
+    app().setRouting(setPart(app().routing, 'stream-list', 'gateway'));
+    await waitFor(() => (state() === 'stopped' ? true : null));
+
+    expect(fakeWeeb3.current!.nodes[0].freed).toBe(true);
+  });
+
+  it('says how far the node has got while a part waits for it, and nothing once it is ready', async () => {
+    // The package's service worker would control the page, which the node needs to be ready.
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { controller: {} } });
+    start();
+    await settle();
+    expect(text()).toBe('');
+    const id = await addNode();
+    app().setRouting(setPart(setMode(app().routing, 'per-part'), 'stream-list', id));
+    await waitFor(() => (text().includes('Starting') ? true : null));
+
+    expect(text()).toBe('The Swarm node in this browser: Starting');
+    fakeWeeb3.current!.nodes[0].peers = 2;
+    await waitFor(() => (state() === 'ready' ? true : null));
+    await waitFor(() => (text() === '' ? true : null), 100);
+    Reflect.deleteProperty(navigator, 'serviceWorker');
   });
 });

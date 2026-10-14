@@ -26,10 +26,11 @@ function ChatPlaceholder() {
 }
 
 export function WatchChat({ chat, topic }: WatchChatProps) {
-  const { chatReads } = useAppContext();
+  const { chatReads, sources, parts } = useAppContext();
+  const chatSource = sources.find(({ id }) => id === parts.chat) ?? null;
   return (
     <Suspense fallback={<ChatPlaceholder />}>
-      <Chat chat={chat} topic={topic} reads={chatReads} />
+      <Chat chat={chat} topic={topic} reads={chatReads} source={chatSource} />
     </Suspense>
   );
 }

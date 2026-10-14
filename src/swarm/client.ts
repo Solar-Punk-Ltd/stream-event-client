@@ -102,7 +102,6 @@ interface OwnPlayerHandle {
   readonly id: string;
   readonly load: () => Promise<OwnPlayer>;
   readonly status: () => ProviderStatus;
-  readonly hold: () => () => void;
 }
 
 type Ask = (provider: SwarmProvider, options: ReadOptions) => Promise<SwarmAnswer>;
@@ -193,8 +192,7 @@ export class SwarmClient {
 
   /**
    * The player a feature's own provider plays video with, with that provider's id, or null where the
-   * app's player reads through it. Loading it starts whatever the player needs, and `hold` keeps that
-   * running until the function it answers is called.
+   * app's player reads through it. Loading it starts whatever the player needs.
    */
   ownPlayer(feature: SwarmFeature): OwnPlayerHandle | null {
     const { id, provider } = this.primaryFor(feature);
@@ -209,16 +207,6 @@ export class SwarmClient {
       id,
       load: provider.ownPlayer,
       status: () => provider.status(),
-      hold: () => {
-        provider.start().catch(() => undefined);
-        let held = true;
-        return () => {
-          if (held) {
-            held = false;
-            void provider.stop();
-          }
-        };
-      },
     };
     this.ownPlayers.set(provider, handle);
     return handle;

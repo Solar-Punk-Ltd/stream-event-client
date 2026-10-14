@@ -546,9 +546,10 @@ once and is kept in the browser, and nothing switches a source by itself.
   in use: the viewer picks it under Use for.
 - **Weeb3.** Opening its tile starts the node and shows its download, against the 2.2 MB module, and its peers out of
   200, the healthy target, with "Playback can start before that." Its checks run at once, and Add Weeb3 waits for
-  them. When they did not pass, Test again runs them once more, and starts the node again first if it failed. It serves the video only for now: Use for offers it for Video per feature, and greys it with "Video only for
-  now" for all features and for every other part. A saved setting that puts it on another part reads that part from
-  the default instead. Its row shows how far the node has got: the download, then "Starting", "Connecting, N of 200
+  them. When they did not pass, Test again runs them once more, and starts the node again first if it failed. Use for offers it for all features and for every part, as any
+  other source: the video, the stream list, the previews and the chat history then read through it and through
+  nothing else. While a part waits for it to start, the browse page under "Looking for streams..." and the chat
+  under "Loading the chat…" say how far it has got, in the words its row uses. Its row shows how far the node has got: the download, then "Starting", "Connecting, N of 200
   peers", and once ready "N of 200 peers", or "Failed to start".
 - **The checks.** Each kind runs its own, in this order, each line with ✓, ✕ or – and its time. The first that fails
   stops the rest, which show –, and a box under them says what is wrong and what to fix, such as "Not added. It does
@@ -605,7 +606,7 @@ where they read before.
 ## The node in this browser (weeb-3)
 
 weeb-3 (`@lat-murmeldjur/weeb_3`) is a Swarm node compiled to WebAssembly that runs inside the viewer's tab, so a
-viewer can watch without any gateway. A page runs one node, behind a shared worker, and everything that uses weeb-3
+viewer can watch, browse and read the chat without any gateway. A page runs one node, behind a shared worker, and everything that uses weeb-3
 shares it (`src/swarm/providers/weeb-3/weeb3Runtime.ts`). It is ready once it has a peer and its service worker
 controls the page, and counts as failed when it is not ready after 30 s.
 
@@ -613,12 +614,12 @@ controls the page, and counts as failed when it is not ready after 30 s.
   so the first page load carries none of it. The build copies the package's browser files, its service worker,
   shared worker and WebAssembly module, to `/weeb-3/` (`scripts/weeb3-files.mjs`). The bundle carries no copy of
   the module of its own.
-- **When it runs.** The node runs while something holds it: the video while weeb-3 is its source, the watch page's
-  player while it shows, Connect from adding it until Connect closes, or a source's settings while it is checked
+- **When it runs.** The node runs while something holds it: every part while weeb-3 is that part's source, the watch
+  page's player while it shows, Connect from adding it until Connect closes, or a source's settings while it is checked
   there, and every read through it while that read runs. A read made while the node is starting waits for it to be
   ready, and one made while it is stopped starts it first, so a part never gets an early answer from a node that is
   not there yet. A node that fails to start answers the read as unavailable. Listing a saved one starts
-  nothing. When the last of them lets go, as when the video moves to another source or the source is removed, the
+  nothing. When the last of them lets go, as when every part moves to another source or the source is removed, the
   node is stopped and freed.
 - **Getting ready.** The page downloads the 2.2 MB WebAssembly module itself, reading it as it streams, so the
   row in Connect and the watch page can show how much has arrived against the length the server names. A

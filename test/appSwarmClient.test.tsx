@@ -9,6 +9,7 @@ import { manifestFetcher } from '../src/features/player/CustomManifestLoader';
 import { buildSwarmUri } from '../src/features/player/playlist';
 import { gatewayClock } from '../src/shared/gatewayClock';
 import type { SwarmClient } from '../src/swarm/client';
+import { sharedWeeb3Runtime } from '../src/swarm/providers/weeb-3/weeb3Runtime';
 import { chooseSource, setMode, setPart } from '../src/swarm/routing';
 import { mount, settle, type Mounted } from './helpers/dom';
 
@@ -269,7 +270,7 @@ describe("the app's Swarm client", () => {
     ).toEqual([id]);
   });
 
-  it('reads every part but the video from the default where older saved settings put the node in this browser on it', async () => {
+  it('reads every part from the node in this browser where the saved settings put it, and holds the node meanwhile', async () => {
     const node = { id: 'added-1', type: 'weeb-3', name: 'Node in this browser', url: '' };
     localStorage.setItem('swarm-sources', JSON.stringify([node]));
     localStorage.setItem(
@@ -277,8 +278,7 @@ describe("the app's Swarm client", () => {
       JSON.stringify({
         mode: 'per-part',
         source: 'event',
-        parts: { player: 'added-1', 'stream-list': 'added-1', previews: 'added-1', chat: 'added-1' },
-        linked: true,
+        parts: { player: 'event', 'stream-list': 'added-1', previews: 'added-1', chat: 'added-1' },
       }),
     );
 
@@ -286,11 +286,13 @@ describe("the app's Swarm client", () => {
     await settle();
 
     expect(current().parts).toEqual({
-      player: 'added-1',
-      'stream-list': 'event',
-      previews: 'event',
-      chat: 'event',
+      player: 'event',
+      'stream-list': 'added-1',
+      previews: 'added-1',
+      chat: 'added-1',
     });
+    expect(current().chatHistoryBeeUrl).toBeNull();
+    expect(sharedWeeb3Runtime().status().state, 'the node starts for the parts that read from it').not.toBe('stopped');
   });
 
   it("reads the event gateway's chat history at the chat read address, where it serves the chat's paths", async () => {

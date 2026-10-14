@@ -60,26 +60,18 @@ export function withoutSource(routing: Routing, id: string, defaultId: string): 
 
 /**
  * The source each part reads from now. A source no longer known reads from the default gateway, so a
- * removed source or a stale saved routing never leaves a part reading from nowhere. A source that serves
- * the video only, the node in this browser, is read for the video alone, picked per feature: any other part
- * a saved routing put on it, and every part when it was picked for all features, reads from the default.
+ * removed source or a stale saved routing never leaves a part reading from nowhere.
  */
-export function resolveRouting(
-  routing: Routing,
-  knownIds: readonly string[],
-  defaultId: string,
-  videoOnlyIds: readonly string[] = [],
-): PartSources {
+export function resolveRouting(routing: Routing, knownIds: readonly string[], defaultId: string): PartSources {
   const known = (id: string) => (knownIds.includes(id) ? id : defaultId);
-  const notVideoOnly = (id: string) => (videoOnlyIds.includes(id) ? defaultId : known(id));
   if (routing.mode === 'one') {
-    return partsFrom(notVideoOnly(routing.source));
+    return partsFrom(known(routing.source));
   }
   return {
     player: known(routing.parts.player),
-    'stream-list': notVideoOnly(routing.parts['stream-list']),
-    previews: notVideoOnly(routing.parts.previews),
-    chat: notVideoOnly(routing.parts.chat),
+    'stream-list': known(routing.parts['stream-list']),
+    previews: known(routing.parts.previews),
+    chat: known(routing.parts.chat),
   };
 }
 

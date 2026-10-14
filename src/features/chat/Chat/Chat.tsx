@@ -4,7 +4,9 @@ import { FeedStatus } from '@solarpunkltd/swarm-chat-js';
 
 import type { ChatConfig } from '@/config/runtimeConfig';
 import { useConnect } from '@/features/connect/ConnectContext';
+import { NodeInTabProgress } from '@/features/gateway/NodeInTabProgress';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
+import type { Source } from '@/swarm/sources';
 
 import type { ChatReads } from '../chatParts';
 import { chatSettings } from '../chatSettings';
@@ -30,13 +32,15 @@ interface ChatProps {
   topic: string;
   /** The Swarm client's chat reader as it is now, which the chat reads through. */
   reads: () => ChatReads;
+  /** The source picked for the chat history, whose start is shown while the chat loads through the node in this browser. */
+  source?: Source | null;
 }
 
 /** The reaction being sent, one per message, keyed by message id. */
 type PendingReactions = Record<string, string>;
 
 /** The chat beside a stream: read by anyone, written to by a viewer who has chosen a name. */
-export function Chat({ chat, topic, reads }: ChatProps) {
+export function Chat({ chat, topic, reads, source = null }: ChatProps) {
   const { session } = useChatUser();
   const { open: openConnect } = useConnect();
   const { sending, ownStamp, warning } = useChatStamp();
@@ -137,9 +141,10 @@ export function Chat({ chat, topic, reads }: ChatProps) {
 
     if (status === CHAT_LOADING) {
       return (
-        <p className="chat-loading" role="status">
-          Loading the chat…
-        </p>
+        <div className="chat-loading">
+          <p role="status">Loading the chat…</p>
+          <NodeInTabProgress source={source} />
+        </div>
       );
     }
 

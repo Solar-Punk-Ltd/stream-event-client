@@ -42,9 +42,6 @@ export const ADDRESS_PLACEHOLDERS: Readonly<Record<'gateway' | 'bee-node', strin
 /** The tile of a kind a browser holds one of, once it holds it. */
 export const ALREADY_ADDED = 'Already added';
 
-/** Beside the node in this browser wherever a part but the video could pick it. */
-export const VIDEO_ONLY = 'Video only for now';
-
 /** On a source the deployment offers, in its settings. */
 export const OFFERED_NOTE = 'Offered by this event. It cannot be changed or removed.';
 

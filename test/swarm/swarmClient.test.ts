@@ -145,10 +145,6 @@ describe('the Swarm client', () => {
     expect(await own?.load()).toBe(player);
     expect(own?.status()).toEqual({ state: 'ready' });
 
-    const release = own!.hold();
-    release();
-    release();
-    expect([second.started, second.stopped]).toEqual([1, 1]);
     expect(routed.ownPlayer('player'), 'the same handle each time, so a page polling its status keeps one timer').toBe(
       own,
     );

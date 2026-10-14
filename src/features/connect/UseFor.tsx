@@ -2,9 +2,9 @@ import { useId } from 'react';
 
 import type { SwarmFeature } from '@/swarm/client';
 import { chooseSource, type PartSources, type Routing, type RoutingMode, setMode, setPart } from '@/swarm/routing';
-import { servesVideoOnly, type Source } from '@/swarm/sources';
+import type { Source } from '@/swarm/sources';
 
-import { PART_LABELS, VIDEO_ONLY } from './connectWords';
+import { PART_LABELS } from './connectWords';
 
 const MODE_LABELS: Readonly<Record<RoutingMode, string>> = { one: 'All features', 'per-part': 'Per feature' };
 
@@ -51,7 +51,6 @@ export function UseFor({ sources, routing, parts, hasChat, onChange }: UseForPro
             label="All features"
             sources={sources}
             value={parts.player}
-            isVideo={false}
             onPick={(id) => onChange(chooseSource(routing, id))}
           />
         ) : (
@@ -61,7 +60,6 @@ export function UseFor({ sources, routing, parts, hasChat, onChange }: UseForPro
               label={PART_LABELS[part]}
               sources={sources}
               value={parts[part]}
-              isVideo={part === 'player'}
               onPick={(id) => onChange(setPart(routing, part, id))}
             />
           ))
@@ -75,25 +73,20 @@ interface PartSelectProps {
   readonly label: string;
   readonly sources: readonly Source[];
   readonly value: string;
-  /** Whether the select picks the video's source, the one part the node in this browser serves for now. */
-  readonly isVideo: boolean;
   readonly onPick: (id: string) => void;
 }
 
-function PartSelect({ label, sources, value, isVideo, onPick }: PartSelectProps) {
+function PartSelect({ label, sources, value, onPick }: PartSelectProps) {
   const selectId = useId();
   return (
     <div className="connect-part">
       <label htmlFor={selectId}>{label}</label>
       <select id={selectId} className="connect-input" value={value} onChange={(event) => onPick(event.target.value)}>
-        {sources.map((source) => {
-          const isVideoOnly = !isVideo && servesVideoOnly(source.type);
-          return (
-            <option key={source.id} value={source.id} disabled={isVideoOnly}>
-              {isVideoOnly ? `${source.name} (${VIDEO_ONLY})` : source.name}
-            </option>
-          );
-        })}
+        {sources.map((source) => (
+          <option key={source.id} value={source.id}>
+            {source.name}
+          </option>
+        ))}
       </select>
     </div>
   );

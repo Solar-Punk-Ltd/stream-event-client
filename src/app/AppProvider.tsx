@@ -23,7 +23,6 @@ import {
   renameSource as withSourceRenamed,
   hasAddress,
   type Source,
-  servesVideoOnly,
 } from '@/swarm/sources';
 
 import { CatalogRead, catalogUpdater, StreamCatalog, toCatalogRead } from '@/features/catalog/catalogState';
@@ -127,7 +126,6 @@ function wiringOf(settings: SwarmSettings, choices: SourceChoices): Wiring {
       choices.routing,
       sources.map(({ id }) => id),
       settings.defaultId,
-      sources.filter(({ type }) => servesVideoOnly(type)).map(({ id }) => id),
     ),
   };
 }
@@ -335,9 +333,12 @@ export const AppContextProvider = ({ config, children }: Props) => {
     void initAppState();
   }, [initAppState]);
 
-  // A video source that brings its own player, a node in this browser, runs while it is the video's
-  // source, so it is ready when the watch page opens and stops once the video moves off it.
-  useEffect(() => swarm.ownPlayer('player')?.hold(), [swarm]);
+  // A node in this browser runs while any part reads from it, so it is ready when a page needs it and stops once
+  // every part has moved off it. Every other source starts and stops with nothing to do.
+  useEffect(() => {
+    void swarm.start().catch(() => undefined);
+    return () => void swarm.stop();
+  }, [swarm]);
 
   return (
     <AppContext.Provider

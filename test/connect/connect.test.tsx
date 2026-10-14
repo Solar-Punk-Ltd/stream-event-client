@@ -360,19 +360,20 @@ describe('use for', () => {
     expect(text()).not.toContain('Same as video');
   });
 
-  it('offers the node in this browser for the video alone, for now', async () => {
+  it('offers the node in this browser for every part and for all features', async () => {
     await openConnect();
     seen.app!.addSource({ type: 'weeb-3', name: '', url: '' });
     await settle();
+    const [all] = [...section('Use for')!.querySelectorAll('select')];
+    expect([...all.options].find((option) => option.textContent === 'Weeb3')?.disabled).toBe(false);
     click(button('Per feature'));
     await settle();
-    const [video, list] = [...section('Use for')!.querySelectorAll('select')];
 
-    expect([...video.options].find((option) => option.textContent === 'Weeb3')?.disabled).toBe(false);
-    expect([...list.options].find((option) => option.value.startsWith('added-'))?.textContent).toBe(
-      'Weeb3 (Video only for now)',
-    );
-    expect([...list.options].find((option) => option.value.startsWith('added-'))?.disabled).toBe(true);
+    for (const select of section('Use for')!.querySelectorAll('select')) {
+      const node = [...select.options].find((option) => option.value.startsWith('added-'));
+      expect(node?.textContent).toBe('Weeb3');
+      expect(node?.disabled).toBe(false);
+    }
   });
 });
 

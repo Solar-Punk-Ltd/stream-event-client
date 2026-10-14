@@ -125,39 +125,30 @@ describe('the routing as the browser keeps it', () => {
   });
 });
 
-describe('a source that serves the video only, the node in this browser', () => {
+describe('the node in this browser', () => {
   const WITH_NODE = [...KNOWN, 'added-2'];
-  const VIDEO_ONLY = ['added-2'];
 
-  it('reads the video per feature, and every other part from where it would read otherwise', () => {
-    const routing = setPart(setMode(DEFAULT, 'per-part'), 'player', 'added-2');
-
-    expect(resolveRouting(routing, WITH_NODE, 'event', VIDEO_ONLY)).toEqual({
+  it('can be the one source for everything, as any other source', () => {
+    expect(resolveRouting(chooseSource(DEFAULT, 'added-2'), WITH_NODE, 'event')).toEqual({
       player: 'added-2',
-      'stream-list': 'event',
-      previews: 'event',
-      chat: 'event',
+      'stream-list': 'added-2',
+      previews: 'added-2',
+      chat: 'added-2',
     });
   });
 
-  it('is never the one source for everything, so a saved choice of it reads every part from the default', () => {
-    expect(resolveRouting(chooseSource(DEFAULT, 'added-2'), WITH_NODE, 'event', VIDEO_ONLY)).toEqual(
-      resolveRouting(DEFAULT, WITH_NODE, 'event', VIDEO_ONLY),
-    );
-  });
-
-  it('reads a part an older saved routing put on it from the default', () => {
+  it('reads every part a saved routing put on it', () => {
     const saved: Routing = {
       mode: 'per-part',
       source: 'event',
       parts: { player: 'backup', 'stream-list': 'added-2', previews: 'added-2', chat: 'added-2' },
     };
 
-    expect(resolveRouting(saved, WITH_NODE, 'event', VIDEO_ONLY)).toEqual({
+    expect(resolveRouting(saved, WITH_NODE, 'event')).toEqual({
       player: 'backup',
-      'stream-list': 'event',
-      previews: 'event',
-      chat: 'event',
+      'stream-list': 'added-2',
+      previews: 'added-2',
+      chat: 'added-2',
     });
   });
 });
