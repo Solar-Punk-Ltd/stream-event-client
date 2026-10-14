@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
 /** What the fake package's `postPushChunk` was handed, as hex, kept on the page for a journey to read. */
-export interface FakeWeeb3Push {
+interface FakeWeeb3Push {
   readonly data: string;
   readonly soc: boolean;
   readonly address: string;
