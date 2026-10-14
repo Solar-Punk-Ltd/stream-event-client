@@ -250,6 +250,10 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   again with `own: true`, the same id, time and text. The feed's newest index is read once, through the chat
   history's source, and counted on from there. When it cannot be read, the message waits with the reason rather
   than going out without its copy. Each message then costs two stamped chunks.
+  **Two known limits.** The next index is counted from one read of the feed's newest entry each time the chat
+  starts, so a chat started again seconds after a send, before that entry can be read back, can write the next
+  copy at an index already used. And a copy is written before its message, so a message that then fails and is
+  never retried leaves a copy that no chat message matches.
 
 **How the page talks to Swarm ID.** The library, `@solarpunkltd/swarm-id` from the Solar Punk fork, is a file
 of the bundle of its own, fetched when the page starts on a deployment that offers Swarm ID, because
