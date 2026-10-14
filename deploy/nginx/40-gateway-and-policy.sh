@@ -95,7 +95,11 @@ case "$MODE" in
   proxy)
     GATEWAY_SOURCE=""
     SWARM_ID_CORS=""
+    READ_METHODS="GET"
     if [ -n "$SWARM_ID" ]; then
+      # limit_except picks its own configuration before the rewrite phase runs, so a method it refuses never reaches
+      # the preflight answer below. OPTIONS passes it for that answer alone, which returns before the gateway is asked.
+      READ_METHODS="GET OPTIONS"
       # The Swarm ID frame reads from its own origin, so it is a cross-origin reader of /bee, the one allowed. The
       # gateway's own CORS headers are replaced rather than repeated, because a second Allow-Origin fails the read. A
       # preflight is answered here, since the gateway would see a method that is not GET.
@@ -120,7 +124,7 @@ case "$MODE" in
 # Written at start for GATEWAY_MODE=proxy. The page reads the gateway here, on its own origin. Only reads pass, so
 # this origin cannot be used to write to the gateway.
 location /bee/ {$SWARM_ID_CORS
-  limit_except GET { deny all; }
+  limit_except $READ_METHODS { deny all; }
   proxy_pass $GATEWAY/;
   proxy_http_version 1.1;
   proxy_ssl_server_name on;
