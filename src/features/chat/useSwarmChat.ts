@@ -230,20 +230,11 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
         }
       });
 
-      started.start().then(
-        () => {
-          // Library 6.x began polling at the end of start() even after a stop, and a second stop costs
-          // nothing, so a chat whose start finished after its stop is stopped once more.
-          if (stopped) {
-            void started.stop();
-          }
-        },
-        () => {
-          if (!stopped) {
-            setStatus(CHAT_UNREACHABLE);
-          }
-        },
-      );
+      started.start().catch(() => {
+        if (!stopped) {
+          setStatus(CHAT_UNREACHABLE);
+        }
+      });
     }, START_DELAY_MS);
 
     return () => {

@@ -991,7 +991,7 @@ describe('the chat lifecycle', () => {
     expect(messageTexts()).toEqual([]);
   });
 
-  it('stops again a chat whose start finished after it had been stopped, so its polling does not outlive it', async () => {
+  it('stops a chat once, and a start that finishes after the stop changes nothing on screen', async () => {
     let finishStart: () => void = () => {};
     FakeSwarmChat.nextStart = () =>
       new Promise<void>((resolve) => {
@@ -1005,6 +1005,14 @@ describe('the chat lifecycle', () => {
     expect(first.stop).toHaveBeenCalledTimes(1);
     finishStart();
     await settle();
-    expect(first.stop).toHaveBeenCalledTimes(2);
+    expect(first.stop).toHaveBeenCalledTimes(1);
+    expect(FakeSwarmChat.latest().settings.infra.chatTopic).toBe('chat-stream-two');
+  });
+
+  it('calls a chat unreachable when its start fails', async () => {
+    FakeSwarmChat.nextStart = () => Promise.reject(new Error('no gateway'));
+    mounted = mount(panel());
+    await settle();
+    expect(text()).toContain('The chat cannot be reached right now');
   });
 });
