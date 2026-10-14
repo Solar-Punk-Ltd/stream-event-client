@@ -79,7 +79,12 @@ const ALLOWED_PAST_THE_SURFACE: readonly { readonly file: string; readonly targe
   {
     file: 'src/features/chat/chatParts.ts',
     target: 'singleOwnerChunk',
-    why: "the chat checks each slot is the chat owner's single-owner chunk, a codec that reads nothing",
+    why: 'the most payload one chunk carries, past which a slot is the root of a tree',
+  },
+  {
+    file: 'src/features/chat/ownersChunk.ts',
+    target: 'singleOwnerChunk',
+    why: "the chat checks each slot and each own copy is its owner's single-owner chunk, a codec that reads nothing",
   },
   {
     file: 'src/features/chat/stamp/ownStampWrite.ts',
@@ -90,11 +95,6 @@ const ALLOWED_PAST_THE_SURFACE: readonly { readonly file: string; readonly targe
     file: 'src/features/chat/stamp/stampProblems.ts',
     target: 'providers/bee-http/stampedSocUpload',
     why: "what the viewer's Bee node answered that write, read from its error",
-  },
-  {
-    file: 'src/features/chat/stamp/ownCopies.ts',
-    target: 'singleOwnerChunk',
-    why: "a sender's own copies are checked to be their own single-owner chunks, a codec that reads nothing",
   },
 ];
 

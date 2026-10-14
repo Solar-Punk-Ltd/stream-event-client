@@ -1,4 +1,4 @@
-import { FeedIndex, Topic } from '@ethersphere/bee-js';
+import { FeedIndex, type Identifier, Topic } from '@ethersphere/bee-js';
 import {
   type ChatParts,
   type ChatSettings,
@@ -15,12 +15,14 @@ import type { SwarmAnswer } from '@/swarm/answers';
 import type { SwarmReader } from '@/swarm/client';
 import type { ReadOptions } from '@/swarm/provider';
 import { beeGsocWrite } from '@/swarm/providers/bee-http/gsocWrite';
-import { MAX_CHUNK_PAYLOAD, parseSingleOwnerChunk, singleOwnerChunkAddress } from '@/swarm/singleOwnerChunk';
+import { MAX_CHUNK_PAYLOAD } from '@/swarm/singleOwnerChunk';
+
+import { readOwnersChunk } from './ownersChunk';
 
 import { type ChunkStamper, ownStampWrite, type SendProblem } from './stamp/ownStampWrite';
 
 /** What the chat reads Swarm through, which the client routes to the event's chat read address. */
-export type ChatReads = Pick<SwarmReader, 'readFeedHead' | 'readChunk' | 'readBytes'>;
+export type ChatReads = Pick<SwarmReader, 'readFeedHead' | 'readChunk' | 'readUnsignedSoc' | 'readBytes'>;
 
 /** The library's own waits when its settings name none, kept so the adapter reads on the same clock. */
 const SLOT_READ_MS = 5_000;
@@ -74,9 +76,9 @@ interface ChatSourceOptions {
 
 /**
  * The library's `ChatSource` over the Swarm client: the same reads the library's own Bee source makes,
- * at the same URLs, sorted into what the library expects. A slot and a note are single-owner chunks
- * read by their address and checked to be the chat owner's, a chunk that fails that check rejects as
- * an `UnreadableSlotError`, and 404 and 500 both mean the chunk is not there.
+ * at the same URLs, sorted into what the library expects. A slot and a note are the chat owner's single-owner chunks,
+ * read as {@link readOwnersChunk} reads them, a chunk that fails its check rejects as an `UnreadableSlotError`, and
+ * 404 and 500 both mean the chunk is not there.
  */
 function chatSource(options: ChatSourceOptions): ChatSource {
   const { reads, chatTopic, slotReadMs, feedReadMs, noteSlotMs } = options;
@@ -85,21 +87,23 @@ function chatSource(options: ChatSourceOptions): ChatSource {
   const slotWindow: ReadOptions = { timeoutMs: slotReadMs };
   const feedWindow: ReadOptions = { timeoutMs: feedReadMs };
 
-  /** The payload of the owner's single-owner chunk at an address, or null when it is not there. */
-  async function readOwnersChunk(address: string, index: number, readsTree: boolean): Promise<Uint8Array | null> {
-    const answer = await reads().readChunk(address, slotWindow);
-    if (isAbsent(answer)) {
-      return null;
+  /** The payload of the owner's single-owner chunk under an identifier, or null when it is not there. */
+  async function readOwnersPayload(
+    identifier: Identifier,
+    index: number,
+    readsTree: boolean,
+  ): Promise<Uint8Array | null> {
+    const read = await readOwnersChunk(reads(), owner, identifier, slotWindow);
+    if (read.kind === 'answer') {
+      if (isAbsent(read.answer)) {
+        return null;
+      }
+      throw gatewayFailure(read.answer, `chunk ${identifier.toHex()} of ${owner}`);
     }
-    if (answer.kind !== 'content') {
-      throw gatewayFailure(answer, `chunk ${address}`);
+    if (read.kind === 'unreadable') {
+      throw new UnreadableSlotError(index, { cause: read.error });
     }
-    let chunk;
-    try {
-      chunk = parseSingleOwnerChunk(answer.bytes, address);
-    } catch (error) {
-      throw new UnreadableSlotError(index, { cause: error });
-    }
+    const { chunk } = read;
     if (!readsTree || chunk.span <= BigInt(MAX_CHUNK_PAYLOAD)) {
       return chunk.payload;
     }
@@ -112,15 +116,9 @@ function chatSource(options: ChatSourceOptions): ChatSource {
   }
 
   return {
-    readSlot: (index) =>
-      readOwnersChunk(
-        singleOwnerChunkAddress(makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))), owner),
-        index,
-        true,
-      ),
+    readSlot: (index) => readOwnersPayload(makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))), index, true),
 
-    readNote: (slot) =>
-      readOwnersChunk(singleOwnerChunkAddress(noteIdentifier(chatTopic, noteSlotMs, slot), owner), slot, false),
+    readNote: (slot) => readOwnersPayload(noteIdentifier(chatTopic, noteSlotMs, slot), slot, false),
 
     async readHead() {
       const answer = await reads().readFeedHead(owner, topic, feedWindow);

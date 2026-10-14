@@ -100,6 +100,14 @@ export interface SwarmProvider {
    */
   readSoc(owner: string, identifier: string, options?: ReadOptions): Promise<SwarmAnswer>;
 
+  /**
+   * The chunk an owner's single-owner chunk wraps, its 8-byte little-endian span then its payload, for a provider that
+   * serves a single-owner chunk without the identifier and signature that prove it the owner's, as the node in this
+   * browser does. Its answer is that provider's word for whose chunk it is. Absent where {@link readChunk} serves the
+   * whole single-owner chunk, which the reader then checks itself.
+   */
+  readUnsignedSoc?(owner: string, identifier: string, options?: ReadOptions): Promise<SwarmAnswer>;
+
   /** One chunk by its address, which is how the chat reads its slots and notes. */
   readChunk(address: string, options?: ReadOptions): Promise<SwarmAnswer>;
 

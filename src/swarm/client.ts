@@ -2,7 +2,7 @@ import type { Topic } from '@ethersphere/bee-js';
 
 import { GatewayClock } from '@/shared/gatewayClock';
 
-import { type AnswerKind, serverTimeOf, type SwarmAnswer } from './answers';
+import { type AnswerKind, serverTimeOf, type SwarmAnswer, UNSUPPORTED } from './answers';
 import { answerOfUrlLoad, FeatureFailureLog, type FeatureFailure, type UrlLoadOutcome } from './featureFailures';
 import {
   DEFAULT_READ_TIMEOUT_MS,
@@ -30,7 +30,7 @@ export type SwarmFeature = (typeof SWARM_FEATURES)[number];
  */
 const CLOCK_FEATURES: ReadonlySet<SwarmFeature> = new Set<SwarmFeature>(['player', 'stream-list']);
 
-type ReadKind = 'feed-head' | 'feed-entry' | 'soc' | 'chunk' | 'bytes';
+type ReadKind = 'feed-head' | 'feed-entry' | 'soc' | 'unsigned-soc' | 'chunk' | 'bytes';
 
 /** A provider with the name the counts give it, such as a gateway's id in the settings. */
 export interface NamedProvider {
@@ -54,6 +54,8 @@ export interface SwarmReader {
   readFeedHead(owner: string, topic: Topic, options?: ReadOptions): Promise<SwarmAnswer>;
   readFeedEntry(owner: string, topic: Topic, index: number, options?: ReadOptions): Promise<SwarmAnswer>;
   readSoc(owner: string, identifier: string, options?: ReadOptions): Promise<SwarmAnswer>;
+  /** Present only where the feature's provider serves a single-owner chunk without its signature, see {@link SwarmProvider.readUnsignedSoc}. */
+  readUnsignedSoc?(owner: string, identifier: string, options?: ReadOptions): Promise<SwarmAnswer>;
   readChunk(address: string, options?: ReadOptions): Promise<SwarmAnswer>;
   readBytes(reference: string, options?: ReadOptions): Promise<SwarmAnswer>;
   /** A URL from the feature's provider, or null when it gives none. */
@@ -130,7 +132,14 @@ export class SwarmClient {
   }
 
   reader(feature: SwarmFeature): SwarmReader {
+    const { provider } = this.primaryFor(feature);
     return {
+      ...(provider.readUnsignedSoc && {
+        readUnsignedSoc: (owner: string, identifier: string, options?: ReadOptions) =>
+          this.read(feature, 'unsigned-soc', options, (asked, windowed) =>
+            asked.readUnsignedSoc ? asked.readUnsignedSoc(owner, identifier, windowed) : Promise.resolve(UNSUPPORTED),
+          ),
+      }),
       readFeedHead: (owner, topic, options) =>
         this.read(feature, 'feed-head', options, (provider, windowed) => provider.readFeedHead(owner, topic, windowed)),
       readFeedEntry: (owner, topic, index, options) =>

@@ -108,4 +108,17 @@ describe("a sender's own copies, as the message details read them", () => {
       OwnCopiesUnreadableError,
     );
   });
+
+  it('reads the copies through the node in this browser, which serves each entry without its signature', async () => {
+    const own = ownFeed(
+      GUEST_KEY,
+      CHAT_TOPIC,
+      [0, 1].map((index) => encoded(copy(index))),
+    );
+
+    const page = await readOwnCopies({ ...options(() => own.unsignedReads), from: null });
+
+    expect(texts(page)).toEqual(['copy 1', 'copy 0']);
+    expect(own.asked.filter((asked) => asked.startsWith('chunk'))).toEqual([]);
+  });
 });

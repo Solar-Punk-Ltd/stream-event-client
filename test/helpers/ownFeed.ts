@@ -56,5 +56,23 @@ export function ownFeed(senderKey: string, chatTopic: string, payloads: Uint8Arr
     },
     readBytes: async () => NOT_FOUND,
   };
-  return { reads, asked, chunks, owner, topic, identifierAt, addressAt };
+  /** The same feed as the node in this browser serves it: each entry's wrapped chunk without its signature. */
+  const unsignedReads: ChatReads = {
+    ...reads,
+    readChunk: async (address) => {
+      asked.push(`chunk ${address}`);
+      return { kind: 'unsupported' };
+    },
+    readUnsignedSoc: async (socOwner, identifier) => {
+      asked.push(`unsigned ${socOwner} ${identifier}`);
+      const index = payloads.findIndex((_, at) => socOwner === owner && identifierAt(at).toHex() === identifier);
+      return index === -1 ? NOT_FOUND : content(wrappedChunk(payloads[index]));
+    },
+  };
+  return { reads, unsignedReads, asked, chunks, owner, topic, identifierAt, addressAt };
+}
+
+/** A chunk's span, little-endian, then its payload, as weeb-3 serves the chunk a single-owner chunk wraps. */
+export function wrappedChunk(payload: Uint8Array): Uint8Array {
+  return Bytes.concat(Span.fromBigInt(BigInt(payload.length)).toUint8Array(), payload);
 }

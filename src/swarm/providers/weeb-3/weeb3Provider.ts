@@ -131,6 +131,21 @@ export class Weeb3Provider implements SwarmProvider {
     return this.readSocAt(id, owner, options);
   }
 
+  /** weeb-3 serves a single-owner chunk as the chunk it wraps, span and payload, with no signature to check. */
+  async readUnsignedSoc(owner: string, identifier: string, options?: ReadOptions): Promise<SwarmAnswer> {
+    let address: string;
+    try {
+      address = singleOwnerChunkAddress(new Identifier(identifier), owner);
+    } catch {
+      return UNSUPPORTED;
+    }
+    const answer = await this.read(`chunks/${address}`, options);
+    if (answer.kind === 'content' && answer.bytes.length < SPAN_LENGTH) {
+      return notReady('answered fewer bytes than a span');
+    }
+    return answer;
+  }
+
   async readChunk(address: string, options?: ReadOptions): Promise<SwarmAnswer> {
     const answer = await this.read(`chunks/${address}`, options);
     if (answer.kind === 'content' && !isContentAddressedAt(answer.bytes, address)) {

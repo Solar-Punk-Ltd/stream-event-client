@@ -2,9 +2,8 @@ import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import { type ChatIdentity, type ChatMessage, ownFeedTopic } from '@solarpunkltd/swarm-chat-js/message';
 
 import { makeFeedIdentifier } from '@/shared/feedFollow';
-import { parseSingleOwnerChunk, singleOwnerChunkAddress } from '@/swarm/singleOwnerChunk';
-
 import type { ChatReads } from '../chatParts';
+import { readOwnersChunk } from '../ownersChunk';
 import type { MessageVerifier } from '../verify/messageVerifier';
 
 /** One copy a sender kept in their own feed, checked as every chat message is. */
@@ -33,7 +32,7 @@ export class OwnCopiesUnreadableError extends Error {
 
 interface ReadOwnCopiesOptions {
   /** The chat's reader, on the source the viewer picked for the chat history. */
-  readonly reads: () => Pick<ChatReads, 'readFeedHead' | 'readChunk'>;
+  readonly reads: () => Pick<ChatReads, 'readFeedHead' | 'readChunk' | 'readUnsignedSoc'>;
   readonly verify: MessageVerifier;
   /** The sender's chat address, 40 hex digits, which owns their own feed. */
   readonly owner: string;
@@ -48,8 +47,8 @@ const decoder = new TextDecoder();
 
 /**
  * A page of the copies a sender keeps in their own feed, `ownFeedTopic(chatTopic)` under their chat address. Only the
- * feed's newest index is taken from the head lookup. Every entry is read by its address and must be the sender's own
- * single-owner chunk, and every message in it passes the same check as a chat message, is the sender's, and is for
+ * feed's newest index is taken from the head lookup. Every entry must be the sender's own single-owner chunk, read as
+ * {@link readOwnersChunk} reads one, and every message in it passes the same check as a chat message, is the sender's, and is for
  * this chat, or it is not shown. Reads only.
  *
  * @throws OwnCopiesUnreadableError when the feed's newest entry could not be looked up.
@@ -79,18 +78,18 @@ export async function readOwnCopies(options: ReadOwnCopiesOptions): Promise<OwnC
   return { copies, nextIndex: oldest > 0 ? oldest - 1 : null, hidden: read.length - copies.length };
 
   async function readCopy(index: number): Promise<OwnCopy | null> {
-    const address = singleOwnerChunkAddress(makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))), owner);
-    const answer = await reads().readChunk(address, window);
-    if (answer.kind !== 'content') {
+    const read = await readOwnersChunk(
+      reads(),
+      owner,
+      makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))),
+      window,
+    );
+    if (read.kind !== 'chunk') {
       return null;
     }
     let signed: unknown;
     try {
-      const chunk = parseSingleOwnerChunk(answer.bytes, address);
-      if (chunk.owner.toLowerCase() !== owner) {
-        return null;
-      }
-      signed = JSON.parse(decoder.decode(chunk.payload));
+      signed = JSON.parse(decoder.decode(read.chunk.payload));
     } catch {
       return null;
     }

@@ -5,6 +5,7 @@ import { GatewayClock } from '../../src/shared/gatewayClock';
 import { SwarmClient, type SwarmClientOptions } from '../../src/swarm/client';
 import { DEFAULT_READ_TIMEOUT_MS } from '../../src/swarm/provider';
 import { BeeHttpProvider } from '../../src/swarm/providers/bee-http/beeHttpProvider';
+import { Weeb3Provider } from '../../src/swarm/providers/weeb-3/weeb3Provider';
 import { answeringFetch } from '../helpers/recordedBeeGateway';
 import { content, fault, notFound, ScriptedProvider } from '../helpers/scriptedProvider';
 
@@ -286,5 +287,25 @@ describe('the Swarm client', () => {
     for (const provider of [chosen, other]) {
       expect([provider.started, provider.stopped]).toEqual([1, 1]);
     }
+  });
+});
+
+describe("the Swarm client's read of a single-owner chunk without its signature", () => {
+  it('is offered only by a feature whose provider serves one, the node in this browser', () => {
+    const weeb3 = new Weeb3Provider({
+      runtime: {
+        status: () => ({ state: 'stopped', peers: 0 }),
+        acquire: async () => ({}) as never,
+        release: () => undefined,
+        whenReady: async () => ({}) as never,
+      },
+    });
+    const client = new SwarmClient({
+      chosen: { id: 'bee', provider: new BeeHttpProvider({ baseUrl: 'https://bee.example.com' }) },
+      routes: { chat: { id: 'weeb-3', provider: weeb3 } },
+    });
+
+    expect(client.reader('chat').readUnsignedSoc).toBeTypeOf('function');
+    expect(client.reader('player').readUnsignedSoc).toBeUndefined();
   });
 });

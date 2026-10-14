@@ -24,6 +24,7 @@ import {
   recordedFetch,
   recordedUrls,
 } from '../helpers/recordedBeeGateway';
+import { wrappedChunk } from '../helpers/ownFeed';
 
 /** A throwaway key standing in for the chat server, which owns the chat feed and its notes. */
 const SERVER = new PrivateKey('b2'.repeat(32));
@@ -144,6 +145,67 @@ describe("the chat's source over the Swarm client", () => {
 
       expect(error).toBeInstanceOf(Error);
       expect(error).not.toBeInstanceOf(UnreadableSlotError);
+    });
+  });
+
+  describe('through the node in this browser, which serves a single-owner chunk without its signature', () => {
+    function unsignedReads(wrapped: Record<string, SwarmAnswer>, asked: string[] = []): ChatReads {
+      return {
+        ...readsAnswering({}),
+        readChunk: async (address) => {
+          asked.push(`chunk ${address}`);
+          return { kind: 'unsupported' };
+        },
+        readUnsignedSoc: async (owner, identifier) => {
+          asked.push(`unsigned ${owner} ${identifier}`);
+          return wrapped[identifier] ?? NOT_FOUND;
+        },
+        readBytes: async (reference) => {
+          asked.push(`bytes ${reference}`);
+          return wrapped[reference] ?? NOT_FOUND;
+        },
+      };
+    }
+
+    it("reads a slot by the owner and the slot's identifier and gives its payload, never asking for it by address", async () => {
+      const asked: string[] = [];
+      const source = sourceOver(unsignedReads({ [slotIdentifier(3).toHex()]: content(wrappedChunk(ENTRY)) }, asked));
+
+      expect(await source.readSlot(3)).toEqual(ENTRY);
+      expect(asked).toEqual([`unsigned ${OWNER} ${slotIdentifier(3).toHex()}`]);
+    });
+
+    it('reads a note the same way, and a slot or note not there is absent', async () => {
+      const identifier = noteIdentifier(CHAT_TOPIC, DEFAULT_NOTE_SLOT_MS, 77);
+      const note = new TextEncoder().encode('{"note":77}');
+      const source = sourceOver(unsignedReads({ [identifier.toHex()]: content(wrappedChunk(note)) }));
+
+      expect(await source.readNote?.(77)).toEqual(note);
+      expect(await source.readSlot(9)).toBeNull();
+    });
+
+    it("reads a slot whose payload is a tree's root as the bytes at the address of the chunk it wraps", async () => {
+      const whole = new Uint8Array(5_000).fill(7);
+      const root = new Uint8Array(64).fill(1);
+      const rootChunk = new Uint8Array(8 + root.length);
+      rootChunk.set(Span.fromBigInt(BigInt(whole.length)).toUint8Array());
+      rootChunk.set(root, 8);
+      const tree = new ChunkBuilder(BigInt(whole.length));
+      tree.writer.buffer.set(root);
+      const source = sourceOver(
+        unsignedReads({
+          [slotIdentifier(5).toHex()]: content(rootChunk),
+          [tree.hash().toHex()]: content(whole),
+        }),
+      );
+
+      expect(await source.readSlot(5)).toEqual(whole);
+    });
+
+    it('rejects as unreadable a chunk too short to carry a span', async () => {
+      const source = sourceOver(unsignedReads({ [slotIdentifier(2).toHex()]: content(new Uint8Array(3)) }));
+
+      await expect(source.readSlot(2)).rejects.toBeInstanceOf(UnreadableSlotError);
     });
   });
 

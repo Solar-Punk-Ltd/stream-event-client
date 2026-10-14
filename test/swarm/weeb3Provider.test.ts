@@ -68,7 +68,10 @@ function servedFetch(log: AskedLog = { urls: [] }): typeof fetch {
 function feedFetch(topic: Topic, newest: number, log: AskedLog = { urls: [] }): typeof fetch {
   const byAddress = new Map<string, number>();
   for (let index = 0; index <= newest; index++) {
-    byAddress.set(singleOwnerChunkAddress(makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))), OWNER), index);
+    byAddress.set(
+      singleOwnerChunkAddress(makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))), OWNER),
+      index,
+    );
   }
   return (async (input: RequestInfo | URL) => {
     log.urls.push(String(input));
@@ -188,6 +191,21 @@ describe('the weeb-3 provider', () => {
     expect(answer).toEqual({ kind: 'unsupported' });
   });
 
+  it("reads the chunk an owner's single-owner chunk wraps, span and payload, by its owner and identifier", async () => {
+    const log: AskedLog = { urls: [] };
+    const answer = await weeb3(servedFetch(log)).provider.readUnsignedSoc(OWNER, SOC_IDENTIFIER);
+
+    expect(answer).toMatchObject({ kind: 'content', bytes: withSpan(SOC_BYTES) });
+    expect(log.urls).toEqual([`${PAGE_ORIGIN}/weeb-3/chunks/${SOC_ADDRESS}`]);
+  });
+
+  it('answers not found for a single-owner chunk that is not there, and unavailable for one shorter than a span', async () => {
+    const short = (async () => new Response(new Uint8Array(3), { status: 200 })) as typeof fetch;
+
+    expect((await weeb3(servedFetch()).provider.readUnsignedSoc(OWNER, '22'.repeat(32))).kind).toBe('not-found');
+    expect((await weeb3(short).provider.readUnsignedSoc(OWNER, SOC_IDENTIFIER)).kind).toBe('unavailable');
+  });
+
   it('answers unavailable when weeb-3 sends fewer bytes than a span', async () => {
     const short = (async () => new Response(new Uint8Array(3), { status: 200 })) as typeof fetch;
 
@@ -228,7 +246,7 @@ describe('the weeb-3 provider', () => {
     expect((await weeb3(feedFetch(topic, -1)).provider.readFeedHead(OWNER, topic)).kind).toBe('not-found');
   });
 
-  it("answers the first fault a round met rather than a head it could not prove, and asks nothing after it", async () => {
+  it('answers the first fault a round met rather than a head it could not prove, and asks nothing after it', async () => {
     const topic = Topic.fromString('a-failing-feed');
     const log: AskedLog = { urls: [] };
     const served = feedFetch(topic, 20, log);

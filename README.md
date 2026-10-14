@@ -645,10 +645,12 @@ controls the page, and counts as failed when it is not ready after 30 s.
   a time: entry 0 and every power of four less one, then wider steps past the newest entry found until one misses,
   then even cuts of the gap until the newest entry and the missing one above it touch. A miss costs weeb-3 about
   17 s, so a head read takes a few of those, about a minute for a feed of a few hundred entries, and the answer it
-  gives is always an entry read with the one above it read missing. A single-owner chunk read by its address answers
-  unsupported, and plainly, since nothing else is asked: it comes back without the identifier and signature that
-  prove it the owner's, as the chat's slots are read. That is out of reach while weeb-3 serves the video only, since
-  the chat never reads from it.
+  gives is always an entry read with the one above it read missing. A single-owner chunk comes back as the chunk it
+  wraps, without the identifier and signature that prove it the owner's, so a read of one by its address answers
+  unsupported, and plainly. The chat reads its slots, its notes and a sender's own copies by the owner and the
+  identifier instead (`readUnsignedSoc`), and takes weeb-3's word for whose chunk it is
+  (`src/features/chat/ownersChunk.ts`). Every message is still checked against its sender's signature, so such a
+  chunk can at most carry a message somebody signed, never one in another's name.
 - **Stopping, as far as it goes.** Stopping frees the page's handle on the node, and with 0.0.354001 that leaves the
   node in the package's shared worker running: a handle made after a stop still finds its peers. The package names
   no way to stop that worker's node, so it lasts until the browser closes the worker with the tab.
@@ -709,7 +711,8 @@ the two named exceptions, each with its reason in the test.
 - **The chat.** swarm-chat-js 7.3.0 is handed a source and a write in place of its own Bee client
   (`src/features/chat/chatParts.ts`). The source makes the library's own reads at the same URLs: the
   feed head, each slot and note as a single-owner chunk checked to be the chat owner's
-  (`src/swarm/singleOwnerChunk.ts`), and history files as bytes. A 404 and a 500 both mean a chunk is
+  (`src/swarm/singleOwnerChunk.ts`), or through the node in this browser by its owner and identifier, and history
+  files as bytes. A 404 and a 500 both mean a chunk is
   not there, as the library rules. A message is written exactly as the library writes it, to
   `chat.writeUrl`, because it costs a stamp the viewer does not hold.
 
