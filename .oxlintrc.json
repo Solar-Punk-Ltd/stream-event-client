@@ -145,5 +145,12 @@
     "typescript/restrict-template-expressions": "off",
     "typescript/unbound-method": "off"
   },
+  "overrides": [
+    {
+      // Off in a worker, where postMessage answers the page that started it and takes no target origin.
+      "files": ["**/*.worker.ts"],
+      "rules": { "unicorn/require-post-message-target-origin": "off" }
+    }
+  ],
   "ignorePatterns": ["**/dist/**", "**/coverage/**"]
 }
