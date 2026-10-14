@@ -195,6 +195,10 @@ of the bundle of its own, fetched when the page starts on a deployment that offe
 restoring a session needs it. It embeds a hidden frame of the Swarm ID site, which is why the image's
 `SWARM_ID_URL` adds that site to the policy's `frame-src`, and talks to it with `postMessage`. The
 window is a window of its own, opened by the frame or by the page, which the policy does not govern.
+`config.json` is mounted rather than written by the image, so the site is named twice, and
+`SWARM_ID_URL` and `swarmId.url` must be the identical origin. When they differ the policy refuses the
+frame, the page offers no sign-in, and the console warns once, naming both settings. It warns the same
+when the Swarm ID site does not start for this page at all.
 Everything the viewer uses of the library goes through `src/features/chat/swarmId/`, and only
 `swarmIdLibrary.ts` there imports it.
 
@@ -256,7 +260,7 @@ docker run -p 8080:80 \
 | `EXTRA_GATEWAY_URLS` | Optional. The addresses of the further gateways `config.json` offers in `providers.gateways`, separated by spaces, each with no path. The page is allowed to reach each of them, in either mode                 |
 | `BEE_NODES`          | Optional. Which Bee nodes of their own a viewer may watch through: `off`, the default, `https` or `https-and-local-http`. See below                                                                             |
 | `WEEB3`              | Optional. `on` serves the node in the browser's files at `/weeb-3/` and widens the policy for it, `off`, the default, serves neither. Match `weeb3.enabled` in `config.json`. See below                         |
-| `SWARM_ID_URL`       | Optional. The Swarm ID site, the same as `swarmId.url` in `config.json`, which the page is then allowed to frame. Leave it out when there is no sign-in                                                         |
+| `SWARM_ID_URL`       | Optional. The Swarm ID site, the identical origin to `swarmId.url` in `config.json`, which the page is then allowed to frame. Leave it out when there is no sign-in                                             |
 | `config.json`        | Mounted over the image's example at `/usr/share/nginx/html/config.json`. Without it the page shows the example's placeholders as a configuration problem                                                        |
 
 A setting that is missing or malformed stops the container at start, and its log says which one.

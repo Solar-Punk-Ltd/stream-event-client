@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 // @vitest-environment-options {"url":"https://example.com/"}
 import { createElement } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { nicknameLogin } from '../../src/features/chat/auth/login';
 import { persistUserSession, restoreUserSession } from '../../src/features/chat/auth/persistence';
 import { LoginButton } from '../../src/features/chat/LoginButton/LoginButton';
 import { SwarmIdPageNotice } from '../../src/features/chat/swarmId/SwarmIdParts';
+import { frameRefusedWarning } from '../../src/features/chat/swarmId/swarmIdSignIn';
 import { ChatUserProvider, useChatUser } from '../../src/features/chat/User';
 import {
   button,
@@ -236,6 +237,53 @@ describe('a blocked Swarm ID window', () => {
 
     expect(dialog()).toBeNull();
     expect(queryButton('Open Swarm ID')).toBeTruthy();
+  });
+});
+
+describe('a Swarm ID frame the page policy refuses', () => {
+  it('warns once in the console as soon as the policy refuses the frame, however often it does', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await header(await fakeSwarmId());
+      const refusal = () =>
+        document.dispatchEvent(
+          Object.assign(new Event('securitypolicyviolation'), {
+            effectiveDirective: 'frame-src',
+            violatedDirective: 'frame-src',
+            blockedURI: 'https://id.example.com/proxy',
+          }),
+        );
+      refusal();
+      refusal();
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(frameRefusedWarning('https://id.example.com'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('says nothing of a refusal of any other frame or directive', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await header(await fakeSwarmId());
+      for (const [effectiveDirective, blockedURI] of [
+        ['frame-src', 'https://other.example.com/'],
+        ['img-src', 'https://id.example.com/avatar.png'],
+      ]) {
+        document.dispatchEvent(
+          Object.assign(new Event('securitypolicyviolation'), {
+            effectiveDirective,
+            violatedDirective: effectiveDirective,
+            blockedURI,
+          }),
+        );
+      }
+
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 

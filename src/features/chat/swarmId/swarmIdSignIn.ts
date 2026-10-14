@@ -30,12 +30,27 @@ export const SIGN_IN_INCOMPLETE = 'Swarm ID signed you in without confirming a c
 const NO_CHAT_KEY = 'Swarm ID did not give this site its chat key. Try again.';
 const SIGN_OUT_FAILED = 'Swarm ID did not end the session, so it may sign you in again on your next visit.';
 
+/**
+ * The image's policy and the page's config name the Swarm ID site apart, and a page whose two differ has its frame
+ * refused, which the library reports only as a start that timed out. So the console says what to compare.
+ */
+export function frameRefusedWarning(url: string): string {
+  return (
+    `Swarm ID at ${url} could not start or its frame was refused. The image's SWARM_ID_URL and config.json's ` +
+    'swarmId.url must be the identical origin, and the Swarm ID site must serve this one.'
+  );
+}
+
+const FRAME_DIRECTIVE = 'frame-src';
+const POLICY_VIOLATION = 'securitypolicyviolation';
+
 interface SwarmIdSignInOptions {
   url: string;
   appName: string;
   /** This page's origin, which every binding must name. */
   scope: VerifyScope;
   load: LoadSwarmIdClient;
+  warn?: (message: string) => void;
 }
 
 /**
@@ -54,7 +69,13 @@ export interface SwarmIdSignIn {
 
 const SIGNED_OUT: SwarmIdState = { status: SWARM_ID_SIGNED_OUT, problem: null };
 
-export function createSwarmIdSignIn({ url, appName, scope, load }: SwarmIdSignInOptions): SwarmIdSignIn {
+export function createSwarmIdSignIn({
+  url,
+  appName,
+  scope,
+  load,
+  warn = (message) => console.warn(message),
+}: SwarmIdSignInOptions): SwarmIdSignIn {
   let state: SwarmIdState = { status: SWARM_ID_STARTING };
   const listeners = new Set<() => void>();
   let client: SwarmIdClient | null = null;
@@ -65,6 +86,21 @@ export function createSwarmIdSignIn({ url, appName, scope, load }: SwarmIdSignIn
   let reportedEarly: SwarmIdConnectionInfo | null = null;
   /** Raised by every report and every sign-out, so a chat key asked for an older session is dropped. */
   let generation = 0;
+
+  let hasWarned = false;
+  const warnOnce = () => {
+    if (!hasWarned) {
+      hasWarned = true;
+      warn(frameRefusedWarning(url));
+    }
+  };
+  const onPolicyViolation = (event: Event) => {
+    const { effectiveDirective, blockedURI } = event as SecurityPolicyViolationEvent;
+    if (effectiveDirective === FRAME_DIRECTIVE && (blockedURI === url || blockedURI.startsWith(`${url}/`))) {
+      warnOnce();
+    }
+  };
+  const hasDocument = typeof document !== 'undefined';
 
   const set = (next: SwarmIdState) => {
     if (isStopped) {
@@ -131,6 +167,9 @@ export function createSwarmIdSignIn({ url, appName, scope, load }: SwarmIdSignIn
         return;
       }
       isStarted = true;
+      if (hasDocument) {
+        document.addEventListener(POLICY_VIOLATION, onPolicyViolation);
+      }
       load({ url, appName, onConnectionChange })
         .then((loaded) => {
           client = loaded;
@@ -144,7 +183,10 @@ export function createSwarmIdSignIn({ url, appName, scope, load }: SwarmIdSignIn
             reportedEarly = null;
           });
         })
-        .catch(() => set({ status: SWARM_ID_UNAVAILABLE }));
+        .catch(() => {
+          warnOnce();
+          set({ status: SWARM_ID_UNAVAILABLE });
+        });
     },
 
     signIn() {
@@ -179,6 +221,9 @@ export function createSwarmIdSignIn({ url, appName, scope, load }: SwarmIdSignIn
     stop() {
       isStopped = true;
       listeners.clear();
+      if (hasDocument) {
+        document.removeEventListener(POLICY_VIOLATION, onPolicyViolation);
+      }
       client?.destroy();
     },
   };

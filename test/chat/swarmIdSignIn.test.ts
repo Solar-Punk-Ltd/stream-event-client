@@ -6,6 +6,7 @@ import type { ChatConfig } from '../../src/config/runtimeConfig';
 import { chatSettings } from '../../src/features/chat/chatSettings';
 import {
   createSwarmIdSignIn,
+  frameRefusedWarning,
   SIGN_IN_INCOMPLETE,
   SWARM_ID_BLOCKED,
   SWARM_ID_SIGNED_IN,
@@ -49,12 +50,13 @@ async function until(signIn: SwarmIdSignIn, status: SwarmIdState['status']): Pro
   return signIn.getState();
 }
 
-async function started(swarmId: FakeSwarmId): Promise<SwarmIdSignIn> {
+async function started(swarmId: FakeSwarmId, warn: (message: string) => void = () => {}): Promise<SwarmIdSignIn> {
   const signIn = createSwarmIdSignIn({
     url: 'https://id.example.com',
     appName: 'Devcon streams',
     scope: PAGE,
     load: swarmId.load,
+    warn,
   });
   signIn.start();
   await settled();
@@ -223,6 +225,18 @@ describe('a Swarm ID site that cannot be used', () => {
     expect(signIn.getState()).toEqual({ status: SWARM_ID_UNAVAILABLE });
     signIn.signIn();
     expect(swarmId.client().connectCalls).toBe(0);
+  });
+
+  it('warns once in the console, naming the two settings that must agree', async () => {
+    const warnings: string[] = [];
+    const swarmId = await fakeSwarmId({}, (client) => {
+      client.initializeFails = true;
+    });
+    await started(swarmId, (message) => warnings.push(message));
+
+    expect(warnings).toEqual([frameRefusedWarning('https://id.example.com')]);
+    expect(warnings[0]).toContain('SWARM_ID_URL');
+    expect(warnings[0]).toContain('swarmId.url');
   });
 
   it('takes the frame away when the viewer stops', async () => {
