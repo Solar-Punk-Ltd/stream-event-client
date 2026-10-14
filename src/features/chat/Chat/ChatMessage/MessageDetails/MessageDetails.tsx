@@ -10,6 +10,21 @@ const ID_LINK_CONFIRMED = 'confirmed by Swarm ID for this site';
 const SENT_WITH_OWN_STAMP = 'with their own stamp';
 const SENT_BY_GATEWAY = 'by the event gateway';
 
+/**
+ * A line the check confirmed. The check mark carries the success colour, which on the Swarm theme measures 3.4:1, enough
+ * for a mark and short of the 4.5:1 text needs, so the words stay in the text colour.
+ */
+function ConfirmedLine({ text }: { text: string }) {
+  return (
+    <dd className="message-details-ok">
+      <svg className="message-details-check" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+        <path d="M2.5 6.2 5 8.6l4.5-5" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      {text}
+    </dd>
+  );
+}
+
 interface MessageDetailsProps {
   id: string;
   name: string;
@@ -49,11 +64,11 @@ export function MessageDetails({ id, name, address, badge, identity, ownStamp, o
         <dt>Public address</dt>
         <dd className="message-details-address">0x{address}</dd>
         <dt>Signature</dt>
-        <dd>{SIGNATURE_MATCHES}</dd>
+        <ConfirmedLine text={SIGNATURE_MATCHES} />
         {identity && (
           <>
             <dt>ID link</dt>
-            <dd>{ID_LINK_CONFIRMED}</dd>
+            <ConfirmedLine text={ID_LINK_CONFIRMED} />
             <dt>Swarm ID account</dt>
             <dd className="message-details-address">{identity.account}</dd>
           </>

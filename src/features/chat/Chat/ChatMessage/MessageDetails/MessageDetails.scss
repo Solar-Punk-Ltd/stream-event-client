@@ -62,3 +62,13 @@
   font-family: var(--font-family-mono);
   overflow-wrap: anywhere;
 }
+
+.message-details-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2xs);
+}
+
+.message-details-check path {
+  stroke: var(--color-success);
+}

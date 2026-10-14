@@ -569,6 +569,16 @@ describe('who sent a message', () => {
     expect(document.querySelector('.message-actions.visible')).toBeNull();
   });
 
+  it('marks what the check confirmed with the success colour', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, await swarmIdMessage('bound'));
+    click(button('Swarm ID, show details'));
+
+    const confirmed = [...details()!.querySelectorAll('dd.message-details-ok')].map((line) => line.textContent);
+    expect(confirmed).toEqual(['matches this text', 'confirmed by Swarm ID for this site']);
+    expect(details()!.querySelectorAll('dd.message-details-ok svg.message-details-check')).toHaveLength(2);
+  });
+
   it("opens a guest's details with no ID link and no account, and closes them again", async () => {
     await open();
     const guest = message({ id: 'guest', username: 'Bea' });
