@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+
+import { MessageVia } from '@solarpunkltd/swarm-chat-js';
 
 import type { ReactionSummary } from '../../reactions';
 import type { VisibleMessage } from '../../useSwarmChat';
-import { nameColor } from '../nameColor';
 
 import { MessageActions } from './MessageActions/MessageActions';
+import { MessageDetails } from './MessageDetails/MessageDetails';
 import { MessageReactionsWrapper } from './MessageReactionsWrapper/MessageReactionsWrapper';
 import { MessageThreadWrapper } from './MessageThreadWrapper/MessageThreadWrapper';
-import { ProfilePicture } from './ProfilePicture/ProfilePicture';
+import { senderBadge } from './senderBadge';
+import { SenderLine } from './SenderLine/SenderLine';
 
 import './ChatMessage.scss';
 
@@ -53,8 +56,47 @@ function useIsUnconfirmed(waiting: boolean, onHeightChange?: () => void): boolea
 }
 
 /**
- * One message as the Swarm site draws it: an initial and a bubble, the viewer's own on the right. A click
- * on the message shows what can be done with it, and the next click folds that away.
+ * Whether a message's details card is open, and the button that opened it, which gets focus back when the card
+ * closes by Escape or by its own button.
+ */
+function useDetailsCard(onHeightChange?: () => void) {
+  const [isShown, setIsShown] = useState(false);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
+
+  const close = useCallback(() => {
+    setIsShown(false);
+    openerRef.current?.focus();
+    onHeightChange?.();
+  }, [onHeightChange]);
+
+  const toggle = useCallback(
+    (opener: HTMLButtonElement) => {
+      openerRef.current = opener;
+      setIsShown((shown) => !shown);
+      onHeightChange?.();
+    },
+    [onHeightChange],
+  );
+
+  useEffect(() => {
+    if (!isShown) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        close();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isShown, close]);
+
+  return { isShown, toggle, close };
+}
+
+/**
+ * One message as the design draws it: the sender line above a bubble, the viewer's own on the right. A
+ * click on the message shows what can be done with it, and the next click folds that away.
  */
 export function ChatMessage({
   message,
@@ -72,9 +114,12 @@ export function ChatMessage({
   const isSending = !received && !error && (requested || uploaded);
   const isUnconfirmed =
     useIsUnconfirmed(ownMessage && uploaded && !received && !error, onHeightChange) && canOfferResend;
-  const color = nameColor(message.username);
   const canAct = received && !error;
   const [areActionsShown, setAreActionsShown] = useState(false);
+  const details = useDetailsCard(onHeightChange);
+  const detailsId = useId();
+  const badge = senderBadge(message.identity);
+  const ownStamp = message.signedMessage.via === MessageVia.OWN_STAMP;
 
   const classes = [
     'chat-message',
@@ -87,10 +132,29 @@ export function ChatMessage({
 
   return (
     <li className={classes} onClick={() => canAct && setAreActionsShown((shown) => !shown)}>
-      <ProfilePicture name={message.username} address={message.address} color={color} />
-
       <div className="chat-message-text">
+        <SenderLine
+          name={message.username}
+          badge={badge}
+          ownStamp={ownStamp}
+          timestamp={message.timestamp}
+          detailsId={detailsId}
+          areDetailsShown={details.isShown}
+          onToggleDetails={details.toggle}
+        />
         <span className="message">{message.message}</span>
+
+        {details.isShown && (
+          <MessageDetails
+            id={detailsId}
+            name={message.username}
+            address={message.address}
+            badge={badge}
+            identity={message.identity}
+            ownStamp={ownStamp}
+            onClose={details.close}
+          />
+        )}
 
         {error && (
           <p className="chat-message-status error">

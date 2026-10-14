@@ -240,7 +240,6 @@ const TEXT_ON_SURFACE: Array<[text: string, surface: string]> = [
   ['on-scrim-secondary', 'scrim-strong'],
   ['error-text', 'scrim-strong'],
   ['on-scrim', 'info'],
-  ...Array.from({ length: 16 }, (_, i): [string, string] => ['text', `name-${i + 1}`]),
 ];
 
 describe.each([...THEME_NAMES])('the text colours of the %s theme', (theme) => {

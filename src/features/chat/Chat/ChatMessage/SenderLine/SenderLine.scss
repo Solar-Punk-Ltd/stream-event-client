@@ -1,0 +1,67 @@
+@use '@/design/touch';
+
+.chat-message-sender {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin: 0 var(--spacing-xs) var(--spacing-2xs);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
+.chat-message-name {
+  font-weight: var(--font-weight-semibold);
+
+  &.guest {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+  }
+
+  &.linked {
+    color: var(--color-primary);
+  }
+}
+
+.chat-message-time {
+  font-family: var(--font-family-mono);
+  color: var(--color-text-tertiary);
+}
+
+.sender-badge {
+  @include touch.touch-target;
+
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 0;
+  cursor: pointer;
+}
+
+.sender-badge-guest path {
+  stroke: var(--color-text-muted);
+}
+
+.sender-badge-swarm-id {
+  .sender-badge-hexagon {
+    fill: var(--color-primary);
+    stroke: var(--color-primary);
+  }
+
+  .sender-badge-check {
+    stroke: var(--color-on-primary);
+  }
+}
+
+.sender-own-stamp {
+  .sender-own-stamp-edge {
+    stroke: var(--color-text);
+    stroke-opacity: 0.8;
+  }
+
+  .sender-own-stamp-hexagon {
+    fill: var(--color-primary);
+  }
+}

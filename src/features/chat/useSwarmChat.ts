@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type ChatEvent,
+  type ChatIdentity,
+  type ChatMessage,
   type ChatEventPayloads,
   type ChatSettings,
   EVENTS,
@@ -13,6 +15,7 @@ import {
 import { type ChatReads, chatParts } from './chatParts';
 import { draftProblem } from './draftCheck';
 import { groupReactions, type ReactionsByMessage } from './reactions';
+import { chatVerifier } from './verify/chatVerifier';
 
 /** Where a message stands on its way from this browser to the chat feed, as the library's sender reports it. */
 interface DeliveryState {
@@ -26,7 +29,13 @@ interface DeliveryState {
   error?: boolean;
 }
 
-export interface VisibleMessage extends MessageData, DeliveryState {}
+/** A message whose signature, and Swarm ID binding if it carries one, passed the check for this page. */
+interface CheckedMessage extends MessageData {
+  /** The Swarm ID account that vouched for the sender, or null for a guest. */
+  identity: ChatIdentity | null;
+}
+
+export interface VisibleMessage extends CheckedMessage, DeliveryState {}
 
 export const CHAT_LOADING = 'loading';
 export const CHAT_READY = 'ready';
@@ -37,7 +46,7 @@ export type ChatStatus = typeof CHAT_LOADING | typeof CHAT_READY | typeof CHAT_U
 const PENDING_INDEX = -1;
 
 /**
- * Published messages by their place in the chat feed, then pending ones by the sender's clock, as library 7.0 orders
+ * Published messages by their place in the chat feed, then pending ones by the sender's clock, as the library orders
  * them. A timestamp cannot order the two kinds together: a published one is the server's, a pending one the sender's.
  */
 function inChatOrder(a: MessageData, b: MessageData): number {
@@ -49,10 +58,29 @@ function inChatOrder(a: MessageData, b: MessageData): number {
   return aPending ? a.timestamp - b.timestamp : a.index - b.index;
 }
 
+/**
+ * A message drawn only from what was verified. The feed's place and the server's receive time are the library's, and
+ * every field the message says itself is read from the signed message rather than from the event's copies of it.
+ */
+function checkedMessage(data: MessageData, message: ChatMessage, identity: ChatIdentity | null): CheckedMessage {
+  return {
+    id: message.id,
+    type: message.type,
+    message: message.text,
+    username: message.name,
+    address: message.addr,
+    ...(message.target ? { targetMessageId: message.target } : {}),
+    index: data.index,
+    timestamp: data.index === PENDING_INDEX ? message.ts : data.timestamp,
+    signedMessage: message,
+    identity,
+  };
+}
+
 /** One entry per message id, the latest delivery state laid over what was known, in chat order. */
 export function mergeMessage(
   messages: VisibleMessage[],
-  incoming: MessageData,
+  incoming: CheckedMessage,
   delivery: DeliveryState,
 ): VisibleMessage[] {
   const index = messages.findIndex((message) => message.id === incoming.id);
@@ -95,6 +123,9 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
   const [feedStatus, setFeedStatus] = useState<FeedStatus | null>(null);
+  const [refusedCount, setRefusedCount] = useState(0);
+  /** The refused messages of the chat on screen, so one carried by several events is counted once. */
+  const refusedRef = useRef(new Set<string>());
 
   useEffect(() => {
     const current = JSON.parse(settingsKey) as ChatSettings;
@@ -102,6 +133,8 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
     if (shownChatKeyRef.current !== currentChatKey) {
       shownChatKeyRef.current = currentChatKey;
       setMessages([]);
+      refusedRef.current = new Set();
+      setRefusedCount(0);
       setStatus(CHAT_LOADING);
       setHasOlder(false);
       setIsLoadingOlder(false);
@@ -130,9 +163,26 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
         removeListeners.push(() => off(event, listener));
       };
       const onMessage = (delivery: DeliveryState) => (data: MessageData) => {
-        if (!stopped) {
-          setMessages((previous) => mergeMessage(previous, data, delivery));
-        }
+        // verify never rejects. The events of one message carry the same signed message, so their verdicts
+        // come back in the order they were asked for.
+        void chatVerifier()
+          .verify(data.signedMessage)
+          .then((verdict) => {
+            if (stopped) {
+              return;
+            }
+            if (verdict.ok) {
+              setMessages((previous) =>
+                mergeMessage(previous, checkedMessage(data, verdict.message, verdict.identity), delivery),
+              );
+              return;
+            }
+            const key = JSON.stringify(data.signedMessage) ?? data.id;
+            if (!refusedRef.current.has(key)) {
+              refusedRef.current.add(key);
+              setRefusedCount((count) => count + 1);
+            }
+          });
       };
 
       listen(EVENTS.MESSAGE_REQUEST_INITIATED, onMessage({ error: false, requested: true }));
@@ -172,20 +222,11 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
         }
       });
 
-      started.start().then(
-        () => {
-          // Library 6.x began polling at the end of start() even after a stop, and a second stop costs
-          // nothing, so a chat whose start finished after its stop is stopped once more.
-          if (stopped) {
-            void started.stop();
-          }
-        },
-        () => {
-          if (!stopped) {
-            setStatus(CHAT_UNREACHABLE);
-          }
-        },
-      );
+      started.start().catch(() => {
+        if (!stopped) {
+          setStatus(CHAT_UNREACHABLE);
+        }
+      });
     }, START_DELAY_MS);
 
     return () => {
@@ -240,16 +281,24 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
   );
   const sendReply = useCallback((parentId: string, text: string) => send(text, MessageType.THREAD, parentId), [send]);
 
-  const { chatTopic } = settings.infra;
-  const { nickname } = settings.user;
+  const { chatTopic, via } = settings.infra;
+  const { nickname, binding } = settings.user;
   const checkMessage = useCallback(
-    (text: string) => draftProblem({ topic: chatTopic, name: nickname, type: MessageType.TEXT, text }),
-    [chatTopic, nickname],
+    (text: string) => draftProblem({ topic: chatTopic, name: nickname, type: MessageType.TEXT, text, via, binding }),
+    [chatTopic, nickname, via, binding],
   );
   const checkReply = useCallback(
     (parentId: string, text: string) =>
-      draftProblem({ topic: chatTopic, name: nickname, type: MessageType.THREAD, target: parentId, text }),
-    [chatTopic, nickname],
+      draftProblem({
+        topic: chatTopic,
+        name: nickname,
+        type: MessageType.THREAD,
+        target: parentId,
+        text,
+        via,
+        binding,
+      }),
+    [chatTopic, nickname, via, binding],
   );
 
   const fetchOlderMessages = useCallback(async () => {
@@ -283,5 +332,7 @@ export function useSwarmChat(settings: ChatSettings, ownAddress: string | null, 
     fetchOlderMessages,
     retrySendMessage,
     restart,
+    /** Messages the chat delivered that failed their check, never shown. */
+    refusedCount,
   };
 }

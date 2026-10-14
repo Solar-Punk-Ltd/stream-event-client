@@ -1,4 +1,5 @@
 import { PrivateKey } from '@ethersphere/bee-js';
+import type { ChatBinding } from '@solarpunkltd/swarm-chat-js';
 
 export const DISPLAY_NAME_MAX_LENGTH = 20;
 
@@ -11,6 +12,8 @@ export interface Session {
   privateKey: string;
   /** The address the key signs as, 40 hex digits, no 0x. */
   address: string;
+  /** A Swarm ID account's statement that `address` is its chat address on this site. Absent for a guest. */
+  binding?: ChatBinding;
 }
 
 export type DisplayNameCheck = { ok: true; name: string } | { ok: false; problem: string };

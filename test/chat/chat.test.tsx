@@ -1,5 +1,12 @@
 // @vitest-environment jsdom
-import { ChatMessageError, EVENTS, MessageType, type MessageData } from '@solarpunkltd/swarm-chat-js';
+import {
+  type ChatBinding,
+  ChatMessageError,
+  EVENTS,
+  type MessageData,
+  MessageType,
+  MessageVia,
+} from '@solarpunkltd/swarm-chat-js';
 import { act, createElement, StrictMode, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -11,6 +18,22 @@ import { LoginButton } from '../../src/features/chat/LoginButton/LoginButton';
 import { ChatUserProvider } from '../../src/features/chat/User';
 import type { ChatReads } from '../../src/features/chat/chatParts';
 import { FakeSwarmChat } from '../helpers/fakeSwarmChat';
+import { createMessageVerifier } from '../../src/features/chat/verify/messageVerifier';
+import {
+  BOUND_SITE,
+  CHAT_BINDING,
+  chatKeyFor,
+  FORK_ACCOUNT,
+  GUEST_KEY,
+  idOf,
+  inThreadPort,
+  inThreadVerifier,
+  messageData,
+  OTHER_SITE,
+  OTHER_SITE_BINDING,
+  SECOND_GUEST_KEY,
+  signedMessage,
+} from '../helpers/signedChat';
 import {
   button,
   click,
@@ -32,6 +55,15 @@ vi.mock('@solarpunkltd/swarm-chat-js', async (importActual) => {
   const { FakeSwarmChat } = await import('../helpers/fakeSwarmChat');
   return { ...actual, SwarmChat: FakeSwarmChat };
 });
+
+const verifier = vi.hoisted(() => ({ current: null as ReturnType<typeof inThreadVerifier> | null }));
+
+vi.mock('../../src/features/chat/verify/chatVerifier', () => ({
+  chatVerifier: () => {
+    if (!verifier.current) throw new Error('the test set no verifier');
+    return verifier.current;
+  },
+}));
 
 interface FakePickerProps {
   onEmojiClick: (data: { emoji: string }) => void;
@@ -67,7 +99,6 @@ vi.mock('emoji-picker-react', () => ({
 }));
 
 const FEED_OWNER = '0x' + 'b'.repeat(40);
-const OTHER = 'c'.repeat(40);
 
 const CHAT: ChatConfig = {
   enabled: true,
@@ -83,20 +114,36 @@ let mounted: Mounted | null = null;
 let session: Session | null = null;
 let clock = 1_000;
 
-function message(fields: Partial<MessageData> & Pick<MessageData, 'id'>): MessageData {
+interface MessageFixture {
+  /** A readable label, which the message's id is made from by `idOf`. */
+  id: string;
+  /** Who signs it, a guest key unless named. */
+  key?: string;
+  username?: string;
+  message?: string;
+  type?: MessageType;
+  /** The label of the message a reply or a reaction refers to. */
+  targetMessageId?: string;
+  index?: number;
+  timestamp?: number;
+  via?: MessageVia;
+  binding?: ChatBinding;
+}
+
+/** A real v8 message signed by its key, as the library hands it to the page. */
+function message(fields: MessageFixture): MessageData {
   clock += 1;
-  return {
-    type: MessageType.TEXT,
-    message: `text of ${fields.id}`,
-    username: 'Bea',
-    address: OTHER,
-    timestamp: clock,
-    signature: 'sig',
-    index: clock,
-    chatTopic: 'chat-topic',
-    sentAt: clock,
-    ...fields,
-  };
+  const signed = signedMessage(fields.id, {
+    key: fields.key,
+    name: fields.username,
+    text: fields.message,
+    type: fields.type,
+    target: fields.targetMessageId === undefined ? undefined : idOf(fields.targetMessageId),
+    ts: clock,
+    via: fields.via,
+    binding: fields.binding,
+  });
+  return messageData(signed, fields.index ?? clock, fields.timestamp ?? clock);
 }
 
 /** What the panel reads the chat through, the Swarm client's chat reader in the app. */
@@ -112,8 +159,18 @@ const CHAT_READS = {
   } satisfies ChatReads,
 };
 
-function emit(event: string, data: unknown, chat = FakeSwarmChat.latest()) {
+/** Lets the checks of what was emitted come back from the verifier, which answers in microtasks, as fake timers allow. */
+async function checked() {
+  await act(async () => {
+    for (let turn = 0; turn < 10; turn++) {
+      await Promise.resolve();
+    }
+  });
+}
+
+async function emit(event: string, data: unknown, chat = FakeSwarmChat.latest()) {
   act(() => chat.emitter.emit(event, data));
+  await checked();
 }
 
 function panel(topic = 'stream-one', chat: ChatConfig = CHAT): ReactNode {
@@ -123,7 +180,7 @@ function panel(topic = 'stream-one', chat: ChatConfig = CHAT): ReactNode {
 async function open(node: ReactNode = panel()) {
   mounted = mount(node);
   await settle();
-  emit(EVENTS.LOADING_INIT, false);
+  await emit(EVENTS.LOADING_INIT, false);
 }
 
 function signIn(name = 'Ada') {
@@ -137,6 +194,7 @@ function messageTexts(list = document): string[] {
 
 beforeEach(() => {
   FakeSwarmChat.reset();
+  verifier.current = inThreadVerifier();
   localStorage.clear();
   session = null;
 });
@@ -187,11 +245,11 @@ describe('the chat on a watch page', () => {
   it('keeps loading through an error the library recovers from while opening, and never calls it unreachable', async () => {
     mounted = mount(panel());
     await settle();
-    emit(EVENTS.LOADING_INIT, true);
-    emit(EVENTS.ERROR, new Error('the head lookup timed out, opening from slot 0'));
+    await emit(EVENTS.LOADING_INIT, true);
+    await emit(EVENTS.ERROR, new Error('the head lookup timed out, opening from slot 0'));
     expect(text()).toContain('Loading the chat');
     expect(text()).not.toContain('The chat cannot be reached right now');
-    emit(EVENTS.LOADING_INIT, false);
+    await emit(EVENTS.LOADING_INIT, false);
     expect(text()).not.toContain('Loading the chat');
     expect(text()).toContain('No messages yet.');
   });
@@ -199,9 +257,9 @@ describe('the chat on a watch page', () => {
   it('says it is loading until the chat has read its history', async () => {
     mounted = mount(panel());
     await settle();
-    emit(EVENTS.LOADING_INIT, true);
+    await emit(EVENTS.LOADING_INIT, true);
     expect(text()).toContain('Loading the chat');
-    emit(EVENTS.LOADING_INIT, false);
+    await emit(EVENTS.LOADING_INIT, false);
     expect(text()).not.toContain('Loading the chat');
   });
 
@@ -210,55 +268,37 @@ describe('the chat on a watch page', () => {
     const first = message({ id: 'first', timestamp: 10 });
     const second = message({ id: 'second', timestamp: 20 });
     const third = message({ id: 'third', timestamp: 30 });
-    emit(EVENTS.MESSAGE_RECEIVED, third);
-    emit(EVENTS.MESSAGE_RECEIVED, first);
-    emit(EVENTS.MESSAGE_RECEIVED, second);
+    await emit(EVENTS.MESSAGE_RECEIVED, third);
+    await emit(EVENTS.MESSAGE_RECEIVED, first);
+    await emit(EVENTS.MESSAGE_RECEIVED, second);
     expect(messageTexts()).toEqual(['text of first', 'text of second', 'text of third']);
-    expect(document.querySelector('.chat-message [role="img"]')?.getAttribute('aria-label')).toContain('Bea');
+    expect(document.querySelector('.chat-message-name')?.textContent).toBe('Bea');
   });
 
   it('shows published messages by their place in the chat feed, and one still sending after them', async () => {
     await open();
-    emit(EVENTS.MESSAGE_REQUEST_INITIATED, message({ id: 'sending', index: -1, timestamp: 1 }));
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'later-in-feed', index: 8, timestamp: 100 }));
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'earlier-in-feed', index: 7, timestamp: 200 }));
+    await emit(EVENTS.MESSAGE_REQUEST_INITIATED, message({ id: 'sending', index: -1, timestamp: 1 }));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'later-in-feed', index: 8, timestamp: 100 }));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'earlier-in-feed', index: 7, timestamp: 200 }));
     expect(messageTexts()).toEqual(['text of earlier-in-feed', 'text of later-in-feed', 'text of sending']);
   });
 
-  it('shows who wrote a message by an initial, with the name and its short address named on it rather than written in the row', async () => {
+  it('writes who wrote a message above it, with no initial and nothing floating over the row', async () => {
     await open();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm', username: 'Bea', address: OTHER }));
-    const avatar = document.querySelector('.chat-message [role="img"]');
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm', username: 'Bea' }));
+    const row = document.querySelector('.chat-message')!;
 
-    expect(avatar?.textContent).toBe('B');
-    expect(avatar?.getAttribute('aria-label')).toBe('Bea ccc:ccc');
-    expect(document.querySelector('.chat-message-author')).toBeNull();
-  });
-
-  it('floats the name and short address over the page while the initial is pointed at, as the Swarm site does', async () => {
-    await open();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm', username: 'Bea', address: OTHER }));
-    const avatar = document.querySelector('.chat-message [role="img"]')!;
-    expect(document.querySelector('[role="tooltip"]')).toBeNull();
-
-    act(() => {
-      avatar.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-    });
-    const tooltip = await waitFor(() => document.querySelector('[role="tooltip"]'));
-    expect(tooltip.textContent).toBe('Bea ccc:ccc');
-    expect(tooltip.closest('.chat-message')).toBeNull();
-
-    act(() => {
-      avatar.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
-    });
-    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+    expect(row.querySelector('.chat-message-sender .chat-message-name')?.textContent).toBe('Bea');
+    expect(row.firstElementChild?.classList.contains('chat-message-text')).toBe(true);
+    expect(row.querySelector('[role="img"]')).toBeNull();
+    expect(row.querySelector('.tooltip-anchor')).toBeNull();
   });
 
   it('puts the viewer own messages on the other side from everyone else', async () => {
     signIn('Ada');
     await open();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'theirs' }));
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'mine', username: 'Ada', address: session!.address }));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'theirs' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'mine', username: 'Ada', key: session!.privateKey }));
     const [theirs, mine] = [...document.querySelectorAll('.chat-message')];
 
     expect(theirs.classList.contains('own-message')).toBe(false);
@@ -268,14 +308,14 @@ describe('the chat on a watch page', () => {
   it('shows a message once when it arrives twice', async () => {
     await open();
     const once = message({ id: 'once' });
-    emit(EVENTS.MESSAGE_RECEIVED, once);
-    emit(EVENTS.MESSAGE_RECEIVED, once);
+    await emit(EVENTS.MESSAGE_RECEIVED, once);
+    await emit(EVENTS.MESSAGE_RECEIVED, once);
     expect(messageTexts()).toEqual(['text of once']);
   });
 
   it('says in plain words when the chat node cannot be reached, and tries again on request', async () => {
     await open();
-    emit(EVENTS.CRITICAL_ERROR, new Error('Request failed with status code 502 at /soc/…'));
+    await emit(EVENTS.CRITICAL_ERROR, new Error('Request failed with status code 502 at /soc/…'));
     expect(text()).toContain('The chat cannot be reached right now');
     expect(text()).not.toContain('502');
     click(button('Try again'));
@@ -286,11 +326,11 @@ describe('the chat on a watch page', () => {
 
   it('shows the chat again by itself once the library, which keeps trying, gets through', async () => {
     await open();
-    emit(EVENTS.CRITICAL_ERROR, new Error('opening failed three times'));
+    await emit(EVENTS.CRITICAL_ERROR, new Error('opening failed three times'));
     expect(text()).toContain('The chat cannot be reached right now');
-    emit(EVENTS.LOADING_INIT, true);
+    await emit(EVENTS.LOADING_INIT, true);
     expect(text()).toContain('The chat cannot be reached right now');
-    emit(EVENTS.LOADING_INIT, false);
+    await emit(EVENTS.LOADING_INIT, false);
     expect(text()).not.toContain('The chat cannot be reached right now');
     expect(text()).toContain('No messages yet.');
     expect(FakeSwarmChat.instances).toHaveLength(1);
@@ -298,14 +338,14 @@ describe('the chat on a watch page', () => {
 
   it('says when the chat is reconnecting or not updating, and nothing once it is live again', async () => {
     await open();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
-    emit(EVENTS.STATUS, 'reconnecting');
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    await emit(EVENTS.STATUS, 'reconnecting');
     expect(text()).toContain('Reconnecting to the chat');
     expect(messageTexts()).toEqual(['text of m']);
-    emit(EVENTS.STATUS, 'stalled');
+    await emit(EVENTS.STATUS, 'stalled');
     expect(text()).toContain('The chat is not updating right now');
     expect(text()).not.toContain('Reconnecting to the chat');
-    emit(EVENTS.STATUS, 'live');
+    await emit(EVENTS.STATUS, 'live');
     expect(text()).not.toContain('Reconnecting to the chat');
     expect(text()).not.toContain('The chat is not updating right now');
   });
@@ -321,15 +361,285 @@ describe('the chat on a watch page', () => {
         ),
       ),
     );
-    emit(EVENTS.CRITICAL_ERROR, new Error('unreachable'));
+    await emit(EVENTS.CRITICAL_ERROR, new Error('unreachable'));
     click(button('Join chat'));
     type(input('Display name'), 'Ada');
     click(button('Join'));
     await settle();
     expect(FakeSwarmChat.instances).toHaveLength(2);
-    emit(EVENTS.LOADING_INIT, false);
+    await emit(EVENTS.LOADING_INIT, false);
     expect(text()).not.toContain('cannot be reached');
     expect(input('Message')).toBeTruthy();
+  });
+});
+
+describe('what the chat checks', () => {
+  function refusedCount(): string | null | undefined {
+    return document.querySelector('.chat-container')?.getAttribute('data-refused-messages');
+  }
+
+  it('shows a message only once its signature has been checked off the main thread', async () => {
+    const port = inThreadPort();
+    const answer = port.postMessage;
+    const held: Array<() => void> = [];
+    port.postMessage = (request) => held.push(() => answer(request));
+    verifier.current = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
+    await open();
+
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'waits' }));
+    expect(messageTexts()).toEqual([]);
+    held.forEach((release) => release());
+    await checked();
+    expect(messageTexts()).toEqual(['text of waits']);
+  });
+
+  it('drops a verdict that comes back after the stream changed, shown or refused', async () => {
+    const port = inThreadPort();
+    const answer = port.postMessage;
+    const held: Array<() => void> = [];
+    port.postMessage = (request) => held.push(() => answer(request));
+    verifier.current = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
+    await open(panel('stream-one'));
+    const signed = message({ id: 'refused' });
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'late' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, { ...signed, signedMessage: { ...signed.signedMessage, text: 'tampered' } });
+
+    mounted?.render(panel('stream-two'));
+    await settle();
+    held.forEach((release) => release());
+    await checked();
+
+    expect(messageTexts()).toEqual([]);
+    expect(document.querySelector('.chat-container')?.getAttribute('data-refused-messages')).toBe('0');
+  });
+
+  it('still checks and shows messages when the worker fails, and still refuses a tampered one', async () => {
+    const port = inThreadPort();
+    port.postMessage = () => port.onerror?.(new Event('error') as ErrorEvent);
+    verifier.current = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
+    await open();
+
+    const signed = message({ id: 'tampered' });
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'checked here' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, { ...signed, signedMessage: { ...signed.signedMessage, text: 'changed' } });
+    await settle();
+    await settle();
+    expect(messageTexts()).toEqual(['text of checked here']);
+    expect(document.querySelector('.chat-container')?.getAttribute('data-refused-messages')).toBe('1');
+  });
+
+  it('draws a message from what was signed, never from the copy beside it', async () => {
+    await open();
+    const honest = message({ id: 'honest', username: 'Bea', message: 'what Bea signed' });
+    const forgedCopy = {
+      ...honest,
+      id: idOf('forged'),
+      message: 'what Mallory wrote',
+      username: 'Mallory',
+      address: 'f'.repeat(40),
+      targetMessageId: idOf('elsewhere'),
+    };
+    await emit(EVENTS.MESSAGE_RECEIVED, forgedCopy);
+
+    expect(messageTexts()).toEqual(['what Bea signed']);
+    expect(document.querySelector('.chat-message-name')?.textContent).toBe('Bea');
+    expect(text()).not.toContain('Mallory');
+    click(button('Guest, show details'));
+    expect(text()).toContain(`0x${honest.signedMessage.addr}`);
+    expect(text()).not.toContain('f'.repeat(40));
+  });
+
+  it('never shows a message whose text was changed after it was signed, and counts it', async () => {
+    await open();
+    const honest = message({ id: 'honest' });
+    const signed = message({ id: 'tampered' });
+    const tampered = { ...signed, message: 'changed', signedMessage: { ...signed.signedMessage, text: 'changed' } };
+    await emit(EVENTS.MESSAGE_RECEIVED, honest);
+    await emit(EVENTS.MESSAGE_RECEIVED, tampered);
+    expect(messageTexts()).toEqual(['text of honest']);
+    expect(text()).not.toContain('changed');
+    expect(refusedCount()).toBe('1');
+  });
+
+  it('never shows a message of the format before, and opens a chat whose history is all of it as an empty chat', async () => {
+    await open();
+    const current = message({ id: 'current' });
+    const { via: _via, own: _own, ...rest } = current.signedMessage;
+    const previous = { ...current, id: idOf('previous'), signedMessage: { ...rest, v: 7, id: idOf('previous') } };
+    await emit(EVENTS.MESSAGE_RECEIVED, previous);
+    expect(messageTexts()).toEqual([]);
+    expect(text()).toContain('No messages yet.');
+    expect(text()).not.toContain('cannot be reached');
+    await emit(EVENTS.MESSAGE_RECEIVED, current);
+    expect(messageTexts()).toEqual(['text of current']);
+  });
+
+  it("never shows a Swarm ID message whose binding was made for another site, not even as a guest's", async () => {
+    await open();
+    await emit(
+      EVENTS.MESSAGE_RECEIVED,
+      messageData(signedMessage('elsewhere', { key: await chatKeyFor(OTHER_SITE), binding: OTHER_SITE_BINDING }), 1),
+    );
+    expect(messageTexts()).toEqual([]);
+    expect(refusedCount()).toBe('1');
+  });
+
+  it("checks the viewer's own message while it is still sending", async () => {
+    signIn();
+    await open();
+    const own = message({ id: 'own', key: session!.privateKey, username: 'Ada', index: -1 });
+    const forged = { ...own, signedMessage: { ...own.signedMessage, text: 'not what was signed' } };
+    await emit(EVENTS.MESSAGE_REQUEST_INITIATED, forged);
+    expect(messageTexts()).toEqual([]);
+    await emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
+    expect(messageTexts()).toEqual(['text of own']);
+    expect(text()).toContain('Sending');
+  });
+});
+
+describe('who sent a message', () => {
+  function sender(): Element {
+    const line = document.querySelector('.chat-message .chat-message-sender');
+    if (!line) throw new Error('no sender line');
+    return line;
+  }
+
+  function details(): HTMLElement | null {
+    return document.querySelector('[role="region"][aria-label="Details for this message"]');
+  }
+
+  async function swarmIdMessage(label: string, fields: Partial<MessageFixture> = {}): Promise<MessageData> {
+    return message({ id: label, key: await chatKeyFor(BOUND_SITE), binding: CHAT_BINDING, username: 'Ida', ...fields });
+  }
+
+  it('writes the time the message was published after the badge and the stamp, once', async () => {
+    await open();
+    const at = new Date(2026, 10, 12, 9, 5).getTime();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'timed', via: MessageVia.OWN_STAMP, timestamp: at }));
+
+    const time = sender().querySelector('time');
+    expect(time?.textContent).toBe('09:05');
+    expect(time?.getAttribute('dateTime')).toBe(new Date(at).toISOString());
+    expect(sender().lastElementChild).toBe(time);
+    expect(document.querySelectorAll('.chat-message time')).toHaveLength(1);
+  });
+
+  it('writes no time, and still shows the message, when its time is out of range', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'timeless', timestamp: 8.64e15 + 1 }));
+    expect(messageTexts()).toEqual(['text of timeless']);
+    expect(sender().querySelector('time')).toBeNull();
+  });
+
+  it('marks a guest with a grey outline hexagon after the name, in the guest weight', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'guest', username: 'Bea' }));
+
+    expect(sender().querySelector('.chat-message-name')?.classList.contains('guest')).toBe(true);
+    const badge = button('Guest, show details');
+    expect(badge.querySelector('svg.sender-badge-guest')).not.toBeNull();
+    expect(queryButton('Sent with their own stamp, show details')).toBeNull();
+  });
+
+  it('marks a Swarm ID sender with the filled hexagon and its check, and the name in the accent colour', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, await swarmIdMessage('bound'));
+
+    expect(sender().querySelector('.chat-message-name')?.classList.contains('linked')).toBe(true);
+    expect(button('Swarm ID, show details').querySelector('svg.sender-badge-swarm-id')).not.toBeNull();
+    expect(queryButton('Guest, show details')).toBeNull();
+  });
+
+  it("opens a Swarm ID sender's details from the badge, with the account that vouched for the address", async () => {
+    await open();
+    const bound = await swarmIdMessage('bound');
+    await emit(EVENTS.MESSAGE_RECEIVED, bound);
+    click(button('Swarm ID, show details'));
+
+    const card = details();
+    expect(card).not.toBeNull();
+    const rows = Object.fromEntries(
+      [...card!.querySelectorAll('dt')].map((term) => [term.textContent, term.nextElementSibling?.textContent]),
+    );
+    expect(rows).toEqual({
+      Name: 'Ida',
+      Identity: 'Swarm ID, confirmed for this chat address',
+      'Public address': `0x${bound.address}`,
+      Signature: 'matches this text',
+      'ID link': 'confirmed by Swarm ID for this site',
+      'Swarm ID account': FORK_ACCOUNT,
+      Sent: 'by the event gateway',
+    });
+    expect(document.querySelector('.message-actions.visible')).toBeNull();
+  });
+
+  it('names the card it controls only while the card is open', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'guest' }));
+    const badge = button('Guest, show details');
+    expect(badge.hasAttribute('aria-controls')).toBe(false);
+    click(badge);
+    expect(badge.getAttribute('aria-controls')).toBe(details()!.id);
+    click(badge);
+    expect(badge.hasAttribute('aria-controls')).toBe(false);
+  });
+
+  it('closes the details on Escape and gives focus back to the button that opened them', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'stamped', via: MessageVia.OWN_STAMP }));
+
+    const stamp = button('Sent with their own stamp, show details');
+    click(stamp);
+    press(document.body, 'Escape');
+    expect(details()).toBeNull();
+    expect(document.activeElement).toBe(stamp);
+
+    const badge = button('Guest, show details');
+    click(badge);
+    click(button('Close'));
+    expect(details()).toBeNull();
+    expect(document.activeElement).toBe(badge);
+  });
+
+  it('marks what the check confirmed with the success colour', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, await swarmIdMessage('bound'));
+    click(button('Swarm ID, show details'));
+
+    const confirmed = [...details()!.querySelectorAll('dd.message-details-ok')].map((line) => line.textContent);
+    expect(confirmed).toEqual(['matches this text', 'confirmed by Swarm ID for this site']);
+    expect(details()!.querySelectorAll('dd.message-details-ok svg.message-details-check')).toHaveLength(2);
+  });
+
+  it("opens a guest's details with no ID link and no account, and closes them again", async () => {
+    await open();
+    const guest = message({ id: 'guest', username: 'Bea' });
+    await emit(EVENTS.MESSAGE_RECEIVED, guest);
+    click(button('Guest, show details'));
+
+    const card = details()!;
+    const terms = [...card.querySelectorAll('dt')].map((term) => term.textContent);
+    expect(terms).toEqual(['Name', 'Identity', 'Public address', 'Signature', 'Sent']);
+    expect(card.textContent).toContain('Guest, a key this browser keeps');
+    expect(card.textContent).toContain(`0x${guest.address}`);
+
+    click(button('Close'));
+    expect(details()).toBeNull();
+  });
+
+  it('shows a stamp after the badge for a message sent with its own stamp, which opens the same details', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'stamped', via: MessageVia.OWN_STAMP }));
+
+    const stamp = button('Sent with their own stamp, show details');
+    expect(stamp.closest('.chat-message-sender')).toBe(sender());
+    expect(stamp.getAttribute('title')).toBe('Own stamp');
+    click(stamp);
+    expect(details()?.textContent).toContain('with their own stamp');
+    expect(document.querySelector('.message-actions.visible')).toBeNull();
+
+    click(button('Guest, show details'));
+    expect(details()).toBeNull();
   });
 });
 
@@ -357,12 +667,12 @@ describe('sending', () => {
     expect(chat.sendMessage).toHaveBeenCalledWith('hello there', MessageType.TEXT, undefined);
     expect(input('Message').value).toBe('');
 
-    const own = message({ id: 'own', message: 'hello there', username: 'Ada', address: session!.address });
-    emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
+    const own = message({ id: 'own', message: 'hello there', username: 'Ada', key: session!.privateKey });
+    await emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
     expect(text()).toContain('Sending');
-    emit(EVENTS.MESSAGE_REQUEST_UPLOADED, own);
+    await emit(EVENTS.MESSAGE_REQUEST_UPLOADED, own);
     expect(text()).toContain('Sending');
-    emit(EVENTS.MESSAGE_RECEIVED, own);
+    await emit(EVENTS.MESSAGE_RECEIVED, own);
     expect(text()).not.toContain('Sending');
     expect(messageTexts()).toEqual(['hello there']);
   });
@@ -399,7 +709,7 @@ describe('sending', () => {
     type(input('Message'), '🐝'.repeat(400));
     expect(button('Send').disabled).toBe(false);
 
-    type(input('Message'), '🐝'.repeat(500));
+    type(input('Message'), '\u0001'.repeat(500));
     expect(button('Send').disabled).toBe(true);
     expect(text()).toContain('This message is too long to send.');
     expect(text()).not.toContain('at most 500 characters');
@@ -445,13 +755,13 @@ describe('sending', () => {
   it('shows a message as sending through a reconnect, and as not sent once the library reports it after', async () => {
     signIn();
     await open();
-    const own = message({ id: 'own', username: 'Ada', address: session!.address, index: -1 });
-    emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
-    emit(EVENTS.STATUS, 'reconnecting');
+    const own = message({ id: 'own', username: 'Ada', key: session!.privateKey, index: -1 });
+    await emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
+    await emit(EVENTS.STATUS, 'reconnecting');
     expect(text()).toContain('Sending');
     expect(text()).not.toContain('Not sent');
-    emit(EVENTS.STATUS, 'live');
-    emit(EVENTS.MESSAGE_REQUEST_ERROR, own);
+    await emit(EVENTS.STATUS, 'live');
+    await emit(EVENTS.MESSAGE_REQUEST_ERROR, own);
     expect(text()).toContain('Not sent');
     expect(button('Retry')).toBeTruthy();
   });
@@ -461,19 +771,19 @@ describe('sending', () => {
     await open();
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
-      const own = message({ id: 'own', username: 'Ada', address: session!.address, index: -1 });
-      emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
-      emit(EVENTS.MESSAGE_REQUEST_UPLOADED, own);
-      emit(EVENTS.STATUS, 'reconnecting');
+      const own = message({ id: 'own', username: 'Ada', key: session!.privateKey, index: -1 });
+      await emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
+      await emit(EVENTS.MESSAGE_REQUEST_UPLOADED, own);
+      await emit(EVENTS.STATUS, 'reconnecting');
       void act(() => vi.advanceTimersByTime(20_000));
       expect(text()).toContain('Sending');
       expect(text()).not.toContain('Not confirmed yet');
 
-      emit(EVENTS.STATUS, 'live');
+      await emit(EVENTS.STATUS, 'live');
       expect(text()).toContain('Not confirmed yet');
       expect(button('Resend')).toBeTruthy();
 
-      emit(EVENTS.STATUS, 'stalled');
+      await emit(EVENTS.STATUS, 'stalled');
       expect(text()).not.toContain('Not confirmed yet');
     } finally {
       vi.useRealTimers();
@@ -484,53 +794,53 @@ describe('sending', () => {
     signIn();
     await open();
     const chat = FakeSwarmChat.latest();
-    const own = message({ id: 'own', username: 'Ada', address: session!.address });
-    emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
-    emit(EVENTS.MESSAGE_REQUEST_ERROR, own);
+    const own = message({ id: 'own', username: 'Ada', key: session!.privateKey });
+    await emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
+    await emit(EVENTS.MESSAGE_REQUEST_ERROR, own);
     expect(text()).toContain('Not sent');
     click(button('Retry'));
-    expect(chat.retrySendMessage).toHaveBeenCalledWith(expect.objectContaining({ id: 'own' }));
-    emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
+    expect(chat.retrySendMessage).toHaveBeenCalledWith(expect.objectContaining({ id: idOf('own') }));
+    await emit(EVENTS.MESSAGE_REQUEST_INITIATED, own);
     expect(text()).not.toContain('Not sent');
   });
 });
 
 describe('reactions', () => {
-  function reaction(id: string, target: string, emoji: string, address: string, username = 'Someone') {
-    return message({ id, type: MessageType.REACTION, targetMessageId: target, message: emoji, address, username });
+  function reaction(id: string, target: string, emoji: string, key: string, username = 'Someone') {
+    return message({ id, type: MessageType.REACTION, targetMessageId: target, message: emoji, key, username });
   }
 
   it('are counted per person, and a second reaction with the same emoji takes the first back', async () => {
     signIn();
     await open();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
-    emit(EVENTS.MESSAGE_RECEIVED, reaction('r1', 'm', '👍', OTHER));
-    emit(EVENTS.MESSAGE_RECEIVED, reaction('r2', 'm', '👍', 'e'.repeat(40)));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, reaction('r1', 'm', '👍', GUEST_KEY));
+    await emit(EVENTS.MESSAGE_RECEIVED, reaction('r2', 'm', '👍', SECOND_GUEST_KEY));
     expect(button('👍 2').getAttribute('aria-pressed')).toBe('false');
 
-    emit(EVENTS.MESSAGE_RECEIVED, reaction('r3', 'm', '👍', OTHER));
+    await emit(EVENTS.MESSAGE_RECEIVED, reaction('r3', 'm', '👍', GUEST_KEY));
     expect(button('👍 1')).toBeTruthy();
-    emit(EVENTS.MESSAGE_RECEIVED, reaction('r4', 'm', '👍', 'e'.repeat(40)));
+    await emit(EVENTS.MESSAGE_RECEIVED, reaction('r4', 'm', '👍', SECOND_GUEST_KEY));
     expect(queryButton(/^👍/)).toBeNull();
   });
 
   it('do not count a reaction whose sending ran out, since nobody else ever saw it', async () => {
     signIn();
     await open();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
-    emit(EVENTS.MESSAGE_RECEIVED, reaction('r1', 'm', '👍', OTHER));
-    const own = reaction('mine', 'm', '👍', session!.address, 'Ada');
-    emit(EVENTS.MESSAGE_REQUEST_INITIATED, { ...own, index: -1 });
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, reaction('r1', 'm', '👍', GUEST_KEY));
+    const own = reaction('mine', 'm', '👍', session!.privateKey, 'Ada');
+    await emit(EVENTS.MESSAGE_REQUEST_INITIATED, { ...own, index: -1 });
     expect(button('👍 2')).toBeTruthy();
-    emit(EVENTS.MESSAGE_REQUEST_ERROR, { ...own, index: -1 });
+    await emit(EVENTS.MESSAGE_REQUEST_ERROR, { ...own, index: -1 });
     expect(button('👍 1').getAttribute('aria-pressed')).toBe('false');
   });
 
   it('counts two people who chose the same name as two', async () => {
     await open();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
-    emit(EVENTS.MESSAGE_RECEIVED, reaction('r1', 'm', '❤️', OTHER, 'Sam'));
-    emit(EVENTS.MESSAGE_RECEIVED, reaction('r2', 'm', '❤️', 'e'.repeat(40), 'Sam'));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, reaction('r1', 'm', '❤️', GUEST_KEY, 'Sam'));
+    await emit(EVENTS.MESSAGE_RECEIVED, reaction('r2', 'm', '❤️', SECOND_GUEST_KEY, 'Sam'));
     expect(button('❤️ 2')).toBeTruthy();
   });
 
@@ -538,19 +848,19 @@ describe('reactions', () => {
     signIn();
     await open();
     const chat = FakeSwarmChat.latest();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
-    emit(EVENTS.MESSAGE_RECEIVED, reaction('r1', 'm', '👍', session!.address, 'Ada'));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, reaction('r1', 'm', '👍', session!.privateKey, 'Ada'));
     expect(button('👍 1').getAttribute('aria-pressed')).toBe('true');
     click(button('👍 1'));
     await settle();
-    expect(chat.sendMessage).toHaveBeenCalledWith('👍', MessageType.REACTION, 'm');
+    expect(chat.sendMessage).toHaveBeenCalledWith('👍', MessageType.REACTION, idOf('m'));
   });
 
   it('are added from a picker that opens beside the message actions, never in a dialog', async () => {
     signIn();
     await open();
     const chat = FakeSwarmChat.latest();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
     expect(queryButton('Message actions')).toBeNull();
 
     click(document.querySelector('.chat-message .message')!);
@@ -562,14 +872,14 @@ describe('reactions', () => {
 
     click(picker.querySelector('button')!);
     await settle();
-    expect(chat.sendMessage).toHaveBeenCalledWith('🎉', MessageType.REACTION, 'm');
+    expect(chat.sendMessage).toHaveBeenCalledWith('🎉', MessageType.REACTION, idOf('m'));
     expect(document.querySelector('.emoji-picker-popover')).toBeNull();
   });
 
   it('close the picker on a press outside it or on Escape, and keep it and the actions open on a press inside', async () => {
     signIn();
     await open();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
     click(document.querySelector('.chat-message .message')!);
     const react = button('Add reaction');
     click(react);
@@ -594,7 +904,7 @@ describe('reactions', () => {
   it('move focus into the picker when it is opened from the keyboard', async () => {
     signIn();
     await open();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
     click(document.querySelector('.chat-message .message')!);
     act(() => {
       button('Add reaction').dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
@@ -605,7 +915,7 @@ describe('reactions', () => {
 
   it('show their actions on a click of the message and hide them on another', async () => {
     await open();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
     const bubble = document.querySelector('.chat-message .message')!;
     expect(document.querySelector('.message-actions.visible')).toBeNull();
     click(bubble);
@@ -617,8 +927,8 @@ describe('reactions', () => {
   it('ask a viewer with no name for one instead of sending', async () => {
     await open();
     const chat = FakeSwarmChat.latest();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
-    emit(EVENTS.MESSAGE_RECEIVED, reaction('r1', 'm', '👍', OTHER));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, reaction('r1', 'm', '👍', GUEST_KEY));
     click(button('👍 1'));
     expect(chat.sendMessage).not.toHaveBeenCalled();
     expect(dialog()?.textContent).toContain('Join the chat');
@@ -630,8 +940,8 @@ describe('threads', () => {
     signIn();
     await open();
     const chat = FakeSwarmChat.latest();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'parent', message: 'the question' }));
-    emit(
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'parent', message: 'the question' }));
+    await emit(
       EVENTS.MESSAGE_RECEIVED,
       message({ id: 'reply', type: MessageType.THREAD, targetMessageId: 'parent', message: 'an answer' }),
     );
@@ -644,7 +954,7 @@ describe('threads', () => {
     type(input('Reply'), 'another answer');
     click(button('Send'));
     await settle();
-    expect(chat.sendMessage).toHaveBeenCalledWith('another answer', MessageType.THREAD, 'parent');
+    expect(chat.sendMessage).toHaveBeenCalledWith('another answer', MessageType.THREAD, idOf('parent'));
 
     click(button('Back to the chat'));
     expect(messageTexts()).toEqual(['the question']);
@@ -652,7 +962,7 @@ describe('threads', () => {
 
   it('open from the message actions for a viewer with no name, who can read them', async () => {
     await open();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'parent' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'parent' }));
     click(document.querySelector('.chat-message .message')!);
     click(button('Reply in a thread'));
     expect(text()).toContain('No replies yet');
@@ -666,7 +976,7 @@ describe('older messages', () => {
     await settle();
     const chat = FakeSwarmChat.latest();
     chat.previousMessages = true;
-    emit(EVENTS.LOADING_INIT, false);
+    await emit(EVENTS.LOADING_INIT, false);
     click(button('Load older messages'));
     await settle();
     expect(chat.fetchPreviousMessages).toHaveBeenCalledTimes(1);
@@ -710,7 +1020,7 @@ describe('the chat lifecycle', () => {
   it('stops the old chat and starts the new stream chat when the stream changes, dropping the old messages', async () => {
     await open(panel('stream-one'));
     const first = FakeSwarmChat.latest();
-    emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'old' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'old' }));
     mounted?.render(panel('stream-two'));
     await settle();
     expect(first.stop).toHaveBeenCalled();
@@ -726,10 +1036,11 @@ describe('the chat lifecycle', () => {
     mounted?.render(panel('stream-two'));
     await settle();
     act(() => leftover('messageReceived', message({ id: 'late' })));
+    await checked();
     expect(messageTexts()).toEqual([]);
   });
 
-  it('stops again a chat whose start finished after it had been stopped, so its polling does not outlive it', async () => {
+  it('stops a chat once, and a start that finishes after the stop changes nothing on screen', async () => {
     let finishStart: () => void = () => {};
     FakeSwarmChat.nextStart = () =>
       new Promise<void>((resolve) => {
@@ -743,6 +1054,14 @@ describe('the chat lifecycle', () => {
     expect(first.stop).toHaveBeenCalledTimes(1);
     finishStart();
     await settle();
-    expect(first.stop).toHaveBeenCalledTimes(2);
+    expect(first.stop).toHaveBeenCalledTimes(1);
+    expect(FakeSwarmChat.latest().settings.infra.chatTopic).toBe('chat-stream-two');
+  });
+
+  it('calls a chat unreachable when its start fails', async () => {
+    FakeSwarmChat.nextStart = () => Promise.reject(new Error('no gateway'));
+    mounted = mount(panel());
+    await settle();
+    expect(text()).toContain('The chat cannot be reached right now');
   });
 });

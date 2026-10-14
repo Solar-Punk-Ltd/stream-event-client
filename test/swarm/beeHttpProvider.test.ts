@@ -11,6 +11,7 @@ import {
   RECORDED_GATEWAY,
   recordedBody,
   recordedCatalog,
+  recordedDateMs,
   recordedFetch,
   recordedStream,
   silentFetch,
@@ -27,8 +28,6 @@ const CHAT_CHUNK = firstRecordedPath('chunks').slice('chunks/'.length);
 const SEGMENT = firstRecordedPath('bytes').slice('bytes/'.length);
 /** The identifier of the recorded stream's first entry, a single-owner chunk the recording read. */
 const FIRST_ENTRY_ID = makeFeedIdentifier(STREAM_TOPIC, FeedIndex.fromBigInt(0n)).toString();
-/** The `Date` the recorded stream list head carries, Wed, 30 Sep 2026 07:16:57 GMT. */
-const CATALOG_HEAD_DATE_MS = Date.UTC(2026, 8, 30, 7, 16, 57);
 
 const RETRY_AFTER_SECONDS = 3;
 
@@ -39,6 +38,9 @@ const ABSENT_ADDRESS = 'ab'.repeat(32);
 const ABSENT_REFERENCE = 'cd'.repeat(32);
 
 const urlOf = (path: string) => `${RECORDED_GATEWAY}/${path}`;
+
+/** The `Date` the recorded stream list head carries, read from the recording so a new one needs no change here. */
+const CATALOG_HEAD_DATE_MS = recordedDateMs(urlOf(nextFeedRequest(CATALOG.owner, CATALOG_TOPIC, null).path));
 
 function beeHarness(): ContractHarness {
   return {

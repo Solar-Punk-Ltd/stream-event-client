@@ -106,6 +106,15 @@ export function recordedBody(url: string): Uint8Array {
   return answer.body;
 }
 
+/** The server time the recorded answer for one URL carries in its `Date` header, in milliseconds. */
+export function recordedDateMs(url: string): number {
+  const date = RECORDED.get(url)?.headers.get('date');
+  if (!date) {
+    throw new Error(`the recording holds no dated answer for ${url}`);
+  }
+  return Date.parse(date);
+}
+
 /** Bee's own answer for something it does not hold, the shape the ladder journeys' fake answers too. */
 function notFound(): Response {
   return new Response(JSON.stringify({ code: 404, message: 'Not Found' }), {

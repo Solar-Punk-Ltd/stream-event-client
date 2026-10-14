@@ -1,4 +1,5 @@
 import {
+  type ChatBinding,
   ChatMessageError,
   countCharacters,
   encodeChatMessage,
@@ -6,6 +7,7 @@ import {
   MAX_TEXT_CHARACTERS,
   MESSAGE_VERSION,
   type MessageType,
+  type MessageVia,
 } from '@solarpunkltd/swarm-chat-js';
 
 export const TOO_MANY_CHARACTERS = `A message is at most ${MAX_TEXT_CHARACTERS} characters.`;
@@ -23,13 +25,16 @@ export interface Draft {
   /** The message a reply refers to. */
   target?: string;
   text: string;
+  via: MessageVia;
+  /** The Swarm ID binding the message will carry, which counts towards its bytes. */
+  binding?: ChatBinding;
 }
 
 /**
  * Why the chat would refuse this draft, or null when it would take it. The caps are the library's: the text in
  * characters as it counts them, and the whole message in bytes as it is sent.
  */
-export function draftProblem({ topic, name, type, target = '', text }: Draft): string | null {
+export function draftProblem({ topic, name, type, target = '', text, via, binding }: Draft): string | null {
   if (countCharacters(text) > MAX_TEXT_CHARACTERS) {
     return TOO_MANY_CHARACTERS;
   }
@@ -43,6 +48,9 @@ export function draftProblem({ topic, name, type, target = '', text }: Draft): s
     name,
     addr: ADDRESS_PLACEHOLDER,
     ts: Date.now(),
+    via,
+    own: false,
+    ...(binding ? { idb: binding } : {}),
     sig: SIGNATURE_PLACEHOLDER,
   }).length;
   return bytes > MAX_MESSAGE_BYTES ? TOO_MANY_BYTES : null;

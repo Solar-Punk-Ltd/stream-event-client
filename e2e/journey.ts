@@ -1,4 +1,4 @@
-import { expect, type BrowserContext, type Page, type Route } from '@playwright/test';
+import { expect, type BrowserContext, type Locator, type Page, type Route } from '@playwright/test';
 import { DEFAULT_NOTE_SLOT_MS, noteAddress, noteSlotOf } from '@solarpunkltd/swarm-chat-js';
 
 import { PREVIEW_ORIGIN, type Published, SMOKE_MESSAGE, SMOKE_USER } from './recording';
@@ -89,6 +89,8 @@ export async function watchAndChat(page: Page, published: Published): Promise<vo
     await expect(chat.getByText(text, { exact: true }), `the chat shows "${text}"`).toBeVisible({ timeout: 20_000 });
   }
 
+  await badgesAndDetails(chat, published);
+
   await chat.getByRole('button', { name: 'Join the chat to send messages', exact: true }).click();
   await page.getByRole('textbox', { name: 'Display name', exact: true }).fill(SMOKE_USER);
   await page.getByRole('button', { name: 'Join', exact: true }).click();
@@ -96,4 +98,39 @@ export async function watchAndChat(page: Page, published: Published): Promise<vo
   await chat.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(chat.getByText(SMOKE_MESSAGE, { exact: true }), 'the sent message is shown').toBeVisible();
   await expect(chat.getByText('Not sent.'), 'the write was not refused').toHaveCount(0);
+  await expect(
+    chat
+      .getByRole('listitem')
+      .filter({ hasText: SMOKE_MESSAGE })
+      .getByRole('button', { name: 'Guest, show details', exact: true }),
+    "the viewer's own message carries the guest badge",
+  ).toBeVisible();
+}
+
+/** Each message's badge says who vouched for its sender, and the badge opens what the page's check found. */
+async function badgesAndDetails(chat: Locator, published: Published): Promise<void> {
+  const row = (text: string) => chat.getByRole('listitem').filter({ hasText: text });
+  const swarmId = row(published.chat.swarmId.text);
+  const guest = row(published.chat.texts[0]);
+
+  await expect(
+    guest.getByRole('button', { name: 'Guest, show details', exact: true }),
+    'a guest has the guest badge',
+  ).toBeVisible();
+  await expect(
+    row(published.chat.ownStamp.text).getByRole('button', {
+      name: 'Sent with their own stamp, show details',
+      exact: true,
+    }),
+    'a message sent with its own stamp shows the stamp',
+  ).toBeVisible();
+
+  await swarmId.getByRole('button', { name: 'Swarm ID, show details', exact: true }).click();
+  const details = swarmId.getByRole('region', { name: 'Details for this message', exact: true });
+  await expect(details, 'the badge opens the details').toBeVisible();
+  await expect(details).toContainText('confirmed by Swarm ID for this site');
+  await expect(details).toContainText(published.chat.swarmId.account);
+  await expect(details).toContainText('by the event gateway');
+  await details.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(details, 'the details close').toHaveCount(0);
 }
