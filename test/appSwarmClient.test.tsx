@@ -257,7 +257,10 @@ describe("the app's Swarm client", () => {
     await manifestFetcher.fetchSource(SOURCE_URL).catch(() => {});
 
     expect(current().swarm.ownPlayer('player')?.id).toBe(id);
-    expect(asked.slice(before)).toEqual([]);
+    expect(
+      asked.slice(before).filter((url) => !url.startsWith('/weeb-3/')),
+      "nothing but the node's own files",
+    ).toEqual([]);
     expect(
       current()
         .swarm.counts()
