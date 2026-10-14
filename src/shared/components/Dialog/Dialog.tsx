@@ -22,24 +22,36 @@ interface DialogProps {
   closeLabel?: string;
   /** Kept in view under the body, which scrolls between it and the title when it is long. */
   footer?: ReactNode;
-  /** Puts a back button before the title, for a dialog of several views, which leads to the one before. */
+  /**
+   * Puts a back button before the title, for a dialog of several views, which leads to the one before. Escape then
+   * goes back too, and closes the dialog only from a view without one.
+   */
   onBack?: () => void;
+  /**
+   * Names the view a dialog of several views shows. When it changes, focus moves to the field the new view marks with
+   * `data-dialog-focus`, or to the title when it marks none, so a screen reader hears where it landed.
+   */
+  view?: string;
   /** At the side of the window rather than at its middle, as a panel the page's header opens. */
   atSide?: boolean;
   children: ReactNode;
 }
 
 /**
- * A modal dialog: focus moves inside when it opens and cannot leave by Tab, Escape or a click on the
- * backdrop closes it, and focus goes back to whatever had it before, usually the button that opened
+ * A modal dialog: focus moves inside when it opens and cannot leave by Tab, Escape (or going back, in a view
+ * with a way back) or a click on the backdrop closes it, and focus goes back to whatever had it before, usually the button that opened
  * it. Rendered into the body so no ancestor's stacking or overflow can clip it.
  *
  * Built by hand rather than on the `<dialog>` element because the declared browser floor includes
  * Safari 14, which has no `showModal`.
  */
-export function Dialog({ title, onClose, closeLabel, footer, onBack, atSide = false, children }: DialogProps) {
+export function Dialog({ title, onClose, closeLabel, footer, onBack, view, atSide = false, children }: DialogProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
+  const shownView = useRef(view);
   // Read through a ref so a parent passing a new function each render does not re-run the effect,
   // which would hand focus back and take it again on every keystroke.
   const onCloseRef = useRef(onClose);
@@ -67,6 +79,15 @@ export function Dialog({ title, onClose, closeLabel, footer, onBack, atSide = fa
   }, [readEdges]);
 
   useEffect(() => {
+    if (shownView.current === view) {
+      return;
+    }
+    shownView.current = view;
+    const field = bodyRef.current?.querySelector<HTMLElement>('[data-dialog-focus]');
+    (field ?? titleRef.current)?.focus();
+  }, [view]);
+
+  useEffect(() => {
     const panel = panelRef.current;
     if (panel && !panel.contains(document.activeElement)) {
       firstFocusable(panel).focus();
@@ -78,7 +99,7 @@ export function Dialog({ title, onClose, closeLabel, footer, onBack, atSide = fa
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === KEY_ESCAPE) {
         event.stopPropagation();
-        onCloseRef.current();
+        (onBackRef.current ?? onCloseRef.current)();
         return;
       }
       if (event.key === KEY_TAB && panel) {
@@ -110,7 +131,7 @@ export function Dialog({ title, onClose, closeLabel, footer, onBack, atSide = fa
               <span aria-hidden="true">←</span>
             </button>
           )}
-          <h2 id={titleId} className="dialog-title">
+          <h2 id={titleId} ref={titleRef} className="dialog-title" tabIndex={-1}>
             {title}
           </h2>
           {closeLabel !== undefined && (

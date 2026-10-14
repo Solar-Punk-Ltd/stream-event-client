@@ -86,6 +86,7 @@ export function AddAddressView({ type, onAdded }: AddAddressProps) {
             autoComplete="off"
             spellCheck={false}
             placeholder={ADDRESS_PLACEHOLDERS[type]}
+            data-dialog-focus
             value={address}
             onChange={(event) => {
               setAddress(event.target.value);

@@ -40,21 +40,34 @@ export function Connect() {
   const { isOpen, open, close } = useConnect();
   const { session, swarmIdSession, logout } = useChatUser();
   const [view, setView] = useState<View>(MENU);
+  // Closing stops the node in this browser a viewer is adding, so Connect asks first rather than stop it unseen.
+  const [isConfirmingClose, setIsConfirmingClose] = useState(false);
   const { statuses } = useSourceStatuses(sources, isOpen, catalogFeed);
   // The node in this browser a viewer just added keeps running while Connect stays open, so its row shows its
   // peers. The video holds it too if it reads from it, and the node stops once neither does.
   const addedNode = useRef<SwarmClient | null>(null);
   const chatsAs = chat ? session : null;
 
+  const shownSource = view.kind === 'source' ? (sources.find(({ id }) => id === view.id) ?? null) : null;
+  const shown: View = view.kind === 'source' && shownSource === null ? MENU : view;
+  const isAddingWeeb3 = shown.kind === 'add-source' && shown.type === 'weeb-3';
+
+  const showView = (next: View) => {
+    setIsConfirmingClose(false);
+    setView(next);
+  };
+
   const closeConnect = () => {
+    if (isAddingWeeb3 && !isConfirmingClose) {
+      setIsConfirmingClose(true);
+      return;
+    }
+    setIsConfirmingClose(false);
     void addedNode.current?.stop();
     addedNode.current = null;
     setView(MENU);
     close();
   };
-
-  const shownSource = view.kind === 'source' ? (sources.find(({ id }) => id === view.id) ?? null) : null;
-  const shown: View = view.kind === 'source' && shownSource === null ? MENU : view;
 
   const title = (() => {
     switch (shown.kind) {
@@ -72,15 +85,24 @@ export function Connect() {
   })();
 
   const back = (() => {
+    if (isConfirmingClose) {
+      return () => setIsConfirmingClose(false);
+    }
     switch (shown.kind) {
       case 'menu':
         return undefined;
       case 'add-source':
-        return () => setView({ kind: 'add' });
+        return () => showView({ kind: 'add' });
       default:
-        return () => setView(MENU);
+        return () => showView(MENU);
     }
   })();
+
+  const viewName = [
+    shown.kind,
+    shown.kind === 'add-source' ? shown.type : shown.kind === 'source' ? shown.id : '',
+    isConfirmingClose ? 'confirming-close' : '',
+  ].join(' ');
 
   return (
     <>
@@ -101,6 +123,7 @@ export function Connect() {
           onClose={closeConnect}
           closeLabel="Close Connect"
           onBack={back}
+          view={viewName}
           atSide={shown.kind === 'menu'}
         >
           <div className="connect-body">
@@ -109,7 +132,7 @@ export function Connect() {
                 {chat && (
                   <section className="connect-group" aria-label="ID">
                     <div className="connect-section-label">ID</div>
-                    <IdSection onLeave={() => setView({ kind: 'leave' })} />
+                    <IdSection onLeave={() => showView({ kind: 'leave' })} />
                   </section>
                 )}
                 {/* The chat stamp, how a viewer's messages are paid for, sits here, between ID and Swarm access. */}
@@ -118,8 +141,8 @@ export function Connect() {
                   <SwarmAccess
                     sources={sources}
                     statuses={statuses}
-                    onSettings={(id) => setView({ kind: 'source', id })}
-                    onAdd={() => setView({ kind: 'add' })}
+                    onSettings={(id) => showView({ kind: 'source', id })}
+                    onAdd={() => showView({ kind: 'add' })}
                   />
                 </section>
                 <section className="connect-group" aria-label="Use for">
@@ -133,24 +156,39 @@ export function Connect() {
                 </section>
               </>
             )}
-            {shown.kind === 'add' && <AddTiles onPick={(type) => setView({ kind: 'add-source', type })} />}
+            {shown.kind === 'add' && <AddTiles onPick={(type) => showView({ kind: 'add-source', type })} />}
+            {isConfirmingClose && (
+              <div className="connect-box" role="alert">
+                <p>Closing stops the node in this tab. Weeb3 is not added yet.</p>
+                <div className="connect-foot">
+                  <Button
+                    variant={ButtonVariant.SECONDARY}
+                    data-dialog-focus
+                    onClick={() => setIsConfirmingClose(false)}
+                  >
+                    Keep adding
+                  </Button>
+                  <Button onClick={closeConnect}>Stop and close</Button>
+                </div>
+              </div>
+            )}
             {shown.kind === 'add-source' &&
               (shown.type === 'weeb-3' ? (
                 <AddWeeb3View
                   onAdded={(_id, client) => {
                     addedNode.current = client;
-                    setView(MENU);
+                    showView(MENU);
                   }}
                 />
               ) : (
-                <AddAddressView key={shown.type} type={shown.type} onAdded={() => setView(MENU)} />
+                <AddAddressView key={shown.type} type={shown.type} onAdded={() => showView(MENU)} />
               ))}
             {shown.kind === 'source' && shownSource && (
               <SourceSettings
                 key={shownSource.id}
                 source={shownSource}
                 status={statuses[shownSource.id]}
-                onRemoved={() => setView(MENU)}
+                onRemoved={() => showView(MENU)}
               />
             )}
             {shown.kind === 'leave' && (
@@ -159,13 +197,13 @@ export function Connect() {
                   If you leave, your display name won&apos;t be saved. You&apos;ll need to choose one again next time.
                 </p>
                 <div className="connect-foot">
-                  <Button variant={ButtonVariant.SECONDARY} onClick={() => setView(MENU)}>
+                  <Button variant={ButtonVariant.SECONDARY} onClick={() => showView(MENU)}>
                     Cancel
                   </Button>
                   <Button
                     onClick={() => {
                       logout();
-                      setView(MENU);
+                      showView(MENU);
                     }}
                   >
                     Leave

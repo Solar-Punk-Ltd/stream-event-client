@@ -156,6 +156,56 @@ describe('a dialog', () => {
     assert.equal(document.activeElement, opener);
   });
 
+  it('leads back from its back button, and goes back on Escape rather than closing', () => {
+    const onClose = vi.fn();
+    const onBack = vi.fn();
+    act(() => {
+      root.render(createElement(Dialog, { title: 'Pick one', onClose, onBack }, 'body'));
+    });
+    const back = document.querySelector('[role="dialog"] button[aria-label="Back"]') as HTMLButtonElement;
+    assert.ok(back, 'no back button');
+    act(() => back.click());
+    assert.equal(onBack.mock.calls.length, 1);
+
+    press('Escape');
+    assert.equal(onBack.mock.calls.length, 2);
+    assert.equal(onClose.mock.calls.length, 0);
+  });
+
+  it('sits at the side of the window when asked, and at its middle otherwise', () => {
+    act(() => {
+      root.render(createElement(Dialog, { title: 'Pick one', onClose: vi.fn(), atSide: true }, 'body'));
+    });
+    assert.equal(document.querySelector('.dialog-backdrop')?.classList.contains('at-side'), true);
+    act(() => {
+      root.render(createElement(Dialog, { title: 'Pick one', onClose: vi.fn() }, 'body'));
+    });
+    assert.equal(document.querySelector('.dialog-backdrop')?.classList.contains('at-side'), false);
+  });
+
+  it('moves focus to the title when its view changes, or to the field the new view marks for it', () => {
+    const render = (view: string, withField: boolean) =>
+      act(() => {
+        root.render(
+          createElement(
+            Dialog,
+            { title: view, onClose: vi.fn(), view },
+            createElement('button', { type: 'button' }, 'first'),
+            withField ? createElement('input', { 'aria-label': 'field', 'data-dialog-focus': '' }) : null,
+          ),
+        );
+      });
+    render('menu', false);
+    assert.equal(document.activeElement?.textContent, 'first');
+
+    render('settings', false);
+    assert.equal(document.activeElement?.tagName, 'H2');
+    assert.equal(document.activeElement?.textContent, 'settings');
+
+    render('add', true);
+    assert.equal(document.activeElement?.getAttribute('aria-label'), 'field');
+  });
+
   it('gives focus back to the opener when a control inside took focus on its own', () => {
     renderDialog(true, vi.fn(), { autoFocusFirst: true });
     assert.equal(document.activeElement?.getAttribute('aria-label'), 'first');

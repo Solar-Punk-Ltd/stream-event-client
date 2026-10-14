@@ -450,7 +450,10 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 The button at the right of the header opens Connect (`src/features/connect/Connect.tsx`), a panel at the side of
 the window on a wider screen. The button says Connect, or the viewer's chat name with its badge once they chat.
 Connect holds who the viewer is in the chat, every source they can read Swarm through, and what each source is
-used for. Adding a source and a source's settings open in its place, with a back arrow. Every change applies at
+used for. Adding a source and a source's settings open in its place, with a back arrow. Escape goes back one view
+the same way, and only Escape on the menu closes Connect. Each new view takes focus to its first field where it has
+one, as the address of a gateway or a Bee node, and to its title otherwise. Closing Connect while Weeb3 is being
+added asks first, since closing stops that node, with Keep adding and Stop and close. Every change applies at
 once and is kept in the browser, and nothing switches a source by itself.
 
 - **ID.** On a site with chat. Not chatting: a guest name with Chat as guest, and Sign in with Swarm ID where the

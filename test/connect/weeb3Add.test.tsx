@@ -151,6 +151,28 @@ describe('adding the node in this browser', () => {
     expect(seen.app!.sources.some((source) => source.type === 'weeb-3')).toBe(false);
   });
 
+  it('asks before closing Connect stops the node it is adding, and keeps it on Keep adding', async () => {
+    await openWeeb3();
+    await waitFor(() => fakeWeeb3.current!.nodes[0]);
+
+    click(button('Close Connect'));
+    await settle();
+    expect(dialog()).not.toBeNull();
+    expect(text()).toContain('Closing stops the node in this tab. Weeb3 is not added yet.');
+    expect(document.activeElement).toBe(button('Keep adding'));
+
+    click(button('Keep adding'));
+    await settle();
+    expect(text()).not.toContain('Closing stops the node');
+    expect(sharedWeeb3Runtime().status().state).not.toBe('stopped');
+
+    click(button('Close Connect'));
+    click(button('Stop and close'));
+    await settle();
+    expect(dialog()).toBeNull();
+    await waitFor(() => (sharedWeeb3Runtime().status().state === 'stopped' ? true : null));
+  });
+
   it('starts the node again and runs its checks once more on Test again, after it failed', async () => {
     fakeWeeb3.current = (await import('../helpers/fakeWeeb3')).fakeWeeb3Package({ initFails: true });
     await openWeeb3();

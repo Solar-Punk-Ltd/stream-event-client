@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { nicknameLogin } from '../../src/features/chat/auth/login';
 import { persistUserSession } from '../../src/features/chat/auth/persistence';
-import { button, click, dialog, type Mounted, queryButton, settle, text, type, waitFor } from '../helpers/dom';
+import { button, click, dialog, type Mounted, press, queryButton, settle, text, type, waitFor } from '../helpers/dom';
 import { chatConfig, connectPage, seen } from '../helpers/connectPage';
 import { minimalConfig } from '../helpers/themeChoice';
 
@@ -128,6 +128,37 @@ describe('Connect', () => {
 
     click(button('Connect'));
     expect(dialog()?.querySelector('h2')?.textContent).toBe('Connect');
+  });
+});
+
+describe("Connect's views", () => {
+  it('go back one view on Escape, and only Escape on the menu closes Connect', async () => {
+    await openConnect();
+    click(button('Add source'));
+    click(button(/^Gateway/));
+    expect(dialog()?.querySelector('h2')?.textContent).toBe('Add a gateway');
+
+    press(document.body, 'Escape');
+    expect(dialog()?.querySelector('h2')?.textContent).toBe('Add source');
+    press(document.body, 'Escape');
+    expect(dialog()?.querySelector('h2')?.textContent).toBe('Connect');
+    press(document.body, 'Escape');
+    expect(dialog()).toBeNull();
+  });
+
+  it('take focus to the new view, its first field where it has one and its title otherwise', async () => {
+    await openConnect();
+    click(button('Add source'));
+    await settle();
+    expect(document.activeElement?.textContent).toBe('Add source');
+
+    click(button(/^Gateway/));
+    await settle();
+    expect(document.activeElement).toBe(dialog()?.querySelector('input'));
+
+    click(button('Back'));
+    await settle();
+    expect(document.activeElement?.textContent).toBe('Add source');
   });
 });
 
