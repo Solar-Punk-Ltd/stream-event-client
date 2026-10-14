@@ -186,7 +186,8 @@ which stamps them.
 - **A blocked window.** A browser opens the window only on a click. When it blocks it anyway, the page
   says "Your browser blocked the Swarm ID window." with an Open Swarm ID button, whose click opens it.
 - **A binding the chat would refuse** is refused at sign-in rather than at every message: one made for
-  another site, or naming another address than the key's, leaves the person signed out with the reason.
+  another site, naming another address than the key's, or signed by another account than the one the
+  frame says is signed in, leaves the person signed out with the reason.
 - **When the Swarm ID site cannot be used**, as for a site it does not serve, the join dialog says it
   cannot be reached and guests chat as before.
 

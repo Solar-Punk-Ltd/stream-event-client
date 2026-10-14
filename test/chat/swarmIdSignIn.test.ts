@@ -16,7 +16,7 @@ import {
   type SwarmIdState,
   WINDOW_FAILED,
 } from '../../src/features/chat/swarmId/swarmIdSignIn';
-import { BINDING_REFUSED, chatNameOf } from '../../src/features/chat/swarmId/swarmIdSession';
+import { ACCOUNT_MISMATCH, BINDING_REFUSED, chatNameOf } from '../../src/features/chat/swarmId/swarmIdSession';
 import {
   FORK_BINDING,
   FORK_IDENTITY,
@@ -138,6 +138,30 @@ describe('signing in with Swarm ID', () => {
     }
 
     expect(signIn.getState()).toEqual({ status: SWARM_ID_SIGNED_OUT, problem: BINDING_REFUSED });
+  });
+
+  it('refuses a binding signed by another account than the one the frame says is signed in', async () => {
+    const swarmId = await fakeSwarmId();
+    const signIn = await started(swarmId);
+
+    swarmId.client().handOver({ identity: { ...FORK_IDENTITY, address: 'c'.repeat(40) }, chatBinding: FORK_BINDING });
+    for (let turn = 0; turn < 100 && !(signIn.getState() as { problem?: string }).problem; turn += 1) {
+      await settled();
+    }
+
+    expect(signIn.getState()).toEqual({ status: SWARM_ID_SIGNED_OUT, problem: ACCOUNT_MISMATCH });
+  });
+
+  it("reads the frame's account address in any spelling of its hex", async () => {
+    const swarmId = await fakeSwarmId();
+    const signIn = await started(swarmId);
+
+    swarmId.client().handOver({
+      identity: { ...FORK_IDENTITY, address: `0x${FORK_IDENTITY.address.toUpperCase()}` },
+      chatBinding: FORK_BINDING,
+    });
+
+    expect((await until(signIn, SWARM_ID_SIGNED_IN)).status).toBe(SWARM_ID_SIGNED_IN);
   });
 
   it('says so when the window signs in without confirming a chat address for this site', async () => {

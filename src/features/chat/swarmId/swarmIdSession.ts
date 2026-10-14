@@ -39,10 +39,17 @@ export function chatNameOf(identity: SwarmIdIdentity): string {
 type SwarmIdSessionResult = { ok: true; session: SwarmIdSession } | { ok: false; problem: string };
 
 export const BINDING_REFUSED = 'Swarm ID confirmed a chat address that is not the one it gave this site.';
+export const ACCOUNT_MISMATCH = 'Swarm ID confirmed this chat address for another account than the one signed in.';
+
+/** The chat library names an account `0x` and lower case, the Swarm ID library as bare hex. */
+function accountOf(identity: SwarmIdIdentity): string {
+  return `0x${identity.address.replace(/^0x/i, '').toLowerCase()}`;
+}
 
 /**
  * The session a signed-in viewer chats with. The binding is checked as every reader will check it, for this page's
- * origin and this key's address, so a viewer is never signed in to send messages the chat would refuse.
+ * origin and this key's address, so a viewer is never signed in to send messages the chat would refuse. Its signer
+ * must also be the account the frame says is signed in, so the badge names who the person picked.
  */
 export function swarmIdSession(
   identity: SwarmIdIdentity,
@@ -55,6 +62,9 @@ export function swarmIdSession(
   const check = checkChatBinding(chatBinding, session.address, scope);
   if (!check.ok) {
     return { ok: false, problem: BINDING_REFUSED };
+  }
+  if (check.identity.account !== accountOf(identity)) {
+    return { ok: false, problem: ACCOUNT_MISMATCH };
   }
   return { ok: true, session: { ...session, binding: chatBinding, accountName: identity.name.trim() } };
 }
