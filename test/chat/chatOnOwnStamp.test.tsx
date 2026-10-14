@@ -41,6 +41,15 @@ vi.mock('../../src/features/chat/verify/chatVerifier', () => ({
   },
 }));
 
+const weeb3Pushes = vi.hoisted(() => ({ pushed: [] as Array<{ identifier: string; stamp: string }> }));
+
+vi.mock('../../src/swarm/providers/weeb-3/weeb3Push', async (importActual) => ({
+  ...(await importActual<typeof import('../../src/swarm/providers/weeb-3/weeb3Push')>()),
+  pushStampedSocThroughWeeb3: async (chunk: { identifier: string; stamp: string }) => {
+    weeb3Pushes.pushed.push({ identifier: chunk.identifier, stamp: chunk.stamp });
+  },
+}));
+
 vi.mock('emoji-picker-react', () => ({
   default: () => null,
   EmojiStyle: { NATIVE: 'native' },
@@ -67,6 +76,11 @@ beforeAll(async () => {
 });
 let posted: Array<{ url: string; stamp: string | null }> = [];
 const realFetch = globalThis.fetch;
+
+function chatOnWeeb3() {
+  saveAddedSources([{ id: 'added-1', type: 'weeb-3', name: 'Weeb3', url: '' }]);
+  saveRouting(chooseSource(defaultRouting('event'), 'added-1'));
+}
 
 function chatOnMyBeeNode() {
   saveAddedSources([{ id: 'added-1', type: 'bee-node', name: 'My Bee node', url: NODE }]);
@@ -98,6 +112,7 @@ beforeEach(() => {
   verifier.current = inThreadVerifier();
   localStorage.clear();
   posted = [];
+  weeb3Pushes.pushed = [];
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     if (init?.method === 'POST') {
       posted.push({ url: String(input), stamp: new Headers(init.headers).get('swarm-postage-stamp') });
@@ -135,6 +150,23 @@ describe('a chat paid for with my own stamp', () => {
     expect(posted).toHaveLength(1);
     expect(posted[0].url.startsWith(`${NODE}/soc/`)).toBe(true);
     expect(posted[0].stamp).toBe('e'.repeat(226));
+  });
+
+  it('pushes each message through Weeb3 when it reads the chat, stamped by Swarm ID, and posts it to no node', async () => {
+    chatOnWeeb3();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    const swarmId = await watchPage();
+
+    const chat = FakeSwarmChat.latest();
+    expect(chat.settings.infra.via).toBe(MessageVia.OWN_STAMP);
+    expect(chat.settings.infra).not.toHaveProperty('writeUrl');
+    expect(seen.chatStamp?.warning, 'Weeb3 can send on my stamp, so nothing holds the message').toBeNull();
+    await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(signedMessage('through weeb-3'))));
+
+    expect(swarmId.client().stamped).toHaveLength(1);
+    expect(weeb3Pushes.pushed).toHaveLength(1);
+    expect(weeb3Pushes.pushed[0].stamp).toBe('e'.repeat(226));
+    expect(posted).toEqual([]);
   });
 
   it('keeps the messages on screen when the viewer changes who pays', async () => {

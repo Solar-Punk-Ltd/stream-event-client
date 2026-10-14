@@ -2,7 +2,7 @@ import { FeedIndex, Identifier, PrivateKey, Span, Topic } from '@ethersphere/bee
 import { type ChatMessage, createChatMessage, type GsocWrite, ownFeedTopic } from '@solarpunkltd/swarm-chat-js';
 
 import { makeFeedIdentifier } from '@/shared/feedFollow';
-import { postStampedSoc } from '@/swarm/providers/bee-http/stampedSocUpload';
+import { postStampedSoc, type StampedSoc } from '@/swarm/providers/bee-http/stampedSocUpload';
 
 import type { ChatReads } from '../chatParts';
 import type { SwarmIdChunkToStamp, SwarmIdStampedChunk } from '../swarmId/swarmIdClient';
@@ -14,6 +14,9 @@ export type { SendProblem } from './stampProblems';
 const NO_NODE = 'There is no Bee node to send it through.';
 
 export const OWN_FEED_UNREADABLE = 'Your own feed could not be read, so the message and its copy wait.';
+
+/** Sends a chunk Swarm ID signed and stamped, other than to a Bee node's URL: through the node in this browser. */
+export type StampedPush = (chunk: StampedSoc) => Promise<void>;
 
 /** What stamps a chunk with the viewer's own stamp: Swarm ID, while a viewer is signed in with it. */
 export interface ChunkStamper {
@@ -35,6 +38,11 @@ export interface OwnStampWriteOptions {
   readonly stamper: () => ChunkStamper | null;
   /** The viewer's own Bee node, which stores a chunk under the stamp it carries, or null while there is none to use. */
   readonly url: string | null;
+  /**
+   * Read at every write: how a stamped chunk goes out when it does not go to {@link url}, which is through the node in
+   * this browser, or null while the chat's source is not that node.
+   */
+  readonly push?: () => StampedPush | null;
   /**
    * Read at every write: why the page cannot send on the viewer's stamp now, such as a chat source that cannot take
    * a stamped message or a stamp that ran out, or null when it can.
@@ -103,7 +111,8 @@ function claimingOwnCopy(message: ChatMessage, chatKey: string): Uint8Array {
 
 /**
  * The chat's one write for a viewer who pays with their own stamp. Swarm ID signs and stamps each chunk, and the chunk
- * goes to the viewer's own Bee node, never through the event's gateway, whatever happens. The chat's inbox is one
+ * goes to the viewer's own Bee node or through the node in this browser, never through the event's gateway, whatever
+ * happens. The chat's inbox is one
  * single-owner chunk address, which Swarm ID stamps again in the slot it already holds, so a busy chat costs one slot.
  *
  * A refusal a resend cannot mend, such as a stamp that ran out, fails the message at once, and the chat's own resends
@@ -117,7 +126,8 @@ export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
   const copies = ownFeed ? ownFeedCopies(ownFeed, (chunk) => stampAndSend(chunk)) : null;
 
   async function stampAndSend(chunk: SwarmIdChunkToStamp): Promise<void> {
-    if (url === null) {
+    const push = options.push?.() ?? null;
+    if (url === null && push === null) {
       throw new SendRefusedError({ text: NO_NODE, final: true });
     }
     const stamper = options.stamper();
@@ -133,18 +143,19 @@ export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
     if (!stamped.owner || !stamped.signature) {
       throw new SendRefusedError(stampRefusal(null));
     }
+    const stampedSoc: StampedSoc = {
+      owner: stamped.owner,
+      identifier: chunk.identifier,
+      signature: stamped.signature,
+      stamp: stamped.stamp,
+      data: chunk.data,
+    };
     try {
-      await postStampedSoc(
-        url,
-        {
-          owner: stamped.owner,
-          identifier: chunk.identifier,
-          signature: stamped.signature,
-          stamp: stamped.stamp,
-          data: chunk.data,
-        },
-        { timeoutMs, ...(fetcher ? { fetcher } : {}) },
-      );
+      if (push) {
+        await push(stampedSoc);
+      } else if (url !== null) {
+        await postStampedSoc(url, stampedSoc, { timeoutMs, ...(fetcher ? { fetcher } : {}) });
+      }
     } catch (error) {
       throw new SendRefusedError(uploadProblem(error));
     }
@@ -157,7 +168,7 @@ export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
       throw new SendRefusedError(refusal);
     }
     try {
-      const blocked = options.refusal?.() ?? (url === null ? NO_NODE : null);
+      const blocked = options.refusal?.() ?? (url === null && !options.push?.() ? NO_NODE : null);
       if (blocked !== null) {
         throw new SendRefusedError({ text: blocked, final: true });
       }

@@ -15,7 +15,8 @@ import {
 import { type ChatReads, chatParts, type ChatPartsForPage } from './chatParts';
 import { draftProblem } from './draftCheck';
 import { groupReactions, type ReactionsByMessage } from './reactions';
-import type { ChunkStamper, SendProblem } from './stamp/ownStampWrite';
+
+import type { ChunkStamper, SendProblem, StampedPush } from './stamp/ownStampWrite';
 import { chatVerifier } from './verify/chatVerifier';
 
 /** Where a message stands on its way from this browser to the chat feed, as the library's sender reports it. */
@@ -50,6 +51,8 @@ export interface OwnStampSetup {
   readonly refusal: () => string | null;
   /** Told after every message the viewer's node took. */
   readonly onSent?: () => void;
+  /** Read at every write: how a stamped chunk goes out through the node in this browser, or null while it does not. */
+  readonly push?: () => StampedPush | null;
 }
 
 export const CHAT_LOADING = 'loading';
@@ -189,6 +192,7 @@ export function useSwarmChat(
           }
         },
         onSent: () => ownStampRef.current?.onSent?.(),
+        push: () => ownStampRef.current?.push?.() ?? null,
       });
       partsRef.current = parts;
       const started = new SwarmChat(current, { source: parts.source, write: parts.write });

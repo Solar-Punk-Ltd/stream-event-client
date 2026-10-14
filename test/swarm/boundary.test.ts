@@ -92,6 +92,16 @@ const ALLOWED_PAST_THE_SURFACE: readonly { readonly file: string; readonly targe
     why: "the chat write on the viewer's own stamp: a chunk Swarm ID stamped, sent to their Bee node, which no provider makes",
   },
   {
+    file: 'src/features/chat/stamp/ChatStamp.tsx',
+    target: 'providers/weeb-3/weeb3Push',
+    why: "the chat write on the viewer's own stamp through the node in this browser, a push no provider makes",
+  },
+  {
+    file: 'src/features/chat/stamp/stampProblems.ts',
+    target: 'providers/weeb-3/weeb3Push',
+    why: 'what the node in this browser answered that push, read from its error',
+  },
+  {
     file: 'src/features/chat/stamp/stampProblems.ts',
     target: 'providers/bee-http/stampedSocUpload',
     why: "what the viewer's Bee node answered that write, read from its error",

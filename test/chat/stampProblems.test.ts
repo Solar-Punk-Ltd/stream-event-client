@@ -11,6 +11,7 @@ import {
   uploadProblem,
 } from '../../src/features/chat/stamp/stampProblems';
 import { StampedUploadError } from '../../src/swarm/providers/bee-http/stampedSocUpload';
+import { Weeb3PushError } from '../../src/swarm/providers/weeb-3/weeb3Push';
 
 const refusal = (code: string, reason?: string) => Object.assign(new Error(code), { code, reason });
 
@@ -52,6 +53,29 @@ describe("why the viewer's Bee node did not take a message", () => {
     expect(uploadProblem(new StampedUploadError(402, 'payment required', false))).toEqual({
       text: 'Your Bee node refused it (HTTP 402: payment required).',
       final: true,
+    });
+  });
+});
+
+describe('why the node in this browser did not push a message', () => {
+  it('fails at once when it gave no answer by the deadline, since a stamp it will not take never answers', () => {
+    expect(uploadProblem(new Weeb3PushError('deadline', null))).toEqual({
+      text: 'Weeb3 did not confirm it within a minute. It gives no answer for a stamp it will not take, so it is not sent again by itself.',
+      final: true,
+    });
+  });
+
+  it('fails at once on a refusal it named, saying what it said', () => {
+    expect(uploadProblem(new Weeb3PushError('refused', 'Upload result: invalid stamp'))).toEqual({
+      text: 'Weeb3 refused it (Upload result: invalid stamp).',
+      final: true,
+    });
+  });
+
+  it('leaves the chat to resend while the node is not running, which the next push starts again', () => {
+    expect(uploadProblem(new Weeb3PushError('node', null))).toEqual({
+      text: 'The Swarm node in this browser is not running.',
+      final: false,
     });
   });
 });

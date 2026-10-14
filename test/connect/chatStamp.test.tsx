@@ -8,7 +8,7 @@ import { nicknameLogin } from '../../src/features/chat/auth/login';
 import { persistUserSession } from '../../src/features/chat/auth/persistence';
 import { swarmIdAppsUrl } from '../../src/features/chat/stamp/ChatStamp';
 import { loadChatStampChoice, saveChatStampChoice } from '../../src/features/chat/stamp/chatStampChoice';
-import { EVENT_GATEWAY_STAMPS_ITSELF, PICK_A_BEE_NODE } from '../../src/features/chat/stamp/ownStampRoute';
+import { EVENT_GATEWAY_STAMPS_ITSELF, PICK_A_SOURCE_THAT_SENDS } from '../../src/features/chat/stamp/ownStampRoute';
 import type { SwarmIdPostageBatch } from '../../src/features/chat/swarmId/swarmIdClient';
 import { chooseSource, defaultRouting } from '../../src/swarm/routing';
 import { connectPage, seen } from '../helpers/connectPage';
@@ -97,7 +97,7 @@ describe('the chat stamp in Connect', () => {
     expect(radio('Gateway pays')?.checked).toBe(true);
     expect(radio('My stamp')?.disabled).toBe(true);
     expect(group()?.textContent).toContain(EVENT_GATEWAY_STAMPS_ITSELF);
-    expect(group()?.textContent).toContain(PICK_A_BEE_NODE);
+    expect(group()?.textContent).toContain(PICK_A_SOURCE_THAT_SENDS);
   });
 
   it('shows how full the stamp Swarm ID gives this site is and its days left, once my stamp pays', async () => {
@@ -119,6 +119,20 @@ describe('the chat stamp in Connect', () => {
     expect(box).toContain('40 days left');
     expect(box).toContain('42% used');
     expect(group()?.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('42');
+  });
+
+  it('offers my stamp with Weeb3 picked for the chat history, which sends the message itself', async () => {
+    saveAddedSources([{ id: 'added-1', type: 'weeb-3', name: 'Weeb3', url: '' }]);
+    saveRouting(chooseSource(defaultRouting('event'), 'added-1'));
+    await openConnect();
+
+    expect(radio('My stamp')?.disabled).toBe(false);
+    click(radio('My stamp')!);
+    await settle();
+
+    expect(seen.chatStamp?.route).toEqual({ ok: true, through: 'weeb-3' });
+    expect(seen.chatStamp?.sending).toEqual({ via: MessageVia.OWN_STAMP, url: null, ownFeed: false });
+    expect(seen.chatStamp?.warning).toBeNull();
   });
 
   it('starts another account on this browser on the gateway, whatever an earlier account picked', async () => {

@@ -20,6 +20,8 @@ import { NOT_SIGNED_IN, STAMP_RAN_OUT } from '../../src/features/chat/stamp/stam
 import type { SwarmIdChunkToStamp, SwarmIdStampedChunk } from '../../src/features/chat/swarmId/swarmIdClient';
 import { makeFeedIdentifier } from '../../src/shared/feedFollow';
 import type { SwarmAnswer } from '../../src/swarm/answers';
+import type { StampedSoc } from '../../src/swarm/providers/bee-http/stampedSocUpload';
+import { Weeb3PushError } from '../../src/swarm/providers/weeb-3/weeb3Push';
 import { addressOf, BOUND_SITE, CHAT_BINDING, chatKeyFor, GUEST_KEY, idOf } from '../helpers/signedChat';
 
 const NODE = 'http://localhost:1633';
@@ -275,5 +277,58 @@ describe("a copy in the sender's own feed", () => {
     expect(problems[0].problem).toEqual({ text: OWN_FEED_UNREADABLE, final: false });
     expect(stamper.asked).toEqual([]);
     expect(bee.posted).toEqual([]);
+  });
+});
+
+describe("a chat message on the viewer's own stamp through the node in this browser", () => {
+  function pushing(outcome: () => Promise<void> = async () => undefined) {
+    const pushed: StampedSoc[] = [];
+    const push = async (chunk: StampedSoc) => {
+      pushed.push(chunk);
+      await outcome();
+    };
+    return { pushed, push };
+  }
+
+  it('is stamped by Swarm ID and pushed through the node, never posted to a Bee node', async () => {
+    const weeb3 = pushing();
+    const { stamper, bee, writer } = setUp({ url: null, push: () => weeb3.push });
+    const payload = payloadOf('through weeb-3');
+
+    await writer.write(payload);
+
+    expect(stamper.asked).toHaveLength(1);
+    expect(bee.posted).toEqual([]);
+    expect(weeb3.pushed).toHaveLength(1);
+    expect(weeb3.pushed[0]).toMatchObject({ identifier: inboxIdentifier, signature: SIGNATURE, stamp: STAMP });
+    expect(weeb3.pushed[0].data).toEqual(withSpan(payload));
+  });
+
+  it('fails at once when the push ran past its deadline, and the chat resending it asks neither Swarm ID nor the node again', async () => {
+    const weeb3 = pushing(async () => Promise.reject(new Weeb3PushError('deadline', null)));
+    const { stamper, writer, problems } = setUp({ url: null, push: () => weeb3.push });
+    const payload = payloadOf('never answered');
+
+    await expect(writer.write(payload)).rejects.toThrow('Weeb3 did not confirm it within a minute');
+    await expect(writer.write(payload)).rejects.toThrow('Weeb3 did not confirm it within a minute');
+
+    expect(stamper.asked).toHaveLength(1);
+    expect(weeb3.pushed).toHaveLength(1);
+    expect(problems.map(({ problem }) => problem.final)).toEqual([true]);
+  });
+
+  it('pushes the own feed copy through the node too, before the message', async () => {
+    const weeb3 = pushing();
+    const { reads } = headReads(NOT_FOUND);
+    const { writer } = setUp({
+      url: null,
+      push: () => weeb3.push,
+      ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads, readTimeoutMs: 1_000 },
+    });
+
+    await writer.write(payloadOf('copied'));
+
+    const copyIdentifier = makeFeedIdentifier(Topic.fromString(ownFeedTopic(CHAT_TOPIC)), FeedIndex.fromBigInt(0n));
+    expect(weeb3.pushed.map(({ identifier }) => identifier)).toEqual([copyIdentifier.toHex(), inboxIdentifier]);
   });
 });

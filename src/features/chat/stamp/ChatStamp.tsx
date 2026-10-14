@@ -2,6 +2,7 @@ import { MessageVia } from '@solarpunkltd/swarm-chat-js/message';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAppContext } from '@/app/AppProvider';
+import { pushStampedSocThroughWeeb3 } from '@/swarm/providers/weeb-3/weeb3Push';
 import { useConnect } from '@/features/connect/ConnectContext';
 
 import { useChatUser } from '../User';
@@ -197,11 +198,17 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
   stampChunkRef.current = stampChunk;
   const signedInRef = useRef(canUseOwnStamp);
   signedInRef.current = canUseOwnStamp;
+  const routeRef = useRef(route);
+  routeRef.current = route;
 
   const sending: ChatSending = useMemo(
     () =>
       ownStampPays
-        ? { via: MessageVia.OWN_STAMP, url: route.ok ? route.url : null, ownFeed: choice.ownFeed }
+        ? {
+            via: MessageVia.OWN_STAMP,
+            url: route.ok && route.through === 'bee-node' ? route.url : null,
+            ownFeed: choice.ownFeed,
+          }
         : GATEWAY_SENDING,
     [ownStampPays, route, choice.ownFeed],
   );
@@ -217,6 +224,10 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
               return current?.blocksSending ? current.title : null;
             },
             onSent: readAfterSend,
+            push: () => {
+              const current = routeRef.current;
+              return current.ok && current.through === 'weeb-3' ? pushStampedSocThroughWeeb3 : null;
+            },
           }
         : null,
     [ownStampPays, choice.ownFeed, readAfterSend],

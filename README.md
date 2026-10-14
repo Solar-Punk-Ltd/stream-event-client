@@ -215,19 +215,22 @@ stamps them, unless the person picks their own stamp, as the next section says.
 Connect has a **Chat stamp** group, between ID and Swarm access, once the viewer is chatting. Every message on
 Swarm needs a postage stamp, and the group offers two ways to pay.
 
-- **Gateway pays**, the default for everyone, as before: the message goes to `chat.writeUrl`, which stamps it.
+- **Gateway pays**, the default for everyone, as before: the message goes to `chat.writeUrl`, which stamps it. That
+  holds with Weeb3 picked for Chat history too: the page holds no stamp, and only the event's write path has one to
+  pay with, so the history is read through Weeb3 and the message is written through the event's gateway.
 - **My stamp**, offered once signed in with Swarm ID. The stamp is the one Swarm ID gives this site. It is bought,
   topped up, made bigger and chosen for the site in Swarm ID, never in this page, which holds no stamp and no stamp
   key. For each message the page builds the chunk, Swarm ID signs and stamps it in its frame with `stampChunk`,
-  and the page sends the stamped chunk itself, `POST /soc/<owner>/<id>?sig=...` with the stamp in Bee's
-  `swarm-postage-stamp` header, through the source picked for **Chat history** in Use for. Every message says
+  and the page sends the stamped chunk itself through the source picked for **Chat history** in Use for: to a Bee
+  node as `POST /soc/<owner>/<id>?sig=...` with the stamp in Bee's `swarm-postage-stamp` header, or through Weeb3
+  with weeb-3's `postPushChunk`, the whole chunk at its address with the stamp's 113 bytes. Every message says
   `via: "own-stamp"`. The chat's inbox is one single-owner chunk address, which Swarm ID stamps again in the slot
   it already holds, so a busy chat costs one slot of the stamp rather than one per message.
-- **Which source can send it.** Only a Bee node of the viewer's own stores a chunk under a stamp it is handed, so
-  My stamp needs a Bee node picked for Chat history. The event gateway's chat path stamps every write with the
-  gateway's own batch, a `/bee` path on the site passes reads alone, and the page cannot tell what any other gateway
-  does with a stamp, so with a gateway picked My stamp says why it cannot be used, and names the fix. The node in
-  this browser sends chat messages in a later release. The Bee node must allow this site's origin
+- **Which source can send it.** Only a Bee node of the viewer's own and Weeb3, the node in this browser, send a chunk
+  under a stamp they are handed, so My stamp needs one of them picked for Chat history. The event gateway's chat path
+  stamps every write with the gateway's own batch, a `/bee` path on the site passes reads alone, and the page cannot
+  tell what any other gateway does with a stamp, so with a gateway picked My stamp says why it cannot be used, and
+  names the fix. The Bee node must allow this site's origin
   (`cors-allowed-origins`) for the write as for its reads, and needs the stamp's chain to check it, so a light
   node or a full one, not an ultra-light one.
 - **Nothing switches by itself.** A message Swarm ID will not stamp, or the node refuses, shows "Not sent." with
@@ -235,7 +238,13 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   out, fails the message at once, and Retry tries it again on the same stamp. A node that did not answer, or a
   busy Swarm ID, is resent by the chat on its own, on the same stamp and through the same node. When the source
   picked for Chat history changes to one that cannot send on the stamp, the choice stays, sending is held with
-  the reason, and the viewer picks a Bee node again or presses Let the gateway pay.
+  the reason, and the viewer picks a Bee node or Weeb3 again or presses Let the gateway pay.
+- **A deadline on every push through Weeb3.** weeb-3 answers a stamp it will not take with silence, never an error,
+  so each push has a minute (`WEEB3_PUSH_DEADLINE_MS`, measured pushes took 7 to 15 s). A push with no answer by then
+  fails the message at once, "Weeb3 did not confirm it within a minute.", and the chat does not send it again by
+  itself, since a second try on the same stamp would wait the same minute. Retry tries once more. A refusal weeb-3
+  names fails at once too, and a node that is not running is started again by the chat's own resend. The own-feed
+  copy goes through Weeb3 the same way, before the message.
 - **The stamp's figures.** With My stamp picked, Connect shows the site's stamp: its name, how full it is, its days
   left, and **Change stamp in Swarm ID**, which opens this site's row on Swarm ID's Apps screen,
   `<swarmId.url>/#apps/<this site's origin>`, in a window of its own. The figures are read from Swarm ID's
@@ -535,8 +544,9 @@ once and is kept in the browser, and nothing switches a source by itself.
   first entry for a gateway and Bee's `/health`, `/readiness` and `/peers` for a Bee node, and nothing is checked
   while it is closed. Add source sits under the list.
 - **Use for.** All features reads the video, the stream list, the previews and the chat history from the one source
-  picked. Per feature picks a source each for Video, Stream list, Previews and Chat history. Chat messages are always
-  sent to `chat.writeUrl`, whichever source reads the chat history. The deployment's default gateway reads its chat
+  picked. Per feature picks a source each for Video, Stream list, Previews and Chat history. While the event pays, chat
+  messages are sent to `chat.writeUrl`, whichever source reads the chat history. On the viewer's own stamp they go
+  through the source picked for Chat history, a Bee node of their own or Weeb3. The deployment's default gateway reads its chat
   history at `chat.readUrl`, where it serves the chat's paths, and any other source reads the chat at its own address.
 - **Adding a source.** Three tiles: Gateway, a Swarm gateway at an https address, My Bee node, on this computer or
   at an https address, and Weeb3, a Swarm node in this browser tab. A browser has one Bee node of its own and one

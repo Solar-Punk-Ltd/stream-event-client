@@ -1,4 +1,5 @@
 import { StampedUploadError } from '@/swarm/providers/bee-http/stampedSocUpload';
+import { Weeb3PushError } from '@/swarm/providers/weeb-3/weeb3Push';
 
 /**
  * Why a message on the viewer's own stamp did not go out, in words the message shows. `final` is a refusal a resend
@@ -75,8 +76,31 @@ export function stampRefusal(error: unknown): SendProblem {
 const TOO_MANY_REQUESTS = 429;
 const FIRST_SERVER_ERROR = 500;
 
-/** What a failed send to the viewer's own Bee node means for the message. */
+const WEEB3_NO_ANSWER =
+  'Weeb3 did not confirm it within a minute. It gives no answer for a stamp it will not take, so it is not sent again by itself.';
+const WEEB3_NOT_RUNNING = 'The Swarm node in this browser is not running.';
+
+/**
+ * What a failed push through the node in this browser means for the message. weeb-3 answers a stamp it will not take
+ * with silence, so a push that ran out its deadline is most likely refused, and a resend on the same stamp would wait
+ * the whole deadline again: it fails at once. A node not running is started again by the next push, so that resends.
+ */
+function weeb3Problem(error: Weeb3PushError): SendProblem {
+  switch (error.reason) {
+    case 'deadline':
+      return refused(WEEB3_NO_ANSWER);
+    case 'refused':
+      return refused(`Weeb3 refused it${error.detail ? ` (${error.detail})` : ''}.`);
+    case 'node':
+      return retried(WEEB3_NOT_RUNNING);
+  }
+}
+
+/** What a failed send, to the viewer's own Bee node or through the node in this browser, means for the message. */
 export function uploadProblem(error: unknown): SendProblem {
+  if (error instanceof Weeb3PushError) {
+    return weeb3Problem(error);
+  }
   if (!(error instanceof StampedUploadError) || error.status === null) {
     return retried(
       error instanceof StampedUploadError && error.timedOut

@@ -4,8 +4,7 @@ import {
   EVENT_GATEWAY_STAMPS_ITSELF,
   GATEWAY_STAMPS_ITSELF,
   ownStampRoute,
-  PICK_A_BEE_NODE,
-  WEEB3_SENDS_LATER,
+  PICK_A_SOURCE_THAT_SENDS,
 } from '../../src/features/chat/stamp/ownStampRoute';
 import type { Source } from '../../src/swarm/sources';
 
@@ -20,9 +19,10 @@ const source = (extra: Partial<Source>): Source => ({
 
 describe('which source a message on my own stamp goes out through', () => {
   it("is the viewer's own Bee node, which stores a chunk under the stamp it carries", () => {
-    expect(ownStampRoute(source({}), 'event')).toEqual({ ok: true, url: 'http://localhost:1633' });
+    expect(ownStampRoute(source({}), 'event')).toEqual({ ok: true, through: 'bee-node', url: 'http://localhost:1633' });
     expect(ownStampRoute(source({ url: 'https://bee.example.com/' }), 'event')).toEqual({
       ok: true,
+      through: 'bee-node',
       url: 'https://bee.example.com',
     });
   });
@@ -31,7 +31,7 @@ describe('which source a message on my own stamp goes out through', () => {
     expect(ownStampRoute(source({ id: 'event', type: 'gateway', offered: true, url: '/bee' }), 'event')).toEqual({
       ok: false,
       reason: EVENT_GATEWAY_STAMPS_ITSELF,
-      hint: PICK_A_BEE_NODE,
+      hint: PICK_A_SOURCE_THAT_SENDS,
     });
   });
 
@@ -43,16 +43,16 @@ describe('which source a message on my own stamp goes out through', () => {
       expect(ownStampRoute(gateway, 'event')).toEqual({
         ok: false,
         reason: GATEWAY_STAMPS_ITSELF,
-        hint: PICK_A_BEE_NODE,
+        hint: PICK_A_SOURCE_THAT_SENDS,
       });
     }
   });
 
-  it('is not the node in this browser yet', () => {
-    expect(ownStampRoute(source({ type: 'weeb-3', url: '' }), 'event')).toEqual({
-      ok: false,
-      reason: WEEB3_SENDS_LATER,
-      hint: PICK_A_BEE_NODE,
-    });
+  it('is the node in this browser, which pushes a chunk under the stamp it is handed', () => {
+    expect(ownStampRoute(source({ type: 'weeb-3', url: '' }), 'event')).toEqual({ ok: true, through: 'weeb-3' });
+  });
+
+  it('names both sources that can send it when a gateway is picked', () => {
+    expect(PICK_A_SOURCE_THAT_SENDS).toBe('Pick your Bee node or Weeb3 for Chat history in Use for.');
   });
 });

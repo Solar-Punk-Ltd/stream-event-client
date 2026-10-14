@@ -19,7 +19,7 @@ import { MAX_CHUNK_PAYLOAD } from '@/swarm/singleOwnerChunk';
 
 import { readOwnersChunk } from './ownersChunk';
 
-import { type ChunkStamper, ownStampWrite, type SendProblem } from './stamp/ownStampWrite';
+import { type ChunkStamper, ownStampWrite, type SendProblem, type StampedPush } from './stamp/ownStampWrite';
 
 /** What the chat reads Swarm through, which the client routes to the event's chat read address. */
 export type ChatReads = Pick<SwarmReader, 'readFeedHead' | 'readChunk' | 'readUnsignedSoc' | 'readBytes'>;
@@ -157,6 +157,8 @@ interface OwnStampParts {
   readonly refusal?: () => string | null;
   readonly onProblem?: (messageId: string, problem: SendProblem) => void;
   readonly onSent?: () => void;
+  /** Read at every write: how a stamped chunk goes out through the node in this browser, or null while it does not. */
+  readonly push?: () => StampedPush | null;
 }
 
 /** The library's parts, and the way to let a message refused on the viewer's stamp be tried again. */
@@ -169,8 +171,9 @@ const NOTHING_REFUSED = () => {};
 /**
  * The two parts swarm-chat-js takes in place of reaching Bee itself: its reads, through the Swarm client's chat
  * reader, and its one write. While the event pays, a message goes to the event's chat write address, which stamps it,
- * through the library's own write, unchanged. On the viewer's own stamp it goes to their Bee node at `writeUrl`, stamped
- * by Swarm ID, and never anywhere else, and with no `writeUrl` it is refused.
+ * through the library's own write, unchanged. On the viewer's own stamp it is stamped by Swarm ID and goes to their Bee
+ * node at `writeUrl`, or through the node in this browser where the chat reads from it, and never anywhere else. With
+ * neither it is refused.
  *
  * @param reads The client's chat reader as it is now, see {@link ChatSourceOptions.reads}.
  * @throws When the settings say the viewer's own stamp and nothing can stamp.
@@ -207,6 +210,7 @@ export function chatParts(settings: ChatSettings, reads: () => ChatReads, ownSta
         : null,
       ...(ownStamp.onProblem ? { onProblem: ownStamp.onProblem } : {}),
       ...(ownStamp.onSent ? { onSent: ownStamp.onSent } : {}),
+      ...(ownStamp.push ? { push: ownStamp.push } : {}),
     });
     return { source, write, forgetRefusal };
   }
