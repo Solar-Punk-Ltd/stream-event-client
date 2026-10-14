@@ -214,18 +214,6 @@ describe('the Bee HTTP provider', () => {
     expect(bee.urlFor('../x?y', 'thumbnail')).toBe('/bee/bzz/..%2Fx%3Fy/');
   });
 
-  it('can make every read, gives URLs and runs no node in the tab', () => {
-    expect(provider(recordedFetch()).capabilities).toEqual({
-      feedHead: true,
-      feedEntry: true,
-      soc: true,
-      chunk: true,
-      bytes: true,
-      urls: true,
-      inTab: false,
-    });
-  });
-
   it('is ready from the start, and starting and stopping it changes nothing', async () => {
     const bee = provider(recordedFetch());
 

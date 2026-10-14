@@ -12,11 +12,10 @@ const OWNER = '1'.repeat(40);
 const TOPIC = Topic.fromString('client-test');
 const REFERENCE = 'ef'.repeat(32);
 
-const POLICY = { faultsBeforePause: 2, firstPauseMs: 1_000, longestPauseMs: 3_000 };
-
 interface World {
   readonly chosen: ScriptedProvider;
-  readonly fallback: ScriptedProvider;
+  /** A provider the client holds for the chat alone, which no other feature may ever reach. */
+  readonly other: ScriptedProvider;
   readonly client: SwarmClient;
   /** Moves the client's clock on. */
   advance(ms: number): void;
@@ -24,18 +23,17 @@ interface World {
 
 function world(options: Partial<SwarmClientOptions> = {}): World {
   const chosen = new ScriptedProvider('chosen');
-  const fallback = new ScriptedProvider('fallback');
+  const other = new ScriptedProvider('other');
   let nowMs = 0;
   const client = new SwarmClient({
     chosen: { id: 'chosen', provider: chosen },
-    fallback: { id: 'fallback', provider: fallback },
-    pausePolicy: POLICY,
+    routes: { chat: { id: 'other', provider: other } },
     now: () => nowMs,
     ...options,
   });
   return {
     chosen,
-    fallback,
+    other,
     client,
     advance: (ms) => {
       nowMs += ms;
@@ -47,7 +45,7 @@ const readBytes = (client: SwarmClient) => client.reader('player').readBytes(REF
 
 describe('the Swarm client', () => {
   it("answers a feature's read from the chosen provider, as that provider answered it", async () => {
-    const { chosen, fallback, client } = world();
+    const { chosen, client } = world({ routes: {} });
     chosen.answer = content();
 
     expect(await client.reader('stream-list').readFeedHead(OWNER, TOPIC)).toBe(chosen.answer);
@@ -56,441 +54,148 @@ describe('the Swarm client', () => {
     expect(await client.reader('chat').readChunk(REFERENCE)).toBe(chosen.answer);
     expect(await client.reader('previews').readBytes(REFERENCE)).toBe(chosen.answer);
     expect(chosen.asked).toEqual(['feed-head', 'feed-entry', 'soc', 'chunk', 'bytes']);
-    expect(fallback.asked).toEqual([]);
   });
 
-  describe('falling back', () => {
-    it('asks the fallback when the chosen provider is unavailable, and answers with its answer', async () => {
-      const { chosen, fallback, client } = world();
-      chosen.answer = fault;
-      fallback.answer = content();
+  describe('never switching source', () => {
+    it.each([
+      ['a fault', fault],
+      ['unsupported', { kind: 'unsupported' as const }],
+      ['a rate limit', { kind: 'rate-limited' as const, retryAfterMs: 1_000, serverTimeMs: null }],
+      ['not found', notFound],
+    ])("answers %s from the feature's own provider and asks nobody else", async (_, answer) => {
+      const { chosen, other, client } = world();
+      chosen.answer = answer;
+      other.answer = content();
 
-      expect(await readBytes(client)).toBe(fallback.answer);
-      expect(chosen.asked).toEqual(['bytes']);
-      expect(fallback.asked).toEqual(['bytes']);
-    });
-
-    it('asks the fallback when the chosen provider cannot make that read at all', async () => {
-      const { chosen, fallback, client } = world();
-      chosen.answer = { kind: 'unsupported' };
-      fallback.answer = content();
-
-      expect(await readBytes(client)).toBe(fallback.answer);
-    });
-
-    it('takes not found as the answer, because it is one about the content, not a fault', async () => {
-      const { chosen, fallback, client } = world();
-      chosen.answer = notFound;
-
-      expect(await readBytes(client)).toBe(notFound);
-      expect(fallback.asked).toEqual([]);
-    });
-
-    it('asks nobody else once the caller has stopped the read', async () => {
-      const { chosen, fallback, client } = world();
-      chosen.answer = { kind: 'aborted' };
-
-      expect(await readBytes(client)).toEqual({ kind: 'aborted' });
-      expect(fallback.asked).toEqual([]);
-    });
-
-    it('answers the last fault when the fallback fails too', async () => {
-      const { chosen, fallback, client } = world();
-      chosen.answer = fault;
-      fallback.answer = { kind: 'unavailable', cause: { kind: 'status', status: 502 } };
-
-      expect(await readBytes(client)).toBe(fallback.answer);
-    });
-
-    it('has nobody to fall back to when the fallback is the chosen provider', async () => {
-      const chosen = new ScriptedProvider('chosen');
-      chosen.answer = fault;
-      const client = new SwarmClient({
-        chosen: { id: 'event', provider: chosen },
-        fallback: { id: 'event', provider: chosen },
-      });
-
-      expect(await readBytes(client)).toBe(fault);
-      expect(chosen.asked).toEqual(['bytes']);
-    });
-    it('takes a chat slot Bee answers 500 for as not there, so the fallback is not asked', async () => {
-      const bee = new BeeHttpProvider({ baseUrl: 'http://bee.example', fetcher: answeringFetch(500) });
-      const fallback = new ScriptedProvider('fallback');
-      const client = new SwarmClient({
-        chosen: { id: 'event', provider: bee },
-        fallback: { id: 'fallback', provider: fallback },
-        pausePolicy: { ...POLICY, faultsBeforePause: 1 },
-      });
-
-      expect(await client.reader('chat').readChunk(REFERENCE)).toMatchObject({ kind: 'not-found' });
-      expect(fallback.asked).toEqual([]);
-      expect(client.health()).toContainEqual({ id: 'event', faultsInARow: 0, pausedUntilMs: null });
-    });
-  });
-
-  describe('an ordered list of fallbacks', () => {
-    function ordered() {
-      const chosen = new ScriptedProvider('chosen');
-      const second = new ScriptedProvider('second');
-      const last = new ScriptedProvider('last');
-      let nowMs = 0;
-      const client = new SwarmClient({
-        chosen: { id: 'chosen', provider: chosen },
-        fallbacks: [
-          { id: 'second', provider: second },
-          { id: 'last', provider: last },
-        ],
-        pausePolicy: POLICY,
-        now: () => nowMs,
-      });
-      return { chosen, second, last, client, advance: (ms: number) => void (nowMs += ms) };
-    }
-
-    it('asks each fallback in order until one answers', async () => {
-      const { chosen, second, last, client } = ordered();
-      chosen.answer = fault;
-      second.answer = fault;
-      last.answer = content();
-
-      expect(await readBytes(client)).toBe(last.answer);
-      expect([chosen.asked, second.asked, last.asked]).toEqual([['bytes'], ['bytes'], ['bytes']]);
-    });
-
-    it('stops at the first fallback that answers', async () => {
-      const { chosen, second, last, client } = ordered();
-      chosen.answer = fault;
-      second.answer = notFound;
-
-      expect(await readBytes(client)).toBe(second.answer);
-      expect(last.asked).toEqual([]);
-    });
-
-    it("leaves out the feature's own provider when it is also in the list", async () => {
-      const { second, last, client } = ordered();
-      const routed = new SwarmClient({
-        chosen: { id: 'second', provider: second },
-        fallbacks: [
-          { id: 'second', provider: second },
-          { id: 'last', provider: last },
-        ],
-      });
-      second.answer = fault;
-      last.answer = content();
-
-      expect(await routed.reader('player').readBytes(REFERENCE)).toBe(last.answer);
-      expect(second.asked).toEqual(['bytes']);
-      expect(client.activity()[0].fallbackOrder).toEqual(['second', 'last']);
-      expect(routed.activity()[0].fallbackOrder).toEqual(['last']);
-    });
-
-    it('never hands a read from a node in the tab to another provider, whatever it answers', async () => {
-      const { chosen, second, last, client } = ordered();
-      chosen.capabilities = { ...chosen.capabilities, inTab: true };
-
-      for (const answer of [
-        fault,
-        { kind: 'unsupported' as const },
-        { kind: 'rate-limited' as const, retryAfterMs: 1, serverTimeMs: null },
-      ]) {
-        chosen.answer = answer;
+      for (let read = 0; read < 5; read += 1) {
         expect(await readBytes(client)).toBe(answer);
       }
-      expect(client.reader('player').urlSource('segment')).toBe('chosen');
-      expect([second.asked, last.asked]).toEqual([[], []]);
-      expect(client.activity()[0].fallbackOrder).toEqual([]);
+      expect(chosen.asked).toHaveLength(5);
+      expect(other.asked).toEqual([]);
     });
 
-    it('never asks a node in the tab as a fallback', async () => {
-      const { chosen, second, last, client } = ordered();
-      second.capabilities = { ...second.capabilities, inTab: true };
-      chosen.answer = fault;
-      last.answer = content();
-
-      expect(await readBytes(client)).toBe(last.answer);
-      expect(second.asked).toEqual([]);
-      expect(client.activity()[0].fallbackOrder).toEqual(['last']);
-    });
-
-    it('gives a provider at least the shortest window it names, however short the caller asked', async () => {
-      const { chosen, client } = ordered();
-      Object.assign(chosen, { shortestReadWindowMs: 30_000 });
-
-      await client.reader('player').readBytes(REFERENCE, { timeoutMs: 1_000 });
-      await client.reader('player').readBytes(REFERENCE);
-
-      expect(chosen.windows).toEqual([30_000, 30_000]);
-    });
-
-    it("names the player a feature's own provider brings, with that provider's id, and none for one that brings none", async () => {
-      const { chosen, second, client } = ordered();
-      const player = { attach: async () => undefined, detach: () => undefined };
-      Object.assign(second, { ownPlayer: async () => player });
-      const routed = new SwarmClient({
-        chosen: { id: 'chosen', provider: chosen },
-        routes: { player: { id: 'second', provider: second } },
-      });
-
-      expect(client.ownPlayer('player')).toBeNull();
-      expect(routed.ownPlayer('stream-list')).toBeNull();
-      const own = routed.ownPlayer('player');
-      expect(own?.id).toBe('second');
-      expect(await own?.load()).toBe(player);
-      expect(own?.status()).toEqual({ state: 'ready' });
-
-      const release = own!.hold();
-      release();
-      release();
-      expect([second.started, second.stopped]).toEqual([1, 1]);
-      expect(
-        routed.ownPlayer('player'),
-        'the same handle each time, so a page polling its status keeps one timer',
-      ).toBe(own);
-    });
-
-    it('says where the chosen provider is in its own life', () => {
-      const { client } = ordered();
-
-      expect(client.status()).toEqual({ state: 'ready' });
-    });
-
-    it('skips a paused fallback for the next one, and pauses each fallback on its own faults', async () => {
-      const { chosen, second, last, client } = ordered();
-      chosen.answer = fault;
-      second.answer = fault;
-      last.answer = content();
-      await readBytes(client);
-      await readBytes(client);
-      expect(client.health().find(({ id }) => id === 'second')?.pausedUntilMs).not.toBeNull();
-      expect(client.health().find(({ id }) => id === 'last')?.pausedUntilMs).toBeNull();
-
-      second.asked.length = 0;
-      await readBytes(client);
-      expect(second.asked).toEqual([]);
-      expect(last.asked).toEqual(['bytes', 'bytes', 'bytes']);
-    });
-
-    it('names the first fallback as the one behind each feature, and lists the whole order', () => {
-      const { client } = ordered();
-
-      expect(client.activity()[0]).toMatchObject({
-        primary: 'chosen',
-        fallback: 'second',
-        fallbackOrder: ['second', 'last'],
-      });
-    });
-  });
-
-  describe("keeping a read inside the caller's window", () => {
-    const WINDOW_MS = 1_000;
-    const readInWindow = (client: SwarmClient) =>
-      client.reader('player').readBytes(REFERENCE, { timeoutMs: WINDOW_MS });
-
-    it('gives the fallback only what is left of the window after the chosen provider hung', async () => {
-      const { chosen, fallback, client, advance } = world();
-      chosen.answer = { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: WINDOW_MS } };
-      chosen.onAsk = () => advance(600);
-      fallback.answer = content();
-
-      expect(await readInWindow(client)).toBe(fallback.answer);
-      expect(chosen.windows).toEqual([WINDOW_MS]);
-      expect(fallback.windows).toEqual([400]);
-    });
-
-    it('does not ask the fallback once the chosen provider used the whole window', async () => {
-      const { chosen, fallback, client, advance } = world();
-      chosen.answer = { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: WINDOW_MS } };
-      chosen.onAsk = () => advance(WINDOW_MS);
-
-      expect(await readInWindow(client)).toBe(chosen.answer);
-      expect(fallback.asked).toEqual([]);
-    });
-
-    it('takes the default window as the whole budget when the caller names none', async () => {
-      const { chosen, fallback, client, advance } = world();
-      chosen.answer = fault;
-      chosen.onAsk = () => advance(DEFAULT_READ_TIMEOUT_MS - 250);
-
-      await readBytes(client);
-
-      expect(chosen.windows).toEqual([DEFAULT_READ_TIMEOUT_MS]);
-      expect(fallback.windows).toEqual([250]);
-    });
-  });
-
-  describe('pausing a provider that keeps failing', () => {
-    it('leaves the chosen provider alone after faults in a row, then tries it again', async () => {
-      const { chosen, fallback, client, advance } = world();
-      chosen.answer = fault;
-      fallback.answer = content();
-
-      await readBytes(client);
-      await readBytes(client);
-      expect(chosen.asked).toHaveLength(2);
-
-      await readBytes(client);
-      expect(chosen.asked).toHaveLength(2);
-      expect(client.health()).toContainEqual({ id: 'chosen', faultsInARow: 2, pausedUntilMs: POLICY.firstPauseMs });
-
-      advance(POLICY.firstPauseMs);
-      chosen.answer = content();
-      expect(await readBytes(client)).toBe(chosen.answer);
-      expect(chosen.asked).toHaveLength(3);
-      expect(client.health()).toContainEqual({ id: 'chosen', faultsInARow: 0, pausedUntilMs: null });
-    });
-
-    it('pauses again at once, for longer, when the first read after a pause fails, up to the longest pause', async () => {
+    it('keeps asking a provider that keeps failing, with no pause, since the viewer picked it', async () => {
       const { chosen, client, advance } = world();
       chosen.answer = fault;
-
-      await readBytes(client);
-      await readBytes(client);
-      advance(POLICY.firstPauseMs);
-      await readBytes(client);
-      expect(client.health()).toContainEqual({
-        id: 'chosen',
-        faultsInARow: 3,
-        pausedUntilMs: POLICY.firstPauseMs + 2 * POLICY.firstPauseMs,
-      });
-
-      advance(2 * POLICY.firstPauseMs);
-      await readBytes(client);
-      expect(client.health()).toContainEqual({
-        id: 'chosen',
-        faultsInARow: 4,
-        pausedUntilMs: 3 * POLICY.firstPauseMs + POLICY.longestPauseMs,
-      });
-    });
-
-    it('does not count a not found as a fault', async () => {
-      const { chosen, client } = world();
-      chosen.answer = fault;
-      await readBytes(client);
-      chosen.answer = notFound;
-      await readBytes(client);
-      chosen.answer = fault;
-      await readBytes(client);
-
-      expect(client.health()).toContainEqual({ id: 'chosen', faultsInARow: 1, pausedUntilMs: null });
-    });
-
-    it('leaves a rate-limited provider alone for as long as it asked, without counting a fault', async () => {
-      const { chosen, fallback, client, advance } = world();
-      chosen.answer = { kind: 'rate-limited', retryAfterMs: 5_000, serverTimeMs: null };
-      fallback.answer = content();
-
-      expect(await readBytes(client)).toBe(fallback.answer);
-      expect(client.health()).toContainEqual({ id: 'chosen', faultsInARow: 0, pausedUntilMs: 5_000 });
-
-      advance(4_999);
-      await readBytes(client);
-      expect(chosen.asked).toHaveLength(1);
-
-      advance(1);
-      await readBytes(client);
-      expect(chosen.asked).toHaveLength(2);
-    });
-
-    it('waits the first pause for a rate limit that named no wait', async () => {
-      const { chosen, client } = world();
-      chosen.answer = { kind: 'rate-limited', retryAfterMs: null, serverTimeMs: null };
-
-      await readBytes(client);
-
-      expect(client.health()).toContainEqual({ id: 'chosen', faultsInARow: 0, pausedUntilMs: POLICY.firstPauseMs });
-    });
-
-    it('still asks a paused provider when every provider is paused, so reads never stop', async () => {
-      const { chosen, fallback, client } = world();
-      chosen.answer = fault;
-      fallback.answer = fault;
-      for (let read = 0; read < POLICY.faultsBeforePause; read += 1) {
+      for (let read = 0; read < 10; read += 1) {
         await readBytes(client);
+        advance(100);
       }
       chosen.answer = content();
 
       expect(await readBytes(client)).toBe(chosen.answer);
+      expect(chosen.asked).toHaveLength(11);
+    });
+
+    it('takes a chat slot Bee answers 500 for as not there', async () => {
+      const bee = new BeeHttpProvider({ baseUrl: 'http://bee.example', fetcher: answeringFetch(500) });
+      const client = new SwarmClient({ chosen: { id: 'event', provider: bee } });
+
+      expect(await client.reader('chat').readChunk(REFERENCE)).toMatchObject({ kind: 'not-found' });
     });
   });
 
-  it('routes a feature to the provider it is given, with the same fallback', async () => {
-    const chatGateway = new ScriptedProvider('chat');
-    const { chosen, fallback, client } = world({ routes: { chat: { id: 'chat', provider: chatGateway } } });
-    chatGateway.answer = fault;
-    fallback.answer = content();
+  it('routes a feature to the provider it is given, and every other feature to the chosen one', async () => {
+    const { chosen, other, client } = world();
+    other.answer = fault;
 
     await client.reader('chat').readChunk(REFERENCE);
     await client.reader('player').readChunk(REFERENCE);
 
-    expect(chatGateway.asked).toEqual(['chunk']);
-    expect(fallback.asked).toEqual(['chunk']);
+    expect(other.asked).toEqual(['chunk']);
     expect(chosen.asked).toEqual(['chunk']);
   });
 
+  describe("a read's window", () => {
+    it("gives the provider the caller's window, or the default when the caller names none", async () => {
+      const { chosen, client } = world();
+
+      await client.reader('player').readBytes(REFERENCE, { timeoutMs: 1_000 });
+      await readBytes(client);
+
+      expect(chosen.windows).toEqual([1_000, DEFAULT_READ_TIMEOUT_MS]);
+    });
+
+    it('gives a provider at least the shortest window it names, however short the caller asked', async () => {
+      const { chosen, client } = world();
+      Object.assign(chosen, { shortestReadWindowMs: 30_000 });
+
+      await client.reader('player').readBytes(REFERENCE, { timeoutMs: 1_000 });
+      await readBytes(client);
+
+      expect(chosen.windows).toEqual([30_000, 30_000]);
+    });
+  });
+
+  it("names the player a feature's own provider brings, with that provider's id, and none for one that brings none", async () => {
+    const { chosen, client } = world();
+    const second = new ScriptedProvider('second');
+    const player = { attach: async () => undefined, detach: () => undefined };
+    Object.assign(second, { ownPlayer: async () => player });
+    const routed = new SwarmClient({
+      chosen: { id: 'chosen', provider: chosen },
+      routes: { player: { id: 'second', provider: second } },
+    });
+
+    expect(client.ownPlayer('player')).toBeNull();
+    expect(routed.ownPlayer('stream-list')).toBeNull();
+    const own = routed.ownPlayer('player');
+    expect(own?.id).toBe('second');
+    expect(await own?.load()).toBe(player);
+    expect(own?.status()).toEqual({ state: 'ready' });
+
+    const release = own!.hold();
+    release();
+    release();
+    expect([second.started, second.stopped]).toEqual([1, 1]);
+    expect(routed.ownPlayer('player'), 'the same handle each time, so a page polling its status keeps one timer').toBe(
+      own,
+    );
+  });
+
+  it('says where the chosen provider is in its own life', () => {
+    const { client } = world();
+
+    expect(client.status()).toEqual({ state: 'ready' });
+  });
+
   it('counts every read by feature, kind of read, provider and answer', async () => {
-    const { chosen, fallback, client } = world();
+    const { chosen, other, client } = world();
     chosen.answer = content();
     await client.reader('player').readFeedEntry(OWNER, TOPIC, 1);
     await client.reader('player').readFeedEntry(OWNER, TOPIC, 2);
     chosen.answer = fault;
-    fallback.answer = notFound;
+    other.answer = notFound;
     await client.reader('stream-list').readFeedHead(OWNER, TOPIC);
+    await client.reader('chat').readFeedHead(OWNER, TOPIC);
 
-    expect(client.counts()).toEqual(
-      expect.arrayContaining([
-        { feature: 'player', read: 'feed-entry', provider: 'chosen', answer: 'content', count: 2 },
-        { feature: 'stream-list', read: 'feed-head', provider: 'chosen', answer: 'unavailable', count: 1 },
-        { feature: 'stream-list', read: 'feed-head', provider: 'fallback', answer: 'not-found', count: 1 },
-      ]),
-    );
-    expect(client.counts()).toHaveLength(3);
+    expect(client.counts()).toEqual([
+      { feature: 'player', read: 'feed-entry', provider: 'chosen', answer: 'content', count: 2 },
+      { feature: 'stream-list', read: 'feed-head', provider: 'chosen', answer: 'unavailable', count: 1 },
+      { feature: 'chat', read: 'feed-head', provider: 'other', answer: 'not-found', count: 1 },
+    ]);
   });
 
   describe('what answered in the last minute', () => {
-    it('gives each feature its answers by provider and kind, and how many reads went to the fallback', async () => {
-      const { chosen, fallback, client } = world();
+    it('gives each feature its provider and its answers by provider and kind', async () => {
+      const { chosen, other, client } = world();
       chosen.answer = content();
       await client.reader('player').readFeedEntry(OWNER, TOPIC, 1);
       await client.reader('player').readFeedEntry(OWNER, TOPIC, 2);
       chosen.answer = fault;
-      fallback.answer = notFound;
       await client.reader('stream-list').readFeedHead(OWNER, TOPIC);
+      other.answer = notFound;
+      await client.reader('chat').readChunk(REFERENCE);
 
       expect(client.activity()).toEqual([
-        {
-          feature: 'player',
-          primary: 'chosen',
-          fallback: 'fallback',
-          fallbackOrder: ['fallback'],
-          answers: [{ provider: 'chosen', answer: 'content', count: 2 }],
-          fallbacks: 0,
-        },
+        { feature: 'player', primary: 'chosen', answers: [{ provider: 'chosen', answer: 'content', count: 2 }] },
         {
           feature: 'stream-list',
           primary: 'chosen',
-          fallback: 'fallback',
-          fallbackOrder: ['fallback'],
-          answers: [
-            { provider: 'chosen', answer: 'unavailable', count: 1 },
-            { provider: 'fallback', answer: 'not-found', count: 1 },
-          ],
-          fallbacks: 1,
+          answers: [{ provider: 'chosen', answer: 'unavailable', count: 1 }],
         },
-        {
-          feature: 'previews',
-          primary: 'chosen',
-          fallback: 'fallback',
-          fallbackOrder: ['fallback'],
-          answers: [],
-          fallbacks: 0,
-        },
-        {
-          feature: 'chat',
-          primary: 'chosen',
-          fallback: 'fallback',
-          fallbackOrder: ['fallback'],
-          answers: [],
-          fallbacks: 0,
-        },
+        { feature: 'previews', primary: 'chosen', answers: [] },
+        { feature: 'chat', primary: 'other', answers: [{ provider: 'other', answer: 'not-found', count: 1 }] },
       ]);
     });
 
@@ -505,16 +210,6 @@ describe('the Swarm client', () => {
       expect(client.activity().find(({ feature }) => feature === 'player')?.answers).toEqual([
         { provider: 'chosen', answer: 'content', count: 1 },
       ]);
-    });
-
-    it("names a routed feature's own provider as the one in use", () => {
-      const chatGateway = new ScriptedProvider('chat');
-      const { client } = world({ routes: { chat: { id: 'chat-read', provider: chatGateway } } });
-
-      expect(client.activity().find(({ feature }) => feature === 'chat')).toMatchObject({
-        primary: 'chat-read',
-        fallback: 'fallback',
-      });
     });
   });
 
@@ -538,8 +233,9 @@ describe('the Swarm client', () => {
       async (feature) => {
         const gatewayMs = Date.UTC(2026, 9, 7, 12, 0, 30);
         const clock = new GatewayClock(() => gatewayMs - 60_000);
-        const { chosen, client } = world({ clock });
+        const { chosen, other, client } = world({ clock });
         chosen.answer = { kind: 'not-found', serverTimeMs: gatewayMs };
+        other.answer = chosen.answer;
 
         await client.reader(feature).readChunk(REFERENCE);
 
@@ -561,37 +257,33 @@ describe('the Swarm client', () => {
   });
 
   describe('URLs the browser loads itself', () => {
-    it("come from the feature's provider while it is not paused", async () => {
+    it("come from the feature's own provider, however its reads answer", async () => {
       const { chosen, client } = world();
 
       expect(client.reader('player').urlFor(REFERENCE, 'segment')).toBe(`chosen:segment:${REFERENCE}`);
-
       chosen.answer = fault;
-      for (let read = 0; read < POLICY.faultsBeforePause; read += 1) {
+      for (let read = 0; read < 5; read += 1) {
         await readBytes(client);
       }
-      expect(client.reader('player').urlFor(REFERENCE, 'segment')).toBe(`fallback:segment:${REFERENCE}`);
+      expect(client.reader('player').urlFor(REFERENCE, 'segment')).toBe(`chosen:segment:${REFERENCE}`);
+      expect(client.reader('chat').urlFor(REFERENCE, 'segment')).toBe(`other:segment:${REFERENCE}`);
     });
 
-    it('come from the fallback when the chosen provider gives none, and are null when nobody does', () => {
-      const { chosen, fallback, client } = world();
-      chosen.capabilities = { ...chosen.capabilities, urls: false };
+    it('are null where the provider gives none, never taken from another', () => {
+      const { chosen, client } = world();
+      chosen.givesUrls = false;
 
-      expect(client.reader('previews').urlFor(REFERENCE, 'thumbnail')).toBe(`fallback:thumbnail:${REFERENCE}`);
-
-      fallback.capabilities = { ...fallback.capabilities, urls: false };
       expect(client.reader('previews').urlFor(REFERENCE, 'thumbnail')).toBeNull();
     });
   });
 
   it('starts and stops every provider it holds, once each', async () => {
-    const chatGateway = new ScriptedProvider('chat');
-    const { chosen, fallback, client } = world({ routes: { chat: { id: 'chat', provider: chatGateway } } });
+    const { chosen, other, client } = world();
 
     await client.start();
     await client.stop();
 
-    for (const provider of [chosen, fallback, chatGateway]) {
+    for (const provider of [chosen, other]) {
       expect([provider.started, provider.stopped]).toEqual([1, 1]);
     }
   });

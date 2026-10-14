@@ -9,7 +9,7 @@ import { ABORTED, type SwarmAnswer } from './answers';
 import { boundedRequest } from './boundedRequest';
 import { DEFAULT_READ_TIMEOUT_MS, type ReadOptions } from './provider';
 
-/** The longest a server's `Retry-After` may keep a provider paused, so one answer cannot stall a feed for an hour. */
+/** The longest a server's `Retry-After` may hold a feed back, so one answer cannot stall a feed for an hour. */
 export const LONGEST_RETRY_AFTER_MS = 60_000;
 
 const NOT_FOUND = 404;

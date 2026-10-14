@@ -6,7 +6,6 @@ import { ABSENT, type AbsentStatuses, httpRead, isSuccess } from '../../httpRead
 import {
   PROBE_TIMEOUT_MS,
   type ProbeResult,
-  type ProviderCapabilities,
   type ProviderStatus,
   type ReadOptions,
   type SwarmProvider,
@@ -26,16 +25,6 @@ export { LONGEST_RETRY_AFTER_MS } from '../../httpRead';
 const CHUNK_NOT_RETRIEVED = 500;
 
 const ABSENT_CHUNK: AbsentStatuses = new Set([...ABSENT, CHUNK_NOT_RETRIEVED]);
-
-const CAPABILITIES: ProviderCapabilities = {
-  feedHead: true,
-  feedEntry: true,
-  soc: true,
-  chunk: true,
-  bytes: true,
-  urls: true,
-  inTab: false,
-};
 
 const READY: ProviderStatus = { state: 'ready' };
 
@@ -70,8 +59,6 @@ function currentPageOrigin(): string {
  * see {@link BeeHttpProvider.readChunk}.
  */
 export class BeeHttpProvider implements SwarmProvider {
-  readonly capabilities = CAPABILITIES;
-
   private readonly baseUrl: string;
   private readonly fetcher: typeof fetch;
   private readonly pageOrigin: string;
@@ -105,8 +92,8 @@ export class BeeHttpProvider implements SwarmProvider {
 
   /**
    * A 500 here is not there rather than a fault, because an idle chat asks for its next slot before
-   * anyone writes it, and taking each of those as a fault would pause the node and send the chat to
-   * the fallback. The library the chat runs on reads the status the same way.
+   * anyone writes it, and taking each of those as a fault would show the chat as failing. The library
+   * the chat runs on reads the status the same way.
    */
   readChunk(address: string, options?: ReadOptions): Promise<SwarmAnswer> {
     return this.read(`chunks/${address}`, options, ABSENT_CHUNK);

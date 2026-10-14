@@ -3,28 +3,10 @@ import { ChunkBuilder, FeedIndex, Identifier, Span, type Topic } from '@ethersph
 import { makeFeedIdentifier } from '@/shared/feedFollow';
 import { type SwarmAnswer, UNSUPPORTED } from '../../answers';
 import { httpRead } from '../../httpRead';
-import type {
-  OwnPlayer,
-  ProbeResult,
-  ProviderCapabilities,
-  ProviderStatus,
-  ReadOptions,
-  SwarmProvider,
-  UrlUse,
-} from '../../provider';
+import type { OwnPlayer, ProbeResult, ProviderStatus, ReadOptions, SwarmProvider, UrlUse } from '../../provider';
 import { MAX_CHUNK_PAYLOAD, singleOwnerChunkAddress } from '../../singleOwnerChunk';
 import type { Weeb3Node } from './weeb3Package';
 import { WEEB3_HEALTHY_PEERS, WEEB3_PATH, type Weeb3Runtime } from './weeb3Runtime';
-
-const CAPABILITIES: ProviderCapabilities = {
-  feedHead: false,
-  feedEntry: true,
-  soc: true,
-  chunk: true,
-  bytes: true,
-  urls: true,
-  inTab: true,
-};
 
 const SPAN_LENGTH = 8;
 
@@ -83,7 +65,6 @@ function isContentAddressedAt(bytes: Uint8Array, address: string): boolean {
  * served only where it is content-addressed and its address can be checked here.
  */
 export class Weeb3Provider implements SwarmProvider {
-  readonly capabilities = CAPABILITIES;
   readonly shortestReadWindowMs = WEEB3_READ_WINDOW_MS;
 
   private readonly runtime: Weeb3RuntimeView;

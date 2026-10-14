@@ -224,12 +224,11 @@ type GatewayProbeOutcome =
 /** What can ask an address whether a Swarm node is there: a provider's own probe. */
 type Prober = (gatewayUrl: string) => { probe(options?: ReadOptions): Promise<ProbeResult> };
 
-/** The settings of one gateway alone, with no fallback, so a test of it is a test of it and nothing else. */
+/** The settings of one gateway alone, so a test of it is a test of it and nothing else. */
 export function onlyGateway(gateway: GatewaySetting): SwarmSettings {
   return {
     gateways: [gateway],
     defaultId: gateway.id,
-    fallbackOrder: [],
     kinds: [gateway.kind],
     beeNodes: DEFAULT_BEE_NODE_ACCESS,
   };

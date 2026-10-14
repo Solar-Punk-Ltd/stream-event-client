@@ -29,23 +29,6 @@ export interface ReadOptions {
  */
 export type UrlUse = 'segment' | 'preview-segment' | 'thumbnail';
 
-/**
- * Which reads a provider can make. The client does not consult the read flags before asking: a
- * provider asked for a read it cannot make answers unsupported, and the client then asks the next one.
- * Only `urls` is read ahead, to pass over a provider that gives none.
- */
-export interface ProviderCapabilities {
-  readonly feedHead: boolean;
-  readonly feedEntry: boolean;
-  readonly soc: boolean;
-  readonly chunk: boolean;
-  readonly bytes: boolean;
-  /** Whether {@link SwarmProvider.urlFor} gives URLs. The client takes a URL from the next provider that does. */
-  readonly urls: boolean;
-  /** Whether the provider runs a node inside the tab, which {@link SwarmProvider.start} starts. */
-  readonly inTab: boolean;
-}
-
 /** Where a provider is in its own life. A provider over HTTP is always ready. */
 export type ProviderState = 'stopped' | 'starting' | 'ready' | 'failed';
 
@@ -104,8 +87,6 @@ export type ProbeResult =
  * carry them.
  */
 export interface SwarmProvider {
-  readonly capabilities: ProviderCapabilities;
-
   /** The newest entry of a feed, as the node's own lookup finds it. Slow on a feed that moves. */
   readFeedHead(owner: string, topic: Topic, options?: ReadOptions): Promise<SwarmAnswer>;
 

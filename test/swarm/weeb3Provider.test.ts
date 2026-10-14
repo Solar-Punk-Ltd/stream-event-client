@@ -206,11 +206,9 @@ describe('the weeb-3 provider', () => {
     expect(runtime.holds).toBe(0);
   });
 
-  it('says where the node is in its own life, and is a node in this tab that start and stop reach', async () => {
+  it('says where the node is in its own life, and start and stop reach the node in this tab', async () => {
     const { provider, runtime } = weeb3(servedFetch(), { state: 'starting', peers: 2 });
 
-    expect(provider.capabilities.inTab).toBe(true);
-    expect(provider.capabilities.feedHead).toBe(false);
     expect(provider.status()).toEqual({ state: 'starting', peers: 2, healthyPeers: 200 });
     await provider.start();
     expect(runtime.holds).toBe(1);

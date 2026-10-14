@@ -30,7 +30,6 @@ const TWO_GATEWAYS = config({
       { id: 'backup', kind: 'bee-http', url: BACKUP },
     ],
     default: 'primary',
-    fallback: 'backup',
   },
 });
 
@@ -47,36 +46,22 @@ function primaryDownFetch(asked: string[]): typeof fetch {
 }
 
 describe('the Swarm settings', () => {
-  it('make a config that names only gatewayUrl one Bee gateway, the default and the fallback', () => {
+  it('make a config that names only gatewayUrl one Bee gateway and the default', () => {
     expect(swarmSettingsFrom(config({ gatewayUrl: '/bee' }))).toEqual({
       gateways: [{ id: SINGLE_GATEWAY_ID, kind: 'bee-http', url: '/bee' }],
       defaultId: SINGLE_GATEWAY_ID,
-      fallbackOrder: [SINGLE_GATEWAY_ID],
       kinds: ['bee-http'],
       beeNodes: 'off',
     });
   });
 
-  it('make the default gateway the fallback when providers names none', () => {
-    const { fallback: _named, ...providers } = TWO_GATEWAYS.providers!;
-
-    expect(swarmSettingsFrom(config({ providers })).fallbackOrder).toEqual(['primary']);
-  });
-
-  it('have no fallback when providers switches it off', () => {
-    expect(
-      swarmSettingsFrom(config({ providers: { ...TWO_GATEWAYS.providers!, fallback: false } })).fallbackOrder,
-    ).toEqual([]);
-  });
-
-  it('take the gateways, the default, the fallback and the kinds from providers', () => {
+  it('take the gateways, the default and the kinds from providers', () => {
     expect(swarmSettingsFrom(TWO_GATEWAYS)).toEqual({
       gateways: [
         { id: 'primary', kind: 'bee-http', label: 'Event gateway', url: PRIMARY },
         { id: 'backup', kind: 'bee-http', url: BACKUP },
       ],
       defaultId: 'primary',
-      fallbackOrder: ['backup', 'primary'],
       kinds: ['bee-http'],
       beeNodes: 'off',
     });
@@ -103,48 +88,6 @@ describe('the node in this browser, weeb-3', () => {
     });
 
     expect(swarmSettingsFrom(narrowed).kinds).toEqual(['bee-http', 'weeb-3']);
-  });
-});
-
-describe('the order of fallbacks', () => {
-  const THREE_GATEWAYS = {
-    gateways: [
-      ...TWO_GATEWAYS.providers!.gateways,
-      { id: 'third', kind: 'bee-http' as const, url: 'https://third.example.com' },
-    ],
-    default: 'primary',
-  };
-
-  it("is the config's list with the default gateway last", () => {
-    expect(
-      swarmSettingsFrom(config({ providers: { ...THREE_GATEWAYS, fallback: ['third', 'backup'] } })).fallbackOrder,
-    ).toEqual(['third', 'backup', 'primary']);
-  });
-
-  it('asks a client in that order, the default last, whatever the viewer reads from', async () => {
-    const asked: string[] = [];
-    const settings = swarmSettingsFrom(config({ providers: { ...THREE_GATEWAYS, fallback: ['third', 'backup'] } }));
-    const client = createSwarmClient(settings, {
-      choice: { id: 'own-node', kind: 'bee-http', url: 'http://localhost:1633' },
-      environment: {
-        fetcher: (async (input: RequestInfo | URL) => {
-          asked.push(new URL(String(input)).host);
-          return new Response('', { status: 502 });
-        }) as typeof fetch,
-      },
-    });
-
-    await client.reader('player').readBytes(REFERENCE);
-
-    expect(asked).toEqual(['localhost:1633', 'third.example.com', 'backup.example.com', 'primary.example.com']);
-  });
-
-  it("takes the viewer's own order of the same gateways", () => {
-    const settings = swarmSettingsFrom(config({ providers: { ...THREE_GATEWAYS, fallback: ['third', 'backup'] } }));
-
-    expect(
-      createSwarmClient(settings, { fallbackOrder: ['backup', 'third', 'primary'] }).activity()[0].fallbackOrder,
-    ).toEqual(['backup', 'third']);
   });
 });
 
@@ -190,7 +133,6 @@ describe('the registry of provider kinds', () => {
     const provider = PROVIDER_REGISTRY['weeb-3'].create({ id: 'w', kind: 'weeb-3', url: '' }, {});
 
     expect(provider).toBeInstanceOf(Weeb3Provider);
-    expect(provider.capabilities.inTab).toBe(true);
     expect(provider.ownPlayer).toBeTypeOf('function');
     expect(
       PROVIDER_REGISTRY['bee-http'].create({ id: 'x', kind: 'bee-http', url: '/bee' }, {}).ownPlayer,
@@ -205,7 +147,7 @@ describe('the registry of provider kinds', () => {
 });
 
 describe('making the client from the settings', () => {
-  it('reads from the default gateway, and from the fallback when the default fails', async () => {
+  it('reads from the default gateway alone, whatever it answers', async () => {
     const asked: string[] = [];
     const client = createSwarmClient(swarmSettingsFrom(TWO_GATEWAYS), {
       environment: { fetcher: primaryDownFetch(asked) },
@@ -213,9 +155,8 @@ describe('making the client from the settings', () => {
 
     const answer = await client.reader('player').readBytes(REFERENCE);
 
-    expect(answer.kind).toBe('content');
-    expect(asked).toEqual([`${PRIMARY}/bytes/${REFERENCE}`, `${BACKUP}/bytes/${REFERENCE}`]);
-    expect(client.health().map(({ id }) => id)).toEqual(['primary', 'backup']);
+    expect(answer.kind).toBe('unavailable');
+    expect(asked).toEqual([`${PRIMARY}/bytes/${REFERENCE}`]);
   });
 
   it("reads from the viewer's choice among the gateways offered", async () => {
@@ -228,13 +169,18 @@ describe('making the client from the settings', () => {
     await client.reader('player').readBytes(REFERENCE);
 
     expect(asked).toEqual([`${BACKUP}/bytes/${REFERENCE}`]);
-    expect(client.health().map(({ id }) => id)).toEqual(['backup', 'primary']);
   });
 
   it('reads from the default when the choice names a gateway no longer offered', async () => {
-    const client = createSwarmClient(swarmSettingsFrom(TWO_GATEWAYS), { choice: 'gone' });
+    const asked: string[] = [];
+    const client = createSwarmClient(swarmSettingsFrom(TWO_GATEWAYS), {
+      choice: 'gone',
+      environment: { fetcher: primaryDownFetch(asked) },
+    });
 
-    expect(client.health().map(({ id }) => id)).toEqual(['primary', 'backup']);
+    await client.reader('player').readBytes(REFERENCE);
+
+    expect(asked).toEqual([`${PRIMARY}/bytes/${REFERENCE}`]);
   });
 
   it("reads a feature from the gateway its route names, every other feature from the viewer's choice", async () => {
@@ -252,47 +198,21 @@ describe('making the client from the settings', () => {
     expect(asked).toEqual([`https://chat-read.example.com/chunks/${REFERENCE}`, `${BACKUP}/bytes/${REFERENCE}`]);
   });
 
-  it("reads from a viewer's own node with the event gateway behind it, for a config naming only gatewayUrl", async () => {
-    const own = { id: 'own-node', kind: 'bee-http' as const, url: 'http://localhost:1633' };
-    const client = createSwarmClient(swarmSettingsFrom(config({ gatewayUrl: PRIMARY })), { choice: own });
-
-    expect(client.health().map(({ id }) => id)).toEqual(['own-node', SINGLE_GATEWAY_ID]);
-  });
-
-  it('has nothing behind the event gateway when the viewer is on it and the config names no other', () => {
-    const client = createSwarmClient(swarmSettingsFrom(config({ gatewayUrl: PRIMARY })));
-
-    expect(client.health().map(({ id }) => id)).toEqual([SINGLE_GATEWAY_ID]);
-  });
-
-  it('puts the event gateway behind a viewer who picked the fallback gateway itself', () => {
-    const client = createSwarmClient(swarmSettingsFrom(TWO_GATEWAYS), { choice: 'backup' });
-
-    expect(client.health().map(({ id }) => id)).toEqual(['backup', 'primary']);
-  });
-
-  it('has no fallback behind any choice when the config switches it off', () => {
-    const settings = swarmSettingsFrom(config({ providers: { ...TWO_GATEWAYS.providers!, fallback: false } }));
-    const own = { id: 'own-node', kind: 'bee-http' as const, url: 'http://localhost:1633' };
-
-    expect(
-      createSwarmClient(settings, { choice: own })
-        .health()
-        .map(({ id }) => id),
-    ).toEqual(['own-node']);
-  });
-
-  it("reads from a viewer's own gateway, with the deployment's fallback behind it", async () => {
+  it("reads from a viewer's own node alone, never from the event gateway", async () => {
     const asked: string[] = [];
     const own = { id: 'own-node', kind: 'bee-http' as const, url: 'http://localhost:1633' };
-    const client = createSwarmClient(swarmSettingsFrom(TWO_GATEWAYS), {
+    const client = createSwarmClient(swarmSettingsFrom(config({ gatewayUrl: PRIMARY })), {
       choice: own,
-      environment: { fetcher: primaryDownFetch(asked) },
+      environment: {
+        fetcher: (async (input: RequestInfo | URL) => {
+          asked.push(String(input));
+          throw new TypeError('Failed to fetch');
+        }) as typeof fetch,
+      },
     });
 
     await client.reader('previews').readBytes(REFERENCE);
 
     expect(asked).toEqual([`http://localhost:1633/bytes/${REFERENCE}`]);
-    expect(client.health().map(({ id }) => id)).toEqual(['own-node', 'backup', 'primary']);
   });
 });

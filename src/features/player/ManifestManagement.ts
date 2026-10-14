@@ -545,22 +545,16 @@ const NO_SWARM: SwarmReader = {
   readChunk: async () => UNSUPPORTED,
   readBytes: async () => UNSUPPORTED,
   urlFor: () => null,
-  urlSource: () => null,
 };
 
 export class ManifestFetcher {
   /** Set by the app provider to the Swarm client's player reader before any player mounts. */
   private swarm: SwarmReader = NO_SWARM;
-  /**
-   * Made again whenever the reader or the provider it takes segment URLs from changes, so a playlist
-   * serialized against one provider is never served for another. A pause sends segments to the
-   * fallback and its end sends them back, with no switch of reader, so the provider is part of the key.
-   */
+  /** Made again whenever the reader changes, so a playlist serialized against one provider is never served for another. */
   private segmentUrlCache: {
     readonly reader: SwarmReader;
-    readonly source: string | null;
     readonly segmentUrl: SegmentUrl;
-  } = { reader: NO_SWARM, source: null, segmentUrl: SEGMENTS_AS_WRITTEN };
+  } = { reader: NO_SWARM, segmentUrl: SEGMENTS_AS_WRITTEN };
   /**
    * Every read this fetcher and its poller make, passed on to whichever reader is current, so a node
    * switched to mid-session moves the walks with it.
@@ -657,12 +651,11 @@ export class ManifestFetcher {
     this.swarm = reader;
   }
 
-  /** How segments are named now: by the provider the current reader takes segment URLs from. */
+  /** How segments are named now: by the provider the current reader reads from. */
   private segmentUrl(): SegmentUrl {
     const reader = this.swarm;
-    const source = reader.urlSource('segment');
-    if (this.segmentUrlCache.reader !== reader || this.segmentUrlCache.source !== source) {
-      this.segmentUrlCache = { reader, source, segmentUrl: (reference) => reader.urlFor(reference, 'segment') };
+    if (this.segmentUrlCache.reader !== reader) {
+      this.segmentUrlCache = { reader, segmentUrl: (reference) => reader.urlFor(reference, 'segment') };
     }
     return this.segmentUrlCache.segmentUrl;
   }

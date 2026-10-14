@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  loadSourceChoices,
-  saveAddedSources,
-  saveFallbackOrder,
-  saveRouting,
-  SOURCE_STORAGE_KEYS,
-} from '../src/app/sourceStorage';
+import { loadSourceChoices, saveAddedSources, saveRouting, SOURCE_STORAGE_KEYS } from '../src/app/sourceStorage';
 import { parseRuntimeConfig } from '../src/config/runtimeConfig';
 import { defaultRouting, setMode } from '../src/swarm/routing';
 import { swarmSettingsFrom } from '../src/swarm/settings';
@@ -23,7 +17,6 @@ function settings() {
         { id: 'backup', kind: 'bee-http', url: BACKUP },
       ],
       default: 'event',
-      fallback: 'backup',
     },
   });
   if (!result.ok) {
@@ -57,12 +50,8 @@ const refusing = {
 };
 
 describe("the viewer's sources in the browser", () => {
-  it('are none added, the default routing and the deployment order when nothing is saved', () => {
-    expect(loadSourceChoices(settings(), memory())).toEqual({
-      added: [],
-      routing: defaultRouting('event'),
-      fallbackOrder: null,
-    });
+  it('are none added and the default routing when nothing is saved', () => {
+    expect(loadSourceChoices(settings(), memory())).toEqual({ added: [], routing: defaultRouting('event') });
   });
 
   it('are what was saved under each key', () => {
@@ -71,16 +60,11 @@ describe("the viewer's sources in the browser", () => {
     const routing = setMode(defaultRouting('event'), 'per-part');
     saveAddedSources([node], storage);
     saveRouting(routing, storage);
-    saveFallbackOrder(['backup', 'event'], storage);
 
     expect([...storage.values.keys()].sort()).toEqual(
-      [SOURCE_STORAGE_KEYS.sources, SOURCE_STORAGE_KEYS.routing, SOURCE_STORAGE_KEYS.fallbackOrder].sort(),
+      [SOURCE_STORAGE_KEYS.sources, SOURCE_STORAGE_KEYS.routing].sort(),
     );
-    expect(loadSourceChoices(settings(), storage)).toEqual({
-      added: [node],
-      routing,
-      fallbackOrder: ['backup', 'event'],
-    });
+    expect(loadSourceChoices(settings(), storage)).toEqual({ added: [node], routing });
   });
 
   it('move a node saved before sources existed into an added source in use, and forget the old key', () => {
@@ -110,13 +94,8 @@ describe("the viewer's sources in the browser", () => {
   });
 
   it('are the defaults, and saving does nothing, when the browser refuses its storage', () => {
-    expect(loadSourceChoices(settings(), refusing)).toEqual({
-      added: [],
-      routing: defaultRouting('event'),
-      fallbackOrder: null,
-    });
+    expect(loadSourceChoices(settings(), refusing)).toEqual({ added: [], routing: defaultRouting('event') });
     expect(() => saveRouting(defaultRouting('event'), refusing)).not.toThrow();
     expect(() => saveAddedSources([], refusing)).not.toThrow();
-    expect(() => saveFallbackOrder([], refusing)).not.toThrow();
   });
 });

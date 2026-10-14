@@ -257,25 +257,25 @@ describe('the weeb-3 setting', () => {
 describe('the providers settings', () => {
   const EVENT = { id: 'event', kind: 'bee-http', label: 'Event gateway', url: '/bee' };
   const BACKUP = { id: 'backup', kind: 'bee-http', url: 'https://backup.example.com' };
-  const PROVIDERS = { gateways: [EVENT, BACKUP], default: 'event', fallback: 'backup', kinds: ['bee-http'] };
+  const PROVIDERS = { gateways: [EVENT, BACKUP], default: 'event', kinds: ['bee-http'] };
   const { gatewayUrl: _left, ...WITHOUT_GATEWAY } = VALID;
   const withProviders = (providers: Record<string, unknown>) =>
     parseRuntimeConfig({ ...WITHOUT_GATEWAY, providers: { ...PROVIDERS, ...providers } });
 
-  it('accepts the gateways offered, the default, the fallback and the kinds offered', () => {
+  it('accepts the gateways offered, the default and the kinds offered', () => {
     const result = withProviders({});
 
     expect(result).toEqual({ ok: true, config: { ...WITHOUT_GATEWAY, providers: PROVIDERS } });
   });
 
   it('leaves gatewayUrl out of a config that names providers, since nothing reads it there', () => {
-    const result = withProviders({ default: 'backup', fallback: 'event' });
+    const result = withProviders({ default: 'backup' });
 
     expect(result.ok && 'gatewayUrl' in result.config).toBe(false);
   });
 
-  it('accepts no fallback and no list of kinds', () => {
-    const { fallback: _fallback, kinds: _kinds, ...bare } = PROVIDERS;
+  it('accepts no list of kinds', () => {
+    const { kinds: _kinds, ...bare } = PROVIDERS;
 
     expect(parseRuntimeConfig({ ...WITHOUT_GATEWAY, providers: bare }).ok).toBe(true);
   });
@@ -288,34 +288,14 @@ describe('the providers settings', () => {
     expect(problemOf(parseRuntimeConfig(WITHOUT_GATEWAY))).toContain('gatewayUrl');
   });
 
-  it('refuses a default or a fallback that names no gateway offered', () => {
+  it('refuses a default that names no gateway offered', () => {
     expect(problemOf(withProviders({ default: 'elsewhere' }))).toContain('providers.default');
-    expect(problemOf(withProviders({ fallback: 'elsewhere' }))).toContain('providers.fallback');
   });
 
-  it('accepts a fallback switched off', () => {
-    expect(withProviders({ fallback: false }).ok).toBe(true);
-  });
+  it('reads no fallback a deployment still names, since nothing switches source by itself', () => {
+    const result = withProviders({ fallback: 'backup' });
 
-  it('refuses a fallback switched on by name only, since on is what leaving it out means', () => {
-    expect(problemOf(withProviders({ fallback: true }))).toContain('providers.fallback');
-  });
-
-  it('refuses a fallback that is the default', () => {
-    expect(problemOf(withProviders({ fallback: 'event' }))).toContain('providers.fallback');
-  });
-
-  it('accepts the fallback as an ordered list of gateways', () => {
-    const THIRD = { id: 'third', kind: 'bee-http', url: 'https://third.example.com' };
-
-    expect(withProviders({ gateways: [EVENT, BACKUP, THIRD], fallback: ['third', 'backup'] }).ok).toBe(true);
-  });
-
-  it('refuses a fallback list that is empty, repeats a gateway, names the default or one not offered', () => {
-    expect(problemOf(withProviders({ fallback: [] }))).toContain('providers.fallback');
-    expect(problemOf(withProviders({ fallback: ['backup', 'backup'] }))).toContain('providers.fallback');
-    expect(problemOf(withProviders({ fallback: ['backup', 'event'] }))).toContain('providers.fallback');
-    expect(problemOf(withProviders({ fallback: ['elsewhere'] }))).toContain('providers.fallback');
+    expect(result.ok && 'fallback' in (result.config.providers ?? {})).toBe(false);
   });
 
   it('refuses two gateways under one id', () => {
@@ -349,9 +329,7 @@ describe('the providers settings', () => {
 
   it("refuses a gateway's address as gatewayUrl is refused, placeholder included", () => {
     for (const url of ['bee', '//gateway.example.com', '<the event gateway>']) {
-      expect(problemOf(withProviders({ gateways: [{ ...EVENT, url }], fallback: undefined }))).toContain(
-        'providers.gateways.0.url',
-      );
+      expect(problemOf(withProviders({ gateways: [{ ...EVENT, url }] }))).toContain('providers.gateways.0.url');
     }
   });
 });

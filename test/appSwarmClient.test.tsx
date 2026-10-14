@@ -45,7 +45,6 @@ function config(extra: Record<string, unknown> = {}): RuntimeConfig {
         { id: 'backup', kind: 'bee-http', url: BACKUP_GATEWAY },
       ],
       default: 'event',
-      fallback: 'backup',
     },
   });
   if (!result.ok) {
@@ -60,6 +59,8 @@ const realFetch = globalThis.fetch;
 let asked: string[];
 /** The `Date` every answer carries. */
 let serverDate: string;
+/** An address whose every request fails as a closed port does, or null when every address answers. */
+let unreachable: string | null;
 let mounted: Mounted | null = null;
 let context: Context | null = null;
 
@@ -100,9 +101,13 @@ describe("the app's Swarm client", () => {
   beforeEach(() => {
     asked = [];
     serverDate = 'Wed, 30 Sep 2026 07:16:57 GMT';
+    unreachable = null;
     localStorage.clear();
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       asked.push(String(input));
+      if (unreachable !== null && String(input).startsWith(unreachable)) {
+        throw new TypeError('Failed to fetch');
+      }
       return new Response('', { status: 404, headers: { date: serverDate } });
     }) as typeof fetch;
   });
@@ -191,13 +196,18 @@ describe("the app's Swarm client", () => {
     expect(current().sources.map((source) => source.id)).not.toContain(id);
   });
 
-  it("asks the fallbacks in the viewer's order", async () => {
+  it('never moves a read to another source when the one picked fails', async () => {
     start();
     await settle();
-    expect(current().fallbackOrder).toEqual(['backup', 'event']);
     await pickOwnNode();
+    unreachable = OWN_NODE;
 
-    expect(current().swarm.activity()[0].fallbackOrder).toEqual(['backup', 'event']);
+    for (const feature of ['player', 'stream-list', 'previews', 'chat'] as const) {
+      const before = asked.length;
+      const answer = await current().swarm.reader(feature).readBytes(REFERENCE);
+      expect(answer.kind).toBe('unavailable');
+      expect(asked.slice(before)).toEqual([`${OWN_NODE}/bytes/${REFERENCE}`]);
+    }
   });
 
   it("reads the stream list through the client's stream-list reader, on the node picked", async () => {

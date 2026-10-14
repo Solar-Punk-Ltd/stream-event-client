@@ -52,31 +52,18 @@ describe('the player reads through the Swarm client', () => {
     expect(manifest.split('\n')).toContain(`event:segment:${SEGMENT_REF}`);
   });
 
-  it('names the segments of a playlist it already holds by the provider that serves the player now', async () => {
+  it('asks the same source again after a failed playlist read, and names its segments by that source alone', async () => {
     const event = new ScriptedProvider('event');
-    const backup = new ScriptedProvider('backup');
-    event.answer = served(PLAYLIST, 3);
-    backup.answer = served(PLAYLIST, 3);
-    let nowMs = 0;
-    const client = new SwarmClient({
-      chosen: { id: 'event', provider: event },
-      fallback: { id: 'backup', provider: backup },
-      pausePolicy: { faultsBeforePause: 1, firstPauseMs: 1_000, longestPauseMs: 1_000 },
-      now: () => nowMs,
-    });
+    const client = new SwarmClient({ chosen: { id: 'event', provider: event } });
     const fetcher = fetcherOn(client);
-    const segmentLines = async () =>
-      (await fetcher.fetchSource(SOURCE_URL)).split('\n').filter((line) => line.endsWith(SEGMENT_REF));
-
-    expect(await segmentLines()).toEqual([`event:segment:${SEGMENT_REF}`]);
 
     event.answer = { kind: 'unavailable', cause: { kind: 'status', status: 502 } };
-    await client.reader('player').readBytes(SEGMENT_REF);
-    expect(await segmentLines()).toEqual([`backup:segment:${SEGMENT_REF}`]);
-
-    nowMs += 1_000;
+    await expect(fetcher.fetchSource(SOURCE_URL)).rejects.toThrow();
     event.answer = served(PLAYLIST, 3);
-    expect(await segmentLines()).toEqual([`event:segment:${SEGMENT_REF}`]);
+    const lines = (await fetcher.fetchSource(SOURCE_URL)).split('\n').filter((line) => line.endsWith(SEGMENT_REF));
+
+    expect(event.asked).toEqual(['feed-head', 'feed-head']);
+    expect(lines).toEqual([`event:segment:${SEGMENT_REF}`]);
   });
 
   it('takes a node that answered not found at the head as a failure, as a missing head always was', async () => {

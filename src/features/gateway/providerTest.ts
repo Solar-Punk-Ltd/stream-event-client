@@ -1,8 +1,8 @@
 /**
  * The Sources screen's Test: one source, each feature of the viewer, on this event's real content.
  *
- * Every check reads through a Swarm client made for that gateway alone, with no fallback, so a pass is
- * the gateway's own and a failure is not covered up by the event gateway behind it. Each check ends in
+ * Every check reads through a Swarm client made for that gateway alone, so a pass and a failure are
+ * the gateway's own. Each check ends in
  * one sentence from `checkSentences`, and a failure says what the viewer can do about it.
  */
 import { Topic } from '@ethersphere/bee-js';
@@ -174,7 +174,6 @@ function notingAnswers(context: ProviderTestContext, answers: SwarmAnswer[]): Pr
       readChunk: (...args) => noted(inner.readChunk(...args)),
       readBytes: (...args) => noted(inner.readBytes(...args)),
       urlFor: (...args) => inner.urlFor(...args),
-      urlSource: (...args) => inner.urlSource(...args),
     };
   };
   const loadUrl = context.loadUrl ?? loadUrlOverHttp;

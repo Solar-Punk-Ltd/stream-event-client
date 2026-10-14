@@ -1111,48 +1111,6 @@
   grid-area: action;
 }
 
-.fallback-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  margin: var(--spacing-sm) 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.fallback-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-sm);
-  min-height: var(--size-dialog-button-height);
-  padding: var(--spacing-xs) var(--spacing-xs) var(--spacing-xs) var(--spacing-md);
-  border-radius: var(--radius-base);
-  background: var(--color-surface-card);
-  font-size: var(--font-size-sm);
-}
-
-.fallback-item-name {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-// Two 32px buttons whose 44px touch areas would overlap any closer than this.
-.fallback-item-moves {
-  display: flex;
-  gap: var(--spacing-md);
-}
-
-.fallback-move {
-  display: flex;
-
-  &.up {
-    transform: rotate(180deg);
-  }
-}
-
 // Copy diagnostics and Done on one line, the copy's outcome between them.
 .sources-footer {
   display: flex;

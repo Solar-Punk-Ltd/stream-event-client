@@ -21,10 +21,9 @@ import {
 } from '@/swarm/sources';
 
 import { type AddCheck, AddSource } from './AddSource';
-import { FallbackOrder } from './FallbackOrder';
 import { describeProbeFailure, onlyGateway, probeFailureHelp, probeGateway } from './gatewayProbe';
 import { PartRoutes } from './PartRoutes';
-import { isServingFromFallback, statusRows } from './providerStatus';
+import { statusRows } from './providerStatus';
 import { type CheckResult, testProvider } from './providerTest';
 import { reportText, type TestedGateway } from './report';
 import { type SourceTest, SourceRow } from './SourceRow';
@@ -32,9 +31,6 @@ import { CHAT_SERVICE_NAME, TYPE_GROUP_LABELS, VIDEO_ONLY_IN_ONE_SOURCE } from '
 import { useSourceStatuses } from './useSourceStatuses';
 
 import './SourcesScreen.scss';
-
-/** How often the header's fallback marker reads the client's counts again. */
-const STATUS_REFRESH_MS = 2_000;
 
 const MODE_LABELS: Readonly<Record<RoutingMode, string>> = { one: 'One source', 'per-part': 'Per part' };
 
@@ -53,18 +49,17 @@ function nameIn(sources: readonly Source[], id: string): string {
 /**
  * The Sources screen: where a viewer picks what the video, the stream list, the previews and the chat
  * read from, sees each source's state at a glance, adds gateways, Bee nodes and a node in this
- * browser, orders the fallbacks, and copies diagnostics for whoever runs the site. Every change applies
+ * browser, and copies diagnostics for whoever runs the site. Every change applies
  * at once and is remembered in the browser.
  */
 export function SourcesScreen() {
   const app = useAppContext();
-  const { swarmSettings: settings, sources, routing, parts, fallbackOrder, swarm, chat, catalogFeed } = app;
+  const { swarmSettings: settings, sources, routing, parts, swarm, chat, catalogFeed } = app;
   const [isOpen, setIsOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tests, setTests] = useState<Record<string, SourceTest>>({});
   const [lastTested, setLastTested] = useState<TestedGateway | null>(null);
   const [copy, setCopy] = useState<CopyState>(NOT_COPIED);
-  const [, setRefreshes] = useState(0);
   const [isListShown, setIsListShown] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const reportRef = useRef<HTMLTextAreaElement>(null);
@@ -82,12 +77,6 @@ export function SourcesScreen() {
   }, []);
 
   useEffect(() => releaseAddedNode, [releaseAddedNode]);
-
-  // Also while closed, because the header button marks the fallback serving from the same counts.
-  useEffect(() => {
-    const timer = setInterval(() => setRefreshes((count) => count + 1), STATUS_REFRESH_MS);
-    return () => clearInterval(timer);
-  }, []);
 
   // The report lands at the end of the body, which may be scrolled away from it.
   useEffect(() => {
@@ -189,9 +178,7 @@ export function SourcesScreen() {
   const copyDiagnostics = async () => {
     const text = reportText({
       tested: lastTested,
-      status: statusRows(swarm.activity(), swarm.health(), Date.now(), nameOf).filter(
-        ({ feature }) => feature !== 'chat' || chat !== null,
-      ),
+      status: statusRows(swarm.activity(), nameOf).filter(({ feature }) => feature !== 'chat' || chat !== null),
       build: BUILD_LABEL,
       browser: navigator.userAgent,
       atMs: Date.now(),
@@ -269,11 +256,6 @@ export function SourcesScreen() {
         <SourcesIcon />
         <span className="sources-button-label">Sources</span>
         <span className="sources-button-current">{headerName}</span>
-        {isServingFromFallback(swarm.activity(), swarm.health()) && (
-          <span className="sources-button-marker">
-            <span className="sources-visually-hidden">Using fallback</span>
-          </span>
-        )}
       </button>
 
       {isOpen && (
@@ -353,14 +335,6 @@ export function SourcesScreen() {
               )}
             </section>
           )}
-
-          <FallbackOrder
-            isJoined={isPerPart}
-            order={fallbackOrder}
-            nameOf={nameOf}
-            inUseId={isPerPart ? null : inUseId}
-            onChange={app.setFallbackOrder}
-          />
 
           {copy.kind === 'failed' && (
             <textarea

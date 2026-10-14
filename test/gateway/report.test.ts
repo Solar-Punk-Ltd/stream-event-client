@@ -83,7 +83,7 @@ async function reportOfBackup(): Promise<string> {
 
   return reportText({
     tested: { name: gatewayName(settings, backup.id), address: backup.url, results },
-    status: statusRows(inUse.activity(), inUse.health(), Date.now(), (id) => gatewayName(settings, id)),
+    status: statusRows(inUse.activity(), (id) => gatewayName(settings, id)),
     build: 'stream-event-client 0.1.0, built 2026-10-07T00:00:00.000Z',
     browser: 'Mozilla/5.0 (test)',
     atMs: Date.UTC(2026, 9, 7, 12),

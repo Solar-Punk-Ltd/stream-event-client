@@ -70,7 +70,7 @@ const gatewayKindSchema = z.enum(GATEWAY_KINDS, { message: `must be one of ${GAT
 
 /** A Bee node's HTTP API, the way the event gateway has always been read. */
 const beeHttpGatewaySchema = z.object({
-  /** What the default, the fallback and a viewer's saved choice name it by. */
+  /** What the default and a viewer's saved choice name it by. */
   id: notEmpty,
   kind: z.literal('bee-http'),
   /** What a viewer is shown it as. */
@@ -88,16 +88,6 @@ const providersSchema = z
     gateways: z.array(gatewaySchema).min(1, { message: 'must offer at least one gateway' }),
     /** The gateway every reader starts on. */
     default: notEmpty,
-    /**
-     * The gateways asked when the one in use fails, one or an ordered list, with the default gateway
-     * always asked last. Absent means the default gateway alone, so a viewer who picked another always
-     * has the event's own behind them, and false means none.
-     */
-    fallback: z
-      .union([notEmpty, z.array(notEmpty).min(1), z.literal(false)], {
-        message: 'must name one of the gateways, list them, or be false',
-      })
-      .optional(),
     /** The kinds of gateway a viewer may add one of their own of. Absent means every kind a gateway may be. */
     kinds: z.array(gatewayKindSchema).min(1, { message: 'must offer at least one kind' }).optional(),
     /** How far a Bee node of the viewer's own may be. Absent means this computer only. */
@@ -115,18 +105,6 @@ const providersSchema = z
     });
     if (!ids.has(providers.default)) {
       context.addIssue({ code: 'custom', path: ['default'], message: 'must name one of the gateways' });
-    }
-    const named = providers.fallback === false || providers.fallback === undefined ? [] : [providers.fallback].flat();
-    if (named.some((id) => !ids.has(id))) {
-      context.addIssue({ code: 'custom', path: ['fallback'], message: 'must name one of the gateways' });
-    } else if (named.includes(providers.default)) {
-      context.addIssue({
-        code: 'custom',
-        path: ['fallback'],
-        message: 'must name gateways other than the default, which is always asked last',
-      });
-    } else if (new Set(named).size !== named.length) {
-      context.addIssue({ code: 'custom', path: ['fallback'], message: 'names a gateway twice' });
     }
   });
 

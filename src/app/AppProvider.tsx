@@ -10,7 +10,6 @@ import { THEME_CONTENT, type ThemeContent } from '@/design/themes';
 import { gatewayClock } from '@/shared/gatewayClock';
 import type { SwarmClient, SwarmReader } from '@/swarm/client';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
-import { fallbackOrderFor } from '@/swarm/fallbackOrder';
 import { CHAT_SERVICE_ID, type PartSources, resolveRouting, type Routing, withoutSource } from '@/swarm/routing';
 import { CHAT_READ_GATEWAY_ID, type GatewaySetting, type SwarmSettings, swarmSettingsFrom } from '@/swarm/settings';
 import {
@@ -27,13 +26,7 @@ import {
 
 import { CatalogRead, catalogUpdater, StreamCatalog, toCatalogRead } from '@/features/catalog/catalogState';
 
-import {
-  loadSourceChoices,
-  saveAddedSources,
-  saveFallbackOrder,
-  saveRouting,
-  type SourceChoices,
-} from './sourceStorage';
+import { loadSourceChoices, saveAddedSources, saveRouting, type SourceChoices } from './sourceStorage';
 
 type AppContextState = {
   streamList: Stream[];
@@ -66,14 +59,14 @@ type AppContextState = {
    * call while one is in flight does nothing.
    */
   readNextStreamListSlot: () => void;
-  /** The one way the app reads Swarm, each part from its source with the order of fallbacks behind it. */
+  /** The one way the app reads Swarm, each part from its own source and nothing else. */
   swarm: SwarmClient;
   /**
    * The chat reader of the client in use when it is called, routed to the event's chat read address.
    * The same function for the life of the page, so a running chat follows a rebuilt client.
    */
   chatReads: () => SwarmReader;
-  /** The gateways this deployment offers, its default and its fallbacks. */
+  /** The gateways this deployment offers, and its default. */
   swarmSettings: SwarmSettings;
   /** The stream list feed this event publishes, which the Sources screen's checks read. */
   catalogFeed: { readonly owner: string; readonly topic: string };
@@ -83,8 +76,6 @@ type AppContextState = {
   routing: Routing;
   /** The source each part reads from now, which is {@link routing} with any source that is gone replaced. */
   parts: PartSources;
-  /** The order the fallbacks are asked in, the event gateway last, or empty when the deployment has none. */
-  fallbackOrder: readonly string[];
   /** The source the stream list reads from, which the stream list on screen is tagged with. */
   streamListSourceId: string;
   /** Adds a source and answers its id. */
@@ -93,7 +84,6 @@ type AppContextState = {
   /** Removes a source the viewer added. Whatever read from it reads from the default gateway. */
   removeSource: (id: string) => void;
   setRouting: (routing: Routing) => void;
-  setFallbackOrder: (order: readonly string[]) => void;
   /** The chat's settings, or null when this deployment has chat switched off. */
   chat: ChatConfig | null;
   /** The logo, words and links of this deployment's theme, which stay when a viewer switches the look. */
@@ -127,7 +117,6 @@ function gatewayOf(sources: readonly Source[], id: string, chat: ChatConfig | nu
 interface Wiring {
   readonly sources: readonly Source[];
   readonly parts: PartSources;
-  readonly fallbackOrder: readonly string[];
 }
 
 function wiringOf(settings: SwarmSettings, choices: SourceChoices): Wiring {
@@ -140,14 +129,13 @@ function wiringOf(settings: SwarmSettings, choices: SourceChoices): Wiring {
       settings.defaultId,
       sources.filter(({ type }) => servesVideoOnly(type)).map(({ id }) => id),
     ),
-    fallbackOrder: fallbackOrderFor(settings, choices.fallbackOrder),
   };
 }
 
 /** What the client is made from, so a change that leaves it alone, such as a rename, does not make it again. */
-function clientKey({ sources, parts, fallbackOrder }: Wiring): string {
+function clientKey({ sources, parts }: Wiring): string {
   const urlOf = (id: string) => sources.find((source) => source.id === id)?.url ?? id;
-  return JSON.stringify([Object.entries(parts).map(([part, id]) => [part, id, urlOf(id)]), fallbackOrder]);
+  return JSON.stringify(Object.entries(parts).map(([part, id]) => [part, id, urlOf(id)]));
 }
 
 /**
@@ -157,7 +145,7 @@ function clientKey({ sources, parts, fallbackOrder }: Wiring): string {
  * there and the gateways the deployment offers refuse the chat's paths.
  */
 function swarmClientFor(settings: SwarmSettings, wiring: Wiring, chat: ChatConfig | null): SwarmClient {
-  const { sources, parts, fallbackOrder } = wiring;
+  const { sources, parts } = wiring;
   const player = gatewayOf(sources, parts.player, chat) ?? undefined;
   const routes = Object.fromEntries(
     (['stream-list', 'previews', 'chat'] as const).flatMap((part) => {
@@ -165,7 +153,7 @@ function swarmClientFor(settings: SwarmSettings, wiring: Wiring, chat: ChatConfi
       return gateway ? [[part, gateway]] : [];
     }),
   );
-  return createSwarmClient(settings, { choice: player, routes, fallbackOrder, client: { clock: gatewayClock } });
+  return createSwarmClient(settings, { choice: player, routes, client: { clock: gatewayClock } });
 }
 
 export const AppContextProvider = ({ config, children }: Props) => {
@@ -261,14 +249,6 @@ export const AppContextProvider = ({ config, children }: Props) => {
     [applyChoices],
   );
 
-  const setFallbackOrder = useCallback(
-    (order: readonly string[]) => {
-      saveFallbackOrder(order);
-      applyChoices({ ...choicesRef.current, fallbackOrder: order });
-    },
-    [applyChoices],
-  );
-
   /**
    * Kept in a ref rather than rebuilt per call, because its whole value is the position it remembers
    * between polls. A reader recreated on each render would resolve the head every time, which is the
@@ -353,13 +333,11 @@ export const AppContextProvider = ({ config, children }: Props) => {
         sources: wiring.sources,
         routing: choices.routing,
         parts: wiring.parts,
-        fallbackOrder: wiring.fallbackOrder,
         streamListSourceId: wiring.parts['stream-list'],
         addSource,
         renameSource,
         removeSource,
         setRouting,
-        setFallbackOrder,
         chat,
         themeContent: THEME_CONTENT[selectedTheme(config)],
       }}

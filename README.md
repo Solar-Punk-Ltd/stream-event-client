@@ -42,7 +42,7 @@ live with the deployment, never in this repository.
 | Field           | What it is                                                                                                                                                         |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `gatewayUrl`    | The event gateway: a path on this site such as `/bee`, which the site proxies to Bee, or an http or https address of a Bee node. Set this or `providers`, not both |
-| `providers`     | Optional in place of `gatewayUrl`. The gateways offered, the default, the fallback and the kinds offered, below                                                    |
+| `providers`     | Optional in place of `gatewayUrl`. The gateways offered, the default and the kinds offered, below                                                                  |
 | `catalog.owner` | The Ethereum address that owns the stream list feed                                                                                                                |
 | `catalog.topic` | The stream list feed's topic, as text                                                                                                                              |
 | `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                                                   |
@@ -77,10 +77,10 @@ otherwise. With `enabled` false the other fields are not read.
 | `chat.pollIntervalMs` | How often an open chat reads its feed, in milliseconds. A positive whole number, raised under load without a rebuild                                             |
 
 The `providers` block names more than one way of reaching Swarm. A config that names only `gatewayUrl` is
-read as one Bee gateway, the default and the fallback, so a deployment written before `providers` needs no
-change. The fallback is on by default: when the source a part reads from fails, the gateways the config
-names in `providers.fallback` are asked in that order, and the default gateway is always asked last. A
-source is never its own fallback. The chat reads from `chat.readUrl` unless a viewer picks another source for it.
+read as one Bee gateway and the default, so a deployment written before `providers` needs no change.
+Nothing switches source by itself: a part reads from the source the viewer picked and from nothing else,
+and when that source fails the page says so and the viewer picks another. The chat reads from
+`chat.readUrl` unless a viewer picks another source for it.
 Every gateway in `providers.gateways` whose `url` is an address rather than a path on this site must
 also be named in the image's `EXTRA_GATEWAY_URLS` (below), or the page's policy refuses it. The one
 exception is the image's own `BEE_GATEWAY_URL` in direct mode, which the policy already allows.
@@ -91,7 +91,6 @@ exception is the image's own `BEE_GATEWAY_URL` in direct mode, which the policy 
 | `providers.gateways[].kind` | `bee-http`, a Bee node's HTTP API, the only kind a deployment may offer as a gateway. Any other kind is refused                                                                                                               |
 | `providers.gateways[].url`  | For `bee-http`: a path on this site such as `/bee`, or an http or https address, as `gatewayUrl` takes                                                                                                                        |
 | `providers.default`         | The `id` of the gateway every reader starts on                                                                                                                                                                                |
-| `providers.fallback`        | Optional. The `id` of another gateway, or a list of them in order, asked when the one in use fails. The default gateway is always asked last. Just the default when absent, and none when `false`                             |
 | `providers.kinds`           | Optional. The kinds a viewer may add a gateway of their own of. Every kind a gateway may be when absent. The node in this browser is offered by `weeb3.enabled`, not here                                                     |
 | `providers.beeNodes`        | Optional. How far a Bee node of the viewer's own may be: `off`, this computer only, the default. `https`, also any https address. `https-and-local-http`, also plain http on the local network. Match the image's `BEE_NODES` |
 
@@ -505,25 +504,20 @@ once and is kept in the browser.
   on a site at `off`, and a type whose provider kind `providers.kinds` leaves out is greyed too. A Bee
   node is checked with the node probe and a gateway with the Test before it is added, and a source
   added in one-source mode is put in use, apart from the node in this browser, which serves the video only.
-- **Fallback.** One order for every part: the deployment's `providers.fallback`, which the viewer may
-  reorder with up and down buttons, and the default gateway always last. A source is never its own
-  fallback. The node in this browser has none and is none: a part that reads from it reads from it alone. With nothing behind the source in use the line names that source alone, such as "Event
-  gateway only".
+- **No fallback.** A part reads from the source picked for it and from nothing else, whatever that
+  source answers.
 - **Copy diagnostics.** The last Test's sentences, who answered each part in the last minute, the
   build and the browser. The build is named by its release tag and short commit, such as
-  `v1.7.0-rc.5 (1fcfbd4)`, as "The release tag and the build label" under "Run the image" says. It holds no address but the tested source's. With the screen closed, the
-  header's Sources button carries a warning dot, named "Using fallback" for a screen reader, while the
-  fallback answered a read of the video in the last minute, or the source in use is paused.
+  `v1.7.0-rc.5 (1fcfbd4)`, as "The release tag and the build label" under "Run the image" says. It holds no address but the tested source's.
 
 What the browser keeps, in `localStorage`, every read and write guarded so a refusal leaves the
 deployment's defaults for that visit:
 
-| Key                    | What it holds                                                                                                |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `swarm-sources`        | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3` |
-| `swarm-routing`        | One source or per part, the source picked, each part's source, and the link                                  |
-| `swarm-fallback-order` | The viewer's order of the deployment's fallbacks                                                             |
-| `swarm-gateway-url`    | The one address saved before sources existed. Read once and moved, then removed                              |
+| Key                 | What it holds                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `swarm-sources`     | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3` |
+| `swarm-routing`     | One source or per part, the source picked, each part's source, and the link                                  |
+| `swarm-gateway-url` | The one address saved before sources existed. Read once and moved, then removed                              |
 
 An address saved under `swarm-gateway-url` that an offered gateway has becomes a choice of that
 gateway. Any other becomes an added Bee node named "My Bee node", in use, so a viewer keeps reading
@@ -558,8 +552,8 @@ controls the page, and counts as failed when it is not ready after 30 s.
   same note under 200, for as long as weeb-3 plays. The stream is attached once the node is ready. Nothing replaces weeb-3's player: one whose node fails, or that cannot attach, says "The Swarm node in this browser could not play this stream." and stays. weeb-3's limits
   are its own: it plays about 16 s behind live, does not leave a quality that stopped, does not notice a broadcast
   that returns, and plays one stream across the browser's tabs.
-- **No switching.** A part that reads from weeb-3 reads from it alone. None of its reads is handed to another source
-  whatever it answers, and weeb-3 is never in another source's fallback order. Every read through it gets weeb-3's
+- **No switching.** A part that reads from weeb-3 reads from it alone, as every part reads from its own source alone.
+  None of its reads is handed to another source whatever it answers. Every read through it gets weeb-3's
   own 30 s budget rather than the client's 10 s, so a missing chunk, which weeb-3 gives up on after about 17 s, ends
   as not found rather than cut short.
 - **Reads.** weeb-3 reads through its service worker's routes: `/weeb-3/chunks/` for a chunk, a feed entry or a
@@ -592,7 +586,7 @@ so the player brings its own loaders:
   delay so a crowd at the live edge does not ask in the same instant. Segments, preview segments and
   stream pictures are loaded by hls.js and the browser from the URLs the client gives (`urlFor`),
   written into the playlist or the page, not read through the client. So those loads are not counted
-  and a failed one is not asked again of the fallback. `fetchSegmentBytes` is the one place segment
+  and a failed one is asked again of the same source by hls.js. `fetchSegmentBytes` is the one place segment
   bytes are fetched, where a provider without URLs can plug in.
 - **ManifestStateManager** merges each live playlist into a growing EVENT playlist, so segments stay
   playable longer than the publisher's sliding window.
@@ -618,8 +612,8 @@ in `src/swarm` beyond the client's public surface, `client`, `answers`, `provide
 the two named exceptions, each with its reason in the test.
 
 - **Where each feature reads.** `AppProvider` makes one client at start from `config.json` and the
-  viewer's saved sources, and makes it again when the viewer changes what a part reads from or the
-  order of fallbacks. Components get it from the app
+  viewer's saved sources, and makes it again when the viewer changes what a part reads from.
+  Components get it from the app
   context. The player reads through `reader('player')`, the stream list through `reader('stream-list')`,
   the previews and pictures through `reader('previews')`, the Sources screen checks a source through a
   client made for that source alone, and the chat reads through `reader('chat')`, which goes to
@@ -634,7 +628,7 @@ the two named exceptions, each with its reason in the test.
 - **A provider** is one way of reaching Swarm (`src/swarm/provider.ts`), holding only what the app reads:
   a feed's head, a feed entry by index, a single-owner chunk's payload by its owner and identifier (a
   feed entry is one, and so is a ladder's time marker), a chunk, the bytes a reference names, and a URL
-  for what the browser or hls.js loads itself. It also says what it can do, its status, a probe, and start and stop
+  for what the browser or hls.js loads itself. It also has its status, a probe, and start and stop
   for a node in the tab. `src/swarm/providers/bee-http/` is Bee's HTTP API, asking the paths the app has
   always asked.
 - **Every read answers and never throws** (`src/swarm/answers.ts`): the content, with the feed index
@@ -643,19 +637,15 @@ the two named exceptions, each with its reason in the test.
   read takes a signal and a window, ten seconds when none is given. Bee's 404 is not found, its 429 is
   rate limited with its `Retry-After` capped at a minute, and any other failing status, a 500 included,
   is unavailable. A chunk read is the exception: Bee answers 500 for a chat slot never written, which an
-  idle chat asks for on every poll, so there a 500 is not found and never pauses the node.
+  idle chat asks for on every poll, so there a 500 is not found.
 - **The client** (`src/swarm/client.ts`) is made from the settings and the viewer's choice by
   `createSwarmClient`, which makes each gateway's provider through the registry of kinds
   (`src/swarm/registry.ts`). Each feature (the player, the stream list, the previews, the chat) reads
-  through its own provider with the fallbacks behind it, asked in order, each paused on its own faults. A provider that faults three times in a row is
-  left alone for 15 seconds, twice that each time it faults again at once, up to two minutes, and a
-  rate-limited one for as long as it asked. A paused provider is still asked when nothing else can be.
-  A read's window covers the fallbacks too: each gets only what the providers before it left of it,
-  and none is asked once nothing is left. URLs come from the first provider that is not paused, and a
-  playlist the player already holds names its segments again whenever that provider changes, at a pause,
-  at its end, or at a switch of node.
-  Every read is counted by feature, kind, provider and answer, and `activity()` gives the last minute's
-  answers per feature with how many came from the fallback, which the Sources screen's diagnostics carry. The server time of the player's and the
+  through its own provider and through nothing else. A read that fails answers as it failed, and the
+  feature's own retry, such as the player's backoff, asks the same provider again. URLs come from the
+  feature's own provider, and a playlist the player already holds names its segments again at a switch of
+  node. Every read is counted by feature, kind, provider and answer, and `activity()` gives the last
+  minute's answers per feature, which the diagnostics carry. The server time of the player's and the
   stream list's answers keeps the gateway clock, and the chat's, read from the chat's own host, does not.
 - **The contract** (`test/swarm/providerContract.ts`) is the suite every provider kind must pass, run
   for Bee over HTTP against the answers the browser smoke test replays.
@@ -702,7 +692,7 @@ src/
   features/
     catalog/    the stream list: feed reader, schema, polling, previews
     player/     the Swarm HLS player, its loaders and overlays, the watch page
-    gateway/    the Sources screen: sources, routing, fallback order, the Test and the diagnostics
+    gateway/    the Sources screen: sources, routing, the Test and the diagnostics
     chat/       the chat panel, the display-name login, the chat library's lifecycle
   swarm/        the Swarm client, its providers and their answers, and the settings it is made from
   shared/       the stream list format and feed helpers copied from streaming-monorepo, the fetch

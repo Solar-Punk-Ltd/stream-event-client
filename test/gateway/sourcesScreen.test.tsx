@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { Topic } from '@ethersphere/bee-js';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -41,7 +40,6 @@ vi.mock('../../src/swarm/providers/weeb-3/weeb3Module', () => ({
 
 const EVENT = 'https://event.example.com';
 const BACKUP = 'https://backup.example.com';
-const THIRD = 'https://third.example.com';
 const CHAT = {
   enabled: true,
   readUrl: 'https://chat-read.example.com',
@@ -57,14 +55,13 @@ const GATEWAYS = [
   { id: 'backup', kind: 'bee-http', label: 'Backup gateway', url: BACKUP },
 ];
 
-function config({ beeNodes, gateways = GATEWAYS, fallback, ...extra }: Record<string, unknown> = {}): RuntimeConfig {
+function config({ beeNodes, gateways = GATEWAYS, ...extra }: Record<string, unknown> = {}): RuntimeConfig {
   const result = parseRuntimeConfig({
     ...extra,
     catalog: { owner: '0x' + '1'.repeat(40), topic: 'event-streams' },
     providers: {
       gateways,
       default: 'event',
-      ...(fallback === undefined ? {} : { fallback }),
       ...(beeNodes === undefined ? {} : { beeNodes }),
     },
   });
@@ -224,7 +221,7 @@ describe('the Sources screen', () => {
     expect(button('Details of Backup gateway').getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('switches to another gateway and remembers it, with the event gateway behind it as the fallback', async () => {
+  it('switches to another gateway and remembers it', async () => {
     await open();
     click(radio('Backup gateway'));
     await settle();
@@ -232,7 +229,6 @@ describe('the Sources screen', () => {
     expect(app!.parts.player).toBe('backup');
     expect(saved(SOURCE_STORAGE_KEYS.routing)).toMatchObject({ mode: 'one', source: 'backup' });
     expect(row('Backup gateway').textContent).toContain('In use');
-    expect(swarm().activity()[0].fallbackOrder).toEqual(['event']);
     expect(button(/^Sources/).textContent).toContain('Backup gateway');
   });
 
@@ -738,60 +734,6 @@ describe('the Sources screen', () => {
     });
   });
 
-  describe('the fallback', () => {
-    const three = { gateways: [...GATEWAYS, { id: 'third', kind: 'bee-http', label: 'Third gateway', url: THIRD }] };
-
-    it("is one line of the deployment's order, the event gateway last", async () => {
-      await open({ ...three, fallback: ['backup', 'third'] });
-      click(radio('Third gateway'));
-      await settle();
-
-      expect(section('Fallback').textContent).toContain('Backup gateway, then Event gateway');
-      click(button('Edit order'));
-      expect(
-        [...section('Fallback order').querySelectorAll('.fallback-item-name')].map((name) => name.textContent),
-      ).toEqual(['Backup gateway', 'Third gateway', 'Event gateway']);
-    });
-
-    it('is reordered by the viewer, kept in the browser, with the event gateway pinned last', async () => {
-      await open({ ...three, fallback: ['backup', 'third'] });
-      click(button('Edit order'));
-      expect(button('Done ordering').textContent).toBe('Done');
-      click(button('Move Third gateway up'));
-      await settle();
-
-      expect(app!.fallbackOrder).toEqual(['third', 'backup', 'event']);
-      expect(saved(SOURCE_STORAGE_KEYS.fallbackOrder)).toEqual(['third', 'backup', 'event']);
-      expect(queryButton('Move Event gateway up')).toBeNull();
-      expect(section('Fallback order').textContent).toContain('Always last');
-
-      click(button('Move Backup gateway down'));
-      await settle();
-      expect(app!.fallbackOrder).toEqual(['third', 'backup', 'event']);
-    });
-
-    it('leaves the source in use out of the line, since it is never its own fallback', async () => {
-      await open({ fallback: 'backup' });
-      expect(section('Fallback').textContent).toBe('FallbackBackup gateway');
-
-      click(radio('Backup gateway'));
-      await settle();
-      expect(section('Fallback').textContent).toBe('FallbackEvent gateway');
-    });
-
-    it('has no order to edit with one gateway behind the event gateway or none', async () => {
-      await open();
-
-      expect(queryButton('Edit order')).toBeNull();
-    });
-
-    it('names the source in use alone when nothing stands behind it', async () => {
-      await open({ gateways: [GATEWAYS[0]] });
-
-      expect(section('Fallback').textContent).toBe('FallbackEvent gateway only');
-    });
-  });
-
   it('copies diagnostics of the last test and the status, and no address but the tested one', async () => {
     await open();
     click(button('Details of Backup gateway'));
@@ -805,26 +747,5 @@ describe('the Sources screen', () => {
     expect(copied).toContain('Reads from Event gateway.');
     expect(copied).not.toContain(EVENT);
     expect(dialog()?.textContent).toContain('Diagnostics copied');
-  });
-
-  const VIDEO_OWNER = 'a'.repeat(40);
-
-  it('marks the header button while the fallback serves the video, with the screen closed', async () => {
-    globalThis.fetch = (async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.endsWith('/health')) {
-        return Response.json({ status: 'ok' });
-      }
-      return new Response('', { status: url.startsWith(BACKUP) && url.includes(VIDEO_OWNER) ? 502 : 404 });
-    }) as typeof fetch;
-    await open();
-    click(radio('Backup gateway'));
-    click(button('Done'));
-    await settle();
-    expect(button(/^Sources/).textContent).not.toContain('Using fallback');
-
-    await swarm().reader('player').readFeedEntry(VIDEO_OWNER, Topic.fromString('a-rung'), 0);
-
-    await waitFor(() => (button(/^Sources/).textContent?.includes('Using fallback') ? true : null), 150);
   });
 });

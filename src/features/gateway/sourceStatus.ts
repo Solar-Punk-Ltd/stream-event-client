@@ -38,7 +38,7 @@ interface SourceCheckContext {
   readonly localNetworkRequests?: boolean;
   /** Injected by tests. The viewer's clock otherwise. */
   readonly now?: () => number;
-  /** Injected by tests. A client of that source alone otherwise, with no fallback behind it. */
+  /** Injected by tests. A client of that source alone otherwise. */
   readonly client?: (source: Pick<Source, 'type' | 'url'>) => Pick<SwarmClient, 'reader' | 'probe' | 'status'>;
 }
 
