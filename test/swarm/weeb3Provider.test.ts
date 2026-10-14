@@ -64,6 +64,22 @@ function servedFetch(log: AskedLog = { urls: [] }): typeof fetch {
   }) as typeof fetch;
 }
 
+/** A feed whose entries 0 to `newest` are each served, as weeb-3 serves a feed entry, at its single-owner chunk's address. */
+function feedFetch(topic: Topic, newest: number, log: AskedLog = { urls: [] }): typeof fetch {
+  const byAddress = new Map<string, number>();
+  for (let index = 0; index <= newest; index++) {
+    byAddress.set(singleOwnerChunkAddress(makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))), OWNER), index);
+  }
+  return (async (input: RequestInfo | URL) => {
+    log.urls.push(String(input));
+    const address = new URL(String(input), PAGE_ORIGIN).pathname.replace('/weeb-3/chunks/', '');
+    const index = byAddress.get(address);
+    return index === undefined
+      ? new Response('weeb-3 did not retrieve resource', { status: 404 })
+      : new Response(withSpan(text(`entry ${index}`)).slice(), { status: 200 });
+  }) as typeof fetch;
+}
+
 type FakeRuntime = Weeb3RuntimeView & {
   holds: number;
   readonly attached: unknown[][];
@@ -109,7 +125,7 @@ function weeb3(fetcher: typeof fetch, status: Weeb3Status = READY) {
 function weeb3Harness(): ContractHarness {
   return {
     world: {
-      feedHead: null,
+      feedHead: { owner: OWNER, topic: TOPIC, index: ENTRY_INDEX, bytes: ENTRY_BYTES, serverTimeMs: null },
       feedEntry: { owner: OWNER, topic: TOPIC, index: ENTRY_INDEX, bytes: ENTRY_BYTES },
       soc: { owner: OWNER, identifier: SOC_IDENTIFIER, bytes: SOC_BYTES },
       chunk: { address: CHUNK_ADDRESS, bytes: withSpan(CHUNK_PAYLOAD) },
@@ -178,12 +194,54 @@ describe('the weeb-3 provider', () => {
     expect((await weeb3(short).provider.readBytes(REFERENCE)).kind).toBe('unavailable');
   });
 
-  it("answers unsupported for a feed's head without asking, because weeb-3 has no lookup that reports the index", async () => {
+  it("finds a feed's newest entry by reading entries by index, since weeb-3 has no lookup that reports one", async () => {
     const log: AskedLog = { urls: [] };
-    const answer = await weeb3(servedFetch(log)).provider.readFeedHead(OWNER, TOPIC);
+    const topic = Topic.fromString('a-long-feed');
+    const answer = await weeb3(feedFetch(topic, 137, log)).provider.readFeedHead(OWNER, topic);
 
-    expect(answer).toEqual({ kind: 'unsupported' });
-    expect(log.urls).toEqual([]);
+    expect(answer).toMatchObject({ kind: 'content', feedIndex: 137, bytes: text('entry 137') });
+    expect(log.urls.length).toBeLessThan(40);
+  });
+
+  it('keeps at most eight reads open at once while it searches', async () => {
+    const topic = Topic.fromString('a-counted-feed');
+    let open = 0;
+    let most = 0;
+    const served = feedFetch(topic, 3_000);
+    const counting = (async (input: RequestInfo | URL) => {
+      open += 1;
+      most = Math.max(most, open);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      open -= 1;
+      return served(input);
+    }) as typeof fetch;
+
+    const answer = await weeb3(counting).provider.readFeedHead(OWNER, topic);
+
+    expect(answer).toMatchObject({ kind: 'content', feedIndex: 3_000 });
+    expect(most).toBeLessThanOrEqual(8);
+  });
+
+  it('answers not found for a feed with no entry 0, which nothing was ever written to', async () => {
+    const topic = Topic.fromString('an-empty-feed');
+
+    expect((await weeb3(feedFetch(topic, -1)).provider.readFeedHead(OWNER, topic)).kind).toBe('not-found');
+  });
+
+  it("answers the first fault a round met rather than a head it could not prove, and asks nothing after it", async () => {
+    const topic = Topic.fromString('a-failing-feed');
+    const log: AskedLog = { urls: [] };
+    const served = feedFetch(topic, 20, log);
+    const refusingAbove = (async (input: RequestInfo | URL) => {
+      const asked = log.urls.length;
+      const response = await served(input);
+      return asked >= 8 ? new Response('busy', { status: 503 }) : response;
+    }) as typeof fetch;
+
+    const answer = await weeb3(refusingAbove).provider.readFeedHead(OWNER, topic);
+
+    expect(answer).toEqual({ kind: 'unavailable', cause: { kind: 'status', status: 503 } });
+    expect(log.urls.length).toBe(16);
   });
 
   it("gives a segment's URL on weeb-3's caching route, absolute because it is written into a playlist", () => {

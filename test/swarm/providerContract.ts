@@ -15,7 +15,8 @@ export interface ContractWorld {
     readonly topic: Topic;
     readonly index: number;
     readonly bytes: Uint8Array;
-    readonly serverTimeMs: number;
+    /** Null for a provider whose far side names no time. */
+    readonly serverTimeMs: number | null;
   } | null;
   readonly feedEntry: {
     readonly owner: string;

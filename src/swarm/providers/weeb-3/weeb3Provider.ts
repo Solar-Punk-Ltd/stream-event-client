@@ -5,6 +5,7 @@ import { ABORTED, type SwarmAnswer, UNSUPPORTED } from '../../answers';
 import { httpRead } from '../../httpRead';
 import type { OwnPlayer, ProbeResult, ProviderStatus, ReadOptions, SwarmProvider, UrlUse } from '../../provider';
 import { MAX_CHUNK_PAYLOAD, singleOwnerChunkAddress } from '../../singleOwnerChunk';
+import { findNewestEntry } from './newestEntrySearch';
 import type { Weeb3Node } from './weeb3Package';
 import { WEEB3_HEALTHY_PEERS, WEEB3_PATH, type Weeb3Runtime } from './weeb3Runtime';
 
@@ -102,9 +103,15 @@ export class Weeb3Provider implements SwarmProvider {
     this.pageOrigin = options.pageOrigin ?? currentPageOrigin();
   }
 
-  /** weeb-3's feed route is its own player's playlist and reports no index, so a head lookup is unsupported. */
-  async readFeedHead(_owner: string, _topic: Topic, _options?: ReadOptions): Promise<SwarmAnswer> {
-    return UNSUPPORTED;
+  /**
+   * weeb-3's feed route is its own player's playlist and reports no index, so the newest entry is found by reading
+   * entries by index. A miss costs weeb-3 about 17 s, so a head read takes a few of those.
+   */
+  async readFeedHead(owner: string, topic: Topic, options?: ReadOptions): Promise<SwarmAnswer> {
+    if (options?.signal?.aborted) {
+      return ABORTED;
+    }
+    return findNewestEntry((index) => this.readFeedEntry(owner, topic, index, options));
   }
 
   async readFeedEntry(owner: string, topic: Topic, index: number, options?: ReadOptions): Promise<SwarmAnswer> {

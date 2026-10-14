@@ -357,7 +357,7 @@ class CheckRun {
     return streams.find((candidate) => candidate.thumbnail?.trim())?.thumbnail?.trim() ?? failure;
   }
 
-  /** The node in this browser has no head lookup, so its list is read by its first entry. */
+  /** The node in this browser finds a head only by a search that costs a few 17 s misses, so its list is read by its first entry. */
   private readStreamListAnswer(): Promise<SwarmAnswer> {
     const { owner, topic } = this.context.catalog;
     const reader = this.context.client.reader('stream-list');

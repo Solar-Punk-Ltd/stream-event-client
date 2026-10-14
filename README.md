@@ -546,18 +546,18 @@ once and is kept in the browser, and nothing switches a source by itself.
   undo a refusal of the browser's local network question (`src/features/gateway/sourceChecks.ts`, its words in
   `checkWords.ts`).
 
-  | Check                                            | Kind         | How it is measured                                                                                                        |
-  | ------------------------------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------- |
-  | Answers over https                               | gateway      | The address is https, or on this computer, and the stream list's first entry is asked. Any answer is one                  |
-  | Answers, on this computer or at an https address | Bee node     | The address is on this computer or https, then the same read                                                              |
-  | Allows this site (CORS)                          | gateway, Bee | That answer could be read by this page. A refusal is told from nothing there by a second request without CORS             |
-  | Bee 2.6 or later                                 | gateway      | `/health`'s version. A gateway that does not state one passes with "not stated", one that states an older release fails   |
-  | Bee 2.6 or later, ready                          | Bee node     | `/health`'s version, `/readiness` and `/peers`, so a node still starting or with no peers fails                           |
-  | Node started                                     | Weeb3        | Its module downloaded and the node running, waited for as long as its own deadlines allow                                 |
-  | Connected to 20 peers                            | Weeb3        | Its peer count, waited for up to a minute                                                                                 |
-  | Reads a chunk                                    | every kind   | The root chunk of a segment of this event's video, read the way the chat history reads its slots, through its chat route  |
-  | Reads bytes                                      | every kind   | The same segment's bytes, read the way the player reads it                                                                |
-  | Reads this event's stream list                   | every kind   | The stream list feed's head, which it must parse as a stream list. Weeb3, which has no head lookup, reads its first entry |
+  | Check                                            | Kind         | How it is measured                                                                                                       |
+  | ------------------------------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+  | Answers over https                               | gateway      | The address is https, or on this computer, and the stream list's first entry is asked. Any answer is one                 |
+  | Answers, on this computer or at an https address | Bee node     | The address is on this computer or https, then the same read                                                             |
+  | Allows this site (CORS)                          | gateway, Bee | That answer could be read by this page. A refusal is told from nothing there by a second request without CORS            |
+  | Bee 2.6 or later                                 | gateway      | `/health`'s version. A gateway that does not state one passes with "not stated", one that states an older release fails  |
+  | Bee 2.6 or later, ready                          | Bee node     | `/health`'s version, `/readiness` and `/peers`, so a node still starting or with no peers fails                          |
+  | Node started                                     | Weeb3        | Its module downloaded and the node running, waited for as long as its own deadlines allow                                |
+  | Connected to 20 peers                            | Weeb3        | Its peer count, waited for up to a minute                                                                                |
+  | Reads a chunk                                    | every kind   | The root chunk of a segment of this event's video, read the way the chat history reads its slots, through its chat route |
+  | Reads bytes                                      | every kind   | The same segment's bytes, read the way the player reads it                                                               |
+  | Reads this event's stream list                   | every kind   | The stream list feed's head, which it must parse as a stream list. Weeb3, with a slow head search, reads its first entry |
 
   The segment comes from the stream list the page shows, a live stream first, else the newest with video, and its
   playlist is found as the player finds it. A stream's picture stands in where no stream has video yet.
@@ -630,10 +630,14 @@ controls the page, and counts as failed when it is not ready after 30 s.
 - **Reads.** weeb-3 reads through its service worker's routes: `/weeb-3/chunks/` for a chunk, a feed entry or a
   single-owner chunk, `/weeb-3/bytes/` for bytes, and segment URLs on its caching route `/weeb-3/hls/bytes/`. weeb-3
   puts a chunk's 8-byte span before bytes and before a single-owner chunk's payload, which Bee leaves out, so it is
-  taken off. Two reads it cannot make answer unsupported, and plainly, since nothing else is asked: a feed's head,
-  which weeb-3 has no lookup for, and a single-owner chunk read by its address, which comes back without the
-  identifier and signature that prove it the owner's, as the chat's slots are read. Both are out of reach while weeb-3
-  serves the video only, since the stream list and the chat never read from it.
+  taken off. A feed's head, which weeb-3 has no lookup for, is found by reading the feed's entries by index, eight at
+  a time: entry 0 and every power of four less one, then wider steps past the newest entry found until one misses,
+  then even cuts of the gap until the newest entry and the missing one above it touch. A miss costs weeb-3 about
+  17 s, so a head read takes a few of those, about a minute for a feed of a few hundred entries, and the answer it
+  gives is always an entry read with the one above it read missing. A single-owner chunk read by its address answers
+  unsupported, and plainly, since nothing else is asked: it comes back without the identifier and signature that
+  prove it the owner's, as the chat's slots are read. That is out of reach while weeb-3 serves the video only, since
+  the chat never reads from it.
 - **Stopping, as far as it goes.** Stopping frees the page's handle on the node, and with 0.0.354001 that leaves the
   node in the package's shared worker running: a handle made after a stop still finds its peers. The package names
   no way to stop that worker's node, so it lasts until the browser closes the worker with the tab.
