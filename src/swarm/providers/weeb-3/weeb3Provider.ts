@@ -1,7 +1,7 @@
 import { ChunkBuilder, FeedIndex, Identifier, Span, type Topic } from '@ethersphere/bee-js';
 
 import { makeFeedIdentifier } from '@/shared/feedFollow';
-import { type SwarmAnswer, UNSUPPORTED } from '../../answers';
+import { ABORTED, type SwarmAnswer, UNSUPPORTED } from '../../answers';
 import { httpRead } from '../../httpRead';
 import type { OwnPlayer, ProbeResult, ProviderStatus, ReadOptions, SwarmProvider, UrlUse } from '../../provider';
 import { MAX_CHUNK_PAYLOAD, singleOwnerChunkAddress } from '../../singleOwnerChunk';
@@ -28,10 +28,31 @@ function currentPageOrigin(): string {
   return typeof location === 'undefined' ? 'http://localhost' : location.origin;
 }
 
-const notReady = (state: string): SwarmAnswer => ({
+const notReady = (why: string): SwarmAnswer => ({
   kind: 'unavailable',
-  cause: { kind: 'network', error: new Error(`the node in this browser is ${state}`) },
+  cause: { kind: 'network', error: new Error(`the node in this browser ${why}`) },
 });
+
+/** Settles with the promise, or with null once the signal stops waiting for it. */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T | null> {
+  if (!signal) {
+    return promise;
+  }
+  return new Promise((resolve, reject) => {
+    const stop = () => resolve(null);
+    signal.addEventListener('abort', stop, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', stop);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', stop);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
 
 /** A content answer with weeb-3's span taken off the front, which Bee's own reads do not carry. */
 function withoutSpan(answer: SwarmAnswer): SwarmAnswer {
@@ -57,7 +78,9 @@ function isContentAddressedAt(bytes: Uint8Array, address: string): boolean {
 /**
  * Swarm read through the node running in this browser, weeb-3, over the routes its service worker
  * answers on this page. A missing chunk is a 404 there, after weeb-3 has asked the network for about
- * 17 s, so every read is given weeb-3's own budget rather than the client's shorter default.
+ * 17 s, so every read is given weeb-3's own budget rather than the client's shorter default. A read
+ * holds the node while it runs, starting it when nothing held it, and waits for it to be ready rather
+ * than answering early, so a part reading from a node that is still starting waits for it.
  *
  * Every chunk and bytes answer starts with the span, which Bee's `/soc` and `/bytes` leave out, so it
  * is taken off. A single-owner chunk comes back as its span and payload without the identifier and
@@ -190,10 +213,28 @@ export class Weeb3Provider implements SwarmProvider {
   }
 
   private async read(path: string, options: ReadOptions = {}): Promise<SwarmAnswer> {
-    const { state } = this.runtime.status();
-    if (state !== 'ready') {
-      return options.signal?.aborted ? { kind: 'aborted' } : notReady(state);
+    const { signal } = options;
+    if (signal?.aborted) {
+      return ABORTED;
     }
-    return httpRead(new URL(`${WEEB3_PATH}${path}`, this.pageOrigin).href, { ...options, fetcher: this.fetcher });
+    const url = new URL(`${WEEB3_PATH}${path}`, this.pageOrigin).href;
+    if (this.runtime.status().state === 'ready') {
+      return httpRead(url, { ...options, fetcher: this.fetcher });
+    }
+    const { runtime } = this;
+    try {
+      const ready = untilAborted(
+        runtime.acquire().then(() => runtime.whenReady()),
+        signal,
+      );
+      if ((await ready) === null) {
+        return ABORTED;
+      }
+      return await httpRead(url, { ...options, fetcher: this.fetcher });
+    } catch {
+      return notReady('could not start');
+    } finally {
+      runtime.release();
+    }
   }
 }

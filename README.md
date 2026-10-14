@@ -603,8 +603,10 @@ controls the page, and counts as failed when it is not ready after 30 s.
   shared worker and WebAssembly module, to `/weeb-3/` (`scripts/weeb3-files.mjs`). The bundle carries no copy of
   the module of its own.
 - **When it runs.** The node runs while something holds it: the video while weeb-3 is its source, the watch page's
-  player while it shows, and Connect from adding it until Connect closes, or a source's settings while it is checked
-  there. Listing a saved one starts
+  player while it shows, Connect from adding it until Connect closes, or a source's settings while it is checked
+  there, and every read through it while that read runs. A read made while the node is starting waits for it to be
+  ready, and one made while it is stopped starts it first, so a part never gets an early answer from a node that is
+  not there yet. A node that fails to start answers the read as unavailable. Listing a saved one starts
   nothing. When the last of them lets go, as when the video moves to another source or the source is removed, the
   node is stopped and freed.
 - **Getting ready.** The page downloads the 2.2 MB WebAssembly module itself, reading it as it streams, so the

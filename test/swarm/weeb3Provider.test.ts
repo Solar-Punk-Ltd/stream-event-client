@@ -194,15 +194,61 @@ describe('the weeb-3 provider', () => {
     expect(provider.urlFor(` ${REFERENCE} `, 'thumbnail')).toBe(`/weeb-3/bzz/${REFERENCE}/`);
   });
 
-  it('answers unavailable without asking while the node is not ready, and never starts it', async () => {
+  it('waits for a node that is starting, holding it, and reads once it is ready', async () => {
     const log: AskedLog = { urls: [] };
-    const { provider, runtime } = weeb3(servedFetch(log), { state: 'stopped', peers: 0 });
+    const { provider, runtime } = weeb3(servedFetch(log), { state: 'starting', peers: 0 });
 
-    const answer = await provider.readBytes(REFERENCE);
+    const reading = provider.readBytes(REFERENCE);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(log.urls).toEqual([]);
+    expect(runtime.holds).toBe(1);
+
+    runtime.settle(true);
+    expect(await reading).toMatchObject({ kind: 'content', bytes: SEGMENT_BYTES });
+    expect(runtime.holds).toBe(0);
+  });
+
+  it('starts a stopped node for a read, since a part that reads from it needs it, and lets go once answered', async () => {
+    const { provider, runtime } = weeb3(servedFetch(), { state: 'stopped', peers: 0 });
+
+    const reading = provider.readBytes(REFERENCE);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(runtime.holds).toBe(1);
+    runtime.settle(true);
+
+    expect((await reading).kind).toBe('content');
+    expect(runtime.holds).toBe(0);
+  });
+
+  it('answers unavailable, asking nothing, when the node fails to start', async () => {
+    const log: AskedLog = { urls: [] };
+    const { provider, runtime } = weeb3(servedFetch(log), { state: 'starting', peers: 0 });
+
+    const reading = provider.readBytes(REFERENCE);
+    runtime.settle(false);
+
+    expect(await reading).toMatchObject({ kind: 'unavailable', cause: { kind: 'network' } });
+    expect(log.urls).toEqual([]);
+    expect(runtime.holds).toBe(0);
+  });
+
+  it('answers aborted when the caller stops a read still waiting for the node', async () => {
+    const { provider, runtime } = weeb3(servedFetch(), { state: 'starting', peers: 0 });
+    const controller = new AbortController();
+
+    const reading = provider.readBytes(REFERENCE, { signal: controller.signal });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    controller.abort();
+
+    expect(await reading).toEqual({ kind: 'aborted' });
+    expect(runtime.holds).toBe(0);
+  });
+
+  it('never starts the node for a probe', async () => {
+    const { provider, runtime } = weeb3(servedFetch(), { state: 'stopped', peers: 0 });
+
     await provider.probe();
 
-    expect(answer.kind).toBe('unavailable');
-    expect(log.urls).toEqual([]);
     expect(runtime.holds).toBe(0);
   });
 
