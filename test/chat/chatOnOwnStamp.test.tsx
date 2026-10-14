@@ -2,7 +2,7 @@
 // @vitest-environment-options {"url":"https://example.com/"}
 import { EVENTS, MessageType, MessageVia } from '@solarpunkltd/swarm-chat-js';
 import { act, createElement } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { saveAddedSources, saveRouting } from '../../src/app/sourceStorage';
 import { Chat } from '../../src/features/chat/Chat/Chat';
@@ -15,7 +15,15 @@ import { CHAT, connectPage, seen } from '../helpers/connectPage';
 import { button, click, queryButton, settle, type Mounted, waitFor } from '../helpers/dom';
 import { FakeSwarmChat } from '../helpers/fakeSwarmChat';
 import { type FakeSwarmId, fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
-import { idOf, inThreadVerifier, messageData, signedMessage } from '../helpers/signedChat';
+import {
+  addressOf,
+  BOUND_SITE,
+  chatKeyFor,
+  idOf,
+  inThreadVerifier,
+  messageData,
+  signedMessage,
+} from '../helpers/signedChat';
 
 vi.mock('@solarpunkltd/swarm-chat-js', async (importActual) => {
   const actual = await importActual<typeof import('@solarpunkltd/swarm-chat-js')>();
@@ -49,6 +57,12 @@ const READS: ChatReads = {
 };
 
 let mounted: Mounted | null = null;
+/** The chat address the fake Swarm ID's session signs as on this site, which the who-pays choice is kept under. */
+let signedInAddress = '';
+
+beforeAll(async () => {
+  signedInAddress = addressOf(await chatKeyFor(BOUND_SITE));
+});
 let posted: Array<{ url: string; stamp: string | null }> = [];
 const realFetch = globalThis.fetch;
 
@@ -106,7 +120,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it("writes each message through the viewer's Bee node, stamped by Swarm ID, and says so in every message", async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice({ payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     const swarmId = await watchPage();
 
     const chat = FakeSwarmChat.latest();
@@ -136,7 +150,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it('shows a message Swarm ID would not stamp as not sent, with the reason, and sends it nowhere else', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice({ payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     const swarmId = await watchPage();
     swarmId.client().stampRefusal = Object.assign(new Error('expired'), {
       code: 'upload-unavailable',
@@ -163,7 +177,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it('warns above the message field when the stamp ran out, holds the message, and lets the viewer pick the gateway', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice({ payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     await watchPage({ ...BATCH, utilization: 1 });
 
     expect(chatRegion()?.textContent).toContain('Your stamp ran out.');
@@ -177,7 +191,7 @@ describe('a chat paid for with my own stamp', () => {
   });
 
   it('warns when the chat source cannot send on my stamp, and never sends through the gateway in its place', async () => {
-    saveChatStampChoice({ payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     await watchPage();
 
     const chat = FakeSwarmChat.latest();
@@ -196,7 +210,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it('warns while the stamp runs low, and still sends', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice({ payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     await watchPage({ ...BATCH, utilization: 0.9, batchTTL: 2 * DAY_S });
 
     expect(chatRegion()?.textContent).toContain('90% of your stamp is used.');

@@ -88,19 +88,32 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
   const { sources, parts, swarmSettings } = useAppContext();
   const { swarmIdSession, swarmIdUrl, getSiteStamp, stampChunk } = useChatUser();
   const { isOpen } = useConnect();
-  const [picked, setPicked] = useState<ChatStampChoice>(() => loadChatStampChoice());
+
   const [siteStamp, setSiteStamp] = useState<SiteStampRead>({ status: SITE_STAMP_READING });
   const accountId = swarmIdSession?.address ?? null;
   const canUseOwnStamp = accountId !== null;
-  const choice = canUseOwnStamp ? picked : GATEWAY_PAYS;
+  const [picked, setPicked] = useState<{ readonly accountId: string | null; readonly choice: ChatStampChoice }>(() => ({
+    accountId,
+    choice: accountId ? loadChatStampChoice(accountId) : GATEWAY_PAYS,
+  }));
+  if (picked.accountId !== accountId) {
+    setPicked({ accountId, choice: accountId ? loadChatStampChoice(accountId) : GATEWAY_PAYS });
+  }
+  const choice = canUseOwnStamp && picked.accountId === accountId ? picked.choice : GATEWAY_PAYS;
   const ownStampPays = choice.payWith === MessageVia.OWN_STAMP;
 
-  const pick = useCallback((next: ChatStampChoice) => {
-    saveChatStampChoice(next);
-    setPicked(next);
-  }, []);
-  const choosePayWith = useCallback((payWith: MessageVia) => pick({ ...picked, payWith }), [pick, picked]);
-  const chooseOwnFeed = useCallback((ownFeed: boolean) => pick({ ...picked, ownFeed }), [pick, picked]);
+  const pick = useCallback(
+    (next: ChatStampChoice) => {
+      if (!accountId) {
+        return;
+      }
+      saveChatStampChoice(accountId, next);
+      setPicked({ accountId, choice: next });
+    },
+    [accountId],
+  );
+  const choosePayWith = useCallback((payWith: MessageVia) => pick({ ...choice, payWith }), [pick, choice]);
+  const chooseOwnFeed = useCallback((ownFeed: boolean) => pick({ ...choice, ownFeed }), [pick, choice]);
 
   const chatSource = sources.find(({ id }) => id === parts.chat) ?? null;
   const route: OwnStampRoute = useMemo(

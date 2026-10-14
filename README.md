@@ -130,11 +130,13 @@ keys in the tree has to know it.
 
 **What the browser keeps.** A guest's display name, the chat key made for it (32 random bytes from the
 browser's own crypto) and its address sit in local storage under `stream-event-client:chat-session`,
-so a reload keeps the name. Logging out, or Leave beside Swarm ID, removes them. Nothing of a Swarm ID
-sign-in is kept there. Who pays for the viewer's messages, and whether they keep an own feed, sit under
-`stream-event-client:chat-stamp`, read only while they are signed in with Swarm ID. The key proves only that two messages came from
-the same browser, and anyone may choose any name. So the badge beside a guest's name opens the
-details, where the sender's full public address tells apart two people who chose the same name.
+so a reload keeps the name. Logging out, or Leave beside Swarm ID, removes them. The guest's key proves only
+that two messages came from the same browser, and anyone may choose any name. So the badge beside a guest's name
+opens the details, where the sender's full public address tells apart two people who chose the same name.
+
+Nothing of a Swarm ID sign-in is kept there. What a Swarm ID account picked for paying, the gateway or its own
+stamp, and whether it keeps an own feed, sits under `stream-event-client:chat-stamp:<its chat address>`, one entry
+per account, so another account signing in on the same browser starts with the gateway paying.
 
 **What the chat checks, and the badges.** Every message is signed by its sender's chat key. The page
 checks each one, live, from history and the viewer's own while it is still sending, in a Web Worker
