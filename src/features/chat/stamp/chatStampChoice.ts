@@ -3,7 +3,12 @@ import { z } from 'zod';
 
 import { type BrowserStorage, browserStorage, readStored, writeStored } from '@/app/browserStorage';
 
-export const CHAT_STAMP_STORAGE_KEY = 'stream-event-client:chat-stamp';
+const CHAT_STAMP_STORAGE_PREFIX = 'stream-event-client:chat-stamp:';
+
+/** One entry per account, named by its chat address on this site, so another account here starts on the gateway. */
+export function chatStampStorageKey(chatAddress: string): string {
+  return `${CHAT_STAMP_STORAGE_PREFIX}${chatAddress.toLowerCase()}`;
+}
 
 /** Who the viewer picked to pay for their chat messages, and whether each also gets a copy in their own feed. */
 export interface ChatStampChoice {
@@ -20,9 +25,12 @@ const storedChoiceSchema = z.object({
   ownFeed: z.boolean(),
 });
 
-/** What this browser picked before. Anything else written under the key reads as the gateway paying. */
-export function loadChatStampChoice(storage: BrowserStorage | null = browserStorage()): ChatStampChoice {
-  const saved = readStored(storage, CHAT_STAMP_STORAGE_KEY);
+/** What this account picked before in this browser. Anything else written under its key reads as the gateway paying. */
+export function loadChatStampChoice(
+  chatAddress: string,
+  storage: BrowserStorage | null = browserStorage(),
+): ChatStampChoice {
+  const saved = readStored(storage, chatStampStorageKey(chatAddress));
   if (saved === null) {
     return GATEWAY_PAYS;
   }
@@ -34,6 +42,10 @@ export function loadChatStampChoice(storage: BrowserStorage | null = browserStor
   }
 }
 
-export function saveChatStampChoice(choice: ChatStampChoice, storage: BrowserStorage | null = browserStorage()): void {
-  writeStored(storage, CHAT_STAMP_STORAGE_KEY, JSON.stringify(choice));
+export function saveChatStampChoice(
+  chatAddress: string,
+  choice: ChatStampChoice,
+  storage: BrowserStorage | null = browserStorage(),
+): void {
+  writeStored(storage, chatStampStorageKey(chatAddress), JSON.stringify(choice));
 }

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 // @vitest-environment-options {"url":"https://example.com/"}
-import { EVENTS, MessageType, MessageVia } from '@solarpunkltd/swarm-chat-js';
+import { createChatMessage, encodeChatMessage, EVENTS, MessageType, MessageVia } from '@solarpunkltd/swarm-chat-js';
 import { act, createElement } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { saveAddedSources, saveRouting } from '../../src/app/sourceStorage';
 import { Chat } from '../../src/features/chat/Chat/Chat';
@@ -14,8 +14,17 @@ import { chooseSource, defaultRouting } from '../../src/swarm/routing';
 import { CHAT, connectPage, seen } from '../helpers/connectPage';
 import { button, click, queryButton, settle, type Mounted, waitFor } from '../helpers/dom';
 import { FakeSwarmChat } from '../helpers/fakeSwarmChat';
+import { ownFeed } from '../helpers/ownFeed';
 import { type FakeSwarmId, fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
-import { idOf, inThreadVerifier, messageData, signedMessage } from '../helpers/signedChat';
+import {
+  addressOf,
+  BOUND_SITE,
+  chatKeyFor,
+  idOf,
+  inThreadVerifier,
+  messageData,
+  signedMessage,
+} from '../helpers/signedChat';
 
 vi.mock('@solarpunkltd/swarm-chat-js', async (importActual) => {
   const actual = await importActual<typeof import('@solarpunkltd/swarm-chat-js')>();
@@ -49,6 +58,13 @@ const READS: ChatReads = {
 };
 
 let mounted: Mounted | null = null;
+let reads: ChatReads = READS;
+/** The chat address the fake Swarm ID's session signs as on this site, which the who-pays choice is kept under. */
+let signedInAddress = '';
+
+beforeAll(async () => {
+  signedInAddress = addressOf(await chatKeyFor(BOUND_SITE));
+});
 let posted: Array<{ url: string; stamp: string | null }> = [];
 const realFetch = globalThis.fetch;
 
@@ -63,7 +79,7 @@ async function watchPage(batch: SwarmIdPostageBatch = BATCH): Promise<FakeSwarmI
   });
   mounted = connectPage({
     swarmId,
-    children: [createElement(Chat, { key: 'chat', chat: CHAT, topic: 'stream-one', reads: () => READS })],
+    children: [createElement(Chat, { key: 'chat', chat: CHAT, topic: 'stream-one', reads: () => reads })],
   });
   await settle();
   await waitFor(() => seen.chatUser?.swarmIdSession);
@@ -77,6 +93,7 @@ async function watchPage(batch: SwarmIdPostageBatch = BATCH): Promise<FakeSwarmI
 const chatRegion = () => document.querySelector<HTMLElement>('.chat-container');
 
 beforeEach(() => {
+  reads = READS;
   FakeSwarmChat.reset();
   verifier.current = inThreadVerifier();
   localStorage.clear();
@@ -106,7 +123,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it("writes each message through the viewer's Bee node, stamped by Swarm ID, and says so in every message", async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice({ payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     const swarmId = await watchPage();
 
     const chat = FakeSwarmChat.latest();
@@ -136,7 +153,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it('shows a message Swarm ID would not stamp as not sent, with the reason, and sends it nowhere else', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice({ payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     const swarmId = await watchPage();
     swarmId.client().stampRefusal = Object.assign(new Error('expired'), {
       code: 'upload-unavailable',
@@ -163,7 +180,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it('warns above the message field when the stamp ran out, holds the message, and lets the viewer pick the gateway', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice({ payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     await watchPage({ ...BATCH, utilization: 1 });
 
     expect(chatRegion()?.textContent).toContain('Your stamp ran out.');
@@ -177,7 +194,7 @@ describe('a chat paid for with my own stamp', () => {
   });
 
   it('warns when the chat source cannot send on my stamp, and never sends through the gateway in its place', async () => {
-    saveChatStampChoice({ payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     await watchPage();
 
     const chat = FakeSwarmChat.latest();
@@ -196,11 +213,75 @@ describe('a chat paid for with my own stamp', () => {
 
   it('warns while the stamp runs low, and still sends', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice({ payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     await watchPage({ ...BATCH, utilization: 0.9, batchTTL: 2 * DAY_S });
 
     expect(chatRegion()?.textContent).toContain('90% of your stamp is used.');
     expect(chatRegion()?.textContent).toContain('It runs out in about 2 days.');
     expect(button('Change stamp in Swarm ID')).toBeTruthy();
+  });
+});
+
+describe("a sender's own copies in the message details", () => {
+  const SENDER_KEY = 'a1'.repeat(32);
+  const copyOf = (index: number, text = `copy ${index}`) =>
+    createChatMessage(SENDER_KEY, {
+      id: idOf(`own-${index}`),
+      topic: 'chat-stream-one',
+      type: MessageType.TEXT,
+      text,
+      name: 'Bea',
+      ts: 1_000 + index,
+      via: MessageVia.OWN_STAMP,
+      own: true,
+    }).message;
+
+  async function openDetailsOf(count: number, tamperedAt: number | null = null) {
+    const copies = Array.from({ length: count }, (_, index) =>
+      index === tamperedAt ? { ...copyOf(index), text: 'changed after signing' } : copyOf(index),
+    );
+    reads = ownFeed(
+      SENDER_KEY,
+      'chat-stream-one',
+      copies.map((copy) => encodeChatMessage(copy)),
+    ).reads;
+    await watchPage();
+    const newest = copyOf(count - 1);
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(newest, 0)));
+    await waitFor(() => (chatRegion()?.textContent?.includes(newest.text) ? true : null));
+    click(button('Sent with their own stamp, show details'));
+    await waitFor(() => document.querySelector('[aria-label="Their own copies"] li'));
+    await settle();
+    return document.querySelector<HTMLElement>('[aria-label="Their own copies"]')!;
+  }
+
+  const listed = (section: HTMLElement) =>
+    [...section.querySelectorAll('li .own-copy-text')].map((item) => item.textContent);
+
+  it("lists the copies in the sender's own feed, newest first, ten at a time, and loads more", async () => {
+    const section = await openDetailsOf(12);
+
+    expect(listed(section)).toEqual(Array.from({ length: 10 }, (_, at) => `copy ${11 - at}`));
+    click(button('Load more'));
+    await waitFor(() => (listed(section).length === 12 ? true : null));
+    expect(listed(section).slice(10)).toEqual(['copy 1', 'copy 0']);
+    expect(queryButton('Load more')).toBeNull();
+  });
+
+  it('hides a copy that fails its check', async () => {
+    const section = await openDetailsOf(3, 1);
+    expect(listed(section)).toEqual(['copy 2', 'copy 0']);
+    expect(section.textContent).not.toContain('changed after signing');
+  });
+
+  it('is not offered for a message that says it keeps no copy', async () => {
+    await watchPage();
+    const plain = signedMessage('no-copy', { key: SENDER_KEY, via: MessageVia.OWN_STAMP });
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(plain, 0)));
+    await waitFor(() => (chatRegion()?.textContent?.includes(plain.text) ? true : null));
+    click(button('Sent with their own stamp, show details'));
+    await settle();
+    expect(document.querySelector('[aria-label="Details for this message"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Their own copies"]')).toBeNull();
   });
 });

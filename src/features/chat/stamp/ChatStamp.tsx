@@ -88,19 +88,32 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
   const { sources, parts, swarmSettings } = useAppContext();
   const { swarmIdSession, swarmIdUrl, getSiteStamp, stampChunk } = useChatUser();
   const { isOpen } = useConnect();
-  const [picked, setPicked] = useState<ChatStampChoice>(() => loadChatStampChoice());
+
   const [siteStamp, setSiteStamp] = useState<SiteStampRead>({ status: SITE_STAMP_READING });
   const accountId = swarmIdSession?.address ?? null;
   const canUseOwnStamp = accountId !== null;
-  const choice = canUseOwnStamp ? picked : GATEWAY_PAYS;
+  const [picked, setPicked] = useState<{ readonly accountId: string | null; readonly choice: ChatStampChoice }>(() => ({
+    accountId,
+    choice: accountId ? loadChatStampChoice(accountId) : GATEWAY_PAYS,
+  }));
+  if (picked.accountId !== accountId) {
+    setPicked({ accountId, choice: accountId ? loadChatStampChoice(accountId) : GATEWAY_PAYS });
+  }
+  const choice = canUseOwnStamp && picked.accountId === accountId ? picked.choice : GATEWAY_PAYS;
   const ownStampPays = choice.payWith === MessageVia.OWN_STAMP;
 
-  const pick = useCallback((next: ChatStampChoice) => {
-    saveChatStampChoice(next);
-    setPicked(next);
-  }, []);
-  const choosePayWith = useCallback((payWith: MessageVia) => pick({ ...picked, payWith }), [pick, picked]);
-  const chooseOwnFeed = useCallback((ownFeed: boolean) => pick({ ...picked, ownFeed }), [pick, picked]);
+  const pick = useCallback(
+    (next: ChatStampChoice) => {
+      if (!accountId) {
+        return;
+      }
+      saveChatStampChoice(accountId, next);
+      setPicked({ accountId, choice: next });
+    },
+    [accountId],
+  );
+  const choosePayWith = useCallback((payWith: MessageVia) => pick({ ...choice, payWith }), [pick, choice]);
+  const chooseOwnFeed = useCallback((ownFeed: boolean) => pick({ ...choice, ownFeed }), [pick, choice]);
 
   const chatSource = sources.find(({ id }) => id === parts.chat) ?? null;
   const route: OwnStampRoute = useMemo(
@@ -221,8 +234,13 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
             if (!opened) {
               return;
             }
-            // Kept as a handle only, to see it close: the Swarm ID site gets no way back into this page.
-            opened.opener = null;
+            // Kept as a handle only, to see it close: the Swarm ID site gets no way back into this page. A window of
+            // this name already showing the Swarm ID site may refuse the assignment, and is watched all the same.
+            try {
+              opened.opener = null;
+            } catch {
+              // Its opener stays, as it was for the window that was already open.
+            }
             const watch = window.setInterval(() => {
               if (opened.closed) {
                 window.clearInterval(watch);

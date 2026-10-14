@@ -130,11 +130,13 @@ keys in the tree has to know it.
 
 **What the browser keeps.** A guest's display name, the chat key made for it (32 random bytes from the
 browser's own crypto) and its address sit in local storage under `stream-event-client:chat-session`,
-so a reload keeps the name. Logging out, or Leave beside Swarm ID, removes them. Nothing of a Swarm ID
-sign-in is kept there. Who pays for the viewer's messages, and whether they keep an own feed, sit under
-`stream-event-client:chat-stamp`, read only while they are signed in with Swarm ID. The key proves only that two messages came from
-the same browser, and anyone may choose any name. So the badge beside a guest's name opens the
-details, where the sender's full public address tells apart two people who chose the same name.
+so a reload keeps the name. Logging out, or Leave beside Swarm ID, removes them. The guest's key proves only
+that two messages came from the same browser, and anyone may choose any name. So the badge beside a guest's name
+opens the details, where the sender's full public address tells apart two people who chose the same name.
+
+Nothing of a Swarm ID sign-in is kept there. What a Swarm ID account picked for paying, the gateway or its own
+stamp, and whether it keeps an own feed, sits under `stream-event-client:chat-stamp:<its chat address>`, one entry
+per account, so another account signing in on the same browser starts with the gateway paying.
 
 **What the chat checks, and the badges.** Every message is signed by its sender's chat key. The page
 checks each one, live, from history and the viewer's own while it is still sending, in a Web Worker
@@ -157,7 +159,12 @@ on this site is its own. A stamp after the badge says the sender paid for the wr
 their own. Every message this page sends says who paid, the event gateway or the viewer's own stamp. The badge, and the stamp where
 there is one, open the message's details: the name, the identity, the public chat address, that the signature
 matches the text, for a Swarm ID the link Swarm ID confirmed for this site and the account's address,
-and who paid for the write.
+and who paid for the write. For a message that says its sender keeps a copy in their own feed (`own: true`), the
+details also list **Their own copies**: the sender's own feed, `ownFeedTopic(chatTopic)` under their chat
+address, read through the source picked for Chat history, newest first, ten at a time with Load more. Each entry
+is read by its address and must be the sender's own single-owner chunk, and each copy passes the same check as
+every chat message and must be the sender's and for this chat, or it is not shown. The list only reads, and the
+section counts the entries it did not show in its `data-hidden-copies` attribute.
 
 ### Signing in with Swarm ID
 
@@ -248,6 +255,10 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   again with `own: true`, the same id, time and text. The feed's newest index is read once, through the chat
   history's source, and counted on from there. When it cannot be read, the message waits with the reason rather
   than going out without its copy. Each message then costs two stamped chunks.
+  **Two known limits.** The next index is counted from one read of the feed's newest entry each time the chat
+  starts, so a chat started again seconds after a send, before that entry can be read back, can write the next
+  copy at an index already used. And a copy is written before its message, so a message that then fails and is
+  never retried leaves a copy that no chat message matches.
 
 **How the page talks to Swarm ID.** The library, `@solarpunkltd/swarm-id` from the Solar Punk fork, is a file
 of the bundle of its own, fetched when the page starts on a deployment that offers Swarm ID, because

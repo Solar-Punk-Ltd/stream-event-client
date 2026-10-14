@@ -1,0 +1,45 @@
+// Under the details of a message that says its sender keeps a copy: one line per copy, its index, then its text.
+.own-copies {
+  display: grid;
+  gap: var(--spacing-2xs);
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.own-copies-hint {
+  color: var(--color-text-tertiary);
+}
+
+.own-copies-list {
+  display: grid;
+  gap: var(--spacing-2xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--spacing-sm);
+  }
+}
+
+.own-copy-index {
+  font-family: var(--font-family-mono);
+  color: var(--color-text-tertiary);
+}
+
+.own-copy-text {
+  overflow-wrap: anywhere;
+}
+
+.own-copies-more {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  cursor: pointer;
+}

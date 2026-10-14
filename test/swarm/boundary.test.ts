@@ -91,6 +91,11 @@ const ALLOWED_PAST_THE_SURFACE: readonly { readonly file: string; readonly targe
     target: 'providers/bee-http/stampedSocUpload',
     why: "what the viewer's Bee node answered that write, read from its error",
   },
+  {
+    file: 'src/features/chat/stamp/ownCopies.ts',
+    target: 'singleOwnerChunk',
+    why: "a sender's own copies are checked to be their own single-owner chunks, a codec that reads nothing",
+  },
 ];
 
 function importsPastTheSurface(file: string): string[] {

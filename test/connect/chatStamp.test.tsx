@@ -1,19 +1,20 @@
 // @vitest-environment jsdom
 // @vitest-environment-options {"url":"https://example.com/"}
 import { MessageVia } from '@solarpunkltd/swarm-chat-js';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { saveAddedSources, saveRouting } from '../../src/app/sourceStorage';
 import { nicknameLogin } from '../../src/features/chat/auth/login';
 import { persistUserSession } from '../../src/features/chat/auth/persistence';
 import { swarmIdAppsUrl } from '../../src/features/chat/stamp/ChatStamp';
-import { loadChatStampChoice } from '../../src/features/chat/stamp/chatStampChoice';
+import { loadChatStampChoice, saveChatStampChoice } from '../../src/features/chat/stamp/chatStampChoice';
 import { EVENT_GATEWAY_STAMPS_ITSELF, PICK_A_BEE_NODE } from '../../src/features/chat/stamp/ownStampRoute';
 import type { SwarmIdPostageBatch } from '../../src/features/chat/swarmId/swarmIdClient';
 import { chooseSource, defaultRouting } from '../../src/swarm/routing';
 import { connectPage, seen } from '../helpers/connectPage';
 import { button, click, dialog, settle, type Mounted, waitFor } from '../helpers/dom';
 import { fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
+import { addressOf, BOUND_SITE, chatKeyFor } from '../helpers/signedChat';
 
 const DAY_S = 24 * 60 * 60;
 const BATCH: SwarmIdPostageBatch = {
@@ -25,6 +26,11 @@ const BATCH: SwarmIdPostageBatch = {
 };
 
 let mounted: Mounted | null = null;
+let signedInAddress = '';
+
+beforeAll(async () => {
+  signedInAddress = addressOf(await chatKeyFor(BOUND_SITE));
+});
 const realFetch = globalThis.fetch;
 
 const group = () => dialog()?.querySelector<HTMLElement>('section[aria-label="Chat stamp"]') ?? null;
@@ -102,7 +108,7 @@ describe('the chat stamp in Connect', () => {
     await settle();
 
     expect(radio('My stamp')?.checked).toBe(true);
-    expect(loadChatStampChoice().payWith).toBe(MessageVia.OWN_STAMP);
+    expect(loadChatStampChoice(signedInAddress).payWith).toBe(MessageVia.OWN_STAMP);
     expect(seen.chatStamp?.sending).toEqual({
       via: MessageVia.OWN_STAMP,
       url: 'http://localhost:1633',
@@ -113,6 +119,24 @@ describe('the chat stamp in Connect', () => {
     expect(box).toContain('40 days left');
     expect(box).toContain('42% used');
     expect(group()?.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('42');
+  });
+
+  it('starts another account on this browser on the gateway, whatever an earlier account picked', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice('c'.repeat(40), { payWith: MessageVia.OWN_STAMP, ownFeed: true });
+    await openConnect();
+
+    expect(radio('Gateway pays')?.checked).toBe(true);
+    expect(seen.chatStamp?.sending).toEqual({ via: MessageVia.GATEWAY });
+  });
+
+  it('keeps what the account picked across a reload', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: true });
+    await openConnect();
+
+    expect(radio('My stamp')?.checked).toBe(true);
+    expect(ownFeedBox()?.checked).toBe(true);
   });
 
   it('keeps an own feed only when asked, and only with my stamp', async () => {
@@ -126,7 +150,7 @@ describe('the chat stamp in Connect', () => {
     click(ownFeedBox()!);
     await settle();
 
-    expect(loadChatStampChoice()).toEqual({ payWith: MessageVia.OWN_STAMP, ownFeed: true });
+    expect(loadChatStampChoice(signedInAddress)).toEqual({ payWith: MessageVia.OWN_STAMP, ownFeed: true });
     expect(seen.chatStamp?.sending).toMatchObject({ ownFeed: true });
   });
 
@@ -165,6 +189,32 @@ describe('the chat stamp in Connect', () => {
     }
     await settle();
     expect(group()?.textContent).toContain('Another stamp');
+  });
+
+  it('still reads the stamp again when the window is already on the Swarm ID site and refuses to drop its opener', async () => {
+    chatOnMyBeeNode();
+    const appsWindow = {
+      closed: false,
+      set opener(_value: unknown) {
+        throw new DOMException('Blocked a frame from accessing a cross-origin frame.', 'SecurityError');
+      },
+    };
+    vi.spyOn(window, 'open').mockReturnValue(appsWindow as unknown as Window);
+    const swarmId = await openConnect();
+    click(radio('My stamp')!);
+    await settle();
+
+    vi.useFakeTimers();
+    try {
+      expect(() => click(button('Change stamp in Swarm ID'))).not.toThrow();
+      swarmId.client().postageBatch = { ...BATCH, label: 'Picked again' };
+      appsWindow.closed = true;
+      await vi.advanceTimersByTimeAsync(2_000);
+    } finally {
+      vi.useRealTimers();
+    }
+    await settle();
+    expect(group()?.textContent).toContain('Picked again');
   });
 
   it('says a stamp that ran out has run out', async () => {
