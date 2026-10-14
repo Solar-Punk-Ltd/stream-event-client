@@ -68,7 +68,8 @@ export type NotReadyReason =
 
 /** What asking a provider whether it is there at all found. */
 export type ProbeResult =
-  | { readonly kind: 'ok'; readonly elapsedMs: number }
+  /** `version` is the Bee release the node states, absent where it states none. */
+  | { readonly kind: 'ok'; readonly elapsedMs: number; readonly version?: string }
   /** Something answered, but not as a Swarm node does. */
   | { readonly kind: 'not-swarm' }
   /** A Swarm node answered and cannot serve reads yet. */

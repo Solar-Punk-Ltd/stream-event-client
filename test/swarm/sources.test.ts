@@ -5,6 +5,7 @@ import { swarmSettingsFrom } from '../../src/swarm/settings';
 import {
   addSource,
   allSources,
+  chatHistorySettingOf,
   gatewaySettingOf,
   migratedSources,
   parseAddedSources,
@@ -57,6 +58,26 @@ describe('the sources', () => {
   it('name an id they do not hold by what it is, never by an address', () => {
     expect(sourceName(allSources(settings(), [NODE]), 'added-1')).toBe('Desk node');
     expect(sourceName(allSources(settings(), []), 'added-9')).toBe('A removed source');
+  });
+});
+
+describe("where a source's chat history is read", () => {
+  const CHAT_READ = 'https://event.example.com/chat';
+  const [event, backup] = allSources(settings(), []);
+
+  it("is the deployment's chat read address for its default gateway, which serves the chat's paths there", () => {
+    expect(chatHistorySettingOf(event, 'event', CHAT_READ)).toEqual({ id: 'event', kind: 'bee-http', url: CHAT_READ });
+  });
+
+  it('is the source itself for every other one, offered or added', () => {
+    expect(chatHistorySettingOf(backup, 'event', CHAT_READ)).toEqual({ id: 'backup', kind: 'bee-http', url: BACKUP });
+    expect(chatHistorySettingOf({ ...NODE, offered: false }, 'event', CHAT_READ)).toEqual(
+      gatewaySettingOf({ ...NODE, offered: false }),
+    );
+  });
+
+  it('is the default gateway itself on a deployment with no chat', () => {
+    expect(chatHistorySettingOf(event, 'event', null)).toEqual({ id: 'event', kind: 'bee-http', url: EVENT });
   });
 });
 

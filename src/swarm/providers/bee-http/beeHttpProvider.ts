@@ -12,7 +12,7 @@ import {
   type UrlUse,
 } from '../../provider';
 import { boundedRequest } from '../../boundedRequest';
-import { notReadyReasonOf } from './beeNodeState';
+import { jsonOf, notReadyReasonOf, versionOf } from './beeNodeState';
 
 /** Bee answers this with `{"status":"ok",...}` in every version this viewer has targeted. */
 const HEALTH_PATH = 'health';
@@ -148,7 +148,11 @@ export class BeeHttpProvider implements SwarmProvider {
           return { kind: 'not-swarm' };
         }
         const reason = notReadyReasonOf(body, readiness, peers);
-        return reason === null ? { kind: 'ok', elapsedMs: Date.now() - startedAt } : { kind: 'not-ready', reason };
+        if (reason !== null) {
+          return { kind: 'not-ready', reason };
+        }
+        const version = versionOf(jsonOf(body));
+        return { kind: 'ok', elapsedMs: Date.now() - startedAt, ...(version === null ? {} : { version }) };
       }
       case 'timed-out':
         return { kind: 'timed-out' };

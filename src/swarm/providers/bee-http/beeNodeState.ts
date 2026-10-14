@@ -10,11 +10,10 @@ import type { BoundedOutcome } from '../../boundedRequest';
 import type { NotReadyReason } from '../../provider';
 
 /**
- * The oldest Bee release this viewer works with. 2.3.0 added `GET /soc/{owner}/{id}`, which the viewer
- * reads every feed entry by index through, the player's time markers and the chat's slots included.
- * Every other path it reads (`/feeds`, `/chunks`, `/bytes`, `/bzz`) is older.
+ * The oldest Bee release a source may run, as the check before adding a source names it. The viewer reads
+ * every feed entry by index through `GET /soc/{owner}/{id}`, which 2.3.0 added, so the floor is above that.
  */
-export const MINIMUM_BEE_VERSION = '2.3.0';
+export const MINIMUM_BEE_VERSION = '2.6.0';
 
 /** Bee answers `/readiness` 400 until every part of it is up. */
 const NOT_READY_YET = 400;
@@ -40,7 +39,7 @@ function isOlder(release: Release, than: Release): boolean {
 
 const MINIMUM_RELEASE = releaseOf(MINIMUM_BEE_VERSION) as Release;
 
-function jsonOf(body: Uint8Array | null): unknown {
+export function jsonOf(body: Uint8Array | null): unknown {
   if (body === null) {
     return null;
   }
@@ -51,7 +50,8 @@ function jsonOf(body: Uint8Array | null): unknown {
   }
 }
 
-function versionOf(health: unknown): string | null {
+/** The version a Bee health document states, or null when it states none. */
+export function versionOf(health: unknown): string | null {
   const version = (health as { version?: unknown } | null)?.version;
   return typeof version === 'string' ? version : null;
 }

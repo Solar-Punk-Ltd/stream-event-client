@@ -72,17 +72,27 @@ describe("what a Bee node's health, readiness and peers say before a viewer swit
     expect(await node({ health: health('2.8.2'), readiness: READY, peers }).probe()).toMatchObject({ kind: 'ok' });
   });
 
-  it.each(['2.2.0', '2.2.9-a1b2c3d4', '1.18.2'])('finds version %s older than the viewer needs', async (version) => {
-    expect(await node({ health: health(version), readiness: READY, peers: PEERS }).probe()).toEqual({
-      kind: 'not-ready',
-      reason: { kind: 'too-old', version, needed: MINIMUM_BEE_VERSION },
+  it.each(['2.5.9', '2.3.0', '2.2.9-a1b2c3d4', '1.18.2'])(
+    'finds version %s older than the viewer needs',
+    async (version) => {
+      expect(await node({ health: health(version), readiness: READY, peers: PEERS }).probe()).toEqual({
+        kind: 'not-ready',
+        reason: { kind: 'too-old', version, needed: MINIMUM_BEE_VERSION },
+      });
+    },
+  );
+
+  it.each(['2.6.0', '2.8.2-rc1-0a1b2c3d', '3.0.0'])('takes version %s, and says which it is', async (version) => {
+    expect(await node({ health: health(version), readiness: READY, peers: PEERS }).probe()).toMatchObject({
+      kind: 'ok',
+      version,
     });
   });
 
-  it.each(['2.3.0', '2.8.2-rc1-0a1b2c3d', '3.0.0'])('takes version %s', async (version) => {
-    expect(await node({ health: health(version), readiness: READY, peers: PEERS }).probe()).toMatchObject({
-      kind: 'ok',
-    });
+  it('says no version for a node whose health names none', async () => {
+    const found = await node({ health: Response.json({ status: 'ok' }) }).probe();
+
+    expect(found.kind === 'ok' && found.version).toBeUndefined();
   });
 
   it('takes a node it cannot read more of as ready, so a proxy that serves health alone is not turned away', async () => {
@@ -95,8 +105,8 @@ describe("what a Bee node's health, readiness and peers say before a viewer swit
     ).toMatchObject({ kind: 'ok' });
   });
 
-  it('holds the floor at the release that added GET /soc, which feed entries, markers and the chat read', () => {
-    expect(MINIMUM_BEE_VERSION).toBe('2.3.0');
+  it('holds the floor at Bee 2.6, as adding a source names it', () => {
+    expect(MINIMUM_BEE_VERSION).toBe('2.6.0');
   });
 });
 

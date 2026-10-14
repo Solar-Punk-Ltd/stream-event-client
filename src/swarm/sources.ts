@@ -99,6 +99,20 @@ export function gatewaySettingOf(source: Pick<Source, 'id' | 'type' | 'url'>): G
   return { id: source.id, kind: SOURCE_TYPE_KIND[source.type], url: source.url };
 }
 
+/**
+ * The settings a source's chat history is read through. The deployment's default gateway serves the chat's
+ * paths at the chat read address the deployment names, beside the video's, so its chat history is read
+ * there. Every other source serves the chat as it serves everything else.
+ */
+export function chatHistorySettingOf(
+  source: Pick<Source, 'id' | 'type' | 'url' | 'offered'>,
+  defaultId: string,
+  chatReadUrl: string | null,
+): GatewaySetting {
+  const setting = gatewaySettingOf(source);
+  return source.offered && source.id === defaultId && chatReadUrl !== null ? { ...setting, url: chatReadUrl } : setting;
+}
+
 function nextAddedId(added: readonly AddedSource[]): string {
   const highest = Math.max(0, ...added.map(({ id }) => Number(id.slice(ADDED_ID_PREFIX.length)) || 0));
   return `${ADDED_ID_PREFIX}${highest + 1}`;
