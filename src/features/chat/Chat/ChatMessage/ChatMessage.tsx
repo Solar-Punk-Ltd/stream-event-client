@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import { MessageVia } from '@solarpunkltd/swarm-chat-js';
 
@@ -56,6 +56,45 @@ function useIsUnconfirmed(waiting: boolean, onHeightChange?: () => void): boolea
 }
 
 /**
+ * Whether a message's details card is open, and the button that opened it, which gets focus back when the card
+ * closes by Escape or by its own button.
+ */
+function useDetailsCard(onHeightChange?: () => void) {
+  const [isShown, setIsShown] = useState(false);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
+
+  const close = useCallback(() => {
+    setIsShown(false);
+    openerRef.current?.focus();
+    onHeightChange?.();
+  }, [onHeightChange]);
+
+  const toggle = useCallback(
+    (opener: HTMLButtonElement) => {
+      openerRef.current = opener;
+      setIsShown((shown) => !shown);
+      onHeightChange?.();
+    },
+    [onHeightChange],
+  );
+
+  useEffect(() => {
+    if (!isShown) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        close();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isShown, close]);
+
+  return { isShown, toggle, close };
+}
+
+/**
  * One message as the design draws it: the sender line above a bubble, the viewer's own on the right. A
  * click on the message shows what can be done with it, and the next click folds that away.
  */
@@ -77,7 +116,7 @@ export function ChatMessage({
     useIsUnconfirmed(ownMessage && uploaded && !received && !error, onHeightChange) && canOfferResend;
   const canAct = received && !error;
   const [areActionsShown, setAreActionsShown] = useState(false);
-  const [areDetailsShown, setAreDetailsShown] = useState(false);
+  const details = useDetailsCard(onHeightChange);
   const detailsId = useId();
   const badge = senderBadge(message.identity);
   const ownStamp = message.signedMessage.via === MessageVia.OWN_STAMP;
@@ -100,15 +139,12 @@ export function ChatMessage({
           ownStamp={ownStamp}
           timestamp={message.timestamp}
           detailsId={detailsId}
-          areDetailsShown={areDetailsShown}
-          onToggleDetails={() => {
-            setAreDetailsShown((shown) => !shown);
-            onHeightChange?.();
-          }}
+          areDetailsShown={details.isShown}
+          onToggleDetails={details.toggle}
         />
         <span className="message">{message.message}</span>
 
-        {areDetailsShown && (
+        {details.isShown && (
           <MessageDetails
             id={detailsId}
             name={message.username}
@@ -116,10 +152,7 @@ export function ChatMessage({
             badge={badge}
             identity={message.identity}
             ownStamp={ownStamp}
-            onClose={() => {
-              setAreDetailsShown(false);
-              onHeightChange?.();
-            }}
+            onClose={details.close}
           />
         )}
 

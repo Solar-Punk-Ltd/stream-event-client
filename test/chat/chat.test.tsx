@@ -569,6 +569,34 @@ describe('who sent a message', () => {
     expect(document.querySelector('.message-actions.visible')).toBeNull();
   });
 
+  it('names the card it controls only while the card is open', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'guest' }));
+    const badge = button('Guest, show details');
+    expect(badge.hasAttribute('aria-controls')).toBe(false);
+    click(badge);
+    expect(badge.getAttribute('aria-controls')).toBe(details()!.id);
+    click(badge);
+    expect(badge.hasAttribute('aria-controls')).toBe(false);
+  });
+
+  it('closes the details on Escape and gives focus back to the button that opened them', async () => {
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'stamped', via: MessageVia.OWN_STAMP }));
+
+    const stamp = button('Sent with their own stamp, show details');
+    click(stamp);
+    press(document.body, 'Escape');
+    expect(details()).toBeNull();
+    expect(document.activeElement).toBe(stamp);
+
+    const badge = button('Guest, show details');
+    click(badge);
+    click(button('Close'));
+    expect(details()).toBeNull();
+    expect(document.activeElement).toBe(badge);
+  });
+
   it('marks what the check confirmed with the success colour', async () => {
     await open();
     await emit(EVENTS.MESSAGE_RECEIVED, await swarmIdMessage('bound'));

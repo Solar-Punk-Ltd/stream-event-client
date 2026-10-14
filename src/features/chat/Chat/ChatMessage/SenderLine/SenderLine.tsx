@@ -23,7 +23,8 @@ interface SenderLineProps {
   /** The id of the details card the badge opens. */
   detailsId: string;
   areDetailsShown: boolean;
-  onToggleDetails: () => void;
+  /** Called with the button pressed, which gets focus back when the details close. */
+  onToggleDetails: (opener: HTMLButtonElement) => void;
 }
 
 /**
@@ -40,10 +41,10 @@ export function SenderLine({
   onToggleDetails,
 }: SenderLineProps) {
   const time = messageTime(timestamp);
-  const toggle = (event: MouseEvent) => {
+  const toggle = (event: MouseEvent<HTMLButtonElement>) => {
     // The buttons are inside the message, whose own click shows its actions.
     event.stopPropagation();
-    onToggleDetails();
+    onToggleDetails(event.currentTarget);
   };
   return (
     <p className="chat-message-sender">
@@ -54,7 +55,7 @@ export function SenderLine({
         aria-label={badgeLabel(badge)}
         title={badge.name}
         aria-expanded={areDetailsShown}
-        aria-controls={detailsId}
+        aria-controls={areDetailsShown ? detailsId : undefined}
         onClick={toggle}
       >
         <BadgeIcon badge={badge} />
@@ -66,7 +67,7 @@ export function SenderLine({
           aria-label={OWN_STAMP_LABEL}
           title={OWN_STAMP_TITLE}
           aria-expanded={areDetailsShown}
-          aria-controls={detailsId}
+          aria-controls={areDetailsShown ? detailsId : undefined}
           onClick={toggle}
         >
           <OwnStampIcon />
