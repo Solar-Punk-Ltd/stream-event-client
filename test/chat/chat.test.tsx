@@ -17,11 +17,9 @@ import { Chat, READ_ONLY_PRIVATE_KEY } from '../../src/features/chat/Chat/Chat';
 import { LoginButton } from '../../src/features/chat/LoginButton/LoginButton';
 import { ChatUserProvider } from '../../src/features/chat/User';
 import type { ChatReads } from '../../src/features/chat/chatParts';
-import { shortAddress } from '../../src/features/chat/Chat/ChatMessage/ProfilePicture/ProfilePicture';
 import { FakeSwarmChat } from '../helpers/fakeSwarmChat';
 import { createMessageVerifier } from '../../src/features/chat/verify/messageVerifier';
 import {
-  addressOf,
   BOUND_SITE,
   CHAT_BINDING,
   chatKeyFor,
@@ -101,7 +99,6 @@ vi.mock('emoji-picker-react', () => ({
 }));
 
 const FEED_OWNER = '0x' + 'b'.repeat(40);
-const BEA = `Bea ${shortAddress(addressOf(GUEST_KEY))}`;
 
 const CHAT: ChatConfig = {
   enabled: true,
@@ -275,7 +272,7 @@ describe('the chat on a watch page', () => {
     await emit(EVENTS.MESSAGE_RECEIVED, first);
     await emit(EVENTS.MESSAGE_RECEIVED, second);
     expect(messageTexts()).toEqual(['text of first', 'text of second', 'text of third']);
-    expect(document.querySelector('.chat-message [role="img"]')?.getAttribute('aria-label')).toContain('Bea');
+    expect(document.querySelector('.chat-message-name')?.textContent).toBe('Bea');
   });
 
   it('shows published messages by their place in the chat feed, and one still sending after them', async () => {
@@ -286,33 +283,15 @@ describe('the chat on a watch page', () => {
     expect(messageTexts()).toEqual(['text of earlier-in-feed', 'text of later-in-feed', 'text of sending']);
   });
 
-  it('shows who wrote a message by an initial named with the name and its short address, and the name above the text', async () => {
+  it('writes who wrote a message above it, with no initial and nothing floating over the row', async () => {
     await open();
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm', username: 'Bea' }));
-    const avatar = document.querySelector('.chat-message [role="img"]');
+    const row = document.querySelector('.chat-message')!;
 
-    expect(avatar?.textContent).toBe('B');
-    expect(avatar?.getAttribute('aria-label')).toBe(BEA);
-    expect(document.querySelector('.chat-message-sender .chat-message-name')?.textContent).toBe('Bea');
-  });
-
-  it('floats the name and short address over the page while the initial is pointed at, as the Swarm site does', async () => {
-    await open();
-    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm', username: 'Bea' }));
-    const avatar = document.querySelector('.chat-message [role="img"]')!;
-    expect(document.querySelector('[role="tooltip"]')).toBeNull();
-
-    act(() => {
-      avatar.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-    });
-    const tooltip = await waitFor(() => document.querySelector('[role="tooltip"]'));
-    expect(tooltip.textContent).toBe(BEA);
-    expect(tooltip.closest('.chat-message')).toBeNull();
-
-    act(() => {
-      avatar.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
-    });
-    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+    expect(row.querySelector('.chat-message-sender .chat-message-name')?.textContent).toBe('Bea');
+    expect(row.firstElementChild?.classList.contains('chat-message-text')).toBe(true);
+    expect(row.querySelector('[role="img"]')).toBeNull();
+    expect(row.querySelector('.tooltip-anchor')).toBeNull();
   });
 
   it('puts the viewer own messages on the other side from everyone else', async () => {

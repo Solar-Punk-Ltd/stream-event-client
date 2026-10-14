@@ -89,7 +89,6 @@ $shadow: (
   'dropdown': 0 8px 24px rgba(0, 0, 0, 0.5),
   // Read through `drop-shadow()`, which takes no spread.
   'icon': 0 2px 4px rgba(0, 0, 0, 0.5),
-  'lg': 0 10px 15px -3px rgba(0, 0, 0, 0.1),
 );
 
 $blur: (
@@ -137,8 +136,6 @@ $size: (
   'footer-max-width': 1152px,
   'footer-logo-height': 26px,
   'focus-ring': 2px,
-  'avatar': 24px,
-  'tooltip-max-width': 200px,
   'watch-max-width': 1440px,
   'watch-description-max-width': 900px,
   'chat-column': 400px,
@@ -172,7 +169,7 @@ $z-index: (
   // Above the header and the chat, below a dialog: only where a browser has no top layer, which the panel otherwise sits in.
   'qoe-overlay': 400,
   'dialog': 500,
-  // What floats over everything once opened from the chat: the emoji picker beside a message, the name over an initial.
+  // What floats over everything once opened from the chat: the emoji picker beside a message and the emoji bar's picker.
   'popover': 1000,
 );
 

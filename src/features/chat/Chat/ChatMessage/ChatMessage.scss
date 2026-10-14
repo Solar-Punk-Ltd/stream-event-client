@@ -1,6 +1,6 @@
 @use '@/design/touch';
 
-// The viewer's own messages mirror everyone else's: the initial on the right, the bubble beside it.
+// The viewer's own messages mirror everyone else's: the sender line and the bubble on the right.
 .chat-message {
   position: relative;
   display: flex;

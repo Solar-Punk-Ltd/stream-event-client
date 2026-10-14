@@ -4,13 +4,11 @@ import { MessageVia } from '@solarpunkltd/swarm-chat-js';
 
 import type { ReactionSummary } from '../../reactions';
 import type { VisibleMessage } from '../../useSwarmChat';
-import { nameColor } from '../nameColor';
 
 import { MessageActions } from './MessageActions/MessageActions';
 import { MessageDetails } from './MessageDetails/MessageDetails';
 import { MessageReactionsWrapper } from './MessageReactionsWrapper/MessageReactionsWrapper';
 import { MessageThreadWrapper } from './MessageThreadWrapper/MessageThreadWrapper';
-import { ProfilePicture } from './ProfilePicture/ProfilePicture';
 import { senderBadge } from './senderBadge';
 import { SenderLine } from './SenderLine/SenderLine';
 
@@ -58,8 +56,8 @@ function useIsUnconfirmed(waiting: boolean, onHeightChange?: () => void): boolea
 }
 
 /**
- * One message as the Swarm site draws it: an initial and a bubble, the viewer's own on the right. A click
- * on the message shows what can be done with it, and the next click folds that away.
+ * One message as the design draws it: the sender line above a bubble, the viewer's own on the right. A
+ * click on the message shows what can be done with it, and the next click folds that away.
  */
 export function ChatMessage({
   message,
@@ -77,7 +75,6 @@ export function ChatMessage({
   const isSending = !received && !error && (requested || uploaded);
   const isUnconfirmed =
     useIsUnconfirmed(ownMessage && uploaded && !received && !error, onHeightChange) && canOfferResend;
-  const color = nameColor(message.username);
   const canAct = received && !error;
   const [areActionsShown, setAreActionsShown] = useState(false);
   const [areDetailsShown, setAreDetailsShown] = useState(false);
@@ -96,8 +93,6 @@ export function ChatMessage({
 
   return (
     <li className={classes} onClick={() => canAct && setAreActionsShown((shown) => !shown)}>
-      <ProfilePicture name={message.username} address={message.address} color={color} />
-
       <div className="chat-message-text">
         <SenderLine
           name={message.username}
