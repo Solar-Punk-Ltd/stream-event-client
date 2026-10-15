@@ -108,7 +108,9 @@ One chat per stream, beside the video on a desktop and under it on a phone, wher
 Anyone can read it. Writing asks once for a display name, 1 to 20 characters, and there is no
 password, wallet or account. A deployment that names a Swarm ID site in `swarmId.url` also offers
 signing in with Swarm ID, described [below](#signing-in-with-swarm-id). A viewer can send a message, react with an emoji, reply in a thread,
-load older messages, and retry a message that did not send. The chat and its library are a file of
+load older messages, and retry a message that did not send. A message lights up under the pointer and shows its
+reaction and reply buttons there, as focus inside it does, and on a touch screen a tap shows them. The emoji bar's
+last button opens every emoji above the field, with its close button above the picker. The chat and its library are a file of
 the bundle of their own, fetched as the watch page opens, beside the video rather than after it, and
 the emoji picker is fetched the first time one is drawn: the emoji bar above the message field, or a
 reaction's picker beside a message.
@@ -160,9 +162,10 @@ is a guest, told apart only by the key their browser keeps. A filled hexagon wit
 after a name in the accent colour is a Swarm ID account, which signed a statement that this chat address
 on this site is its own. A stamp after the badge says the sender paid for the write with a stamp of
 their own. Every message this page sends says who paid, the event gateway or the viewer's own stamp. The badge, and the stamp where
-there is one, open the message's details: the name, the identity, the public chat address, that the signature
-matches the text, for a Swarm ID the link Swarm ID confirmed for this site and the account's address,
-and who paid for the write. For a message that says its sender keeps a copy in their own feed (`own: true`), the
+there is one, open the message's details, across the chat column: the name with its badge, the identity (Guest or Swarm ID), the
+public chat address, a check mark for a signature that matches the text, for a Swarm ID the account's address, and
+who paid for the write (Event gateway or Own stamp). An address shows short, `0x0d7f…ab12`, and a press shows it in
+full with a Copy button beside it. A press on the check mark shows the signature the same way. For a message that says its sender keeps a copy in their own feed (`own: true`), the
 details also list **Their own copies**: the sender's own feed, `ownFeedTopic(chatTopic)` under their chat
 address, read through the source picked for Chat history, newest first, ten at a time with Load more. Each entry
 is read by its address and must be the sender's own single-owner chunk, and each copy passes the same check as
@@ -197,8 +200,9 @@ stamps them, unless the person picks their own stamp, as the next section says.
   content through it.
 - **The chat name** is the account's name, trimmed and cut to the chat's 20 characters. An account
   with no name chats under its short address. The header shows the chat name with its badge, the grey
-  hexagon of a guest or the filled one of Swarm ID, as every message does. My Swarm says "Swarm ID" and the
-  account's name beside it, with Sign out.
+  hexagon of a guest or the filled one of Swarm ID, as every message does. My Swarm shows the name once, says "Swarm ID",
+  with the account's own name beside it only where it differs from the chat name, and Sign out. Under them are the
+  public chat address and the Swarm ID account's address, each short and expandable as in a message's details.
 - **A guest can sign in later.** The menu of a guest says "Show it's really you" beside Sign in with
   Swarm ID. Signing in keeps the guest's name and key in this browser, and signing out chats as that
   guest again. Leave forgets the guest.

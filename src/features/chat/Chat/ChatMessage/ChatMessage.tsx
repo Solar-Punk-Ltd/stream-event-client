@@ -95,8 +95,8 @@ function useDetailsCard(onHeightChange?: () => void) {
 }
 
 /**
- * One message as the design draws it: the sender line above a bubble, the viewer's own on the right. A
- * click on the message shows what can be done with it, and the next click folds that away.
+ * One message as the design draws it: the sender line above a bubble, the viewer's own on the right. The pointer over
+ * the message or focus inside it shows what can be done with it, and so does a click, which the next click folds away.
  */
 export function ChatMessage({
   message,
@@ -124,6 +124,7 @@ export function ChatMessage({
   const classes = [
     'chat-message',
     ownMessage && 'own-message',
+    canAct && 'can-act',
     error && 'chat-message-error',
     isSending && 'not-received',
   ]
@@ -149,6 +150,7 @@ export function ChatMessage({
             id={detailsId}
             name={message.username}
             address={message.address}
+            signature={message.signedMessage.sig}
             badge={badge}
             identity={message.identity}
             ownStamp={ownStamp}

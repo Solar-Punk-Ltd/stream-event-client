@@ -174,6 +174,7 @@ describe('signing in with Swarm ID', () => {
       address: addressOf(key),
       binding: { msg: FORK_BINDING.message, sig: FORK_BINDING.signature },
       accountName: 'Ida',
+      account: FORK_ACCOUNT,
     });
   });
 

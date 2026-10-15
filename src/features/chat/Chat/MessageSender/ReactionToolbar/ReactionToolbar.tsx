@@ -14,7 +14,7 @@ interface ReactionToolbarProps {
 
 /**
  * The bar of common emoji above the message field, the picker library's own as the Swarm site has it.
- * Its last button opens every emoji in place above the field, and a close button folds it back.
+ * Its last button opens every emoji in place above the field, with a close button above it that folds it back.
  */
 export function ReactionToolbar({ onEmojiSelect }: ReactionToolbarProps) {
   const [expandedSize, setExpandedSize] = useState<PickerSize | null>(null);
@@ -34,14 +34,21 @@ export function ReactionToolbar({ onEmojiSelect }: ReactionToolbarProps) {
 
   return (
     <div className={expandedSize ? 'reaction-toolbar expanded' : 'reaction-toolbar'} onClickCapture={noticeExpand}>
-      {expandedSize && (
-        <button type="button" className="close-picker-button" aria-label="Close the emoji picker" onClick={collapse}>
-          <span aria-hidden="true">✕</span>
-        </button>
-      )}
-      <Suspense fallback={<div className="reaction-toolbar-placeholder" />}>
-        <EmojiPickerPanel key={pickerKey} startsAsReactionBar size={expandedSize ?? undefined} onPick={onEmojiSelect} />
-      </Suspense>
+      <div className="reaction-toolbar-picker">
+        {expandedSize && (
+          <button type="button" className="close-picker-button" aria-label="Close the emoji picker" onClick={collapse}>
+            <span aria-hidden="true">✕</span>
+          </button>
+        )}
+        <Suspense fallback={<div className="reaction-toolbar-placeholder" />}>
+          <EmojiPickerPanel
+            key={pickerKey}
+            startsAsReactionBar
+            size={expandedSize ?? undefined}
+            onPick={onEmojiSelect}
+          />
+        </Suspense>
+      </div>
     </div>
   );
 }

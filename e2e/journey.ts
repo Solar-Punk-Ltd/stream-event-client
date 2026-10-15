@@ -1,6 +1,8 @@
 import { expect, type BrowserContext, type Locator, type Page, type Route } from '@playwright/test';
 import { DEFAULT_NOTE_SLOT_MS, noteAddress, noteSlotOf } from '@solarpunkltd/swarm-chat-js';
 
+import { shortAddress } from '../src/shared/components/Address/addressText';
+
 import { PREVIEW_ORIGIN, type Published, SMOKE_MESSAGE, SMOKE_USER } from './recording';
 
 /** The codecs the event's streams are encoded with. A build without them loads every segment and shows nothing. */
@@ -106,6 +108,37 @@ export async function watchAndChat(page: Page, published: Published): Promise<vo
       .getByRole('button', { name: 'Guest, show details', exact: true }),
     "the viewer's own message carries the guest badge",
   ).toBeVisible();
+
+  await allEmojiCloseShows(page, chat);
+}
+
+/** The field's whole emoji picker opens above the field, and its close button stays in sight beside it, never under it. */
+async function allEmojiCloseShows(page: Page, chat: Locator): Promise<void> {
+  await chat.getByRole('button', { name: 'Show all Emojis', exact: true }).click();
+  const close = chat.getByRole('button', { name: 'Close the emoji picker', exact: true });
+  await expect(close, 'the expanded picker has its close button').toBeVisible();
+  const picker = chat.locator('.reaction-toolbar .EmojiPickerReact');
+  await expect(picker.locator('input'), 'the expanded picker shows its search').toBeVisible();
+  const [closeBox, pickerBox, chatBox] = await Promise.all([
+    close.boundingBox(),
+    picker.boundingBox(),
+    chat.boundingBox(),
+  ]);
+  if (!closeBox || !pickerBox || !chatBox) {
+    throw new Error('the picker, its close button or the chat has no box');
+  }
+  expect(closeBox.y + closeBox.height, 'the close button sits above the picker').toBeLessThanOrEqual(pickerBox.y);
+  expect(closeBox.y, 'the close button is inside the chat').toBeGreaterThanOrEqual(chatBox.y);
+  expect(pickerBox.y + pickerBox.height, 'the picker ends inside the chat').toBeLessThanOrEqual(
+    chatBox.y + chatBox.height,
+  );
+  const onTop = await close.evaluate((button) => {
+    const box = button.getBoundingClientRect();
+    return button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+  });
+  expect(onTop, 'nothing covers the close button').toBe(true);
+  await close.click();
+  await expect(close, 'the close button folds the picker back').toHaveCount(0);
 }
 
 /** Each message's badge says who vouched for its sender, and the badge opens what the page's check found. */
@@ -126,12 +159,30 @@ async function badgesAndDetails(chat: Locator, published: Published): Promise<vo
     'a message sent with its own stamp shows the stamp',
   ).toBeVisible();
 
+  const actions = guest.locator('.message-actions');
+  const opacity = () => actions.evaluate((bar) => getComputedStyle(bar).opacity);
+  await expect.poll(opacity, { message: "a message's actions are hidden until the pointer is over it" }).toBe('0');
+  await guest.hover();
+  await expect.poll(opacity, { message: 'hovering a message reveals its actions' }).toBe('1');
+  expect(await guest.evaluate((item) => getComputedStyle(item).cursor), 'a message shows it can be pressed').toBe(
+    'pointer',
+  );
+
   await swarmId.getByRole('button', { name: 'Swarm ID, show details', exact: true }).click();
   const details = swarmId.getByRole('region', { name: 'Details for this message', exact: true });
   await expect(details, 'the badge opens the details').toBeVisible();
-  await expect(details).toContainText('confirmed by Swarm ID for this site');
-  await expect(details).toContainText(published.chat.swarmId.account);
-  await expect(details).toContainText('by the event gateway');
+  await expect(details).toContainText('Swarm ID');
+  await details.getByRole('button', { name: shortAddress(published.chat.swarmId.account), exact: true }).click();
+  await expect(details, 'the account expands to its full address').toContainText(published.chat.swarmId.account);
+  await expect(details).toContainText('Event gateway');
   await details.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(details, 'the details close').toHaveCount(0);
+
+  const ownStamp = row(published.chat.ownStamp.text);
+  await ownStamp.getByRole('button', { name: 'Sent with their own stamp, show details', exact: true }).click();
+  const stampDetails = ownStamp.getByRole('region', { name: 'Details for this message', exact: true });
+  await expect(stampDetails, 'the stamp opens the details as the badge does').toBeVisible();
+  await expect(stampDetails).toContainText('Own stamp');
+  await stampDetails.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(stampDetails, 'the details close').toHaveCount(0);
 }

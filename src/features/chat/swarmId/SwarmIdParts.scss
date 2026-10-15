@@ -114,6 +114,25 @@
 .swarm-id-you {
   display: grid;
   gap: var(--spacing-sm);
+  width: 100%;
+}
+
+// The signed-in viewer's two addresses, laid out as a message's details lay out theirs, across the panel.
+.swarm-id-addresses {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--spacing-2xs) var(--spacing-sm);
+  margin: 0;
+  font-size: var(--font-size-sm);
+
+  dt {
+    color: var(--color-text-tertiary);
+  }
+
+  dd {
+    margin: 0;
+    min-width: 0;
+  }
 }
 
 .swarm-id-row {

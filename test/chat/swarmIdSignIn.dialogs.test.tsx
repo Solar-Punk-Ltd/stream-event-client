@@ -8,8 +8,15 @@ import { frameRefusedWarning } from '../../src/features/chat/swarmId/swarmIdSign
 import type { useChatUser } from '../../src/features/chat/User';
 import { CHAT, chatConfig, connectPage, seen } from '../helpers/connectPage';
 import { button, click, dialog, input, queryButton, settle, text, type, type Mounted, waitFor } from '../helpers/dom';
-import { type FakeSwarmId, type FakeSwarmIdClient, fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
-import { BOUND_SITE, CHAT_BINDING, chatKeyFor } from '../helpers/signedChat';
+import {
+  type FakeSwarmId,
+  type FakeSwarmIdClient,
+  fakeSwarmId,
+  FORK_IDENTITY,
+  SIGNED_IN,
+} from '../helpers/fakeSwarmId';
+import { BOUND_SITE, CHAT_BINDING, chatKeyFor, FORK_ACCOUNT } from '../helpers/signedChat';
+import { shortAddress } from '../../src/shared/components/Address/addressText';
 
 let mounted: Mounted | null = null;
 const realFetch = globalThis.fetch;
@@ -113,7 +120,7 @@ describe('signing in with Swarm ID from My Swarm', () => {
     swarmId.client().handOver(SIGNED_IN);
     await signedIn();
 
-    expect(dialog()?.textContent).toContain('Swarm ID · Ida');
+    expect(dialog()?.querySelector('.swarm-id-you')?.textContent).toContain('Swarm ID');
     expect(chatsAs()?.username).toBe('Ida');
     expect(chatsAs()?.privateKey).toBe(await chatKeyFor(BOUND_SITE));
     expect(chatsAs()?.binding).toEqual(CHAT_BINDING);
@@ -134,19 +141,42 @@ describe('signing in with Swarm ID from My Swarm', () => {
     expect(restoreUserSession()).toBeNull();
   });
 
-  it("shows the signed-in viewer's name, badge and account, and signs out", async () => {
+  it("shows the signed-in viewer's name once, the badge and both addresses short, and signs out", async () => {
     const swarmId = await fakeSwarmId(SIGNED_IN);
     await header(swarmId);
     await signedIn();
 
     click(button(/^Ida/));
-    expect(text()).toContain('Swarm ID · Ida');
+    const you = document.querySelector('.swarm-id-you')!;
+    expect(you.textContent).toContain('Swarm ID');
+    expect(you.textContent!.match(/Ida/g), 'the name the account and the chat share shows once').toHaveLength(1);
+    const address = chatsAs()!.address;
+    click(button(shortAddress(address)));
+    expect(you.textContent).toContain(`0x${address}`);
+    expect(queryButton('Copy the public address')).not.toBeNull();
+    click(button(shortAddress(FORK_ACCOUNT)));
+    expect(you.textContent).toContain(FORK_ACCOUNT);
+    expect(queryButton('Copy the Swarm ID account')).not.toBeNull();
     click(button('Sign out'));
     await settle();
 
     expect(swarmId.client().disconnectCalls).toBe(1);
     expect(chatsAs()).toBeNull();
     expect(queryButton('My Swarm')).toBeTruthy();
+  });
+});
+
+describe('a Swarm ID account named other than its chat name', () => {
+  it('shows the account name beside the chat name, which was cut to the chat limit', async () => {
+    const longName = 'Ida from the very back row';
+    const swarmId = await fakeSwarmId({ ...SIGNED_IN, identity: { ...FORK_IDENTITY, name: longName } });
+    await header(swarmId);
+    await signedIn();
+
+    click(button(/^Ida from/));
+    const you = document.querySelector('.swarm-id-you')!;
+    expect(you.textContent).toContain('Ida from the very ba');
+    expect(you.textContent).toContain(`Swarm ID · ${longName}`);
   });
 });
 
