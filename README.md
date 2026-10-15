@@ -566,6 +566,8 @@ once and is kept in the browser, and nothing switches a source by itself.
   messages are sent to `chat.writeUrl`, whichever source reads the chat history. On the viewer's own stamp they go
   through the source picked for Chat history, a Bee node of their own or Weeb3. The deployment's default gateway reads its chat
   history at `chat.readUrl`, where it serves the chat's paths, and any other source reads the chat at its own address.
+  A part saved on a source the deployment no longer offers is read from the deployment's default source when the
+  page loads, and so is one saved on a source the viewer removed.
 - **Adding a source.** Three tiles: Gateway, a Swarm gateway at an https address, My Bee node, on this computer or
   at an https address, and Weeb3, a Swarm node in this browser tab. A browser has one Bee node of its own and one
   Weeb3, so each tile says Already added once it is. A gateway or a Bee node takes an address and a name, and Test
