@@ -7,8 +7,11 @@ import { saveAddedSources, saveRouting } from '../../src/app/sourceStorage';
 import { nicknameLogin } from '../../src/features/chat/auth/login';
 import { persistUserSession } from '../../src/features/chat/auth/persistence';
 import { loadChatStampChoice, saveChatStampChoice } from '../../src/features/chat/stamp/chatStampChoice';
-import { OWN_FEED_COPY } from '../../src/features/connect/connectWords';
-import { EVENT_GATEWAY_STAMPS_ITSELF, PICK_A_SOURCE_THAT_SENDS } from '../../src/features/chat/stamp/ownStampRoute';
+import {
+  OWN_FEED_COPY,
+  OWN_STAMP_NEEDS_SIGN_IN,
+  OWN_STAMP_NEEDS_SOURCE,
+} from '../../src/features/connect/connectWords';
 import type { SwarmIdPostageBatch } from '../../src/features/chat/swarmId/swarmIdClient';
 import { chooseSource, defaultRouting } from '../../src/swarm/routing';
 import { connectPage, seen } from '../helpers/connectPage';
@@ -88,16 +91,16 @@ describe('the chat stamp in Connect', () => {
 
     expect(radio('Gateway pays')?.checked).toBe(true);
     expect(radio('My stamp')?.disabled).toBe(true);
-    expect(group()?.textContent).toContain('Sign in with Swarm ID first.');
+    expect(radio('My stamp')?.closest('label')?.textContent).toContain(OWN_STAMP_NEEDS_SIGN_IN);
   });
 
-  it('says why my stamp cannot send through the event gateway, and keeps the gateway paying', async () => {
+  it('says my stamp needs Weeb3 or my own Bee node for the chat history, and keeps the gateway paying', async () => {
     await openConnect();
 
     expect(radio('Gateway pays')?.checked).toBe(true);
     expect(radio('My stamp')?.disabled).toBe(true);
-    expect(group()?.textContent).toContain(EVENT_GATEWAY_STAMPS_ITSELF);
-    expect(group()?.textContent).toContain(PICK_A_SOURCE_THAT_SENDS);
+    const line = radio('My stamp')?.closest('label')?.querySelector('small')?.textContent;
+    expect(line).toBe(OWN_STAMP_NEEDS_SOURCE);
   });
 
   it('shows how full the stamp Swarm ID gives this site is and its days left, once my stamp pays', async () => {

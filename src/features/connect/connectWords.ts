@@ -40,6 +40,13 @@ export const ADD_VIEWS: Readonly<Record<SourceType, { readonly title: string; re
 export const OWN_FEED_COPY =
   'A copy of each message goes to your own feed, so anyone can check the chat left none of yours out.';
 
+/**
+ * What My stamp says it needs while it cannot be picked. A message on the viewer's stamp is sent through the source
+ * picked for Chat history, and only Weeb3 or the viewer's own Bee node sends a chunk under a stamp it is handed.
+ */
+export const OWN_STAMP_NEEDS_SOURCE = 'Needs Weeb3 or your own Bee node for Chat history.';
+export const OWN_STAMP_NEEDS_SIGN_IN = 'Needs a Swarm ID sign-in, and Weeb3 or your own Bee node for Chat history.';
+
 /** Where an address field starts, a Bee node at the API port on this machine, as Swarm Desktop runs it. */
 export const ADDRESS_PLACEHOLDERS: Readonly<Record<'gateway' | 'bee-node', string>> = {
   gateway: 'https://gateway.example.org',

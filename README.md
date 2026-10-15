@@ -261,8 +261,9 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
 - **Which source can send it.** Only a Bee node of the viewer's own and Weeb3, the node in this browser, send a chunk
   under a stamp they are handed, so My stamp needs one of them picked for Chat history. The event gateway's chat path
   stamps every write with the gateway's own batch, a `/bee` path on the site passes reads alone, and the page cannot
-  tell what any other gateway does with a stamp, so with a gateway picked My stamp says why it cannot be used, and
-  names the fix. The Bee node must allow this site's origin
+  tell what any other gateway does with a stamp. So while My stamp cannot be picked, its line says what it needs,
+  "Needs Weeb3 or your own Bee node for Chat history.", with a Swarm ID sign-in named first for a viewer who is not
+  signed in. The warning above the message field still says why the gateway picked cannot send. The Bee node must allow this site's origin
   (`cors-allowed-origins`) for the write as for its reads, and needs the stamp's chain to check it, so a light
   node or a full one, not an ultra-light one.
 - **Nothing switches by itself.** A message Swarm ID will not stamp, or the node refuses, shows "Not sent." with

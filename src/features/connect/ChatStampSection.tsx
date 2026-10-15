@@ -14,9 +14,8 @@ import { daysLeftText, SITE_STAMP_RAN_OUT, type SiteStamp } from '@/features/cha
 import { ButtonVariant } from '@/shared/components/Button/Button';
 import { OwnStampIcon } from '@/shared/components/Icons/OwnStampIcon';
 
-import { OWN_FEED_COPY } from './connectWords';
+import { OWN_FEED_COPY, OWN_STAMP_NEEDS_SIGN_IN, OWN_STAMP_NEEDS_SOURCE } from './connectWords';
 
-const SIGN_IN_FIRST = 'Sign in with Swarm ID first.';
 const CHANGE_STAMP = 'Change stamp in Swarm ID';
 const CHOOSE_STAMP = 'Choose a stamp in Swarm ID';
 const UNNAMED_STAMP = 'Stamp for this site';
@@ -37,10 +36,10 @@ export function ChatStampSection() {
   const ownStampPays = choice.payWith === MessageVia.OWN_STAMP;
   const canPickOwnStamp = canUseOwnStamp && (route.ok || ownStampPays);
   const ownStampLine = !canUseOwnStamp
-    ? SIGN_IN_FIRST
+    ? OWN_STAMP_NEEDS_SIGN_IN
     : route.ok
       ? `The stamp Swarm ID gives this site. Your messages go out through ${SENDS_THROUGH[route.through]}, without the event's gateway deciding.`
-      : `${route.reason} ${route.hint}`;
+      : OWN_STAMP_NEEDS_SOURCE;
 
   return (
     <section className="connect-group" aria-label="Chat stamp">
