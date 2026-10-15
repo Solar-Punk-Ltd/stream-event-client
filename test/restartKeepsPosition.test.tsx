@@ -17,11 +17,17 @@ import { SwarmHlsPlayer } from '../src/features/player/SwarmHlsPlayer';
 
 type Handler = (event: string, data: unknown) => void;
 
+interface FakeLevelDetails {
+  live: boolean;
+  targetduration: number;
+  fragments: Array<{ start: number; duration: number }>;
+}
+
 const fakes = vi.hoisted(() => {
   const instances: Array<{
     handlers: Map<string, Handler[]>;
     startLoads: Array<number | undefined>;
-    levels: Array<{ details?: { live: boolean } }>;
+    levels: Array<{ details?: FakeLevelDetails }>;
     currentLevel: number;
     destroyed: boolean;
   }> = [];
@@ -37,7 +43,7 @@ vi.mock('hls.js', async (importOriginal) => {
     static DefaultConfig = actual.default.DefaultConfig;
     handlers = new Map<string, Handler[]>();
     startLoads: Array<number | undefined> = [];
-    levels: Array<{ details?: { live: boolean } }> = [];
+    levels: Array<{ details?: FakeLevelDetails }> = [];
     currentLevel = -1;
     destroyed = false;
     constructor() {
@@ -118,6 +124,51 @@ function emit(index: number, event: string, data: unknown = {}): void {
 }
 
 const FATAL_LEVEL_LOAD = { fatal: true, type: ErrorTypes.NETWORK_ERROR, details: ErrorDetails.LEVEL_LOAD_ERROR };
+const SEGMENT_S = 2;
+const RECORDING_S = 2142;
+
+/** A level's playlist of two second segments, as hls.js holds it once the level has loaded. */
+function levelDetails(live: boolean): FakeLevelDetails {
+  const fragments = Array.from({ length: RECORDING_S / SEGMENT_S }, (_, i) => ({
+    start: i * SEGMENT_S,
+    duration: SEGMENT_S,
+  }));
+  return { live, targetduration: SEGMENT_S, fragments };
+}
+
+function videoElement(): HTMLVideoElement {
+  const video = container.querySelector('video');
+  assert.ok(video);
+  return video;
+}
+
+function playheadAt(positionS: number): void {
+  Object.defineProperty(videoElement(), 'currentTime', { configurable: true, value: positionS });
+}
+
+/** Moves the playhead to `positionS` the way playing there does, which the media announces. */
+function playTo(positionS: number): void {
+  playheadAt(positionS);
+  act(() => {
+    videoElement().dispatchEvent(new Event('timeupdate'));
+  });
+}
+
+/**
+ * Fails player `index` fatally with the playhead at `positionS`.
+ *
+ * @param levelLoaded Whether that player had loaded its level, which is what it reads its place from.
+ */
+function failPlayer(index: number, positionS: number, live: boolean, levelLoaded = true): void {
+  const instance = fakes.instances[index];
+  instance.levels = levelLoaded ? [{ details: levelDetails(live) }] : [{}];
+  instance.currentLevel = 0;
+  playheadAt(positionS);
+
+  emit(index, Events.ERROR, FATAL_LEVEL_LOAD);
+  assert.equal(instance.destroyed, true, `the fatal error did not restart player ${index}`);
+  assert.equal(fakes.instances.length, index + 2, `no player was built after player ${index}`);
+}
 
 /**
  * Mounts the player, plays to `positionS` on a level that is or is not live, and fails it fatally.
@@ -135,16 +186,8 @@ function failFatallyAt(positionS: number, live: boolean, parseRebuilt = true): v
       }),
     );
   });
-  const video = container.querySelector('video');
-  assert.ok(video);
   emit(0, Events.MANIFEST_PARSED);
-  fakes.instances[0].levels = [{ details: { live } }];
-  fakes.instances[0].currentLevel = 0;
-  Object.defineProperty(video, 'currentTime', { configurable: true, value: positionS });
-
-  emit(0, Events.ERROR, FATAL_LEVEL_LOAD);
-  assert.equal(fakes.instances[0].destroyed, true, 'the fatal error did not restart the player');
-  assert.equal(fakes.instances.length, 2, 'no second player was built');
+  failPlayer(0, positionS, live);
   if (parseRebuilt) {
     emit(1, Events.MANIFEST_PARSED);
   }
@@ -164,6 +207,17 @@ describe('a player restarted by a fatal error', () => {
 
     emit(1, Events.ERROR, FATAL_LEVEL_LOAD);
     assert.equal(fakes.instances.length, 3, 'the second fatal error did not restart the player');
+    emit(2, Events.MANIFEST_PARSED);
+
+    assert.deepEqual(fakes.instances[2].startLoads, [2100]);
+  });
+
+  // The rebuilt player was asked to start at 2100 and failed before playback moved, so its own reading
+  // says nothing, and the place it was asked to start at is still where the viewer is.
+  it('keeps the recording position through a second fatal error after the rebuilt player has started loading', () => {
+    failFatallyAt(2100, false);
+
+    failPlayer(1, 0, false, false);
     emit(2, Events.MANIFEST_PARSED);
 
     assert.deepEqual(fakes.instances[2].startLoads, [2100]);

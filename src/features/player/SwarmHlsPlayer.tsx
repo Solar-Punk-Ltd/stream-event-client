@@ -17,6 +17,7 @@ import { nextMediaErrorAction, NO_MEDIA_ERRORS_YET, recoverFromMediaError } from
 import { attachPlaybackStallReporter } from './playbackHealth';
 import { buildPlayerConfig, HLS_TUNING } from './playerConfig';
 import { buildSwarmUri } from './playlist';
+import { hasPlayedPast, nextRestartResume, type RestartResume, restartResumeOf } from './restartResume';
 import { attachResumeOnReturn } from './resumeOnReturn';
 import { attachReturningBroadcastRejoin } from './returningBroadcast';
 import { attachActiveRungFollower, attachRungFailover, attachWatchedRungReporter } from './rungHealth';
@@ -253,27 +254,6 @@ function levelIndexByName(hls: Hls, level: string): number {
   return hls.levels.findIndex((candidate) => candidate.height === height);
 }
 
-/** Where the player a restart builds starts loading, and the source that position belongs to. */
-interface RestartResume {
-  readonly sourceUrl: string;
-  readonly positionS: number;
-}
-
-/**
- * Where a restarted player picks up, or null for hls.js's own start.
- *
- * Only a finished playlist keeps the viewer's place. A recording has one timeline, so a viewer 2100 s
- * in who hit a fatal error was otherwise sent back to 0 (2026-10-15). A live rung's playlist is rebuilt
- * from its newest window on a restart, so a live viewer rejoins at the live edge as before.
- */
-function restartResumeOf(hls: Hls, media: HTMLMediaElement, sourceUrl: string): RestartResume | null {
-  const details = hls.levels[hls.currentLevel]?.details;
-  if (!details || details.live || !(media.currentTime > 0)) {
-    return null;
-  }
-  return { sourceUrl, positionS: media.currentTime };
-}
-
 interface HlsPlayerProps extends React.VideoHTMLAttributes<HTMLVideoElement> {
   owner: string;
   topicString: string;
@@ -403,17 +383,29 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
       hls?.startLoad();
     };
     let detachResumeOnReturn: (() => void) | null = null;
+    let detachStartedAt: (() => void) | null = null;
 
     if (Hls.isSupported()) {
       const tuning: HlsTuning = { ...DEFAULT_HLS_TUNING, ...callerTuning };
       hls = new Hls(buildPlayerConfig({ pLoader: CustomManifestLoader, fLoader: CustomFragmentLoader }, tuning));
 
+      // Where this player was asked to start, held until playback plays past it. A player that fails
+      // before then holds no level, or a playhead that says nothing, so this is still the viewer's place.
+      let startedAt: RestartResume | null = null;
+      const onHlsTimeUpdate = () => {
+        if (startedAt && hasPlayedPast(startedAt, video.currentTime)) {
+          startedAt = null;
+        }
+      };
+      video.addEventListener('timeupdate', onHlsTimeUpdate);
+      detachStartedAt = () => video.removeEventListener('timeupdate', onHlsTimeUpdate);
+
       const restartStream = (cause: ErrorData) => {
         console.warn(`Restarting stream after a fatal ${cause.type} (${cause.details}).`);
-        // A player that fails again before it has started holds no level to read a position from, so the
-        // place an earlier restart kept stays until a player starts loading from it.
-        resumeAfterRestartRef.current =
-          (hls ? restartResumeOf(hls, video, sourceUrl) : null) ?? resumeAfterRestartRef.current;
+        const observed = hls
+          ? restartResumeOf(hls.levels[hls.currentLevel]?.details, video.currentTime, sourceUrl)
+          : null;
+        resumeAfterRestartRef.current = nextRestartResume(observed, startedAt, resumeAfterRestartRef.current);
         detachResumeOnReturn?.();
         hls?.destroy();
         setRestartTrigger((prev) => prev + 1);
@@ -515,7 +507,8 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
 
         const resume = resumeAfterRestartRef.current;
         resumeAfterRestartRef.current = null;
-        hls!.startLoad(resume?.sourceUrl === sourceUrl ? resume.positionS : undefined);
+        startedAt = resume?.sourceUrl === sourceUrl ? resume : null;
+        hls!.startLoad(startedAt?.positionS);
 
         if (autoPlay) {
           video.play().catch((err) => {
@@ -589,6 +582,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
       video.removeEventListener('pause', onHlsPause);
       video.removeEventListener('play', onHlsPlay);
       detachResumeOnReturn?.();
+      detachStartedAt?.();
       detachQoe?.();
       detachLiveSync?.();
       detachStallReporter?.();
