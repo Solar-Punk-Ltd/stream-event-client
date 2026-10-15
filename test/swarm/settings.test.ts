@@ -6,7 +6,7 @@ import { PROVIDER_KINDS } from '../../src/swarm/providerKinds';
 import { BeeHttpProvider } from '../../src/swarm/providers/bee-http/beeHttpProvider';
 import { Weeb3Provider } from '../../src/swarm/providers/weeb-3/weeb3Provider';
 import { PROVIDER_REGISTRY } from '../../src/swarm/registry';
-import { choiceForAddress, OWN_GATEWAY_ID, SINGLE_GATEWAY_ID, swarmSettingsFrom } from '../../src/swarm/settings';
+import { SINGLE_GATEWAY_ID, swarmSettingsFrom } from '../../src/swarm/settings';
 
 const OWNER = '0x' + '1'.repeat(40);
 const CATALOG = { owner: OWNER, topic: 'event-streams' };
@@ -60,22 +60,6 @@ describe('the Swarm settings', () => {
         { id: 'backup', kind: 'bee-http', url: BACKUP },
       ],
       defaultId: 'primary',
-    });
-  });
-});
-
-describe("the viewer's choice of gateway", () => {
-  const settings = swarmSettingsFrom(TWO_GATEWAYS);
-
-  it('names an offered gateway by its address, a trailing slash either side', () => {
-    expect(choiceForAddress(settings, `${BACKUP}/`)).toEqual({ id: 'backup', kind: 'bee-http', url: BACKUP });
-  });
-
-  it("is the viewer's own Bee node for an address the settings do not offer", () => {
-    expect(choiceForAddress(settings, 'http://localhost:1633')).toEqual({
-      id: OWN_GATEWAY_ID,
-      kind: 'bee-http',
-      url: 'http://localhost:1633',
     });
   });
 });

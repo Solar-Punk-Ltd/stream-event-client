@@ -622,15 +622,10 @@ once and is kept in the browser, and nothing switches a source by itself.
 What the browser keeps, in `localStorage`, every read and write guarded so a refusal leaves the
 deployment's defaults for that visit:
 
-| Key                 | What it holds                                                                                                |
-| ------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `swarm-sources`     | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3` |
-| `swarm-routing`     | All features or per feature, the source picked, and each part's source                                       |
-| `swarm-gateway-url` | The one address saved before sources existed. Read once and moved, then removed                              |
-
-An address saved under `swarm-gateway-url` that an offered gateway has becomes a choice of that
-gateway. Any other becomes an added Bee node named "My Bee node", in use, so a viewer keeps reading
-where they read before.
+| Key             | What it holds                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------ |
+| `swarm-sources` | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3` |
+| `swarm-routing` | All features or per feature, the source picked, and each part's source                                       |
 
 ## The node in this browser (weeb-3)
 

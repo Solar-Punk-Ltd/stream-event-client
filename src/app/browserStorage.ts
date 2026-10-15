@@ -30,11 +30,3 @@ export function writeStored(storage: BrowserStorage | null, key: string, value: 
     // The choice holds for this visit and is not remembered.
   }
 }
-
-export function removeStored(storage: BrowserStorage | null, key: string): void {
-  try {
-    storage?.removeItem(key);
-  } catch {
-    // Left in place, and read again on the next visit.
-  }
-}

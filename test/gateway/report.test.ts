@@ -8,6 +8,7 @@ import { reportText } from '../../src/features/gateway/report';
 import { runSourceChecks } from '../../src/features/gateway/sourceChecks';
 import { createSwarmClient } from '../../src/swarm/createSwarmClient';
 import { gatewayName, swarmSettingsFrom } from '../../src/swarm/settings';
+import { allSources, sourceName } from '../../src/swarm/sources';
 
 const EVENT = 'https://event.example.com';
 const BACKUP = 'https://backup.example.com';
@@ -42,6 +43,8 @@ if (!parsed.ok) {
 }
 const config = parsed.config;
 const settings = swarmSettingsFrom(config);
+const OWN_NODE = { id: 'added-1', type: 'bee-node' as const, name: 'My Bee node', url: SAVED_OWN_NODE };
+const sources = allSources(settings, [OWN_NODE]);
 
 /** Answers every request with a 502, so the report carries a failure. */
 const failing = (async () => new Response('', { status: 502 })) as typeof fetch;
@@ -49,7 +52,7 @@ const failing = (async () => new Response('', { status: 502 })) as typeof fetch;
 async function reportOfBackup(): Promise<string> {
   // The app's own client, on the viewer's own node, with the chat history read at the chat read address.
   const inUse = createSwarmClient(settings, {
-    choice: { id: 'own-node', kind: 'bee-http', url: SAVED_OWN_NODE },
+    choice: { id: OWN_NODE.id, kind: 'bee-http', url: SAVED_OWN_NODE },
     routes: { chat: { id: 'event', kind: 'bee-http', url: CHAT_READ } },
     environment: { fetcher: failing },
   });
@@ -72,7 +75,7 @@ async function reportOfBackup(): Promise<string> {
 
   return reportText({
     tested: { name: gatewayName(settings, backup.id), address: backup.url, type: 'gateway', results },
-    status: statusRows(inUse.activity(), (id) => gatewayName(settings, id)),
+    status: statusRows(inUse.activity(), (id) => sourceName(sources, id)),
     build: 'stream-event-client 0.1.0, built 2026-10-07T00:00:00.000Z',
     browser: 'Mozilla/5.0 (test)',
     atMs: Date.UTC(2026, 9, 7, 12),
@@ -88,7 +91,7 @@ describe('the diagnostics a viewer copies', () => {
     expect(report).toContain('Reads a chunk: failed. It answers with an error (HTTP 502).');
     expect(report).toContain("Reads this event's stream list: not run, an earlier check failed.");
     expect(report).toContain('Chat: Reads from Event gateway.');
-    expect(report).toContain('Video: Reads from Your own node.');
+    expect(report).toContain('Video: Reads from My Bee node.');
     expect(report).toContain('Build: stream-event-client 0.1.0');
     expect(report).toContain('Browser: Mozilla/5.0 (test)');
   });

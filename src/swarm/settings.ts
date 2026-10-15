@@ -46,38 +46,14 @@ export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'pr
   };
 }
 
-/** The id a Bee node of the viewer's own goes by, one the settings do not offer. */
-export const OWN_GATEWAY_ID = 'own-node';
-
 /**
  * What a viewer is shown a provider as: its label, or what it is. Never its address, so a name can go
  * anywhere an address must not, such as the diagnostics a viewer copies.
  */
 export function gatewayName(settings: SwarmSettings, id: string): string {
-  if (id === OWN_GATEWAY_ID) {
-    return 'Your own node';
-  }
   const offered = settings.gateways.find((gateway) => gateway.id === id);
   if (offered?.label) {
     return offered.label;
   }
   return id === settings.defaultId ? 'Event gateway' : `Gateway ${id}`;
-}
-
-const withoutTrailingSlash = (url: string) => url.replace(/\/+$/, '');
-
-/**
- * The gateway an address saved before sources existed means. The node picker and the control panel
- * kept a viewer's choice as one address, so an address an offered gateway has is that gateway, and any
- * other is a Bee node of the viewer's own.
- */
-export function choiceForAddress(settings: SwarmSettings, address: string): GatewaySetting {
-  const wanted = withoutTrailingSlash(address);
-  return (
-    settings.gateways.find((gateway) => withoutTrailingSlash(gateway.url) === wanted) ?? {
-      id: OWN_GATEWAY_ID,
-      kind: 'bee-http',
-      url: wanted,
-    }
-  );
 }

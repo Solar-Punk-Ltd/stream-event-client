@@ -4,7 +4,7 @@
  * screen shows them, and neither holds a rule of its own about them.
  */
 import type { ProviderKindName } from './providerKinds';
-import { choiceForAddress, gatewayName, type GatewaySetting, type SwarmSettings } from './settings';
+import { gatewayName, type GatewaySetting, type SwarmSettings } from './settings';
 
 /** What a viewer adds a source as, and what the Sources screen groups them by. */
 const SOURCE_TYPES = ['gateway', 'bee-node', 'weeb-3'] as const;
@@ -56,7 +56,6 @@ const ADDED_ID_PREFIX = 'added-';
 export const SOURCE_NAME_MAX_LENGTH = 40;
 
 /** What a viewer's own node saved before sources existed is called once it is one. */
-const MIGRATED_NODE_NAME = 'My Bee node';
 
 const isAddedId = (id: string) => id.startsWith(ADDED_ID_PREFIX);
 
@@ -176,24 +175,4 @@ export function parseAddedSources(saved: string | null): AddedSource[] {
     }
   }
   return sources;
-}
-
-/**
- * What a choice saved before sources existed becomes. That choice was one address: an offered gateway's
- * is a choice of that gateway, and any other was a Bee node of the viewer's own, which becomes an added
- * Bee node in use, so a viewer keeps reading where they read before.
- */
-export function migratedSources(
-  settings: SwarmSettings,
-  savedAddress: string | null,
-): { readonly added: AddedSource[]; readonly chosenId: string } | null {
-  if (!savedAddress) {
-    return null;
-  }
-  const choice = choiceForAddress(settings, savedAddress);
-  if (settings.gateways.some((gateway) => gateway.id === choice.id)) {
-    return { added: [], chosenId: choice.id };
-  }
-  const { sources, id } = addSource([], { type: 'bee-node', name: MIGRATED_NODE_NAME, url: choice.url });
-  return { added: sources, chosenId: id };
 }

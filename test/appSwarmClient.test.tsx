@@ -22,7 +22,6 @@ const STREAM_OWNER = '2'.repeat(40);
 const STREAM_TOPIC_HEX = Topic.fromString('a-stream').toString();
 const SOURCE_URL = buildSwarmUri(STREAM_OWNER, 'a-stream');
 /** Where the node picker kept a viewer's node before sources existed. */
-const LEGACY_STORAGE_KEY = 'swarm-gateway-url';
 
 const CHAT_READ = 'https://chat-read.example.com';
 
@@ -128,15 +127,6 @@ describe("the app's Swarm client", () => {
     expect(await readThrough(swarm)).toBe(`${EVENT_GATEWAY}/bytes/${REFERENCE}`);
     expect(current().parts.player).toBe('event');
     expect(current().streamListSourceId).toBe('event');
-  });
-
-  it("starts on the viewer's node saved before sources existed, moved into a source", async () => {
-    localStorage.setItem(LEGACY_STORAGE_KEY, OWN_NODE);
-    const { swarm } = start();
-    await settle();
-
-    expect(await readThrough(swarm)).toBe(`${OWN_NODE}/bytes/${REFERENCE}`);
-    expect(current().sources.map(({ name, offered }) => [name, offered])).toContainEqual(['My Bee node', false]);
   });
 
   it("starts on the viewer's saved sources and routing", async () => {

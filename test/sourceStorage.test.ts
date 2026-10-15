@@ -67,32 +67,6 @@ describe("the viewer's sources in the browser", () => {
     expect(loadSourceChoices(settings(), storage)).toEqual({ added: [node], routing });
   });
 
-  it('move a node saved before sources existed into an added source in use, and forget the old key', () => {
-    const storage = memory({ [SOURCE_STORAGE_KEYS.legacyAddress]: 'http://localhost:1633' });
-
-    const loaded = loadSourceChoices(settings(), storage);
-
-    expect(loaded.added).toEqual([
-      { id: 'added-1', type: 'bee-node', name: 'My Bee node', url: 'http://localhost:1633' },
-    ]);
-    expect(loaded.routing.source).toBe('added-1');
-    expect(storage.values.has(SOURCE_STORAGE_KEYS.legacyAddress)).toBe(false);
-    expect(loadSourceChoices(settings(), storage)).toEqual(loaded);
-  });
-
-  it('move an offered gateway saved before sources existed into a choice of it', () => {
-    const storage = memory({ [SOURCE_STORAGE_KEYS.legacyAddress]: BACKUP });
-
-    expect(loadSourceChoices(settings(), storage)).toMatchObject({ added: [], routing: { source: 'backup' } });
-  });
-
-  it('leave the old key alone once the new ones exist', () => {
-    const storage = memory({ [SOURCE_STORAGE_KEYS.legacyAddress]: BACKUP });
-    saveRouting(defaultRouting('event'), storage);
-
-    expect(loadSourceChoices(settings(), storage).routing.source).toBe('event');
-  });
-
   it('are the defaults, and saving does nothing, when the browser refuses its storage', () => {
     expect(loadSourceChoices(settings(), refusing)).toEqual({ added: [], routing: defaultRouting('event') });
     expect(() => saveRouting(defaultRouting('event'), refusing)).not.toThrow();

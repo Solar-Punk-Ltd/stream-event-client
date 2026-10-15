@@ -7,7 +7,6 @@ import {
   allSources,
   chatHistorySettingOf,
   gatewaySettingOf,
-  migratedSources,
   parseAddedSources,
   removeSource,
   renameSource,
@@ -170,23 +169,5 @@ describe('the node in this browser as a source', () => {
     const saved = JSON.stringify([IN_BROWSER, { ...NODE, id: 'added-2', url: '' }]);
 
     expect(parseAddedSources(saved)).toEqual([IN_BROWSER]);
-  });
-});
-
-describe('moving a choice saved before sources existed', () => {
-  it('turns an address no gateway has into an added Bee node, in use', () => {
-    expect(migratedSources(settings(), 'http://localhost:1633/')).toEqual({
-      added: [{ id: 'added-1', type: 'bee-node', name: 'My Bee node', url: 'http://localhost:1633' }],
-      chosenId: 'added-1',
-    });
-  });
-
-  it('turns the address of an offered gateway into a choice of that gateway, adding nothing', () => {
-    expect(migratedSources(settings(), `${BACKUP}/`)).toEqual({ added: [], chosenId: 'backup' });
-  });
-
-  it('moves nothing when nothing was saved', () => {
-    expect(migratedSources(settings(), null)).toBeNull();
-    expect(migratedSources(settings(), '')).toBeNull();
   });
 });
