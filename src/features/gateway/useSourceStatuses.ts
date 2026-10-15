@@ -7,7 +7,7 @@ import { checkSourceStatus, SOURCE_CHECK_INTERVAL_MS, type SourceStatus } from '
 type Catalog = { readonly owner: string; readonly topic: string };
 
 /**
- * Each source's status while the Sources screen is open: every source checked as it opens and again
+ * Each source's status while Connect is open: every source checked as it opens and again
  * every {@link SOURCE_CHECK_INTERVAL_MS}, and nothing while it is closed. A check still running when the
  * screen closes, or when the sources change, is stopped, so a late answer cannot land on a source it was
  * not asked of.

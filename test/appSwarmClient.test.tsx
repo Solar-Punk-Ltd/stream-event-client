@@ -76,7 +76,7 @@ function start(extra: Record<string, unknown> = {}): Context {
 
 const current = (): Context => context!;
 
-/** Adds the viewer's own node as a source and reads every part from it, as the Sources screen does. */
+/** Adds the viewer's own node as a source and reads every part from it, as Connect does. */
 async function pickOwnNode(): Promise<string> {
   const id = current().addSource({ type: 'bee-node', name: 'Desk node', url: OWN_NODE });
   await settle();

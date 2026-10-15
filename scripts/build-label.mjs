@@ -1,5 +1,5 @@
 /**
- * The name a build carries into the page, which Copy diagnostics on the Sources screen reports: the release tag and
+ * The name a build carries into the page, which Copy diagnostics in Connect reports: the release tag and
  * the short commit, such as `v1.7.0-rc.5 (1fcfbd4)`.
  *
  * Read in this order:

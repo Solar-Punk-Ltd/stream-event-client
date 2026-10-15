@@ -116,7 +116,7 @@ const Row: React.FC<{ row: QoeRow }> = ({ row: { label, value, bad } }) => (
   </div>
 );
 
-/** Which build of the viewer is playing, the label the Sources screen's diagnostics show too. */
+/** Which build of the viewer is playing, the label Connect's diagnostics show too. */
 const BuildRow: React.FC<{ text: string }> = ({ text }) => (
   <div className="qoe-overlay__row qoe-overlay__release">
     <span className="qoe-overlay__label">Build</span>

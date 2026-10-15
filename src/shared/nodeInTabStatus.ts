@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { DownloadProgress, ProviderStatus } from '@/swarm/provider';
 
 /*
- * How a node that runs in the viewer's tab is shown starting: the Sources screen's row and the watch
+ * How a node that runs in the viewer's tab is shown starting: Connect's row and the watch
  * page's stage say the same words, read the same way.
  */
 

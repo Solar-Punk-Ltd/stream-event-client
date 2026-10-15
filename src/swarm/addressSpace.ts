@@ -5,7 +5,7 @@
  *
  * Read from the address as written, never from where its name resolves, because the page cannot see
  * that. A name such as `bee.lan` that resolves to a home router's address is therefore the internet
- * here, and the Sources screen's add form asks for its https address or its IP address instead.
+ * here, and Connect's add form asks for its https address or its IP address instead.
  */
 
 /** The values of the Local Network Access draft's `IPAddressSpace`, which `fetch` takes as `targetAddressSpace`. */

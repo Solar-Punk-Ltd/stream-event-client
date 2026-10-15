@@ -6,7 +6,7 @@
 import type { ProviderKindName } from './providerKinds';
 import { gatewayName, type GatewaySetting, type SwarmSettings } from './settings';
 
-/** What a viewer adds a source as, and what the Sources screen groups them by. */
+/** What a viewer adds a source as, one tile each under Add source in Connect. */
 const SOURCE_TYPES = ['gateway', 'bee-node', 'weeb-3'] as const;
 
 export type SourceType = (typeof SOURCE_TYPES)[number];

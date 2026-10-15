@@ -26,7 +26,7 @@ interface CatalogPoll {
  *
  * ⛔ **A read from another gateway replaces the list whatever it holds, including nothing.** Until
  * this rule existed, switching node left the previous gateway's streams on the page: a viewer who
- * pointed the Sources screen's add form at their own Bee node, which holds none of that catalog yet, saw the site
+ * pointed Connect's add form at their own Bee node, which holds none of that catalog yet, saw the site
  * gateway's streams, believed their node was serving them, and got "Reconnecting to the stream"
  * on a stream their node has never heard of. The message written for that moment, "Could not reach
  * this gateway", could not appear at all, because a non-empty list is what the page looks at first.

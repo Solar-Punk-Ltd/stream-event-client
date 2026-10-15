@@ -107,7 +107,7 @@ export class CatalogFeedReader {
    *
    * The same guard the modules around this one already carry: `ManifestFetcher` pins a topic
    * generation before a head read, `LadderFeedPoller` re-checks its entry after every await, and the
-   * Sources screen's add form bumps a probe generation before it saves an address.
+   * Connect's add form bumps a probe generation before it saves an address.
    */
   private generation = 0;
 

@@ -1,5 +1,5 @@
 /**
- * The light check behind each source's status dot on the Sources screen, run about every 10 s while the
+ * The light check behind each source's status dot in Connect, run about every 10 s while the
  * screen is open. One request for a gateway and the provider probe for a Bee node, so it costs a viewer
  * little and never stands in for the full Test.
  */
@@ -26,7 +26,7 @@ export interface SourceStatus {
 
 export const UNCHECKED: SourceStatus = { health: 'unknown', elapsedMs: null };
 
-/** How often the Sources screen checks every source again while it is open. */
+/** How often Connect checks every source again while it is open. */
 export const SOURCE_CHECK_INTERVAL_MS = 10_000;
 
 interface SourceCheckContext {

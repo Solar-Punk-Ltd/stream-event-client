@@ -20,8 +20,8 @@ const SOC_READ_TIMEOUT_MS = 5_000;
  * One chat per stream. The topic and the owner follow the aggregator's conventions: the stream's chat
  * feed is `chat-<stream topic>`, written by the chat feed owner. The chat is read through one endpoint and
  * written through another. While the event pays, the write endpoint stamps what is written through it. On the
- * viewer's own stamp, messages go to their own Bee node and Swarm ID stamps each one. Either way no stamp is passed,
- * and every message says in its `via` who paid.
+ * viewer's own stamp, Swarm ID stamps each message and it goes to their own Bee node or through Weeb3. Either way
+ * no stamp is passed, and every message says in its `via` who paid.
  */
 export function chatSettings(
   config: ChatConfig,

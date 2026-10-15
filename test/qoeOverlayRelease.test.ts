@@ -23,7 +23,7 @@ function releaseLine(html: string): { label: string; value: string } | null {
 }
 
 /**
- * The panel names the build of the viewer that is playing, the same label the Sources screen's
+ * The panel names the build of the viewer that is playing, the same label Connect's
  * diagnostics show, so a saved or copied reading says which build it came from.
  */
 describe('the build in the QoE overlay', () => {
