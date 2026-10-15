@@ -20,7 +20,7 @@ export function ThemeChoiceProvider({ config, children }: { config: RuntimeConfi
   const canSwitch = themeSwitcherEnabled(config);
   const [look, setLook] = useState<ThemeName>(() => wornLook(config, loadThemeChoice()));
 
-  // Before any component's effect, so one that reads the theme's variables, as Swarm ID's button does, reads this look.
+  // Before any passive effect, so one that reads the theme's variables, as Swarm ID's button does, reads this look.
   useLayoutEffect(() => {
     applyLook(look);
   }, [look]);
