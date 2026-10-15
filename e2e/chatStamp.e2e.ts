@@ -292,6 +292,11 @@ test("Sign in with Swarm ID is Swarm ID's own button, in the page's look, and it
     action: 'sign-in',
     config: { text: 'Sign in with Swarm ID', backgroundColor: await pagePrimary(page) },
   });
+  const faces = swarmId.buttons[0].config.fontFaces as Array<{ family: string; url: string; weight: string }>;
+  expect(faces, "the page's own font file for its typeface, at the bold the primary button uses").toHaveLength(1);
+  expect(faces[0].weight).toBe('700');
+  expect(faces[0].url.startsWith(`${PREVIEW_ORIGIN}/assets/`), faces[0].url).toBe(true);
+  expect((await page.request.get(faces[0].url)).status(), 'the file the build emitted').toBe(200);
 });
 
 test('Change stamp in Swarm ID opens the Swarm ID window again, and the stamp picked there shows at once', async ({

@@ -11,6 +11,7 @@ import {
 import { SwarmIdButton } from '@/features/chat/swarmId/SwarmIdParts';
 import { SWARM_ID_BUTTON_COMPACT } from '@/features/chat/swarmId/swarmIdButtonLook';
 import { daysLeftText, SITE_STAMP_RAN_OUT, type SiteStamp } from '@/features/chat/stamp/siteStamp';
+import { ButtonVariant } from '@/shared/components/Button/Button';
 import { OwnStampIcon } from '@/shared/components/Icons/OwnStampIcon';
 
 const SIGN_IN_FIRST = 'Sign in with Swarm ID first.';
@@ -91,6 +92,7 @@ function SiteStampBox() {
             <SwarmIdButton
               action="change-stamp"
               text={siteStamp.status === SITE_STAMP_NONE ? CHOOSE_STAMP : CHANGE_STAMP}
+              variant={ButtonVariant.SECONDARY}
               size={SWARM_ID_BUTTON_COMPACT}
             />
           </div>

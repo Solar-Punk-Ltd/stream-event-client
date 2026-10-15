@@ -24,8 +24,11 @@
   }
 }
 
+// The page is dark and Swarm ID's frame names no colour scheme, and a browser paints an opaque backdrop behind a frame
+// whose scheme differs from its element's, which would show behind the secondary button's see-through fill.
 .swarm-id-button-frame {
   display: block;
+  color-scheme: normal;
   width: 100%;
   height: var(--size-touch-target);
   border-radius: var(--radius-md);

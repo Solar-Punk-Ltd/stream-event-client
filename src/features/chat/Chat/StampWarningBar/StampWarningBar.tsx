@@ -34,6 +34,7 @@ export function StampWarningBar() {
             <SwarmIdButton
               action="change-stamp"
               text={siteStamp.status === SITE_STAMP_NONE ? 'Choose a stamp in Swarm ID' : 'Change stamp in Swarm ID'}
+              variant={warning.blocksSending ? ButtonVariant.PRIMARY : ButtonVariant.SECONDARY}
               size={SWARM_ID_BUTTON_COMPACT}
             />
           )

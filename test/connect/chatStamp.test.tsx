@@ -14,6 +14,7 @@ import { connectPage, seen } from '../helpers/connectPage';
 import { button, click, dialog, settle, type Mounted, waitFor } from '../helpers/dom';
 import { fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
 import { addressOf, BOUND_SITE, chatKeyFor } from '../helpers/signedChat';
+import { wearThemeCss } from '../helpers/themeCss';
 
 const DAY_S = 24 * 60 * 60;
 const BATCH: SwarmIdPostageBatch = {
@@ -183,6 +184,7 @@ describe('the chat stamp in Connect', () => {
   });
 
   it("opens the Swarm ID window again from Swarm ID's button while signed in, and shows the stamp picked there at once", async () => {
+    wearThemeCss();
     chatOnMyBeeNode();
     const opened = vi.spyOn(window, 'open');
     const swarmId = await openConnect();
@@ -192,6 +194,10 @@ describe('the chat stamp in Connect', () => {
     click(button('Change stamp in Swarm ID'));
     await settle();
     expect(swarmId.client().shownButton().action).toBe('change-stamp');
+    expect(swarmId.client().shownButton().config, "the page's secondary button, as it was").toMatchObject({
+      backgroundColor: 'rgba(250,250,250,0.1)',
+      fontWeight: '600',
+    });
     expect(swarmId.client().windowsOpened).toBe(1);
     expect(swarmId.client().connectCalls, 'the page opens no window of its own').toBe(0);
     expect(opened, 'the library opens its own window, never the Apps screen').not.toHaveBeenCalled();

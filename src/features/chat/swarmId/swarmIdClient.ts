@@ -59,9 +59,20 @@ export interface SwarmIdStampedChunk {
 export type SwarmIdButtonAction = 'sign-in' | 'change-stamp';
 
 /**
+ * A font file Swarm ID's frame loads for the button's label, fetched from Swarm ID's origin, so it is served with an
+ * `Access-Control-Allow-Origin` naming that origin. `url` is https, or plain http on this machine.
+ */
+export interface SwarmIdButtonFontFace {
+  readonly family: string;
+  readonly url: string;
+  readonly weight?: string | number;
+  readonly style?: 'normal' | 'italic' | 'oblique';
+}
+
+/**
  * How Swarm ID's button looks and reads. It is painted in Swarm ID's own frame, where this page's stylesheet cannot
- * reach, so the look is handed over as values. Colours, sizes and the radius are CSS values, and the typeface is a CSS
- * font-family that falls back to the first family the frame has, not the page.
+ * reach, so the look is handed over as values. Colours, sizes and the radius are CSS values, and the
+ * typeface is a CSS font-family whose files the frame loads from `fontFaces`.
  */
 export interface SwarmIdButtonConfig {
   readonly text?: string;
@@ -75,6 +86,8 @@ export interface SwarmIdButtonConfig {
   readonly fontFamily?: string;
   readonly fontSize?: string;
   readonly fontWeight?: string | number;
+  /** At most 8. */
+  readonly fontFaces?: readonly SwarmIdButtonFontFace[];
 }
 
 /** Where the window a click on Swarm ID's button opened is. `blocked`: the browser refused to open it. */

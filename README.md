@@ -212,11 +212,20 @@ stamps them, unless the person picks their own stamp, as the next section says.
   it. A window the page opened from a button of its own would end on Swarm ID's "Connected" with this site still
   signed out, so the page has no button of its own for it and never opens the window. The library's `mountButton`
   shows the button, in a container the page sizes, and the page hands it the label in the design's words and the look
-  of its primary button in the theme it wears: the primary colour, the colour on it, its corner radius, the theme's
-  typeface, size and weight. A viewer's theme switch changes the button in place. The typeface is named, but the
-  frame draws it only when the viewer's device has it, since the page's bundled fonts do not reach Swarm ID's frame,
-  and it falls back to the frame's own otherwise. The button is mounted once for as long as it is shown. Closing
-  Connect takes it away and leaves the session as it is.
+  of the page's own button it replaced, read from the theme the page wears: the primary button in Connect's sign-in
+  and in the warning above the message field while sending is held, and the secondary one beside a guest's name, in
+  the stamp group and in a warning that lets sending go on. That is the button's fill and label colours, corner radius,
+  typeface, size and weight. A viewer's theme switch changes the button in place.
+- **The button's typeface is the page's own.** The page hands Swarm ID's frame the font file the build bundles for the
+  theme's typeface at the button's weight, Geist for the Swarm theme and Archivo for Web3Privacy, the Latin file at
+  semibold or bold, at its address on this site, and the frame loads it itself. It is the same file the page's
+  stylesheet uses. The frame fetches it from its own origin, so the image serves the font files with an
+  `Access-Control-Allow-Origin` naming the `SWARM_ID_URL` site. A deployment whose fonts do not allow that site, such
+  as one served by something other than the image, gets the frame's fallback typeface and a line in the frame's
+  console. Swarm ID takes a font file only over https, or over plain http on this machine, so a page served over
+  plain http elsewhere hands it none.
+- **The button is mounted once for as long as it is shown.** Closing Connect takes it away and leaves the session as
+  it is.
   Before Swarm ID has started, its place says "Connecting to Swarm ID". When Swarm ID refuses the button, or it does
   not answer in time, its place says "Swarm ID cannot be reached right now." and the console warns as for a Swarm ID
   that does not start, and a viewer already signed in stays so.

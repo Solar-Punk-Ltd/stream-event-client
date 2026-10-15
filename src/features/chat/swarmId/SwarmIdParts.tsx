@@ -27,16 +27,23 @@ interface SwarmIdButtonProps {
   readonly action: SwarmIdButtonAction;
   /** The label, in the design's words. Swarm ID's frame shows it and reads it out. */
   readonly text: string;
+  /** Which of the page's own buttons it is drawn as, where the page drew one of its own before. */
+  readonly variant?: ButtonVariant;
   readonly size?: SwarmIdButtonSize;
 }
 
 /**
  * Swarm ID's own button, a small frame of the Swarm ID site in this page. Its click opens the Swarm ID window, which a
  * site on another site than Swarm ID can open no other way, since a window the page opened could not hand the session
- * to Swarm ID's frame. It wears the page's primary button in the theme the page wears now, and is mounted once for as
- * long as it is shown: a new label, action or theme changes it in place. Taking it away keeps the session.
+ * to Swarm ID's frame. It wears the page's button of that variant in the theme the page wears now, in the page's own
+ * typeface, and is mounted once for as long as it is shown: a new label, action, variant or theme changes it in place. Taking it away keeps the session.
  */
-export function SwarmIdButton({ action, text, size = SWARM_ID_BUTTON_FULL }: SwarmIdButtonProps) {
+export function SwarmIdButton({
+  action,
+  text,
+  variant = ButtonVariant.PRIMARY,
+  size = SWARM_ID_BUTTON_FULL,
+}: SwarmIdButtonProps) {
   const { swarmId, mountSwarmIdButton } = useChatUser();
   const { look } = useThemeChoice();
   const container = useRef<HTMLSpanElement>(null);
@@ -46,8 +53,8 @@ export function SwarmIdButton({ action, text, size = SWARM_ID_BUTTON_FULL }: Swa
   const isStarting = swarmId?.status === SWARM_ID_STARTING;
   const canMount = swarmId !== null && !isStarting && swarmId.status !== SWARM_ID_UNAVAILABLE;
 
-  const wanted = useRef({ action, text, size });
-  wanted.current = { action, text, size };
+  const wanted = useRef({ action, text, variant, size });
+  wanted.current = { action, text, variant, size };
   /** What the frame was handed last, so a render that changes nothing it shows hands it nothing. */
   const handed = useRef('');
 
@@ -56,7 +63,8 @@ export function SwarmIdButton({ action, text, size = SWARM_ID_BUTTON_FULL }: Swa
     if (!canMount || !element) {
       return;
     }
-    const options = { action: wanted.current.action, config: configOf(wanted.current.text, wanted.current.size) };
+    const { action: wantedAction, text: wantedText, variant: wantedVariant, size: wantedSize } = wanted.current;
+    const options = { action: wantedAction, config: configOf(wantedText, wantedVariant, wantedSize) };
     const button = mountSwarmIdButton(element, { ...options, onWindowChange: setWindowState });
     if (!button) {
       return;
@@ -77,13 +85,13 @@ export function SwarmIdButton({ action, text, size = SWARM_ID_BUTTON_FULL }: Swa
   }, [canMount, mountSwarmIdButton]);
 
   useEffect(() => {
-    const options = { action, config: configOf(text, size) };
+    const options = { action, config: configOf(text, variant, size) };
     const key = JSON.stringify(options);
     if (mounted.current && key !== handed.current) {
       handed.current = key;
       mounted.current.update(options);
     }
-  }, [action, text, size, look]);
+  }, [action, text, variant, size, look]);
 
   if (swarmId?.status === SWARM_ID_UNAVAILABLE || isRefused) {
     return <p className="swarm-id-hint">{UNAVAILABLE_TEXT}</p>;
@@ -97,8 +105,8 @@ export function SwarmIdButton({ action, text, size = SWARM_ID_BUTTON_FULL }: Swa
   );
 }
 
-function configOf(text: string, size: SwarmIdButtonSize) {
-  return { text, ...swarmIdButtonLook(size) };
+function configOf(text: string, variant: ButtonVariant, size: SwarmIdButtonSize) {
+  return { text, ...swarmIdButtonLook(variant, size) };
 }
 
 /**
@@ -187,7 +195,12 @@ export function SwarmIdYou({ onLeave }: { onLeave: () => void }) {
       {canSignIn && (
         <div className="swarm-id-row">
           <span className="swarm-id-hint">Show it&apos;s really you</span>
-          <SwarmIdButton action="sign-in" text={SIGN_IN_LABEL} size={SWARM_ID_BUTTON_COMPACT} />
+          <SwarmIdButton
+            action="sign-in"
+            text={SIGN_IN_LABEL}
+            variant={ButtonVariant.SECONDARY}
+            size={SWARM_ID_BUTTON_COMPACT}
+          />
         </div>
       )}
       {canSignIn && <SignInProblem />}
