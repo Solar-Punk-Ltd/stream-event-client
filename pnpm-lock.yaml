@@ -191,11 +191,11 @@ importers:
         specifier: 0.0.354001
         version: 0.0.354001
       '@solarpunkltd/swarm-chat-js':
-        specifier: 8.0.0
-        version: 8.0.0(@ethersphere/bee-js@13.1.0)
+        specifier: 8.1.0
+        version: 8.1.0(@ethersphere/bee-js@13.1.0)
       '@solarpunkltd/swarm-id':
-        specifier: 0.8.1
-        version: 0.8.1
+        specifier: 0.8.2
+        version: 0.8.2
       cafe-utility:
         specifier: 36.3.0
         version: 36.3.0
@@ -841,14 +841,14 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@solarpunkltd/swarm-chat-js@8.0.0':
-    resolution: {integrity: sha512-kjnpxJCJ8Sx8ZDC0RzuRXI+gXd0DZJfOpu93fGHaoPNVw/cZ3L1YRNl1JJnLgstREiOiE58IP0b5keZqCWWpDQ==}
+  '@solarpunkltd/swarm-chat-js@8.1.0':
+    resolution: {integrity: sha512-nRXCYtApo3oM6GF1nz1fIP3mdpcvMOQDBuEVA1Z6sJ3eigJ2ZitBfdUb4Kwuqc5XHdykjsmQ3wX31h6CmvXRcw==}
     engines: {node: '>=24'}
     peerDependencies:
       '@ethersphere/bee-js': ^13.1.0
 
-  '@solarpunkltd/swarm-id@0.8.1':
-    resolution: {integrity: sha512-qm2Ew0STk+YUCanceuvZwqlTGqZT21MlKXaIpJF0WQwi3OgOnlHALkN+1rkhbkjYubTkLDCAb7qy3YeWfc/S3g==}
+  '@solarpunkltd/swarm-id@0.8.2':
+    resolution: {integrity: sha512-7h00xoeDBygiSCY7INra/+RW6DahYC3ZY8Y7sLPYMSy6CVTZI7yU1hnUzj/JLJfrrHtNfsgpV9RP5VIFP6UjLw==}
     engines: {node: '>=22', pnpm: '>=11'}
 
   '@swc/core-darwin-arm64@1.16.2':
@@ -2001,13 +2001,13 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@solarpunkltd/swarm-chat-js@8.0.0(@ethersphere/bee-js@13.1.0)':
+  '@solarpunkltd/swarm-chat-js@8.1.0(@ethersphere/bee-js@13.1.0)':
     dependencies:
       '@ethersphere/bee-js': 13.1.0
       '@ethersphere/core-sdk': 0.1.1
       zod: 4.6.5
 
-  '@solarpunkltd/swarm-id@0.8.1':
+  '@solarpunkltd/swarm-id@0.8.2':
     dependencies:
       '@ethersphere/bee-js': 13.1.0
       '@ethersphere/core-sdk': 0.1.1
