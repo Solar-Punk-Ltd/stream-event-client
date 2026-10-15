@@ -26,7 +26,10 @@ export interface FakeSiteStamp {
 export const ACCOUNT_NAME = 'Ida';
 export const CHAT_ADDRESS = CHAT_KEY.publicKey().address().toHex();
 
-/** The frame's side of the library's messages, only as far as signing in and stamping go. */
+/**
+ * The frame's side of the library's messages, only as far as signing in, picking a stamp and stamping go. A connect
+ * while signed in plays the Swarm ID window: the person picks a stamp, and the frame reports the same session again.
+ */
 const PROXY_SCRIPT = `
 const info = __INFO__;
 const chatKey = __CHAT_KEY__;
@@ -38,6 +41,11 @@ addEventListener('message', async (event) => {
   switch (message.type) {
     case 'parentIdentify':
       send({ type: 'proxyReady', authenticated: true, parentOrigin: event.origin });
+      send({ type: 'connectionInfoChanged', canUpload: true, uploadMode: 'user-stamp', ...info });
+      return;
+    case 'connect':
+      await window.fakeSwarmIdConnect();
+      answer({ type: 'connectResponse', success: true });
       send({ type: 'connectionInfoChanged', canUpload: true, uploadMode: 'user-stamp', ...info });
       return;
     case 'getChatKey':
@@ -71,10 +79,16 @@ function signedAs(privateKey: string, identifierHex: string, data: number[]) {
  * Serves a Swarm ID site at {@link FAKE_SWARM_ID_ORIGIN} whose frame keeps a signed-in session for this site, as a
  * returning viewer's would, so no window opens. It gives the site the chat key and a binding for it, says how the
  * site's stamp stands from `siteStamp`, and stamps every chunk it is asked to with a stamp of the right length that no
- * Bee node would take, recording each chunk.
+ * Bee node would take, recording each chunk. `pickStamp` is what the person does in the window a connect opens, such
+ * as making `siteStamp` answer with another stamp.
  */
-export async function serveFakeSwarmIdSite(page: Page, siteStamp: () => FakeSiteStamp | undefined) {
+export async function serveFakeSwarmIdSite(
+  page: Page,
+  siteStamp: () => FakeSiteStamp | undefined,
+  pickStamp: () => void = () => {},
+) {
   const stamped: Array<{ identifier: string; signer: string }> = [];
+  const windows = { opened: 0 };
   const binding = signChatBinding(ACCOUNT_KEY, PREVIEW_ORIGIN, CHAT_ADDRESS, new Date());
   const account = accountOf(ACCOUNT_KEY);
   const info = {
@@ -101,6 +115,10 @@ export async function serveFakeSwarmIdSite(page: Page, siteStamp: () => FakeSite
       }
     );
   });
+  await page.exposeFunction('fakeSwarmIdConnect', () => {
+    windows.opened += 1;
+    pickStamp();
+  });
   await page.exposeFunction('fakeSwarmIdStamp', (identifier: string, data: number[], privateKey: string) => {
     stamped.push({ identifier, signer: new PrivateKey(privateKey).publicKey().address().toHex() });
     return { address: '0'.repeat(64), stamp: 'ee'.repeat(STAMP_BYTES), ...signedAs(privateKey, identifier, data) };
@@ -116,5 +134,5 @@ export async function serveFakeSwarmIdSite(page: Page, siteStamp: () => FakeSite
       body: `<!doctype html><meta charset="utf-8"><script>${script}</script>`,
     }),
   );
-  return { stamped };
+  return { stamped, windows };
 }

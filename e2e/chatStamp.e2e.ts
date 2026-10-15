@@ -59,7 +59,12 @@ type ChatSource = 'bee-node' | 'weeb-3';
  * chat history while everything else reads the event gateway, as a browser that chose so before keeps it. Weeb3's
  * chat reads find nothing, so its chat opens empty.
  */
-async function deployment(page: Page, siteStamp: () => FakeSiteStamp | undefined, chatSource: ChatSource = 'bee-node') {
+async function deployment(
+  page: Page,
+  siteStamp: () => FakeSiteStamp | undefined,
+  chatSource: ChatSource = 'bee-node',
+  pickStamp: () => void = () => {},
+) {
   const published = read<Published>(RecordingFile.PUBLISHED);
   const config = read<{ chat: { feedOwner: string; writeUrl: string } }>(RecordingFile.CONFIG);
   const toGateway: Written[] = [];
@@ -107,7 +112,7 @@ async function deployment(page: Page, siteStamp: () => FakeSiteStamp | undefined
       route.fulfill({ status: 404, contentType: 'text/plain', body: 'weeb-3 did not retrieve resource' }),
     );
   }
-  const swarmId = await serveFakeSwarmIdSite(page, siteStamp);
+  const swarmId = await serveFakeSwarmIdSite(page, siteStamp, pickStamp);
 
   await page.addInitScript(
     ({ node, type }) => {
@@ -239,4 +244,30 @@ test('a message on my own stamp with Weeb3 reading the chat is pushed through We
   const check = messageIn({ url: '', stamp: null, body: wrapped });
   expect(check.ok, check.ok ? '' : `${check.reason}: ${check.detail}`).toBe(true);
   expect(check.ok && check.message).toMatchObject({ text: 'through weeb-3', via: MessageVia.OWN_STAMP });
+});
+
+test('Change stamp in Swarm ID opens the Swarm ID window again, and the stamp picked there shows at once', async ({
+  page,
+}) => {
+  let stamp = SITE_STAMP;
+  const { swarmId } = await deployment(
+    page,
+    () => stamp,
+    'bee-node',
+    () => {
+      stamp = { ...SITE_STAMP, label: 'Picked in the window', utilization: 0.1, batchTTL: 12 * DAY_S };
+    },
+  );
+  await page.getByRole('banner').getByRole('button', { name: ACCOUNT_NAME }).click();
+  const group = page.getByRole('dialog').getByRole('region', { name: 'Chat stamp' });
+  await group.getByRole('radio', { name: /^My stamp/ }).check();
+  await expect(group.getByText('Event chat')).toBeVisible();
+
+  await group.getByRole('button', { name: 'Change stamp in Swarm ID', exact: true }).click();
+
+  await expect(group.getByText('Picked in the window')).toBeVisible();
+  await expect(group.getByText('12 days left')).toBeVisible();
+  await expect(group.getByText(/10% used/)).toBeVisible();
+  expect(swarmId.windows.opened).toBe(1);
+  await expect(page.getByRole('banner').getByRole('button', { name: ACCOUNT_NAME }), 'still signed in').toBeVisible();
 });
