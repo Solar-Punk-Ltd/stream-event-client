@@ -1,19 +1,19 @@
 import type { VerifyScope } from '../verify/verdicts';
 
-import {
-  isWindowBlocked,
-  type LoadSwarmIdClient,
-  type SwarmIdChunkToStamp,
-  type SwarmIdClient,
-  type SwarmIdConnectionInfo,
-  type SwarmIdPostageBatch,
-  type SwarmIdStampedChunk,
+import type {
+  LoadSwarmIdClient,
+  SwarmIdButtonOptions,
+  SwarmIdChunkToStamp,
+  SwarmIdClient,
+  SwarmIdConnectionInfo,
+  SwarmIdMountedButton,
+  SwarmIdPostageBatch,
+  SwarmIdStampedChunk,
 } from './swarmIdClient';
 import { type SwarmIdSession, swarmIdSession } from './swarmIdSession';
 
 export const SWARM_ID_STARTING = 'starting';
 export const SWARM_ID_SIGNED_OUT = 'signed-out';
-export const SWARM_ID_BLOCKED = 'blocked';
 export const SWARM_ID_SIGNED_IN = 'signed-in';
 export const SWARM_ID_UNAVAILABLE = 'unavailable';
 
@@ -22,24 +22,10 @@ export type SwarmIdState =
   | { readonly status: typeof SWARM_ID_STARTING }
   /** Ready to sign in. `problem` says why the last try did not get there, when it did not. */
   | { readonly status: typeof SWARM_ID_SIGNED_OUT; readonly problem: string | null }
-  /** The browser blocked the Swarm ID window, which only a click can open now. */
-  | { readonly status: typeof SWARM_ID_BLOCKED }
   | { readonly status: typeof SWARM_ID_SIGNED_IN; readonly session: SwarmIdSession }
   /** The library could not start, as for a site the Swarm ID site does not serve, so there is no sign-in. */
   | { readonly status: typeof SWARM_ID_UNAVAILABLE };
 
-export const STAMP_WINDOW_OPENED = 'opened';
-export const STAMP_WINDOW_BLOCKED = 'blocked';
-export const STAMP_WINDOW_FAILED = 'failed';
-
-/** What became of the Swarm ID window opened to change this site's stamp. */
-export type StampWindowOutcome =
-  | typeof STAMP_WINDOW_OPENED
-  | typeof STAMP_WINDOW_BLOCKED
-  /** It did not open, or nobody is signed in to change a stamp for. */
-  | typeof STAMP_WINDOW_FAILED;
-
-export const WINDOW_FAILED = 'The Swarm ID window did not open. Try again.';
 export const SIGN_IN_INCOMPLETE = 'Swarm ID signed you in without confirming a chat address for this site.';
 export const NO_CHAT_KEY = 'Swarm ID did not give this site its chat key. Try again.';
 const SIGN_OUT_FAILED = 'Swarm ID did not end the session, so it may sign you in again on your next visit.';
@@ -80,14 +66,13 @@ export interface SwarmIdSignIn {
   getState(): SwarmIdState;
   subscribe(listener: () => void): () => void;
   start(): void;
-  /** Opens the Swarm ID window. Call it from a click and from nothing else, or the browser blocks the window. */
-  signIn(): void;
-  signOut(): Promise<void>;
   /**
-   * Opens the Swarm ID window again for a signed-in viewer, where the person picks the stamp this site uses. Call it
-   * from a click only. A blocked window leaves the viewer signed in.
+   * Shows Swarm ID's button in the container, whose click opens the Swarm ID window: to sign in, or for a signed-in
+   * viewer to pick the stamp this site uses. Null until the library has started, and once stopped. A button Swarm ID
+   * refuses warns once in the console, as a library that does not start does, and leaves the session as it is.
    */
-  changeStamp(): Promise<StampWindowOutcome>;
+  mountButton(container: HTMLElement, options: SwarmIdButtonOptions): SwarmIdMountedButton | null;
+  signOut(): Promise<void>;
   /**
    * Calls the listener on every report the frame makes once the library is ready. A stamp picked in the Swarm ID
    * window reaches the site only this way, as the same session reported again.
@@ -195,9 +180,7 @@ export function createSwarmIdSignIn({
     const { identity, chatBinding } = info;
     siteStampId = info.postageBatchId ?? null;
     if (!identity) {
-      if (state.status !== SWARM_ID_BLOCKED) {
-        set(SIGNED_OUT);
-      }
+      set(SIGNED_OUT);
       return;
     }
     if (!chatBinding) {
@@ -279,33 +262,25 @@ export function createSwarmIdSignIn({
         });
     },
 
-    signIn() {
-      if (!client || !isReady || state.status === SWARM_ID_SIGNED_IN) {
-        return;
+    mountButton(container, options) {
+      if (!client || !isReady || isStopped) {
+        return null;
       }
-      client.connect().then(
-        () => {
-          if (state.status === SWARM_ID_BLOCKED) {
-            set(SIGNED_OUT);
-          }
+      const mounted = client.mountButton(container, options);
+      let isUnmounted = false;
+      mounted.ready.catch(() => {
+        if (!isUnmounted) {
+          warnOnce();
+        }
+      });
+      return {
+        ready: mounted.ready,
+        update: (next) => mounted.update(next),
+        unmount() {
+          isUnmounted = true;
+          mounted.unmount();
         },
-        (error: unknown) =>
-          set(
-            isWindowBlocked(error)
-              ? { status: SWARM_ID_BLOCKED }
-              : { status: SWARM_ID_SIGNED_OUT, problem: WINDOW_FAILED },
-          ),
-      );
-    },
-
-    changeStamp() {
-      if (!client || state.status !== SWARM_ID_SIGNED_IN) {
-        return Promise.resolve(STAMP_WINDOW_FAILED);
-      }
-      return client.connect().then(
-        () => STAMP_WINDOW_OPENED,
-        (error: unknown) => (isWindowBlocked(error) ? STAMP_WINDOW_BLOCKED : STAMP_WINDOW_FAILED),
-      );
+      };
     },
 
     subscribeConnectionChange(listener) {

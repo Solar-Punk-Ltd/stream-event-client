@@ -148,6 +148,10 @@ $size: (
   'chat-min-height-desktop': 320px,
   // Wide enough to aim at with a finger, where the Swarm design draws the control smaller.
   'touch-target': 44px,
+  // Swarm ID's button frame: as wide as its longest label, "Choose a stamp in Swarm ID", and in a row of Connect as
+  // high as the design's small controls.
+  'swarm-id-button-width': 240px,
+  'swarm-id-button-compact': 32px,
   'dialog-max-width': 500px,
   'dialog-offset-top': 10vh,
   'dialog-button-height': 40px,

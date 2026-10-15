@@ -8,9 +8,10 @@ import {
   SITE_STAMP_UNREADABLE,
   useChatStamp,
 } from '@/features/chat/stamp/ChatStamp';
-import { SwarmIdStampWindowNotice } from '@/features/chat/swarmId/SwarmIdParts';
+import { SwarmIdButton } from '@/features/chat/swarmId/SwarmIdParts';
+import { SWARM_ID_BUTTON_COMPACT } from '@/features/chat/swarmId/swarmIdButtonLook';
 import { daysLeftText, SITE_STAMP_RAN_OUT, type SiteStamp } from '@/features/chat/stamp/siteStamp';
-import { Button, ButtonVariant } from '@/shared/components/Button/Button';
+import { ButtonVariant } from '@/shared/components/Button/Button';
 import { OwnStampIcon } from '@/shared/components/Icons/OwnStampIcon';
 
 const SIGN_IN_FIRST = 'Sign in with Swarm ID first.';
@@ -71,7 +72,7 @@ export function ChatStampSection() {
 }
 
 function SiteStampBox() {
-  const { siteStamp, changeStampInSwarmId, choice, chooseOwnFeed } = useChatStamp();
+  const { siteStamp, canUseOwnStamp, choice, chooseOwnFeed } = useChatStamp();
   return (
     <>
       <div className="connect-box connect-site-stamp">
@@ -85,15 +86,17 @@ function SiteStampBox() {
             Swarm ID has given this site no stamp yet. Choose one and confirm it in the Swarm ID window.
           </p>
         )}
-        {changeStampInSwarmId && (
+        {canUseOwnStamp && (
           <div className="connect-between">
             <span className="connect-ex">Chosen, topped up and made bigger in Swarm ID</span>
-            <Button variant={ButtonVariant.SECONDARY} className="connect-small" onClick={changeStampInSwarmId}>
-              {siteStamp.status === SITE_STAMP_NONE ? CHOOSE_STAMP : CHANGE_STAMP}
-            </Button>
+            <SwarmIdButton
+              action="change-stamp"
+              text={siteStamp.status === SITE_STAMP_NONE ? CHOOSE_STAMP : CHANGE_STAMP}
+              variant={ButtonVariant.SECONDARY}
+              size={SWARM_ID_BUTTON_COMPACT}
+            />
           </div>
         )}
-        <SwarmIdStampWindowNotice />
       </div>
       <label className="connect-choice">
         <input type="checkbox" checked={choice.ownFeed} onChange={(event) => chooseOwnFeed(event.target.checked)} />

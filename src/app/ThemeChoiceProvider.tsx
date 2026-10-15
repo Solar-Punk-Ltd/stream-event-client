@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useLayoutEffect, useMemo, useState } from 'react';
 
 import { type RuntimeConfig, themeSwitcherEnabled } from '@/config/runtimeConfig';
 import { applyLook } from '@/design/look';
@@ -20,7 +20,8 @@ export function ThemeChoiceProvider({ config, children }: { config: RuntimeConfi
   const canSwitch = themeSwitcherEnabled(config);
   const [look, setLook] = useState<ThemeName>(() => wornLook(config, loadThemeChoice()));
 
-  useEffect(() => {
+  // Before any passive effect, so one that reads the theme's variables, as Swarm ID's button does, reads this look.
+  useLayoutEffect(() => {
     applyLook(look);
   }, [look]);
 

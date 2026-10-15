@@ -10,13 +10,40 @@
   color: var(--color-text-tertiary);
 }
 
-.swarm-id-sign-in {
+// Swarm ID's frame fills its container and cannot size itself to its label, so the container is given the
+// primary button's height and a width that holds the longest label, never wider than the space it sits in.
+.swarm-id-button {
   display: inline-grid;
   justify-items: start;
   gap: var(--spacing-xs);
+  width: min(100%, var(--size-swarm-id-button-width));
+  min-width: 0;
 
   .swarm-id-row & {
     justify-items: end;
+  }
+}
+
+// The page is dark and Swarm ID's frame names no colour scheme, and a browser paints an opaque backdrop behind a frame
+// whose scheme differs from its element's, which would show behind the secondary button's see-through fill.
+.swarm-id-button-frame {
+  display: block;
+  color-scheme: normal;
+  width: 100%;
+  height: var(--size-touch-target);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+
+  &.compact {
+    height: var(--size-swarm-id-button-compact);
+
+    @media (pointer: coarse) {
+      height: var(--size-touch-target);
+    }
+  }
+
+  &[hidden] {
+    display: none;
   }
 }
 
@@ -25,13 +52,12 @@
   color: var(--color-error-text);
 }
 
-// Under the header on the page and in Connect alike, outlined in the warning colour the way the design draws it.
+// Under Swarm ID's button, outlined in the warning colour the way the design draws it.
 .swarm-id-blocked {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-sm) var(--spacing-md);
-  margin: var(--spacing-md) 0;
+  gap: var(--spacing-xs) var(--spacing-md);
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--color-warning);
   border-radius: var(--radius-base);

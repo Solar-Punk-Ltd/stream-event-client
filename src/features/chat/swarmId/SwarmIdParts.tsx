@@ -1,49 +1,146 @@
-import { useId } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { useConnect } from '@/features/connect/ConnectContext';
+import { useThemeChoice } from '@/app/ThemeChoiceProvider';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { GuestBadgeIcon } from '@/shared/components/Icons/GuestBadgeIcon';
 import { SwarmIdBadgeIcon } from '@/shared/components/Icons/SwarmIdBadgeIcon';
 
-import { useChatStamp } from '../stamp/ChatStamp';
 import { useChatUser } from '../User';
 
 import {
-  STAMP_WINDOW_BLOCKED,
-  SWARM_ID_BLOCKED,
-  SWARM_ID_SIGNED_OUT,
-  SWARM_ID_STARTING,
-  SWARM_ID_UNAVAILABLE,
-  WINDOW_FAILED,
-} from './swarmIdSignIn';
+  SWARM_ID_BUTTON_COMPACT,
+  SWARM_ID_BUTTON_FULL,
+  type SwarmIdButtonSize,
+  swarmIdButtonLook,
+} from './swarmIdButtonLook';
+import type { SwarmIdButtonAction, SwarmIdMountedButton, SwarmIdWindowState } from './swarmIdClient';
+import { SWARM_ID_SIGNED_OUT, SWARM_ID_STARTING, SWARM_ID_UNAVAILABLE } from './swarmIdSignIn';
 
 import './SwarmIdParts.scss';
 
 const SIGN_IN_LABEL = 'Sign in with Swarm ID';
 const UNAVAILABLE_TEXT = 'Swarm ID cannot be reached right now.';
 const STARTING_TEXT = 'Connecting to Swarm ID';
+const WINDOW_BLOCKED = 'blocked';
 
-/** Sign in with Swarm ID, which waits, and says why, while the library is still starting. */
-function SignInButton({ variant, className }: { variant?: ButtonVariant; className?: string }) {
-  const { swarmId, signInWithSwarmId } = useChatUser();
-  const reasonId = useId();
+interface SwarmIdButtonProps {
+  readonly action: SwarmIdButtonAction;
+  /** The label, in the design's words. Swarm ID's frame shows it and reads it out. */
+  readonly text: string;
+  /** Which of the page's own buttons it is drawn as, where the page drew one of its own before. */
+  readonly variant?: ButtonVariant;
+  readonly size?: SwarmIdButtonSize;
+}
+
+/**
+ * Swarm ID's own button, a small frame of the Swarm ID site in this page. Its click opens the Swarm ID window, which a
+ * site on another site than Swarm ID can open no other way, since a window the page opened could not hand the session
+ * to Swarm ID's frame. It wears the page's button of that variant in the theme the page wears now, in the page's own
+ * typeface, and is mounted once for as long as it is shown: a new label, action, variant or theme changes it in place. Taking it away keeps the session.
+ */
+export function SwarmIdButton({
+  action,
+  text,
+  variant = ButtonVariant.PRIMARY,
+  size = SWARM_ID_BUTTON_FULL,
+}: SwarmIdButtonProps) {
+  const { swarmId, mountSwarmIdButton } = useChatUser();
+  const { look } = useThemeChoice();
+  const container = useRef<HTMLSpanElement>(null);
+  const mounted = useRef<SwarmIdMountedButton | null>(null);
+  const [windowState, setWindowState] = useState<SwarmIdWindowState | null>(null);
+  const [isRefused, setIsRefused] = useState(false);
+  /** Raised by Try again, which mounts a new button in place of one Swarm ID refused or that never answered. */
+  const [attempt, setAttempt] = useState(0);
   const isStarting = swarmId?.status === SWARM_ID_STARTING;
+  const canMount = swarmId !== null && !isStarting && swarmId.status !== SWARM_ID_UNAVAILABLE;
+
+  const wanted = useRef({ action, text, variant, size });
+  wanted.current = { action, text, variant, size };
+  /** What the frame was handed last, so a render that changes nothing it shows hands it nothing. */
+  const handed = useRef('');
+
+  useEffect(() => {
+    const element = container.current;
+    if (!canMount || !element) {
+      return;
+    }
+    const { action: wantedAction, text: wantedText, variant: wantedVariant, size: wantedSize } = wanted.current;
+    const options = { action: wantedAction, config: configOf(wantedText, wantedVariant, wantedSize) };
+    const button = mountSwarmIdButton(element, { ...options, onWindowChange: setWindowState });
+    if (!button) {
+      return;
+    }
+    mounted.current = button;
+    handed.current = JSON.stringify(options);
+    let isCurrent = true;
+    button.ready.catch(() => {
+      if (isCurrent) {
+        setIsRefused(true);
+      }
+    });
+    return () => {
+      isCurrent = false;
+      mounted.current = null;
+      button.unmount();
+      setIsRefused(false);
+    };
+  }, [canMount, mountSwarmIdButton, attempt]);
+
+  useEffect(() => {
+    const options = { action, config: configOf(text, variant, size) };
+    const key = JSON.stringify(options);
+    if (mounted.current && key !== handed.current) {
+      handed.current = key;
+      mounted.current.update(options);
+    }
+  }, [action, text, variant, size, look]);
+
+  const isUnavailable = swarmId?.status === SWARM_ID_UNAVAILABLE;
+  // The container stays while the hints show, so the button's place does not jump while Swarm ID starts, and a refused
+  // frame is taken away by its own unmount rather than with a container React removed under it.
   return (
-    <span className="swarm-id-sign-in">
-      <Button
-        variant={variant}
-        className={className}
-        disabled={isStarting}
-        aria-describedby={isStarting ? reasonId : undefined}
-        onClick={signInWithSwarmId}
-      >
-        {SIGN_IN_LABEL}
-      </Button>
+    <span className="swarm-id-button">
+      <span
+        ref={container}
+        className={`swarm-id-button-frame ${size}`}
+        hidden={isUnavailable || isRefused}
+        aria-hidden={canMount ? undefined : true}
+      />
       {isStarting && (
-        <span id={reasonId} className="swarm-id-hint">
+        <span className="swarm-id-hint" role="status">
           {STARTING_TEXT}
         </span>
       )}
+      {(isUnavailable || isRefused) && <span className="swarm-id-hint">{UNAVAILABLE_TEXT}</span>}
+      {isRefused && (
+        <Button
+          variant={ButtonVariant.SECONDARY}
+          className="swarm-id-small"
+          onClick={() => setAttempt((count) => count + 1)}
+        >
+          Try again
+        </Button>
+      )}
+      {windowState === WINDOW_BLOCKED && <SwarmIdWindowBlocked />}
+    </span>
+  );
+}
+
+/** The label is also the accessible name, so each frame's button is named by what it does here. */
+function configOf(text: string, variant: ButtonVariant, size: SwarmIdButtonSize) {
+  return { text, ariaLabel: text, ...swarmIdButtonLook(variant, size) };
+}
+
+/**
+ * The browser refused the window Swarm ID's button opened, which happens only where pop-ups are blocked outright, since
+ * the click was the frame's own. The page has no window of its own to offer, so it says what to allow.
+ */
+function SwarmIdWindowBlocked() {
+  return (
+    <span className="swarm-id-blocked" role="status">
+      <strong>Your browser blocked the Swarm ID window.</strong>
+      <span className="swarm-id-muted">Allow pop-ups for this site, then press the button again.</span>
     </span>
   );
 }
@@ -57,48 +154,6 @@ function SignInProblem() {
       {problem}
     </p>
   ) : null;
-}
-
-/**
- * The one line shown when the browser blocked the Swarm ID window. Its button is a click of its own, which is what
- * lets the browser open the window this time.
- */
-function SwarmIdWindowBlocked({ onOpen }: { onOpen: () => void }) {
-  return (
-    <div className="swarm-id-blocked" role="status">
-      <strong>Your browser blocked the Swarm ID window.</strong>
-      <span className="swarm-id-muted">Open it with this button.</span>
-      <Button className="swarm-id-small" onClick={onOpen}>
-        Open Swarm ID
-      </Button>
-    </div>
-  );
-}
-
-function SwarmIdBlocked() {
-  const { swarmId, signInWithSwarmId } = useChatUser();
-  return swarmId?.status === SWARM_ID_BLOCKED ? <SwarmIdWindowBlocked onOpen={signInWithSwarmId} /> : null;
-}
-
-/** Why the Swarm ID window opened to change this site's stamp did not show, when it did not. */
-export function SwarmIdStampWindowNotice() {
-  const { stampWindowProblem, changeStampInSwarmId } = useChatStamp();
-  if (!changeStampInSwarmId || stampWindowProblem === null) {
-    return null;
-  }
-  return stampWindowProblem === STAMP_WINDOW_BLOCKED ? (
-    <SwarmIdWindowBlocked onOpen={changeStampInSwarmId} />
-  ) : (
-    <p className="swarm-id-problem" role="alert">
-      {WINDOW_FAILED}
-    </p>
-  );
-}
-
-/** The blocked line under the header, where Connect is not already showing it. */
-export function SwarmIdPageNotice() {
-  const { isOpen } = useConnect();
-  return isOpen ? null : <SwarmIdBlocked />;
 }
 
 /** The second way into the chat, in Connect: sign in with a Swarm ID account. */
@@ -116,9 +171,8 @@ export function SwarmIdOffer() {
         Or sign in with your Swarm ID. Your messages carry its confirmed badge on every device, and you can send them
         with your own stamp.
       </p>
-      <SignInButton />
+      <SwarmIdButton action="sign-in" text={SIGN_IN_LABEL} />
       <SignInProblem />
-      <SwarmIdBlocked />
     </div>
   );
 }
@@ -164,7 +218,12 @@ export function SwarmIdYou({ onLeave }: { onLeave: () => void }) {
       {canSignIn && (
         <div className="swarm-id-row">
           <span className="swarm-id-hint">Show it&apos;s really you</span>
-          <SignInButton variant={ButtonVariant.SECONDARY} className="swarm-id-small" />
+          <SwarmIdButton
+            action="sign-in"
+            text={SIGN_IN_LABEL}
+            variant={ButtonVariant.SECONDARY}
+            size={SWARM_ID_BUTTON_COMPACT}
+          />
         </div>
       )}
       {canSignIn && <SignInProblem />}

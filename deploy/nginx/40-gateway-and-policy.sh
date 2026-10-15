@@ -1,7 +1,7 @@
 #!/bin/sh
-# Run by nginx's image entrypoint before nginx starts. It turns the image's settings into two files the server
-# includes: how /bee reaches the gateway, and the headers every page answer carries, its content security policy among
-# them. A setting that is missing or malformed stops the container here, with the reason, rather than serving a page
+# Run by nginx's image entrypoint before nginx starts. It turns the image's settings into three files the server
+# includes: how /bee reaches the gateway, the headers every page answer carries, its content security policy among
+# them, and who else may fetch the page's font files. A setting that is missing or malformed stops the container here, with the reason, rather than serving a page
 # that cannot load its streams.
 #
 # The page decides which kinds of source a viewer may add, and the policy allows every one of them whatever the
@@ -23,6 +23,8 @@
 #                 hidden frame of that site. Its window opens as a window of its own, which the policy does not govern.
 #                 In proxy mode /bee also lets that one site read it, since the frame reads this site's content through
 #                 /bee from its own origin. A chat read endpoint on another host has to allow that site itself.
+#                 The page's font files let that one site fetch them too, since Swarm ID's button frame draws its label
+#                 in the page's own typeface and loads the file from its own origin.
 set -eu
 
 OUT_DIR="${STREAM_CLIENT_NGINX_DIR:-/etc/nginx/stream-event-client}"
@@ -74,7 +76,10 @@ done
 SWARM_ID_DIRECTIVE=""
 SWARM_ID=""
 if [ -n "${SWARM_ID_URL:-}" ]; then
+  # In lower case, because a browser sends the Swarm ID frame's Origin so, and Access-Control-Allow-Origin is compared
+  # with it exactly. The scheme and the host name no case, so config.json's swarmId.url may keep its own spelling.
   SWARM_ID="$(origin_of SWARM_ID_URL "$SWARM_ID_URL")"
+  SWARM_ID="$(printf '%s' "$SWARM_ID" | tr '[:upper:]' '[:lower:]')"
   SWARM_ID_DIRECTIVE="; frame-src $SWARM_ID"
 fi
 
@@ -161,6 +166,17 @@ POLICY="$POLICY; img-src 'self' data: blob:$GATEWAY_SOURCE$EXTRA_SOURCE https: $
 POLICY="$POLICY; media-src 'self' blob:; worker-src 'self' blob:"
 POLICY="$POLICY; connect-src 'self'$GATEWAY_SOURCE$EXTRA_SOURCE$CHAT_SOURCE https: wss: $OWN_NODE"
 POLICY="$POLICY$SWARM_ID_DIRECTIVE; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
+
+if [ -n "$SWARM_ID" ]; then
+  cat > "$OUT_DIR/fonts.conf" <<CONF
+# Written at start with SWARM_ID_URL set. Swarm ID's button frame loads the page's font files from that one origin.
+add_header Access-Control-Allow-Origin "$SWARM_ID" always;
+CONF
+else
+  cat > "$OUT_DIR/fonts.conf" <<CONF
+# Written at start with no SWARM_ID_URL, so no other site fetches the page's font files.
+CONF
+fi
 
 cat > "$OUT_DIR/headers.conf" <<CONF
 # Written at start. Included in every location that sets headers of its own, because nginx drops the server's

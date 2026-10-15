@@ -8,6 +8,7 @@ const built = vi.hoisted(() => ({
   destroyed: 0,
   beeApiUrls: [] as string[],
   stamped: [] as unknown[],
+  buttons: [] as Array<{ container: HTMLElement; options: unknown }>,
 }));
 
 /** The library's client, as far as building it and taking it down go. Nothing is framed. */
@@ -17,7 +18,10 @@ vi.mock('@solarpunkltd/swarm-id', () => ({
       built.options.push(options);
     }
     initialize = async () => {};
-    connect = async () => {};
+    mountButton = (container: HTMLElement, options: unknown) => {
+      built.buttons.push({ container, options });
+      return { ready: Promise.resolve(), update: () => {}, unmount: () => {} };
+    };
     disconnect = async () => {};
     getChatKey = async () => new Uint8Array();
     setBeeApiUrl = async (url: string) => {
@@ -37,27 +41,54 @@ vi.mock('@solarpunkltd/swarm-id', () => ({
   },
 }));
 
-const FRAME_CONTAINER = '#swarm-id-frame';
-
 afterEach(() => {
   document.body.innerHTML = '';
   built.options.length = 0;
   built.destroyed = 0;
   built.beeApiUrls.length = 0;
   built.stamped.length = 0;
+  built.buttons.length = 0;
 });
 
 describe("the library's client", () => {
-  it('puts the frame in a hidden container of its own, named to the library', () => {
+  it('names the site to the library and hands it nothing to draw, since its session frame shows nothing', () => {
     createLibraryClient({ url: 'https://id.example.com', appName: 'Devcon streams', onConnectionChange: () => {} });
 
-    const container = document.querySelector<HTMLElement>(FRAME_CONTAINER);
-    expect(container?.hidden).toBe(true);
     expect(built.options[0]).toMatchObject({
       iframeOrigin: 'https://id.example.com',
       metadata: { name: 'Devcon streams' },
-      containerId: container?.id,
     });
+    expect(built.options[0]).not.toHaveProperty('containerId');
+    expect(built.options[0]).not.toHaveProperty('buttonConfig');
+    expect(document.body.children).toHaveLength(0);
+  });
+
+  it("mounts Swarm ID's button in the container it is given, with the action, the look and the window listener", () => {
+    const client = createLibraryClient({
+      url: 'https://id.example.com',
+      appName: 'Devcon streams',
+      onConnectionChange: () => {},
+    });
+    const container = document.createElement('div');
+    const onWindowChange = () => {};
+
+    const mounted = client.mountButton(container, {
+      action: 'change-stamp',
+      config: { text: 'Change stamp in Swarm ID', backgroundColor: 'orange' },
+      onWindowChange,
+    });
+
+    expect(built.buttons).toEqual([
+      {
+        container,
+        options: {
+          action: 'change-stamp',
+          config: { text: 'Change stamp in Swarm ID', backgroundColor: 'orange' },
+          onWindowChange,
+        },
+      },
+    ]);
+    expect(typeof mounted.unmount).toBe('function');
   });
 
   it("hands the library the chat history's Bee address at construction and on every change, and none it was not given", async () => {
@@ -75,7 +106,7 @@ describe("the library's client", () => {
     expect(built.options[1]).not.toHaveProperty('beeApiUrl');
   });
 
-  it('takes the container away with the client', () => {
+  it('takes the client down', () => {
     const client = createLibraryClient({
       url: 'https://id.example.com',
       appName: 'Devcon streams',
@@ -85,7 +116,6 @@ describe("the library's client", () => {
     client.destroy();
 
     expect(built.destroyed).toBe(1);
-    expect(document.querySelector(FRAME_CONTAINER)).toBeNull();
   });
 
   it("hands a chunk to the frame to stamp, and reads the site's stamp, through the library unchanged", async () => {

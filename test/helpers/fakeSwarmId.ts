@@ -2,10 +2,14 @@ import { PrivateKey } from '@ethersphere/bee-js';
 
 import type {
   LoadSwarmIdClient,
+  SwarmIdButtonAction,
+  SwarmIdButtonConfig,
+  SwarmIdButtonOptions,
   SwarmIdChunkToStamp,
   SwarmIdClient,
   SwarmIdClientOptions,
   SwarmIdConnectionInfo,
+  SwarmIdMountedButton,
   SwarmIdPostageBatch,
   SwarmIdStampedChunk,
 } from '../../src/features/chat/swarmId/swarmIdClient';
@@ -33,19 +37,99 @@ function postageBatchIdOf(batch: SwarmIdPostageBatch): string {
   return hex.padEnd(64, '0').slice(0, 64);
 }
 
-const BLOCKED_ERROR = Object.assign(new Error('Failed to open authentication popup'), { code: 'popup-blocked' });
+/** The library's own labels, which a button shows when the site names none. */
+const LIBRARY_LABELS: Record<SwarmIdButtonAction, string> = {
+  'sign-in': 'Sign in with Swarm ID',
+  'change-stamp': 'Change stamp in Swarm ID',
+};
 
 /**
- * Stands in for the Swarm ID library's client. Nothing is framed and no window opens: a test says what the browser did
- * with the window, and plays the window's handover with {@link FakeSwarmIdClient.handOver}.
+ * A button the viewer mounted, as the library's frame would draw it: a real button in the container, whose click is
+ * the click inside Swarm ID's frame, so the window it opens is Swarm ID's own.
  */
-class FakeSwarmIdClient implements SwarmIdClient {
+class FakeSwarmIdButton implements SwarmIdMountedButton {
+  readonly element = document.createElement('button');
+  readonly ready: Promise<void>;
+  private rejectReady: (error: unknown) => void = () => {};
+  private isSettled = false;
+  /** Every look and action the viewer handed over after mounting it, in order. */
+  readonly updates: Array<{ action?: SwarmIdButtonAction; config?: SwarmIdButtonConfig }> = [];
+  action: SwarmIdButtonAction;
+  config: SwarmIdButtonConfig | undefined;
+  unmounted = false;
+
+  constructor(
+    readonly container: HTMLElement,
+    readonly options: SwarmIdButtonOptions,
+    private readonly client: FakeSwarmIdClient,
+    ready: Promise<void>,
+  ) {
+    // Unmounted before it showed, the library's button rejects with invalid-state, which a hanging frame lets a test see.
+    this.ready = new Promise<void>((resolve, reject) => {
+      this.rejectReady = reject;
+      ready.then(resolve, reject);
+    });
+    this.ready.then(
+      () => (this.isSettled = true),
+      () => (this.isSettled = true),
+    );
+    this.action = options.action;
+    this.config = options.config;
+    this.element.type = 'button';
+    this.element.dataset.fakeSwarmIdButton = '';
+    this.element.addEventListener('click', () => this.client.clickButton(this));
+    this.draw();
+    container.appendChild(this.element);
+  }
+
+  update(next: { action?: SwarmIdButtonAction; config?: SwarmIdButtonConfig }): void {
+    this.updates.push(next);
+    this.action = next.action ?? this.action;
+    this.config = next.config ?? this.config;
+    this.draw();
+  }
+
+  unmount(): void {
+    this.unmounted = true;
+    this.element.remove();
+    if (!this.isSettled) {
+      this.rejectReady(Object.assign(new Error('Swarm ID button unmounted'), { code: 'invalid-state' }));
+    }
+  }
+
+  private draw(): void {
+    this.element.textContent = this.config?.text ?? LIBRARY_LABELS[this.action];
+    this.element.disabled = Boolean(this.config?.disabled);
+    if (this.config?.ariaLabel) {
+      this.element.setAttribute('aria-label', this.config.ariaLabel);
+    } else {
+      this.element.removeAttribute('aria-label');
+    }
+  }
+}
+
+/**
+ * Stands in for the Swarm ID library's client. Nothing is framed and no window opens: a button the viewer mounts is a
+ * real button standing in for Swarm ID's frame, a test says what the browser did with the window its click opens, and
+ * plays the window's handover with {@link FakeSwarmIdClient.handOver}.
+ */
+export class FakeSwarmIdClient implements SwarmIdClient {
   info: SwarmIdConnectionInfo;
+  /** Times the page called `connect()` itself, which the library refuses where storage is partitioned. */
   connectCalls = 0;
   disconnectCalls = 0;
   destroyed = false;
-  /** What the browser does with the next window: open it, or block it. */
+  /** What the browser does with the next window a button's click opens: open it, or block it. */
   nextWindow: 'opens' | 'blocked' = 'opens';
+  /** How many Swarm ID windows a button's click opened. */
+  windowsOpened = 0;
+  /** Every button the viewer mounted, in order, unmounted ones too. */
+  readonly buttons: FakeSwarmIdButton[] = [];
+  /** A button frame Swarm ID refuses, as for a site not on its allow list. */
+  buttonFails = false;
+  /** A button frame that never answers. */
+  buttonHangs = false;
+  isInitialized = false;
   initializeFails = false;
   /** A frame that never answers, so the viewer stays starting. */
   initializeHangs = false;
@@ -82,12 +166,57 @@ class FakeSwarmIdClient implements SwarmIdClient {
     if (this.initializeFails) {
       throw Object.assign(new Error('This site is not on the allow list'), { code: 'init-failed' });
     }
+    this.isInitialized = true;
     this.options.onConnectionChange(this.connectionInfo);
   }
 
+  /**
+   * The library's `connect()` for a site on another site than Swarm ID, where the browser partitions the frame's
+   * storage: it opens nothing. The viewer's client has no such call, so this only counts a page that reached it anyway.
+   */
   connect(): Promise<void> {
     this.connectCalls += 1;
-    return this.nextWindow === 'blocked' ? Promise.reject(BLOCKED_ERROR) : Promise.resolve();
+    return Promise.reject(
+      Object.assign(new Error('Sign in through the button from client.mountButton().'), { code: 'button-required' }),
+    );
+  }
+
+  mountButton(container: HTMLElement, options: SwarmIdButtonOptions): SwarmIdMountedButton {
+    if (!this.isInitialized) {
+      throw Object.assign(new Error('SwarmIdClient not initialized'), { code: 'invalid-state' });
+    }
+    const ready = this.buttonHangs
+      ? new Promise<void>(() => {})
+      : this.buttonFails
+        ? Promise.reject(Object.assign(new Error('This site is not on the allow list'), { code: 'init-failed' }))
+        : Promise.resolve();
+    const button = new FakeSwarmIdButton(container, options, this, ready);
+    this.buttons.push(button);
+    return button;
+  }
+
+  /** The click inside Swarm ID's frame, which opens its window or is blocked by the browser. */
+  clickButton(button: FakeSwarmIdButton): void {
+    if (this.nextWindow === 'blocked') {
+      button.options.onWindowChange?.('blocked');
+      return;
+    }
+    this.windowsOpened += 1;
+    button.options.onWindowChange?.('open');
+  }
+
+  /** The person closes the Swarm ID window a button opened. */
+  closeWindow(button: FakeSwarmIdButton = this.shownButton()): void {
+    button.options.onWindowChange?.('closed');
+  }
+
+  /** The one button the viewer shows now. */
+  shownButton(): FakeSwarmIdButton {
+    const shown = this.buttons.filter(({ unmounted }) => !unmounted);
+    if (shown.length !== 1) {
+      throw new Error(`the viewer shows ${shown.length} Swarm ID buttons`);
+    }
+    return shown[0];
   }
 
   async disconnect(): Promise<void> {

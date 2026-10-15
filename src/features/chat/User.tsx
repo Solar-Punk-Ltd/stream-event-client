@@ -14,14 +14,14 @@ import { persistUserSession, purgeUserSession, restoreUserSession } from './auth
 import {
   type LoadSwarmIdClient,
   loadSwarmIdLibrary,
+  type SwarmIdButtonOptions,
   type SwarmIdChunkToStamp,
+  type SwarmIdMountedButton,
   type SwarmIdPostageBatch,
   type SwarmIdStampedChunk,
 } from './swarmId/swarmIdClient';
 import {
   createSwarmIdSignIn,
-  STAMP_WINDOW_FAILED,
-  type StampWindowOutcome,
   SWARM_ID_SIGNED_IN,
   type SwarmIdSignIn,
   type SwarmIdState,
@@ -44,15 +44,16 @@ interface ChatUserContextValue {
   /** Null on a deployment that offers no Swarm ID. */
   swarmId: SwarmIdState | null;
   swarmIdSession: SwarmIdSession | null;
-  /** Opens the Swarm ID window. Called from a click only, or the browser blocks the window. */
-  signInWithSwarmId: () => void;
+  /**
+   * Shows Swarm ID's button in the container, whose click opens the Swarm ID window to sign in or to pick this site's
+   * stamp. Null while Swarm ID has not started, or on a deployment that offers none.
+   */
+  mountSwarmIdButton: (container: HTMLElement, options: SwarmIdButtonOptions) => SwarmIdMountedButton | null;
   signOutOfSwarmId: () => void;
   /** The stamp Swarm ID gives this site, or undefined while nobody is signed in or it gives none. */
   getSiteStamp: () => Promise<SwarmIdPostageBatch | undefined>;
   /** The id of the stamp Swarm ID's newest report names for this site, or null while it names none. */
   getSiteStampId: () => string | null;
-  /** Opens the Swarm ID window again, where a signed-in viewer picks this site's stamp. From a click only. */
-  changeStampInSwarmId: () => Promise<StampWindowOutcome>;
   /** Hears of every report Swarm ID makes about the session, a stamp picked in its window among them. */
   onSwarmIdConnectionChange: (listener: () => void) => () => void;
   /** Has Swarm ID sign and stamp a chunk with the stamp it gives this site. Rejects while nobody is signed in. */
@@ -147,14 +148,13 @@ export function ChatUserProvider({
     setGuestSession(null);
   }, []);
 
-  const signInWithSwarmId = useCallback(() => signIn?.signIn(), [signIn]);
+  const mountSwarmIdButton = useCallback(
+    (container: HTMLElement, options: SwarmIdButtonOptions) => signIn?.mountButton(container, options) ?? null,
+    [signIn],
+  );
   const signOutOfSwarmId = useCallback(() => void signIn?.signOut(), [signIn]);
   const getSiteStamp = useCallback(async () => signIn?.getPostageBatch(), [signIn]);
   const getSiteStampId = useCallback(() => signIn?.getSiteStampId() ?? null, [signIn]);
-  const changeStampInSwarmId = useCallback(
-    (): Promise<StampWindowOutcome> => (signIn ? signIn.changeStamp() : Promise.resolve(STAMP_WINDOW_FAILED)),
-    [signIn],
-  );
   const onSwarmIdConnectionChange = useCallback(
     (listener: () => void) => (signIn ? signIn.subscribeConnectionChange(listener) : () => {}),
     [signIn],
@@ -176,11 +176,10 @@ export function ChatUserProvider({
       logout,
       swarmId,
       swarmIdSession,
-      signInWithSwarmId,
+      mountSwarmIdButton,
       signOutOfSwarmId,
       getSiteStamp,
       getSiteStampId,
-      changeStampInSwarmId,
       onSwarmIdConnectionChange,
       stampChunk,
     }),
@@ -191,11 +190,10 @@ export function ChatUserProvider({
       logout,
       swarmId,
       swarmIdSession,
-      signInWithSwarmId,
+      mountSwarmIdButton,
       signOutOfSwarmId,
       getSiteStamp,
       getSiteStampId,
-      changeStampInSwarmId,
       onSwarmIdConnectionChange,
       stampChunk,
     ],

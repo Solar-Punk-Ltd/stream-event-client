@@ -1,7 +1,6 @@
 import { Link } from 'react-router';
 
 import { useAppContext } from '@/app/AppProvider';
-import { SwarmIdPageNotice } from '@/features/chat/swarmId/SwarmIdParts';
 import { Connect } from '@/features/connect/Connect';
 import { FailureBars } from '@/features/connect/FailureBars';
 
@@ -12,7 +11,7 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const { chat, themeContent } = useAppContext();
+  const { themeContent } = useAppContext();
 
   return (
     <div className="main-layout">
@@ -25,7 +24,6 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       </header>
       <FailureBars />
-      {chat && <SwarmIdPageNotice />}
       <main className="main-layout-content">{children}</main>
     </div>
   );

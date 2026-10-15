@@ -26,18 +26,34 @@ export interface FakeSiteStamp {
 export const ACCOUNT_NAME = 'Ida';
 export const CHAT_ADDRESS = CHAT_KEY.publicKey().address().toHex();
 
+/** Where the library loads Swarm ID's button frame from, beside its session frame at `/proxy`. */
+const BUTTON_PATH = '/button';
+
+/** What the fake's two frames, the session frame and the button, tell each other with, as Swarm ID's do. */
+const CHANNEL = 'fake-swarm-id';
+
 /**
- * The frame's side of the library's messages, only as far as signing in, picking a stamp and stamping go. A connect
- * while signed in plays the Swarm ID window: the person picks a stamp, and the frame reports the same session again
- * with the id of the stamp the site now uses.
+ * The session frame's side of the library's messages, only as far as signing in, picking a stamp and stamping go. It
+ * never says it shares Swarm ID's storage, as a frame on another site than Swarm ID cannot in Chrome, so the library's
+ * own `connect()` refuses and only the button signs in. When the button's window hands over, the frame reports the
+ * session again, signed in, with the id of the stamp the site now uses.
  */
 const PROXY_SCRIPT = `
 const info = __INFO__;
 const chatKey = __CHAT_KEY__;
+let signedIn = __SIGNED_IN__;
+let parentOrigin = null;
 parent.postMessage({ type: 'proxyInitialized' }, '*');
 const reportOf = async () => {
+  if (!signedIn) {
+    return { type: 'connectionInfoChanged', canUpload: false };
+  }
   const postageBatchId = await window.fakeSwarmIdSiteStampId();
   return { type: 'connectionInfoChanged', canUpload: true, uploadMode: 'user-stamp', ...info, ...(postageBatchId ? { postageBatchId } : {}) };
+};
+new BroadcastChannel('${CHANNEL}').onmessage = async () => {
+  signedIn = true;
+  parent.postMessage(await reportOf(), parentOrigin);
 };
 addEventListener('message', async (event) => {
   const message = event.data;
@@ -45,16 +61,12 @@ addEventListener('message', async (event) => {
   const answer = (reply) => send({ requestId: message.requestId, ...reply });
   switch (message.type) {
     case 'parentIdentify': {
+      parentOrigin = event.origin;
       const report = await reportOf();
-      send({ type: 'proxyReady', authenticated: true, parentOrigin: event.origin });
+      send({ type: 'proxyReady', authenticated: signedIn, parentOrigin: event.origin });
       send(report);
       return;
     }
-    case 'connect':
-      await window.fakeSwarmIdConnect();
-      answer({ type: 'connectResponse', success: true });
-      send(await reportOf());
-      return;
     case 'getChatKey':
       return answer({ type: 'getChatKeyResponse', chatKey: new Uint8Array(chatKey) });
     case 'setBeeApiUrl':
@@ -72,6 +84,54 @@ addEventListener('message', async (event) => {
 });
 `;
 
+/**
+ * Swarm ID's button frame, drawn with the label and look the site hands it. Its click plays the Swarm ID window: it
+ * says the window opened, the person picks an account and a stamp, the window hands the session to the session frame
+ * beside it, and it says the window closed.
+ */
+const BUTTON_SCRIPT = `
+const LABELS = { 'sign-in': 'Sign in with Swarm ID', 'change-stamp': 'Change stamp in Swarm ID' };
+const channel = new BroadcastChannel('${CHANNEL}');
+const button = document.createElement('button');
+let parentOrigin = null;
+let action = 'sign-in';
+let config = {};
+const tell = (state) => parent.postMessage({ type: 'buttonWindowChanged', state }, parentOrigin);
+const draw = () => {
+  button.textContent = config.text ?? LABELS[action];
+  if (config.ariaLabel) button.setAttribute('aria-label', config.ariaLabel);
+  Object.assign(button.style, {
+    width: '100%', height: '100%', border: 'none', cursor: 'pointer',
+    background: config.backgroundColor ?? '#dd7200', color: config.color ?? 'white',
+    borderRadius: config.borderRadius ?? '0', fontFamily: config.fontFamily ?? '',
+    fontSize: config.fontSize ?? '14px', fontWeight: String(config.fontWeight ?? '600'),
+  });
+};
+button.addEventListener('click', async () => {
+  tell('open');
+  await window.fakeSwarmIdConnect();
+  channel.postMessage('handover');
+  tell('closed');
+});
+addEventListener('message', async (event) => {
+  const message = event.data;
+  if (event.source !== parent || (message.type !== 'buttonIdentify' && message.type !== 'buttonUpdate')) {
+    return;
+  }
+  parentOrigin = event.origin;
+  action = message.action;
+  config = message.config ?? {};
+  await window.fakeSwarmIdButton(action, config);
+  draw();
+  if (message.type === 'buttonIdentify') {
+    document.body.style.margin = '0';
+    document.body.append(button);
+    parent.postMessage({ type: 'buttonReady' }, event.origin);
+  }
+});
+parent.postMessage({ type: 'buttonFrameLoaded' }, '*');
+`;
+
 /** The fake names a stamp by its label, so the stamp picked in the window has another id than the one before. */
 function batchIdOf(stamp: FakeSiteStamp): string {
   return Buffer.from(stamp.label).toString('hex').padEnd(64, '0').slice(0, 64);
@@ -87,20 +147,30 @@ function signedAs(privateKey: string, identifierHex: string, data: number[]) {
   return { owner: key.publicKey().address().toHex(), signature: signature.toHex() };
 }
 
+/** What the viewer handed Swarm ID's button, each time it mounted or changed it. */
+interface FakeButtonLook {
+  action: string;
+  config: Record<string, unknown>;
+}
+
 /**
- * Serves a Swarm ID site at {@link FAKE_SWARM_ID_ORIGIN} whose frame keeps a signed-in session for this site, as a
- * returning viewer's would, so no window opens. It gives the site the chat key and a binding for it, names the
- * site's stamp in every report as the library does, says how it stands from `siteStamp`, and stamps every chunk it is
- * asked to with a stamp of the right length that no Bee node would take, recording each chunk. `pickStamp` is what the person does in the window a connect opens, such
- * as making `siteStamp` answer with another stamp.
+ * Serves a Swarm ID site at {@link FAKE_SWARM_ID_ORIGIN}: a session frame and Swarm ID's button frame. With
+ * `startsSignedIn` the session frame keeps a signed-in session for this site, as a returning viewer's would, so no
+ * window opens, and without it a click on the button signs the person in. It gives the site the chat key and a binding
+ * for it, names the site's stamp in every report as the library does, says how it stands from `siteStamp`, and stamps
+ * every chunk it is asked to with a stamp of the right length that no Bee node would take, recording each chunk.
+ * `pickStamp` is what the person does in the window the button opens, such as making `siteStamp` answer with another
+ * stamp.
  */
 export async function serveFakeSwarmIdSite(
   page: Page,
   siteStamp: () => FakeSiteStamp | undefined,
   pickStamp: () => void = () => {},
+  startsSignedIn = true,
 ) {
   const stamped: Array<{ identifier: string; signer: string }> = [];
   const windows = { opened: 0 };
+  const buttons: FakeButtonLook[] = [];
   const binding = signChatBinding(ACCOUNT_KEY, PREVIEW_ORIGIN, CHAT_ADDRESS, new Date());
   const account = accountOf(ACCOUNT_KEY);
   const info = {
@@ -135,20 +205,23 @@ export async function serveFakeSwarmIdSite(
     windows.opened += 1;
     pickStamp();
   });
+  await page.exposeFunction('fakeSwarmIdButton', (action: string, config: Record<string, unknown>) => {
+    buttons.push({ action, config });
+  });
   await page.exposeFunction('fakeSwarmIdStamp', (identifier: string, data: number[], privateKey: string) => {
     stamped.push({ identifier, signer: new PrivateKey(privateKey).publicKey().address().toHex() });
     return { address: '0'.repeat(64), stamp: 'ee'.repeat(STAMP_BYTES), ...signedAs(privateKey, identifier, data) };
   });
-  const script = PROXY_SCRIPT.replace('__INFO__', JSON.stringify(info)).replace(
-    '__CHAT_KEY__',
-    JSON.stringify(Array.from(CHAT_KEY.toUint8Array())),
-  );
-  await page.route(`${FAKE_SWARM_ID_ORIGIN}/**`, (route) =>
-    route.fulfill({
+  const proxyScript = PROXY_SCRIPT.replace('__INFO__', JSON.stringify(info))
+    .replace('__CHAT_KEY__', JSON.stringify(Array.from(CHAT_KEY.toUint8Array())))
+    .replace('__SIGNED_IN__', JSON.stringify(startsSignedIn));
+  await page.route(`${FAKE_SWARM_ID_ORIGIN}/**`, (route) => {
+    const script = new URL(route.request().url()).pathname === BUTTON_PATH ? BUTTON_SCRIPT : proxyScript;
+    return route.fulfill({
       status: 200,
       contentType: 'text/html',
       body: `<!doctype html><meta charset="utf-8"><script>${script}</script>`,
-    }),
-  );
-  return { stamped, windows };
+    });
+  });
+  return { stamped, windows, buttons };
 }

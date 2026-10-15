@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { MessageVia, parseChatMessage } from '@solarpunkltd/swarm-chat-js';
 
 import { claimServiceWorkerControl, FAKE_WEEB3, serveFakeWeeb3, weeb3Pushes } from './fakeWeeb3';
@@ -23,8 +23,9 @@ import {
 } from './recording';
 
 /**
- * Sending chat messages on the viewer's own stamp, against the recorded deployment and a fake Swarm ID site whose frame
- * keeps a signed-in session. The viewer's own Bee node is a made-up address on this computer, answered by the page's
+ * Signing in with Swarm ID through its own button, and sending chat messages on the viewer's own stamp, against the
+ * recorded deployment and a fake Swarm ID site whose session frame keeps a signed-in session, or signs one in once its
+ * button is clicked. The viewer's own Bee node is a made-up address on this computer, answered by the page's
  * routes: its reads replay the recording, and its writes are recorded and taken. A message on the stamp is stamped by
  * the fake Swarm ID and posted to that node, never to the event gateway, and with the own feed on its copy goes first.
  * A stamp that ran out holds the message field with a way to let the gateway pay. With Weeb3, a fake of the node in
@@ -42,6 +43,7 @@ const SITE_STAMP: FakeSiteStamp = {
   batchTTL: 30 * DAY_S,
 };
 const SPAN_BYTES = 8;
+const PHONE = { width: 360, height: 740 };
 
 const read = <T>(file: string): T => JSON.parse(readFileSync(join(RECORDED_DIR, file), 'utf8')) as T;
 
@@ -64,6 +66,7 @@ async function deployment(
   siteStamp: () => FakeSiteStamp | undefined,
   chatSource: ChatSource = 'bee-node',
   pickStamp: () => void = () => {},
+  startsSignedIn = true,
 ) {
   const published = read<Published>(RecordingFile.PUBLISHED);
   const config = read<{ chat: { feedOwner: string; writeUrl: string } }>(RecordingFile.CONFIG);
@@ -112,7 +115,7 @@ async function deployment(
       route.fulfill({ status: 404, contentType: 'text/plain', body: 'weeb-3 did not retrieve resource' }),
     );
   }
-  const swarmId = await serveFakeSwarmIdSite(page, siteStamp, pickStamp);
+  const swarmId = await serveFakeSwarmIdSite(page, siteStamp, pickStamp, startsSignedIn);
 
   await page.addInitScript(
     ({ node, type }) => {
@@ -142,8 +145,12 @@ async function deployment(
 
   await page.goto(`/#/watch/video/${published.stream.owner}/${published.stream.topic}`);
   const chat = page.getByRole('region', { name: 'Chat', exact: true });
-  await expect(page.getByRole('banner').getByRole('button', { name: ACCOUNT_NAME })).toBeVisible({ timeout: 20_000 });
-  await expect(chat.getByRole('textbox', { name: 'Message', exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.getByRole('banner').getByRole('button', { name: startsSignedIn ? ACCOUNT_NAME : 'Connect', exact: true }),
+  ).toBeVisible({ timeout: 20_000 });
+  if (startsSignedIn) {
+    await expect(chat.getByRole('textbox', { name: 'Message', exact: true })).toBeVisible({ timeout: 20_000 });
+  }
   return { chat, toGateway, toMyNode, swarmId };
 }
 
@@ -159,6 +166,14 @@ async function payWithMyStamp(page: Page, ownFeed = false) {
   }
   await page.getByRole('button', { name: 'Close Connect', exact: true }).click();
 }
+
+/** Swarm ID's own button, inside its frame, in the part of the page that shows it. */
+const swarmIdButton = (within: Locator, name: string) =>
+  within.locator('iframe[title="Swarm ID"]').contentFrame().getByRole('button', { name, exact: true });
+
+/** The page's own primary colour in the theme it wears, which Swarm ID's button is handed. */
+const pagePrimary = (page: Page) =>
+  page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim());
 
 const messageIn = (written: Written) =>
   parseChatMessage(new Uint8Array(written.body.subarray(SPAN_BYTES)), { origin: PREVIEW_ORIGIN, allowLocalHttp: true });
@@ -246,6 +261,73 @@ test('a message on my own stamp with Weeb3 reading the chat is pushed through We
   expect(check.ok && check.message).toMatchObject({ text: 'through weeb-3', via: MessageVia.OWN_STAMP });
 });
 
+test("Sign in with Swarm ID is Swarm ID's own button, in the page's look, and its window signs the viewer in", async ({
+  page,
+}) => {
+  await page.setViewportSize(PHONE);
+  const { swarmId } = await deployment(
+    page,
+    () => SITE_STAMP,
+    'bee-node',
+    () => {},
+    false,
+  );
+  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const button = swarmIdButton(dialog, 'Sign in with Swarm ID');
+  await expect(button).toBeVisible();
+
+  const frame = await dialog.locator('iframe[title="Swarm ID"]').boundingBox();
+  const panel = await dialog.boundingBox();
+  expect(frame && panel, 'the frame and the panel are both on screen').toBeTruthy();
+  expect(frame!.width, 'as wide as its container lets it be').toBeGreaterThan(0);
+  expect(frame!.x + frame!.width, 'inside the panel at phone width').toBeLessThanOrEqual(panel!.x + panel!.width);
+  expect(frame!.x + frame!.width, 'inside the screen').toBeLessThanOrEqual(PHONE.width);
+
+  await button.click();
+
+  await expect(page.getByRole('banner').getByRole('button', { name: ACCOUNT_NAME })).toBeVisible();
+  expect(swarmId.windows.opened).toBe(1);
+  expect(swarmId.buttons[0]).toMatchObject({
+    action: 'sign-in',
+    config: { text: 'Sign in with Swarm ID', backgroundColor: await pagePrimary(page) },
+  });
+  const faces = swarmId.buttons[0].config.fontFaces as Array<{ family: string; url: string; weight: string }>;
+  expect(faces, "the page's own font file for its typeface, at the bold the primary button uses").toHaveLength(1);
+  expect(faces[0].weight).toBe('700');
+  expect(faces[0].url.startsWith(`${PREVIEW_ORIGIN}/assets/`), faces[0].url).toBe(true);
+  expect((await page.request.get(faces[0].url)).status(), 'the file the build emitted').toBe(200);
+});
+
+test("a guest's Show it's really you row holds Swarm ID's button beside its words at phone width", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await deployment(
+    page,
+    () => SITE_STAMP,
+    'bee-node',
+    () => {},
+    false,
+  );
+  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'Your name', exact: true }).fill('Ada');
+  await dialog.getByRole('button', { name: 'Chat as guest', exact: true }).click();
+  if (!(await dialog.isVisible())) {
+    await page.getByRole('banner').getByRole('button', { name: /^Ada/ }).click();
+  }
+  await expect(swarmIdButton(dialog, 'Sign in with Swarm ID')).toBeVisible();
+
+  const words = await dialog.getByText("Show it's really you", { exact: true }).boundingBox();
+  const frame = await dialog.locator('iframe[title="Swarm ID"]').boundingBox();
+  const panel = await dialog.boundingBox();
+  expect(words && frame && panel, 'the words, the frame and the panel are on screen').toBeTruthy();
+  expect(frame!.width, 'room for the button').toBeGreaterThan(100);
+  expect(frame!.x + frame!.width, 'inside the panel').toBeLessThanOrEqual(panel!.x + panel!.width);
+  expect(frame!.x + frame!.width, 'inside the screen').toBeLessThanOrEqual(PHONE.width);
+  const besideOrBelow = frame!.x >= words!.x + words!.width || frame!.y >= words!.y + words!.height;
+  expect(besideOrBelow, 'the button does not cover the words').toBe(true);
+});
+
 test('Change stamp in Swarm ID opens the Swarm ID window again, and the stamp picked there shows at once', async ({
   page,
 }) => {
@@ -263,7 +345,7 @@ test('Change stamp in Swarm ID opens the Swarm ID window again, and the stamp pi
   await group.getByRole('radio', { name: /^My stamp/ }).check();
   await expect(group.getByText('Event chat')).toBeVisible();
 
-  await group.getByRole('button', { name: 'Change stamp in Swarm ID', exact: true }).click();
+  await swarmIdButton(group, 'Change stamp in Swarm ID').click();
 
   await expect(group.getByText('Picked in the window')).toBeVisible();
   await expect(group.getByText('12 days left')).toBeVisible();

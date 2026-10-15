@@ -16,6 +16,7 @@ interface Start {
   stderr: string;
   gateway: string;
   headers: string;
+  fonts: string;
 }
 
 /** Runs the image's start-up script with only the given settings, writing into a folder of its own. */
@@ -38,6 +39,7 @@ function start(settings: Record<string, string>): Start {
     stderr: result.stderr,
     gateway: read('gateway.conf'),
     headers: read('headers.conf'),
+    fonts: read('fonts.conf'),
   };
 }
 
@@ -216,6 +218,39 @@ describe('the image start-up script', () => {
       );
     });
 
+    it("lets that one site, and no other, fetch the page's font files, which Swarm ID's button loads in its frame", () => {
+      for (const mode of ['proxy', 'direct']) {
+        const started = start({
+          GATEWAY_MODE: mode,
+          BEE_GATEWAY_URL: 'https://gateway.example.com',
+          SWARM_ID_URL: 'https://id.example.com/',
+        });
+        expect(started.status, mode).toBe(0);
+        expect(started.fonts.match(/^\s*add_header .*$/gm), mode).toEqual([
+          'add_header Access-Control-Allow-Origin "https://id.example.com" always;',
+        ]);
+      }
+    });
+
+    it('names the site in lower case wherever it lets it read, since a browser sends its Origin so', () => {
+      const started = start({
+        BEE_GATEWAY_URL: 'https://gateway.example.com',
+        SWARM_ID_URL: 'https://ID.Example.com:8443/',
+      });
+      expect(started.status).toBe(0);
+      expect(started.fonts).toContain('add_header Access-Control-Allow-Origin "https://id.example.com:8443" always;');
+      expect(started.gateway).toContain('add_header Access-Control-Allow-Origin "https://id.example.com:8443" always;');
+      expect(started.gateway).not.toMatch(/Example/);
+      expect(policy(started.headers)).toContain('frame-src https://id.example.com:8443;');
+    });
+
+    it('adds no CORS header to the font files when it is not set', () => {
+      const started = start({ BEE_GATEWAY_URL: 'https://gateway.example.com' });
+      expect(started.status).toBe(0);
+      expect(started.fonts).not.toContain('Access-Control');
+      expect(started.fonts).not.toMatch(/^\s*add_header/m);
+    });
+
     it('adds no CORS header to /bee when it is not set, and has no /bee to add one to in direct mode', () => {
       expect(start({ BEE_GATEWAY_URL: 'https://gateway.example.com' }).gateway).not.toContain('Access-Control');
       const direct = start({
@@ -287,6 +322,15 @@ describe('the image server', () => {
   it('never keeps config.json, and keeps the hashed bundle for a year', () => {
     expect(location('location = /config.json')).toContain('Cache-Control "no-store"');
     expect(location('location /assets/')).toContain('max-age=31536000, immutable');
+  });
+
+  it("serves the bundle's font files as the rest of the bundle, with the CORS header the start-up script writes for them", () => {
+    const fonts = location('location ~ \\.woff2$');
+    expect(location('location /assets/')).toContain('location ~ \\.woff2$');
+    expect(fonts).toContain('include /etc/nginx/stream-event-client/headers.conf;');
+    expect(fonts).toContain('include /etc/nginx/stream-event-client/fonts.conf;');
+    expect(fonts).toContain('max-age=31536000, immutable');
+    expect(fonts).toContain('try_files $uri =404;');
   });
 
   it("compresses weeb-3's WebAssembly module and scripts, which /weeb-3/ serves under their own types", () => {

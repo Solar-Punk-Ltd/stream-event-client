@@ -60,8 +60,3 @@
   flex-direction: column;
   width: 100%;
 }
-
-// In line with the header's own padding, between it and the page.
-.main-layout > .swarm-id-blocked {
-  margin: 0 var(--spacing-lg) var(--spacing-md);
-}
