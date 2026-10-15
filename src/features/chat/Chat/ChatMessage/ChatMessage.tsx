@@ -159,10 +159,15 @@ export function ChatMessage({
 
         {error && (
           <p className="chat-message-status error">
-            {message.sendProblem ? `Not sent. ${message.sendProblem}` : 'Not sent.'}{' '}
-            <button type="button" className="chat-message-retry" onClick={onRetry}>
-              Retry
-            </button>
+            {message.sendProblem ? `Not sent. ${message.sendProblem}` : 'Not sent.'}
+            {message.canRetry !== false && (
+              <>
+                {' '}
+                <button type="button" className="chat-message-retry" onClick={onRetry}>
+                  Retry
+                </button>
+              </>
+            )}
           </p>
         )}
         {isSending && !isUnconfirmed && <p className="chat-message-status">Sending…</p>}

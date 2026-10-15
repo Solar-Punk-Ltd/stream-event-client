@@ -40,7 +40,22 @@ interface CheckedMessage extends MessageData {
 export interface VisibleMessage extends CheckedMessage, DeliveryState {
   /** Why the viewer's own stamp did not send it, the last time it tried. */
   sendProblem?: string;
+  /** False once the sender that held this message is gone, so only writing it again sends it. */
+  canRetry?: boolean;
 }
+
+/** A send problem as the page shows it, which may also say the message cannot be retried. */
+interface ShownProblem extends SendProblem {
+  readonly canRetry?: false;
+}
+
+const ROUTE_CHANGED = 'The way messages are sent changed, so write it again.';
+
+/**
+ * The library resends only a message still pending in the sender that took it. A change of who pays, of the source,
+ * of the sign-in or a restart starts a new sender, and the message is never resent through that new route.
+ */
+const SENDER_GONE: ShownProblem = { text: ROUTE_CHANGED, final: true, canRetry: false };
 
 /** What a chat on the viewer's own stamp needs beside its settings. */
 export interface OwnStampSetup {
@@ -153,7 +168,7 @@ export function useSwarmChat(
   const [hasOlder, setHasOlder] = useState(false);
   const [feedStatus, setFeedStatus] = useState<FeedStatus | null>(null);
   const [refusedCount, setRefusedCount] = useState(0);
-  const [sendProblems, setSendProblems] = useState<Record<string, SendProblem>>({});
+  const [sendProblems, setSendProblems] = useState<Record<string, ShownProblem>>({});
   /** The refused messages of the chat on screen, so one carried by several events is counted once. */
   const refusedRef = useRef(new Set<string>());
 
@@ -300,7 +315,11 @@ export function useSwarmChat(
     () =>
       messages.map((message) => {
         const problem = message.received ? undefined : sendProblems[message.id];
-        return problem ? { ...message, sendProblem: problem.text, error: message.error || problem.final } : message;
+        if (!problem) {
+          return message;
+        }
+        const shownProblem = { ...message, sendProblem: problem.text, error: message.error || problem.final };
+        return problem.canRetry === false ? { ...shownProblem, canRetry: false } : shownProblem;
       }),
     [messages, sendProblems],
   );
@@ -370,11 +389,17 @@ export function useSwarmChat(
     }
   }, []);
 
-  /** A message that failed, or one still waiting to be read back, is sent again with its identical bytes. */
+  /**
+   * A message that failed, or one still waiting to be read back, is sent again with its identical bytes, by the sender
+   * that took it. One that sender no longer holds is marked to be written again.
+   */
   const retrySendMessage = useCallback((message: VisibleMessage) => {
     partsRef.current?.forgetRefusal(message.id);
     setSendProblems(({ [message.id]: _retried, ...rest }) => rest);
-    chatRef.current?.retrySendMessage(message);
+    const resent = chatRef.current?.retrySendMessage(message) ?? false;
+    if (!resent) {
+      setSendProblems((previous) => ({ ...previous, [message.id]: SENDER_GONE }));
+    }
   }, []);
 
   const restart = useCallback(() => setRestarts((count) => count + 1), []);

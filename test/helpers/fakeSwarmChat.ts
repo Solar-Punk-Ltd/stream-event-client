@@ -62,7 +62,8 @@ export class FakeSwarmChat {
   /** The library keeps the listeners through a stop, so a later start reports to them again. */
   stop = vi.fn(async () => {});
   sendMessage = vi.fn(async () => {});
-  retrySendMessage = vi.fn(async () => {});
+  /** True while the message is pending in this chat's sender, as the library answers. */
+  retrySendMessage = vi.fn((_message: MessageData | string) => true);
   fetchPreviousMessages = vi.fn(async () => {});
   hasPreviousMessages = vi.fn(() => this.previousMessages);
 

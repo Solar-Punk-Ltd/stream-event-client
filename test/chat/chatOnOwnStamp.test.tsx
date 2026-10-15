@@ -210,6 +210,41 @@ describe('a chat paid for with my own stamp', () => {
     expect(chat.retrySendMessage).toHaveBeenCalled();
   });
 
+  it('marks a failed message to be written again when its retry comes after the way messages are sent changed', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    const swarmId = await watchPage();
+    swarmId.client().stampRefusal = Object.assign(new Error('expired'), {
+      code: 'upload-unavailable',
+      reason: 'stamp-expired',
+    });
+    const mine = signedMessage('refused', {
+      key: seen.chatUser!.session!.privateKey,
+      name: seen.chatUser!.session!.username,
+      binding: seen.chatUser!.session!.binding,
+      via: MessageVia.OWN_STAMP,
+    });
+    const first = FakeSwarmChat.latest();
+    await act(async () => first.emitter.emit(EVENTS.MESSAGE_REQUEST_INITIATED, messageData(mine, -1)));
+    await act(async () => {
+      await first.parts?.write?.(new TextEncoder().encode(JSON.stringify(mine))).catch(() => {});
+    });
+    await settle();
+
+    await act(async () => seen.chatStamp?.choosePayWith(MessageVia.GATEWAY));
+    await settle();
+    const restarted = FakeSwarmChat.latest();
+    expect(restarted).not.toBe(first);
+    restarted.retrySendMessage.mockReturnValue(false);
+
+    click(button('Retry'));
+    await settle();
+
+    expect(chatRegion()?.textContent).toContain('Not sent. The way messages are sent changed, so write it again.');
+    expect(queryButton('Retry')).toBeNull();
+    expect(posted).toEqual([]);
+  });
+
   it('warns above the message field when the stamp ran out, holds the message, and lets the viewer pick the gateway', async () => {
     chatOnMyBeeNode();
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
