@@ -16,10 +16,12 @@ export interface SwarmIdChatBinding {
   readonly signature: string;
 }
 
-/** What the library reports about the session. Both are absent while nobody is signed in. */
+/** What the library reports about the session. The identity and the binding are absent while nobody is signed in. */
 export interface SwarmIdConnectionInfo {
   readonly identity?: SwarmIdIdentity;
   readonly chatBinding?: SwarmIdChatBinding;
+  /** The id of the stamp this site uses, absent while Swarm ID gives it none. */
+  readonly postageBatchId?: string;
 }
 
 /**

@@ -259,14 +259,17 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
 - **The stamp's figures.** With My stamp picked, Connect shows the site's stamp: its name, how full it is, its days
   left, and **Change stamp in Swarm ID**, which opens the Swarm ID sign-in window again while the viewer stays
   signed in (the library's `connect()`). The window shows the person's stamps, the person picks one for this site,
-  and Swarm ID hands it to the open page at once and reports the session again (`onConnectionChange`), so the
-  viewer reads the new stamp's figures with `getPostageBatch` straight away, with no reload. A browser that blocks
-  that window gets the same line as a blocked sign-in, with a button that opens it. The figures are also read when
-  the person signs in, when Connect opens, when the page comes back into focus, and after messages sent, at most
-  every 15 seconds. **A known limit:** a stamp changed directly on Swarm ID's own Apps screen, rather than through
-  this button, reaches an open viewer on another domain only at its next sign-in with Swarm ID, so until then the
-  viewer may show the old stamp's figures. With no stamp given, Connect says so and offers Choose a stamp in Swarm
-  ID, which opens the same window.
+  and Swarm ID hands it to the open page at once and reports the session again (`onConnectionChange`) with the id
+  of the stamp the site now uses (`postageBatchId`). When that id changed, the viewer reads the new stamp's figures
+  with `getPostageBatch` straight away, with no reload, and a report naming the same stamp reads nothing. A browser
+  that blocks that window gets the same line as a blocked sign-in, with a button that opens it. The figures are also
+  read when the person signs in, when Connect opens, when the page comes back into focus, and after messages sent, at
+  most every 15 seconds. **A known limit:** a stamp changed directly on Swarm ID's own Apps screen, rather than
+  through this button, reaches an open viewer on another domain only at its next sign-in with Swarm ID, so until
+  then the viewer may show the old stamp's figures. A report with no stamp id means Swarm ID gives this site no
+  stamp, and the page shows that at once without reading. Every sign-in starts that way until the person confirms a
+  stamp with Go to app in the Swarm ID window, and Connect says so and offers Choose a stamp in Swarm ID, which
+  opens the same window.
 - **Warnings above the message field.** At 80% used, or 3 days left, the field says how much is used and when it
   runs out, offers Change stamp in Swarm ID, and sending goes on. When the stamp ran out or is not usable yet, the
   field says so, sending is held with what was typed kept, and two buttons offer Change stamp in Swarm ID and Let

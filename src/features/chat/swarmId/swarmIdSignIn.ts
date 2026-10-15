@@ -97,6 +97,11 @@ export interface SwarmIdSignIn {
   useBeeApiUrl(url: string | null): void;
   /** The stamp Swarm ID gives this site, or undefined while nobody is signed in or it gives none. */
   getPostageBatch(): Promise<SwarmIdPostageBatch | undefined>;
+  /**
+   * The id of the stamp the frame's newest report says this site uses, or null while it names none or nobody is signed
+   * in. A sign-in starts with none until the person confirms the stamp in the Swarm ID window.
+   */
+  getSiteStampId(): string | null;
   /** Has the frame sign and stamp a chunk. Rejects with the code `not-authenticated` while nobody is signed in. */
   stampChunk(chunk: SwarmIdChunkToStamp): Promise<SwarmIdStampedChunk>;
   stop(): void;
@@ -157,6 +162,7 @@ export function createSwarmIdSignIn({
   let reportedEarly: SwarmIdConnectionInfo | null = null;
   /** Raised by every report and every sign-out, so a chat key asked for an older session is dropped. */
   let generation = 0;
+  let siteStampId: string | null = null;
 
   let hasWarned = false;
   const warnOnce = () => {
@@ -187,6 +193,7 @@ export function createSwarmIdSignIn({
     generation += 1;
     const asked = generation;
     const { identity, chatBinding } = info;
+    siteStampId = info.postageBatchId ?? null;
     if (!identity) {
       if (state.status !== SWARM_ID_BLOCKED) {
         set(SIGNED_OUT);
@@ -308,6 +315,7 @@ export function createSwarmIdSignIn({
 
     async signOut() {
       generation += 1;
+      siteStampId = null;
       set(SIGNED_OUT);
       try {
         await client?.disconnect();
@@ -327,6 +335,8 @@ export function createSwarmIdSignIn({
     async getPostageBatch() {
       return client && state.status === SWARM_ID_SIGNED_IN ? client.getPostageBatch() : undefined;
     },
+
+    getSiteStampId: () => (state.status === SWARM_ID_SIGNED_IN ? siteStampId : null),
 
     stampChunk(chunk) {
       return client && state.status === SWARM_ID_SIGNED_IN

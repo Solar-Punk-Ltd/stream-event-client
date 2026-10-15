@@ -27,6 +27,12 @@ export const FORK_OTHER_SITE_BINDING = { message: OTHER_SITE_BINDING.msg, signat
 /** The session the Swarm ID window hands this site, in the library's shapes. */
 export const SIGNED_IN: SwarmIdConnectionInfo = { identity: FORK_IDENTITY, chatBinding: FORK_BINDING };
 
+/** The fake names a stamp by its label, so two stamps with different labels have different ids. */
+function postageBatchIdOf(batch: SwarmIdPostageBatch): string {
+  const hex = Array.from(new TextEncoder().encode(batch.label), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return hex.padEnd(64, '0').slice(0, 64);
+}
+
 const BLOCKED_ERROR = Object.assign(new Error('Failed to open authentication popup'), { code: 'popup-blocked' });
 
 /**
@@ -55,6 +61,10 @@ class FakeSwarmIdClient implements SwarmIdClient {
   readonly stamped: SwarmIdChunkToStamp[] = [];
   /** What the frame refuses the next stamp with, as the library rejects. */
   stampRefusal: unknown = null;
+  /** How many times the viewer read the stamp's figures. */
+  postageBatchReads = 0;
+  /** A frame that never answers a read of the stamp's figures. */
+  postageBatchHangs = false;
 
   constructor(
     readonly options: SwarmIdClientOptions,
@@ -70,7 +80,7 @@ class FakeSwarmIdClient implements SwarmIdClient {
     if (this.initializeFails) {
       throw Object.assign(new Error('This site is not on the allow list'), { code: 'init-failed' });
     }
-    this.options.onConnectionChange(this.info);
+    this.options.onConnectionChange(this.connectionInfo);
   }
 
   connect(): Promise<void> {
@@ -112,14 +122,21 @@ class FakeSwarmIdClient implements SwarmIdClient {
   }
 
   async getPostageBatch(): Promise<SwarmIdPostageBatch | undefined> {
+    this.postageBatchReads += 1;
+    if (this.postageBatchHangs) {
+      return new Promise(() => {});
+    }
     if (!this.info.identity) {
       throw Object.assign(new Error('Not authenticated'), { code: 'not-authenticated' });
     }
     return this.postageBatch;
   }
 
+  /** The session as the library reports it, with the id of the stamp this site uses while one is signed in. */
   get connectionInfo(): SwarmIdConnectionInfo {
-    return this.info;
+    return this.info.identity && this.postageBatch
+      ? { ...this.info, postageBatchId: postageBatchIdOf(this.postageBatch) }
+      : this.info;
   }
 
   destroy(): void {
@@ -129,12 +146,12 @@ class FakeSwarmIdClient implements SwarmIdClient {
   /** What the Swarm ID window does when the person picks an account, and what a sign-out reports. */
   handOver(info: SwarmIdConnectionInfo): void {
     this.info = info;
-    this.options.onConnectionChange(info);
+    this.options.onConnectionChange(this.connectionInfo);
   }
 
   /**
    * What the Swarm ID window does when the person, already signed in, picks another stamp for this site: the frame
-   * takes it at once and reports the same session again, which is all the library tells the site.
+   * takes it at once and reports the same session again with the new stamp's id.
    */
   pickStamp(batch: SwarmIdPostageBatch | undefined): void {
     this.postageBatch = batch;

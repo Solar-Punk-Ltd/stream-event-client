@@ -49,6 +49,8 @@ interface ChatUserContextValue {
   signOutOfSwarmId: () => void;
   /** The stamp Swarm ID gives this site, or undefined while nobody is signed in or it gives none. */
   getSiteStamp: () => Promise<SwarmIdPostageBatch | undefined>;
+  /** The id of the stamp Swarm ID's newest report names for this site, or null while it names none. */
+  getSiteStampId: () => string | null;
   /** Opens the Swarm ID window again, where a signed-in viewer picks this site's stamp. From a click only. */
   changeStampInSwarmId: () => Promise<StampWindowOutcome>;
   /** Hears of every report Swarm ID makes about the session, a stamp picked in its window among them. */
@@ -148,6 +150,7 @@ export function ChatUserProvider({
   const signInWithSwarmId = useCallback(() => signIn?.signIn(), [signIn]);
   const signOutOfSwarmId = useCallback(() => void signIn?.signOut(), [signIn]);
   const getSiteStamp = useCallback(async () => signIn?.getPostageBatch(), [signIn]);
+  const getSiteStampId = useCallback(() => signIn?.getSiteStampId() ?? null, [signIn]);
   const changeStampInSwarmId = useCallback(
     (): Promise<StampWindowOutcome> => (signIn ? signIn.changeStamp() : Promise.resolve(STAMP_WINDOW_FAILED)),
     [signIn],
@@ -176,6 +179,7 @@ export function ChatUserProvider({
       signInWithSwarmId,
       signOutOfSwarmId,
       getSiteStamp,
+      getSiteStampId,
       changeStampInSwarmId,
       onSwarmIdConnectionChange,
       stampChunk,
@@ -190,6 +194,7 @@ export function ChatUserProvider({
       signInWithSwarmId,
       signOutOfSwarmId,
       getSiteStamp,
+      getSiteStampId,
       changeStampInSwarmId,
       onSwarmIdConnectionChange,
       stampChunk,

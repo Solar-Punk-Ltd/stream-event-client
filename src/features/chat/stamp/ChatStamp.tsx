@@ -80,14 +80,16 @@ const READ_AFTER_SEND_MS = 15_000;
  * Who pays for the viewer's chat messages: the event's gateway, as for everyone by default, or the stamp Swarm ID
  * gives this site, once the viewer is signed in with Swarm ID and picks it. The viewer never buys, tops up or holds a
  * stamp. It only reads how the site's stamp stands, again whenever Connect opens, the page comes back into focus, Swarm
- * ID reports the session, as it does once a stamp is picked in its window, and after messages it sent, and asks Swarm
- * ID to stamp each message. Nothing here switches who pays by itself.
+ * ID reports another stamp for this site, as it does once one is picked in its window, and after messages it sent, and
+ * asks Swarm ID to stamp each message. While Swarm ID names no stamp for this site, it has none, with no read. Nothing
+ * here switches who pays by itself.
  */
 export function ChatStampProvider({ children }: { readonly children: ReactNode }) {
   const { sources, parts, swarmSettings } = useAppContext();
   const {
     swarmIdSession,
     getSiteStamp,
+    getSiteStampId,
     changeStampInSwarmId: openSwarmIdWindow,
     onSwarmIdConnectionChange,
     stampChunk,
@@ -131,12 +133,20 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
 
   const readGeneration = useRef(0);
   const lastReadAt = useRef(0);
+  /** The stamp the figures shown are for, or null for none. */
+  const shownStampId = useRef<string | null>(null);
   const readSiteStamp = useCallback(() => {
     if (!canUseOwnStamp) {
       return;
     }
     readGeneration.current += 1;
     const asked = readGeneration.current;
+    const stampId = getSiteStampId();
+    shownStampId.current = stampId;
+    if (stampId === null) {
+      setSiteStamp({ status: SITE_STAMP_NONE });
+      return;
+    }
     lastReadAt.current = Date.now();
     getSiteStamp().then(
       (batch) => {
@@ -150,7 +160,7 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
         }
       },
     );
-  }, [canUseOwnStamp, getSiteStamp]);
+  }, [canUseOwnStamp, getSiteStamp, getSiteStampId]);
 
   useEffect(() => {
     readGeneration.current += 1;
@@ -170,12 +180,15 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
   }
   /**
    * A report from Swarm ID means its window did its work, so the line saying it was blocked goes. A focus alone, such
-   * as a tab switch, only reads the stamp again and leaves that line in place.
+   * as a tab switch, only reads the stamp again and leaves that line in place. A report that names the same stamp
+   * again changes none of its figures, so it is read only when the stamp changed.
    */
   const readReportedStamp = useCallback(() => {
     setStampWindowProblem(null);
-    readSiteStamp();
-  }, [readSiteStamp]);
+    if (getSiteStampId() !== shownStampId.current) {
+      readSiteStamp();
+    }
+  }, [getSiteStampId, readSiteStamp]);
 
   useEffect(() => onSwarmIdConnectionChange(readReportedStamp), [onSwarmIdConnectionChange, readReportedStamp]);
 

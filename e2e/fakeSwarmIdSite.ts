@@ -28,25 +28,32 @@ export const CHAT_ADDRESS = CHAT_KEY.publicKey().address().toHex();
 
 /**
  * The frame's side of the library's messages, only as far as signing in, picking a stamp and stamping go. A connect
- * while signed in plays the Swarm ID window: the person picks a stamp, and the frame reports the same session again.
+ * while signed in plays the Swarm ID window: the person picks a stamp, and the frame reports the same session again
+ * with the id of the stamp the site now uses.
  */
 const PROXY_SCRIPT = `
 const info = __INFO__;
 const chatKey = __CHAT_KEY__;
 parent.postMessage({ type: 'proxyInitialized' }, '*');
+const reportOf = async () => {
+  const postageBatchId = await window.fakeSwarmIdSiteStampId();
+  return { type: 'connectionInfoChanged', canUpload: true, uploadMode: 'user-stamp', ...info, ...(postageBatchId ? { postageBatchId } : {}) };
+};
 addEventListener('message', async (event) => {
   const message = event.data;
   const send = (reply) => event.source.postMessage(reply, event.origin);
   const answer = (reply) => send({ requestId: message.requestId, ...reply });
   switch (message.type) {
-    case 'parentIdentify':
+    case 'parentIdentify': {
+      const report = await reportOf();
       send({ type: 'proxyReady', authenticated: true, parentOrigin: event.origin });
-      send({ type: 'connectionInfoChanged', canUpload: true, uploadMode: 'user-stamp', ...info });
+      send(report);
       return;
+    }
     case 'connect':
       await window.fakeSwarmIdConnect();
       answer({ type: 'connectResponse', success: true });
-      send({ type: 'connectionInfoChanged', canUpload: true, uploadMode: 'user-stamp', ...info });
+      send(await reportOf());
       return;
     case 'getChatKey':
       return answer({ type: 'getChatKeyResponse', chatKey: new Uint8Array(chatKey) });
@@ -65,6 +72,11 @@ addEventListener('message', async (event) => {
 });
 `;
 
+/** The fake names a stamp by its label, so the stamp picked in the window has another id than the one before. */
+function batchIdOf(stamp: FakeSiteStamp): string {
+  return Buffer.from(stamp.label).toString('hex').padEnd(64, '0').slice(0, 64);
+}
+
 /** A single-owner chunk signed as the frame signs one: over its identifier and the address of the chunk it wraps. */
 function signedAs(privateKey: string, identifierHex: string, data: number[]) {
   const key = new PrivateKey(privateKey);
@@ -77,9 +89,9 @@ function signedAs(privateKey: string, identifierHex: string, data: number[]) {
 
 /**
  * Serves a Swarm ID site at {@link FAKE_SWARM_ID_ORIGIN} whose frame keeps a signed-in session for this site, as a
- * returning viewer's would, so no window opens. It gives the site the chat key and a binding for it, says how the
- * site's stamp stands from `siteStamp`, and stamps every chunk it is asked to with a stamp of the right length that no
- * Bee node would take, recording each chunk. `pickStamp` is what the person does in the window a connect opens, such
+ * returning viewer's would, so no window opens. It gives the site the chat key and a binding for it, names the
+ * site's stamp in every report as the library does, says how it stands from `siteStamp`, and stamps every chunk it is
+ * asked to with a stamp of the right length that no Bee node would take, recording each chunk. `pickStamp` is what the person does in the window a connect opens, such
  * as making `siteStamp` answer with another stamp.
  */
 export async function serveFakeSwarmIdSite(
@@ -105,7 +117,7 @@ export async function serveFakeSwarmIdSite(
     // The library checks every field of a batch, so the ones the viewer does not read are filled in too.
     return (
       stamp && {
-        batchID: 'b'.repeat(64),
+        batchID: batchIdOf(stamp),
         depth: 22,
         amount: '1',
         bucketDepth: 16,
@@ -114,6 +126,10 @@ export async function serveFakeSwarmIdSite(
         ...stamp,
       }
     );
+  });
+  await page.exposeFunction('fakeSwarmIdSiteStampId', () => {
+    const stamp = siteStamp();
+    return stamp ? batchIdOf(stamp) : null;
   });
   await page.exposeFunction('fakeSwarmIdConnect', () => {
     windows.opened += 1;

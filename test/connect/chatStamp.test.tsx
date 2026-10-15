@@ -260,6 +260,67 @@ describe('the chat stamp in Connect', () => {
     expect(group()?.textContent, 'a new report').not.toContain('Your browser blocked the Swarm ID window.');
   });
 
+  it('reads the figures again on a report only when the stamp Swarm ID names for this site changed', async () => {
+    chatOnMyBeeNode();
+    const swarmId = await openConnect();
+    click(radio('My stamp')!);
+    await settle();
+    const readsBefore = swarmId.client().postageBatchReads;
+
+    swarmId.client().pickStamp(BATCH);
+    await settle();
+    expect(swarmId.client().postageBatchReads, 'the same stamp reported again').toBe(readsBefore);
+
+    swarmId.client().pickStamp({ ...BATCH, label: 'Another stamp' });
+    await settle();
+    await settle();
+    expect(swarmId.client().postageBatchReads).toBe(readsBefore + 1);
+    expect(group()?.textContent).toContain('Another stamp');
+  });
+
+  it('shows a sign-in Swarm ID gave no stamp yet as having none, without a read', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    const swarmId = await fakeSwarmId(SIGNED_IN, (client) => {
+      client.postageBatchHangs = true;
+    });
+    mounted = connectPage({ swarmId });
+    await waitFor(() => seen.chatUser?.swarmIdSession);
+    click(button(/^Ida/));
+    await settle();
+
+    expect(group()?.textContent).toContain('Swarm ID has given this site no stamp yet.');
+    expect(swarmId.client().postageBatchReads).toBe(0);
+  });
+
+  it('shows no stamp at once when Swarm ID reports none, without waiting for a read', async () => {
+    chatOnMyBeeNode();
+    const swarmId = await openConnect();
+    click(radio('My stamp')!);
+    await settle();
+    expect(group()?.textContent).toContain('Event chat');
+    swarmId.client().postageBatchHangs = true;
+
+    swarmId.client().pickStamp(undefined);
+    await settle();
+
+    expect(group()?.textContent).toContain('Swarm ID has given this site no stamp yet.');
+    expect(seen.chatStamp?.warning?.title).toBe('No stamp for this site.');
+  });
+
+  it('still reads the figures again when the page comes back into focus', async () => {
+    chatOnMyBeeNode();
+    const swarmId = await openConnect();
+    click(radio('My stamp')!);
+    await settle();
+    const readsBefore = swarmId.client().postageBatchReads;
+
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+
+    expect(swarmId.client().postageBatchReads).toBe(readsBefore + 1);
+  });
+
   it('says a stamp that ran out has run out', async () => {
     chatOnMyBeeNode();
     await openConnect({ ...BATCH, utilization: 1 });

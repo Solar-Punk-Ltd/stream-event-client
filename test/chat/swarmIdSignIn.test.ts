@@ -527,6 +527,28 @@ describe('the stamp Swarm ID gives this site', () => {
     expect(swarmId.client().connectCalls).toBe(0);
   });
 
+  it('names the stamp each report says this site uses, and none while it gives none or nobody is signed in', async () => {
+    const swarmId = await fakeSwarmId(SIGNED_IN, (client) => {
+      client.postageBatch = BATCH;
+    });
+    const signIn = await started(swarmId);
+    await until(signIn, SWARM_ID_SIGNED_IN);
+    const named = signIn.getSiteStampId();
+    expect(named).toMatch(/^[0-9a-f]{64}$/);
+
+    swarmId.client().pickStamp({ ...BATCH, label: 'Another stamp' });
+    await settled();
+    expect(signIn.getSiteStampId()).not.toBe(named);
+
+    swarmId.client().pickStamp(undefined);
+    await settled();
+    expect(signIn.getSiteStampId()).toBeNull();
+
+    swarmId.client().pickStamp(BATCH);
+    await signIn.signOut();
+    expect(signIn.getSiteStampId()).toBeNull();
+  });
+
   it('tells its listeners of every report the frame makes, so a stamp picked in the window is read at once', async () => {
     const swarmId = await fakeSwarmId(SIGNED_IN, (client) => {
       client.postageBatch = BATCH;

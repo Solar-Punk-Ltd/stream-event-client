@@ -317,7 +317,7 @@ describe('a chat paid for with my own stamp', () => {
     swarmId.client().nextWindow = 'opens';
     click(button('Open Swarm ID'));
     await settle();
-    swarmId.client().pickStamp(BATCH);
+    swarmId.client().pickStamp({ ...BATCH, label: 'A new stamp' });
     await settle();
     await settle();
 
