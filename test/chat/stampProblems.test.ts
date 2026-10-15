@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  beeNodeUploadProblem,
   NO_SITE_STAMP,
   SIGNED_OUT,
   SITE_SHARE_USED,
@@ -8,7 +9,7 @@ import {
   STAMP_RAN_OUT,
   stampRefusal,
   SUBSIDISED,
-  uploadProblem,
+  weeb3PushProblem,
 } from '../../src/features/chat/stamp/stampProblems';
 import { StampedUploadError } from '../../src/swarm/providers/bee-http/stampedSocUpload';
 import { Weeb3PushError } from '../../src/swarm/providers/weeb-3/weeb3Push';
@@ -45,12 +46,12 @@ describe('why Swarm ID did not stamp a message', () => {
 
 describe("why the viewer's Bee node did not take a message", () => {
   it('resends after no answer, a rate limit or a server error, and fails at once on a refusal', () => {
-    expect(uploadProblem(new StampedUploadError(null, null, true))).toEqual({
+    expect(beeNodeUploadProblem(new StampedUploadError(null, null, true))).toEqual({
       text: 'Your Bee node did not answer in time.',
       final: false,
     });
-    expect(uploadProblem(new StampedUploadError(429, null, false)).final).toBe(false);
-    expect(uploadProblem(new StampedUploadError(402, 'payment required', false))).toEqual({
+    expect(beeNodeUploadProblem(new StampedUploadError(429, null, false)).final).toBe(false);
+    expect(beeNodeUploadProblem(new StampedUploadError(402, 'payment required', false))).toEqual({
       text: 'Your Bee node refused it (HTTP 402: payment required).',
       final: true,
     });
@@ -59,28 +60,35 @@ describe("why the viewer's Bee node did not take a message", () => {
 
 describe('why the node in this browser did not push a message', () => {
   it('fails at once when it gave no answer by the deadline, since a stamp it will not take never answers', () => {
-    expect(uploadProblem(new Weeb3PushError('deadline', null))).toEqual({
+    expect(weeb3PushProblem(new Weeb3PushError('deadline', null))).toEqual({
       text: 'Weeb3 did not confirm it within a minute. It gives no answer for a stamp it will not take, so it is not sent again by itself.',
       final: true,
     });
   });
 
   it('fails at once on a refusal it named, saying what it said', () => {
-    expect(uploadProblem(new Weeb3PushError('refused', 'Upload result: invalid stamp'))).toEqual({
+    expect(weeb3PushProblem(new Weeb3PushError('refused', 'Upload result: invalid stamp'))).toEqual({
       text: 'Weeb3 refused it (Upload result: invalid stamp).',
       final: true,
     });
   });
 
   it('leaves the chat to resend while the node is not running, which the next push starts again', () => {
-    expect(uploadProblem(new Weeb3PushError('node', null))).toEqual({
+    expect(weeb3PushProblem(new Weeb3PushError('node', null))).toEqual({
       text: 'The Swarm node in this browser is not running.',
       final: false,
     });
   });
 
+  it('names Weeb3 for anything else thrown on the way, and fails at once since a resend would throw it again', () => {
+    expect(weeb3PushProblem(new TypeError('invalid hex'))).toEqual({
+      text: 'Weeb3 could not push it (invalid hex).',
+      final: true,
+    });
+  });
+
   it('fails at once on a stamp of the wrong size, which a resend would hand over again', () => {
-    expect(uploadProblem(new Weeb3PushError('stamp-size', null))).toEqual({
+    expect(weeb3PushProblem(new Weeb3PushError('stamp-size', null))).toEqual({
       text: 'Swarm ID gave a stamp of the wrong size.',
       final: true,
     });

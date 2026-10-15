@@ -248,8 +248,11 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   itself, since a second try on the same stamp would wait the same minute. Retry tries once more. A refusal weeb-3
   names fails at once too, and a node that is not running is started again by the chat's own resend. A stamp from
   Swarm ID that is not exactly 113 bytes never reaches weeb-3: the message fails at once, "Swarm ID gave a stamp of
-  the wrong size." The own-feed
-  copy goes through Weeb3 the same way, before the message.
+  the wrong size." Anything else that fails on the way, such as a chunk that could not be built, fails the message
+  at once as "Weeb3 could not push it", with what went wrong. The own-feed copy goes through Weeb3 the same way,
+  before the message. **A known limit:** the deadline does not cancel the push, since weeb-3 offers no way to. A
+  valid push slower than a minute is reported as refused, the node is let go, and weeb-3 may still deliver the
+  message later, when the chat reads it back.
 - **The stamp's figures.** With My stamp picked, Connect shows the site's stamp: its name, how full it is, its days
   left, and **Change stamp in Swarm ID**, which opens the Swarm ID sign-in window again while the viewer stays
   signed in (the library's `connect()`). The window shows the person's stamps, the person picks one for this site,

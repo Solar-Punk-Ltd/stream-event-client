@@ -85,8 +85,13 @@ const STAMP_WRONG_SIZE = 'Swarm ID gave a stamp of the wrong size.';
  * What a failed push through the node in this browser means for the message. weeb-3 answers a stamp it will not take
  * with silence, so a push that ran out its deadline is most likely refused, and a resend on the same stamp would wait
  * the whole deadline again: it fails at once. A node not running is started again by the next push, so that resends.
+ * Anything else thrown on the way, such as a chunk that could not be built, would be thrown again by a resend of the
+ * same bytes, so it fails at once too.
  */
-function weeb3Problem(error: Weeb3PushError): SendProblem {
+export function weeb3PushProblem(error: unknown): SendProblem {
+  if (!(error instanceof Weeb3PushError)) {
+    return refused(`Weeb3 could not push it (${error instanceof Error ? error.message : String(error)}).`);
+  }
   switch (error.reason) {
     case 'deadline':
       return refused(WEEB3_NO_ANSWER);
@@ -99,11 +104,8 @@ function weeb3Problem(error: Weeb3PushError): SendProblem {
   }
 }
 
-/** What a failed send, to the viewer's own Bee node or through the node in this browser, means for the message. */
-export function uploadProblem(error: unknown): SendProblem {
-  if (error instanceof Weeb3PushError) {
-    return weeb3Problem(error);
-  }
+/** What a failed send to the viewer's own Bee node means for the message. */
+export function beeNodeUploadProblem(error: unknown): SendProblem {
   if (!(error instanceof StampedUploadError) || error.status === null) {
     return retried(
       error instanceof StampedUploadError && error.timedOut

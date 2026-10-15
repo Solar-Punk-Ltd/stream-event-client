@@ -7,7 +7,7 @@ import { postStampedSoc, type StampedSoc } from '@/swarm/providers/bee-http/stam
 import type { ChatReads } from '../chatParts';
 import type { SwarmIdChunkToStamp, SwarmIdStampedChunk } from '../swarmId/swarmIdClient';
 
-import { NOT_SIGNED_IN, type SendProblem, stampRefusal, uploadProblem } from './stampProblems';
+import { beeNodeUploadProblem, NOT_SIGNED_IN, type SendProblem, stampRefusal, weeb3PushProblem } from './stampProblems';
 
 export type { SendProblem } from './stampProblems';
 
@@ -157,7 +157,7 @@ export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
         await postStampedSoc(url, stampedSoc, { timeoutMs, ...(fetcher ? { fetcher } : {}) });
       }
     } catch (error) {
-      throw new SendRefusedError(uploadProblem(error));
+      throw new SendRefusedError(push ? weeb3PushProblem(error) : beeNodeUploadProblem(error));
     }
   }
 

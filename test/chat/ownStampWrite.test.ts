@@ -317,6 +317,17 @@ describe("a chat message on the viewer's own stamp through the node in this brow
     expect(problems.map(({ problem }) => problem.final)).toEqual([true]);
   });
 
+  it('names Weeb3, never a Bee node, when the push throws something weeb-3 did not answer with', async () => {
+    const weeb3 = pushing(async () => Promise.reject(new TypeError('invalid hex')));
+    const { writer, problems } = setUp({ url: null, push: () => weeb3.push });
+
+    await expect(writer.write(payloadOf('unbuildable'))).rejects.toThrow();
+
+    expect(problems.map(({ problem }) => problem)).toEqual([
+      { text: 'Weeb3 could not push it (invalid hex).', final: true },
+    ]);
+  });
+
   it('pushes the own feed copy through the node too, before the message', async () => {
     const weeb3 = pushing();
     const { reads } = headReads(NOT_FOUND);
