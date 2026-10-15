@@ -115,13 +115,35 @@ const swarmIdSchema = z.object({
   }),
 });
 
+/** The hosts a development build runs a chain node on, which a page on http may reach without TLS. */
+function isLocalDevelopmentHost(hostname: string): boolean {
+  return ['localhost', '127.0.0.1', '[::1]'].includes(hostname) || hostname.endsWith('.localhost');
+}
+
+/** An https address, or an http one on a local development host, with a host and no user name or password in it. */
+function isEnsEndpoint(value: string): boolean {
+  if (/\s/.test(value)) {
+    return false;
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (!url.hostname || url.username || url.password) {
+    return false;
+  }
+  return url.protocol === 'https:' || (url.protocol === 'http:' && isLocalDevelopmentHost(url.hostname));
+}
+
 /**
  * The Ethereum mainnet JSON-RPC endpoint a viewer's page reads ENS names through. It decides which name is shown beside
  * a wallet and sees every wallet looked up, from the viewer's own address, so a deployment names one it trusts with
  * both. A page on https reaches any https address, so the image's policy needs nothing more for one.
  */
-const ensRpcUrlSchema = filledIn.refine((value) => /^https?:\/\/[^/\s]/i.test(value), {
-  message: 'must be an http or https address such as https://ethereum-rpc.example.org',
+const ensRpcUrlSchema = filledIn.refine(isEnsEndpoint, {
+  message: 'must be an https address such as https://ethereum-rpc.example.org, or http on a local development host',
 });
 
 const runtimeConfigSchema = z

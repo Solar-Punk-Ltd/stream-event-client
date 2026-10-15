@@ -239,15 +239,35 @@ describe('the Swarm ID setting', () => {
 describe('the ENS endpoint setting', () => {
   const ENDPOINT = 'https://ethereum-rpc.example.org';
 
-  it('accepts an http or https address, with a path, and no setting at all', () => {
-    for (const url of [ENDPOINT, 'https://ethereum-rpc.example.org/v1/mainnet', 'http://localhost:8545']) {
+  it('accepts an https address, with a path, http on a local development host, and no setting at all', () => {
+    for (const url of [
+      ENDPOINT,
+      'https://ethereum-rpc.example.org/v1/mainnet',
+      'https://ethereum-rpc.example.org:8443',
+      'http://localhost:8545',
+      'http://127.0.0.1:8545',
+      'http://[::1]:8545',
+      'http://node.localhost:8545',
+    ]) {
       expect(parseRuntimeConfig({ ...VALID, chat: CHAT, ensRpcUrl: url }).ok).toBe(true);
     }
     expect(parseRuntimeConfig({ ...VALID, chat: CHAT }).ok).toBe(true);
   });
 
-  it('refuses a path on this site, another scheme, an empty value and the example placeholder, naming the field', () => {
-    for (const url of ['/eth', 'wss://ethereum-rpc.example.org', 'ethereum-rpc.example.org', '', '<ENS endpoint>']) {
+  it('refuses a path on this site, another scheme, plain http elsewhere, a malformed address, an empty value and the example placeholder, naming the field', () => {
+    for (const url of [
+      '/eth',
+      'wss://ethereum-rpc.example.org',
+      'ethereum-rpc.example.org',
+      '',
+      '<ENS endpoint>',
+      'http://ethereum-rpc.example.org',
+      'http://192.0.2.10:8545',
+      'http://localhost.example.org',
+      'https://ethereum rpc.example.org',
+      'https://user:secret@ethereum-rpc.example.org',
+      'https://',
+    ]) {
       expect(problemOf(parseRuntimeConfig({ ...VALID, chat: CHAT, ensRpcUrl: url }))).toContain('ensRpcUrl');
     }
   });
