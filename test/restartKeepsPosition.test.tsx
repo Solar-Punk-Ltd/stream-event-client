@@ -213,14 +213,57 @@ describe('a player restarted by a fatal error', () => {
   });
 
   // The rebuilt player was asked to start at 2100 and failed before playback moved, so its own reading
-  // says nothing, and the place it was asked to start at is still where the viewer is.
+  // says nothing, and the place it was asked to start at is still where the viewer is. Failing there a
+  // second time is what moves the next player one segment on.
   it('keeps the recording position through a second fatal error after the rebuilt player has started loading', () => {
     failFatallyAt(2100, false);
 
     failPlayer(1, 0, false, false);
     emit(2, Events.MANIFEST_PARSED);
 
-    assert.deepEqual(fakes.instances[2].startLoads, [2100]);
+    assert.deepEqual(fakes.instances[2].startLoads, [2100 + SEGMENT_S]);
+  });
+
+  // A segment that never loads fails every player sent to it, so resuming at the same place again
+  // would restart the recording there for as long as the tab stays open.
+  it('moves a segment on each time a recording fails again at the place its player started', () => {
+    failFatallyAt(2100, false);
+
+    failPlayer(1, 2100, false);
+    emit(2, Events.MANIFEST_PARSED);
+    failPlayer(2, 2102, false);
+    emit(3, Events.MANIFEST_PARSED);
+    failPlayer(3, 0, false, false);
+    emit(4, Events.MANIFEST_PARSED);
+
+    assert.deepEqual(
+      fakes.instances.slice(1).map((instance) => instance.startLoads),
+      [[2100], [2102], [2104], [2106]],
+    );
+  });
+
+  it('resumes at the new place, not a segment on, once playback has moved past where the player started', () => {
+    failFatallyAt(2100, false);
+
+    playTo(2103);
+    failPlayer(1, 2110, false);
+    emit(2, Events.MANIFEST_PARSED);
+    failPlayer(2, 2110, false);
+    emit(3, Events.MANIFEST_PARSED);
+
+    assert.deepEqual(
+      fakes.instances.slice(1).map((instance) => instance.startLoads),
+      [[2100], [2110], [2112]],
+    );
+  });
+
+  it('rejoins a live broadcast at the live edge however often it fails', () => {
+    failFatallyAt(2100, true);
+
+    failPlayer(1, 2100, true);
+    emit(2, Events.MANIFEST_PARSED);
+
+    assert.deepEqual(fakes.instances[2].startLoads, [undefined]);
   });
 
   it('names the error that caused the restart in the line that announces it', () => {

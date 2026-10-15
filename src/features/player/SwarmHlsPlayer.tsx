@@ -402,10 +402,9 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
 
       const restartStream = (cause: ErrorData) => {
         console.warn(`Restarting stream after a fatal ${cause.type} (${cause.details}).`);
-        const observed = hls
-          ? restartResumeOf(hls.levels[hls.currentLevel]?.details, video.currentTime, sourceUrl)
-          : null;
-        resumeAfterRestartRef.current = nextRestartResume(observed, startedAt, resumeAfterRestartRef.current);
+        const playlist = hls?.levels[hls.currentLevel]?.details;
+        const observed = restartResumeOf(playlist, video.currentTime, sourceUrl);
+        resumeAfterRestartRef.current = nextRestartResume(observed, startedAt, resumeAfterRestartRef.current, playlist);
         detachResumeOnReturn?.();
         hls?.destroy();
         setRestartTrigger((prev) => prev + 1);
