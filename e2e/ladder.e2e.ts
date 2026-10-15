@@ -253,6 +253,8 @@ test('a switch asked before hls.js reports the starting quality reads the new qu
   // told the level hls.js is loading as well and keeps following it. Before that it stopped the target and searched for
   // it again when hls.js next asked. Asked here at the first buffered fragment, so the order is the same every run. On
   // a live stream the same order arises when ABR moves off the starting quality before its first fragment plays.
+  // The viewer is a segment behind the target's newest window here, so the switch reads back one slot, and in about
+  // half the runs that slot is inside the search's own round. It is taken from the search's answer, not read again.
   const gateway = new LadderGateway();
   const target: RungName = '360p';
   const warnings = await openPage(page, context, gateway, target);

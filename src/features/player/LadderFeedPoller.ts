@@ -714,7 +714,9 @@ export class LadderFeedPoller {
    *
    * Each read steps back by about one window, the newest playlist's length less one segment so two
    * windows share a segment. A step that lands past a hole, which a coalesced publish leaves, is halved
-   * and tried again. Every read names an index between zero and the newest, so each one exists.
+   * and tried again. Every read names an index between zero and the newest, so each one exists. A slot
+   * the search already found is taken from its answer, since a hint that lagged the rung by a slot puts
+   * the first step back inside the search's own round.
    *
    * @returns The older playlists, oldest first, or none when the viewer is at the live edge, the
    *   position is more than {@link MAX_READ_BACK_READS} reads back, or a read back fails.
@@ -732,17 +734,19 @@ export class LadderFeedPoller {
     let step = BigInt(Math.max(1, newer.length - 1));
     for (let reads = 0; reads < MAX_READ_BACK_READS && at > 0n; reads++) {
       const target = at > step ? at - step : 0n;
-      let text: string;
-      try {
-        text = (
-          await servedText(
-            this.reader.readFeedEntry(entry.owner, entry.topic, Number(target)),
-            feedSlotPath(entry.owner, entry.topic, FeedIndex.fromBigInt(target)),
-          )
-        ).text;
-      } catch (error) {
-        this.reportReadBackFailure(entry, target, error);
-        return [];
+      let text = found.searched?.get(Number(target));
+      if (text === undefined) {
+        try {
+          text = (
+            await servedText(
+              this.reader.readFeedEntry(entry.owner, entry.topic, Number(target)),
+              feedSlotPath(entry.owner, entry.topic, FeedIndex.fromBigInt(target)),
+            )
+          ).text;
+        } catch (error) {
+          this.reportReadBackFailure(entry, target, error);
+          return [];
+        }
       }
       if (walk.stopped) {
         return [];

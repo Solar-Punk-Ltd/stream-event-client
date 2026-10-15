@@ -742,6 +742,22 @@ describe('Q7: a switch while the viewer is behind live keeps their position', ()
     assert.ok(reads.length <= 8 + 10 + 2, `${reads.length} slot reads for one switch`);
   });
 
+  it('reads back from what the search already read, never asking a slot twice', async () => {
+    const rig = makeRig();
+    rig.gateway.publishLive(TOP, 'top', 40);
+    // Two ahead of the playing rung, so the search's round around index 40 holds 38, the first read back from 42.
+    rig.gateway.publishLive(MID, 'mid', 42);
+
+    // The newest window holds segments 38 to 42, and the viewer is on segment 35, which slot 38's window holds.
+    await switchWhileBehind(rig, 35);
+
+    assert.ok(segmentUris(MID).includes('mid-seg-35'), 'the switch lost the position');
+    const slots = rig.gateway.requestsFor(hex(MID)).map((read) => rig.gateway.slotIndexOf(read.path));
+    assert.ok(slots.includes(38), `the search did not read slot 38, so this case proves nothing: ${slots.join(', ')}`);
+    const twice = slots.filter((slot, at) => slots.indexOf(slot) !== at);
+    assert.deepEqual(twice, [], `slots read twice: ${twice.join(', ')}`);
+  });
+
   it('goes to the live edge and says so once ten reads cannot reach the position', async () => {
     const rig = makeRig();
     rig.gateway.publishLive(TOP, 'top', 200);
