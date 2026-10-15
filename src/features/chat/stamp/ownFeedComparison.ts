@@ -101,7 +101,6 @@ const windowOf = ({ timeoutMs, signal }: ChatWalkOptions): ReadOptions => ({ tim
 /** How many slots are read at once, where a feed is read entry by entry. */
 const SLOTS_AT_ONCE = 8;
 
-const NOT_FOUND = 'not-found';
 const decoder = new TextDecoder();
 
 const bareHex = (hex: string) => hex.replace(/^0x/, '').toLowerCase();
@@ -110,7 +109,7 @@ const newestFirst = (a: OwnFeedRecord, b: OwnFeedRecord) => b.index - a.index;
 /** The feed's newest index, or null for a feed with no entry. */
 async function newestIndex(reads: ChatReads, owner: string, topic: Topic, window: ReadOptions, what: string) {
   const head = await reads.readFeedHead(owner, topic, window);
-  if (head.kind === NOT_FOUND) {
+  if (isAbsent(head)) {
     return null;
   }
   if (head.kind !== 'content' || head.feedIndex === null) {

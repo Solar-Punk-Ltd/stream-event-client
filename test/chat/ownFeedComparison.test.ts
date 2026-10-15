@@ -125,6 +125,24 @@ describe("comparing a sender's own feed with the chat", () => {
     expect(comparison.missingFromOwnFeed).toEqual([]);
   });
 
+  it('says a sender keeps no own feed when a Bee 2.6 cluster answers 500 for its head', async () => {
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [message('a'), message('b')]);
+    const clusterAbsent: SwarmAnswer = { kind: 'unavailable', cause: { kind: 'status', status: 500 } };
+    const reads: ChatReads = {
+      ...feeds.reads,
+      readFeedHead: async (owner, topic, options) => {
+        const answer = await feeds.reads.readFeedHead(owner, topic, options);
+        return answer.kind === 'not-found' ? clusterAbsent : answer;
+      },
+    };
+
+    const comparison = await compare(feeds, reads);
+
+    expect(comparison.own).toBeNull();
+    expect(ids(comparison.missingFromOwnFeed)).toEqual([idOf('b'), idOf('a')]);
+  });
+
   it('says a sender keeps no own feed, and lacks a copy of every message', async () => {
     const feeds = servedFeeds();
     feeds.chat(SERVER_KEY, CHAT_TOPIC, [message('a'), message('b')]);
