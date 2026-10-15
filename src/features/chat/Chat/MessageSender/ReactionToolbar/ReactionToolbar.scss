@@ -26,12 +26,23 @@
     transform: none;
   }
 
+  // Expanded, the picker leaves the flow, so the bar keeps its height and the field does not move. The close button
+  // sits above the picker's corner rather than on it, where it would cover an emoji.
   &.expanded {
-    .EmojiPickerReact {
+    min-height: var(--size-reaction-bar);
+
+    .reaction-toolbar-picker {
       position: absolute;
       right: 0;
-      bottom: calc(100% - var(--size-reaction-bar));
+      bottom: 0;
       z-index: var(--z-index-popover);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: var(--spacing-xs);
+    }
+
+    .EmojiPickerReact {
       max-width: calc(100vw - 2 * var(--spacing-base));
       max-height: calc(100vh - 150px);
     }
@@ -48,11 +59,8 @@
 }
 
 .close-picker-button {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% - var(--size-reaction-bar) + var(--spacing-xs));
-  z-index: calc(var(--z-index-popover) + 1);
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   width: var(--size-close-picker);

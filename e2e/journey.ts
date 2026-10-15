@@ -108,6 +108,33 @@ export async function watchAndChat(page: Page, published: Published): Promise<vo
       .getByRole('button', { name: 'Guest, show details', exact: true }),
     "the viewer's own message carries the guest badge",
   ).toBeVisible();
+
+  await allEmojiCloseShows(page, chat);
+}
+
+/** The field's whole emoji picker opens above the field, and its close button stays in sight beside it, never under it. */
+async function allEmojiCloseShows(page: Page, chat: Locator): Promise<void> {
+  await chat.getByRole('button', { name: 'Show all Emojis', exact: true }).click();
+  const close = chat.getByRole('button', { name: 'Close the emoji picker', exact: true });
+  await expect(close, 'the expanded picker has its close button').toBeVisible();
+  const picker = chat.locator('.reaction-toolbar .EmojiPickerReact');
+  await expect(picker.locator('input'), 'the expanded picker shows its search').toBeVisible();
+  const [closeBox, pickerBox, chatBox] = await Promise.all([close.boundingBox(), picker.boundingBox(), chat.boundingBox()]);
+  if (!closeBox || !pickerBox || !chatBox) {
+    throw new Error('the picker, its close button or the chat has no box');
+  }
+  expect(closeBox.y + closeBox.height, 'the close button sits above the picker').toBeLessThanOrEqual(pickerBox.y);
+  expect(closeBox.y, 'the close button is inside the chat').toBeGreaterThanOrEqual(chatBox.y);
+  expect(pickerBox.y + pickerBox.height, 'the picker ends inside the chat').toBeLessThanOrEqual(
+    chatBox.y + chatBox.height,
+  );
+  const onTop = await close.evaluate((button) => {
+    const box = button.getBoundingClientRect();
+    return button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+  });
+  expect(onTop, 'nothing covers the close button').toBe(true);
+  await close.click();
+  await expect(close, 'the close button folds the picker back').toHaveCount(0);
 }
 
 /** Each message's badge says who vouched for its sender, and the badge opens what the page's check found. */
