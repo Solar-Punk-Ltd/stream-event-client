@@ -51,8 +51,10 @@ afterEach(() => {
 });
 
 /**
- * Plays the ladder from its top rung while the poller refuses that rung, the way `ManifestFetcher.fetch`
- * does: it announces the rung stopped, which takes the level out, and then ends the request.
+ * Plays the ladder from its top rung while that rung is refused. The mocked fetch stands in for two parts
+ * of the real code: the poller, which announces the rung stopped through `feedHealth.recordRungStopped`
+ * and so takes its level out, and `ManifestFetcher.fetch`, which then ends the request with
+ * `RungRefusedError`.
  */
 async function playWhileTopIsRefused(finished: boolean): Promise<{ errors: ErrorData[]; levels: number[] }> {
   vi.spyOn(console, 'warn').mockImplementation(() => undefined);
