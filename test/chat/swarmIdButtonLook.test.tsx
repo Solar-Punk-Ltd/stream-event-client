@@ -48,6 +48,7 @@ describe("Swarm ID's button wears the viewer's look", () => {
 
     expect(swarmId.client().shownButton().config).toEqual({
       text: 'Sign in with Swarm ID',
+      ariaLabel: 'Sign in with Swarm ID',
       backgroundColor: '#f47a20',
       color: '#151517',
       borderRadius: '12px',
@@ -63,6 +64,7 @@ describe("Swarm ID's button wears the viewer's look", () => {
 
     expect(swarmId.client().shownButton().config).toEqual({
       text: 'Sign in with Swarm ID',
+      ariaLabel: 'Sign in with Swarm ID',
       backgroundColor: 'rgba(250,250,250,0.1)',
       color: '#fafafa',
       borderRadius: '12px',

@@ -127,8 +127,9 @@ export function SwarmIdButton({
   );
 }
 
+/** The label is also the accessible name, so each frame's button is named by what it does here. */
 function configOf(text: string, variant: ButtonVariant, size: SwarmIdButtonSize) {
-  return { text, ...swarmIdButtonLook(variant, size) };
+  return { text, ariaLabel: text, ...swarmIdButtonLook(variant, size) };
 }
 
 /**
