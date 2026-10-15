@@ -91,7 +91,7 @@ describe("a source's own player", () => {
     expect(detached.count).toBe(0);
   });
 
-  it('shows the node getting ready, then keeps counting its peers beside the player while it plays', async () => {
+  it('shows the node getting ready, and nothing under the player once it is ready', async () => {
     nodeStatus = { state: 'starting', peers: 0, healthyPeers: 200, download: { receivedBytes: 1, totalBytes: 4 } };
     render(player().load);
     await wait(0);
@@ -105,16 +105,21 @@ describe("a source's own player", () => {
 
     nodeStatus = { state: 'ready', peers: 88, healthyPeers: 200 };
     await wait(500);
-    expect(line()).toBe('88 of 200 peers');
-    expect(note()).toBe('200 peers is the healthy target');
+    expect(document.querySelector('.own-player-status')).toBeNull();
+  });
 
-    nodeStatus = { state: 'ready', peers: 200, healthyPeers: 200 };
+  it('says again where the node is when a ready node loses its peers', async () => {
+    render(player().load);
+    await wait(0);
+    expect(document.querySelector('.own-player-status')).toBeNull();
+
+    nodeStatus = { state: 'lost', peers: 0, healthyPeers: 200 };
     await wait(500);
-    expect(line()).toBe('200 of 200 peers');
-    expect(note()).toBeNull();
+    expect(line()).toBe('Lost its peers. Open Connect to start it again.');
   });
 
   it('keeps its line beside the video rather than over it', async () => {
+    nodeStatus = { state: 'starting', peers: 2, healthyPeers: 200 };
     render(player().load);
     await wait(0);
 

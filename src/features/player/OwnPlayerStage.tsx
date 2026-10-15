@@ -19,10 +19,10 @@ interface OwnPlayerStageProps {
 }
 
 /**
- * A source's own player, bare: a video element it plays into with its own controls and its own choice
- * of quality, and none of the app's overlays. One quiet line under it says how far the node has got,
- * then keeps counting its peers while it plays. A viewer who picked this source watches through it
- * alone, so a player that cannot play says so and nothing takes its place.
+ * A source's own player, bare: a video element it plays into with the browser's controls, and none of
+ * the app's overlays. One quiet line under it says how far the node has got until it is ready, and
+ * again when it is lost. A viewer who picked this source watches through it alone, so a player that
+ * cannot play says so and nothing takes its place.
  */
 export function OwnPlayerStage({ load, status, owner, topic, from }: OwnPlayerStageProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -60,6 +60,7 @@ export function OwnPlayerStage({ load, status, owner, topic, from }: OwnPlayerSt
     };
   }, [load, owner, topic, startFrom]);
 
+  const playing = !failed && node.state === 'ready';
   const note = failed ? null : healthyPeersNote(node);
   // A ready node whose player would not attach could not play this stream. Any other failure is the node's own.
   const words =
@@ -73,10 +74,12 @@ export function OwnPlayerStage({ load, status, owner, topic, from }: OwnPlayerSt
       <div className="own-player">
         <video ref={videoRef} controls autoPlay muted playsInline />
       </div>
-      <p className="own-player-status" role="status">
-        <span className="own-player-words">{words}</span>
-        {note !== null && <span className="own-player-hint">{note}</span>}
-      </p>
+      {!playing && (
+        <p className="own-player-status" role="status">
+          <span className="own-player-words">{words}</span>
+          {note !== null && <span className="own-player-hint">{note}</span>}
+        </p>
+      )}
     </div>
   );
 }
