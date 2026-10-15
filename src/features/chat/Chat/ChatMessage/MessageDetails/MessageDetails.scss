@@ -9,6 +9,8 @@
   background: var(--color-surface);
   font-size: var(--font-size-xs);
   text-align: left;
+  // The message around the card shows a hand for its actions, which the card's text and its controls do not take.
+  cursor: auto;
 }
 
 .message-details-header {
