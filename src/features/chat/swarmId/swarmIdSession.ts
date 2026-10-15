@@ -11,8 +11,10 @@ import type { SwarmIdChatBinding, SwarmIdIdentity } from './swarmIdClient';
 /** A viewer signed in with Swarm ID: the chat key the ID gave this site, and the binding that names its address. */
 export interface SwarmIdSession extends Session {
   binding: ChatBinding;
-  /** The Swarm ID account's own name, shown beside the chat name. */
+  /** The Swarm ID account's own name, shown beside the chat name where the two differ. */
   accountName: string;
+  /** The Swarm ID account that signed the binding, `0x` and 40 lowercase hex characters. */
+  account: string;
 }
 
 /**
@@ -65,5 +67,13 @@ export function swarmIdSession(
   if (check.identity.account !== accountOf(identity)) {
     return { ok: false, problem: ACCOUNT_MISMATCH };
   }
-  return { ok: true, session: { ...session, binding: chatBinding, accountName: identity.name.trim() } };
+  return {
+    ok: true,
+    session: {
+      ...session,
+      binding: chatBinding,
+      accountName: identity.name.trim(),
+      account: check.identity.account,
+    },
+  };
 }

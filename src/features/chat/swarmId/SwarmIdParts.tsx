@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useThemeChoice } from '@/app/ThemeChoiceProvider';
+import { ShortAddress } from '@/shared/components/Address/ShortAddress';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { GuestBadgeIcon } from '@/shared/components/Icons/GuestBadgeIcon';
@@ -23,6 +24,9 @@ const SIGN_IN_LABEL = 'Sign in with Swarm ID';
 const UNAVAILABLE_TEXT = 'Swarm ID cannot be reached right now.';
 const STARTING_TEXT = 'Connecting to Swarm ID';
 const WINDOW_BLOCKED = 'blocked';
+const SWARM_ID_NAME = 'Swarm ID';
+const PUBLIC_ADDRESS_LABEL = 'public address';
+const ACCOUNT_LABEL = 'Swarm ID account';
 
 interface SwarmIdButtonProps {
   readonly action: SwarmIdButtonAction;
@@ -200,18 +204,31 @@ export function SwarmIdOffer() {
 export function SwarmIdYou({ onLeave }: { onLeave: () => void }) {
   const { swarmId, swarmIdSession, guestSession, signOutOfSwarmId } = useChatUser();
   if (swarmIdSession) {
+    const { username, accountName, address, account } = swarmIdSession;
     return (
       <div className="swarm-id-you">
         <div className="swarm-id-row">
           <span className="swarm-id-who">
-            <b className="swarm-id-name linked">{swarmIdSession.username}</b>
+            <b className="swarm-id-name linked">{username}</b>
             <SwarmIdBadgeIcon />
-            <span className="swarm-id-muted">Swarm ID · {swarmIdSession.accountName}</span>
+            <span className="swarm-id-muted">
+              {accountName && accountName !== username ? `${SWARM_ID_NAME} · ${accountName}` : SWARM_ID_NAME}
+            </span>
           </span>
           <Button variant={ButtonVariant.SECONDARY} className="swarm-id-small" onClick={signOutOfSwarmId}>
             Sign out
           </Button>
         </div>
+        <dl className="swarm-id-addresses">
+          <dt>Public address</dt>
+          <dd>
+            <ShortAddress value={address} label={PUBLIC_ADDRESS_LABEL} />
+          </dd>
+          <dt>Swarm ID account</dt>
+          <dd>
+            <ShortAddress value={account} label={ACCOUNT_LABEL} />
+          </dd>
+        </dl>
       </div>
     );
   }
