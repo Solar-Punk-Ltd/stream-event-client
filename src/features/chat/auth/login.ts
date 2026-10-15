@@ -1,5 +1,5 @@
 import { PrivateKey } from '@ethersphere/bee-js';
-import type { ChatBinding } from '@solarpunkltd/swarm-chat-js';
+import type { ChatBinding, WalletLink } from '@solarpunkltd/swarm-chat-js';
 
 export const DISPLAY_NAME_MAX_LENGTH = 20;
 
@@ -14,6 +14,8 @@ export interface Session {
   address: string;
   /** A Swarm ID account's statement that `address` is its chat address on this site. Absent for a guest. */
   binding?: ChatBinding;
+  /** The Swarm ID account's wallet link, present only while it shares one and it names the binding's account. */
+  walletLink?: WalletLink;
 }
 
 export type DisplayNameCheck = { ok: true; name: string } | { ok: false; problem: string };

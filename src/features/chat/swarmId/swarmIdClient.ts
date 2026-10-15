@@ -3,11 +3,23 @@
  * imports the library, so how it is installed stays one line, and a test stands in for it with these shapes.
  */
 
+/**
+ * The account's statement, signed by its wallet and countersigned by its own key, that the two belong to the same
+ * person, which lets a reader show the wallet's ENS name. Shared only while the person has "Show my ENS name on sites"
+ * on in Swarm ID.
+ */
+export interface SwarmIdWalletLink {
+  readonly message: string;
+  readonly walletSignature: string;
+  readonly accountSignature: string;
+}
+
 /** The account a session belongs to. `address` is the account key's address, 40 hex digits with no 0x. */
 export interface SwarmIdIdentity {
   readonly id: string;
   readonly name: string;
   readonly address: string;
+  readonly walletLink?: SwarmIdWalletLink;
 }
 
 /** The account's signed statement that this site's chat address is its own, spelled as the library spells it. */

@@ -207,6 +207,12 @@ stamps them, unless the person picks their own stamp, as the next section says.
   hexagon of a guest or the filled one of Swarm ID, as every message does. My Swarm shows the name once, says "Swarm ID",
   with the account's own name beside it only where it differs from the chat name, and Sign out. Under them are the
   public chat address and the Swarm ID account's address, each short and expandable as in a message's details.
+- **The wallet link, for an ENS name.** While the person has "Show my ENS name on sites" on in Swarm ID, the ID
+  also shares a wallet link: a statement signed by the account's wallet and countersigned by the account that the
+  two belong to the same person. Every message then carries it beside the binding, so a reader can show the wallet's
+  ENS name, as [ENS names](#ens-names) says. The page checks the link first, as every reader will, and leaves out
+  one that does not name the signed-in account, so the person still chats and no reader refuses their messages.
+  Without the setting nothing of the wallet is sent.
 - **A guest can sign in later.** The menu of a guest says "Show it's really you" beside Sign in with
   Swarm ID. Signing in keeps the guest's name and key in this browser, and signing out chats as that
   guest again. Leave forgets the guest.
