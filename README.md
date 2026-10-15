@@ -230,8 +230,9 @@ stamps them, unless the person picks their own stamp, as the next section says.
 - **The button is mounted once for as long as it is shown.** Closing Connect takes it away and leaves the session as
   it is.
   Until Swarm ID's frame shows its button, a placeholder stands in its place: the page's own button of the same look
-  and size, with its label and a small loader, which takes no click and no focus, and a screen reader hears
-  "Connecting to Swarm ID". The frame then shows the button in the same place, so nothing moves. That place is
+  and size, with its label and a small loader, which takes no click and no focus. To a screen reader it is a picture
+  named "Connecting to Swarm ID", and a status that stays in place says the same. The frame then shows the button
+  in the same place, so nothing moves. That place is
   never narrower than the label with its loader, so the smaller button beside other words, as in Show it's really
   you, shows its whole label down to a 320 px wide screen. A Try again shows
   the placeholder again until the new button is ready. When Swarm ID refuses the

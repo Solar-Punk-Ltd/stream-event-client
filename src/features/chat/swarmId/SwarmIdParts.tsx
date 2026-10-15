@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { useThemeChoice } from '@/app/ThemeChoiceProvider';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
@@ -55,6 +55,7 @@ export function SwarmIdButton({
   const [isShown, setIsShown] = useState(false);
   /** Raised by Try again, which mounts a new button in place of one Swarm ID refused or that never answered. */
   const [attempt, setAttempt] = useState(0);
+  const startingId = useId();
   const isStarting = swarmId?.status === SWARM_ID_STARTING;
   const canMount = swarmId !== null && !isStarting && swarmId.status !== SWARM_ID_UNAVAILABLE;
 
@@ -121,17 +122,19 @@ export function SwarmIdButton({
         </span>
         <span ref={container} className="swarm-id-button-frame" aria-hidden={canMount ? undefined : true} />
         {isWaiting && (
-          <span className={`button ${variant} swarm-id-button-placeholder`} aria-hidden="true">
+          <span className={`button ${variant} swarm-id-button-placeholder`} role="img" aria-labelledby={startingId}>
             <Spinner />
             {text}
           </span>
         )}
       </span>
-      {isWaiting && (
-        <span className="swarm-id-status" role="status">
-          {STARTING_TEXT}
-        </span>
-      )}
+      <span className="swarm-id-status" role="status">
+        {isWaiting && (
+          <span id={startingId} className="swarm-id-spoken">
+            {STARTING_TEXT}
+          </span>
+        )}
+      </span>
       {(isUnavailable || isRefused) && <span className="swarm-id-hint">{UNAVAILABLE_TEXT}</span>}
       {isRefused && (
         <Button

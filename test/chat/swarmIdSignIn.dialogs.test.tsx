@@ -386,9 +386,18 @@ describe("the Swarm ID button's placeholder", () => {
 
     const shown = placeholder();
     expect(shown?.tagName).not.toBe('BUTTON');
-    expect(shown?.getAttribute('aria-hidden')).toBe('true');
+    expect(shown?.getAttribute('role'), 'a picture, whose label inside is not read as a button').toBe('img');
     expect(shown?.hasAttribute('tabindex')).toBe(false);
     expect(shown?.closest('button')).toBeNull();
+  });
+
+  it('names its loader to a screen reader by what it waits for', async () => {
+    await header(await fakeSwarmId({}, waiting));
+    click(button('Connect'));
+
+    const labelledBy = placeholder()?.getAttribute('aria-labelledby') ?? '';
+    expect(labelledBy, 'named by words on the page').not.toBe('');
+    expect(document.getElementById(labelledBy)?.textContent).toBe('Connecting to Swarm ID');
   });
 
   it('stays over the loading frame until the frame is ready, then goes, leaving the frame in the same place', async () => {

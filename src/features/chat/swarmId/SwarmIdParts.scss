@@ -102,8 +102,10 @@
   }
 }
 
-// The placeholder shows the wait, so the words are for a screen reader, and the layout does not move when they go.
-.swarm-id-status {
+// The placeholder shows the wait, so the words naming it are for a screen reader, and the layout does not move when
+// they go. The live region stays mounted between them, since a region added together with its words is often not read.
+.swarm-id-status,
+.swarm-id-spoken {
   @include visually-hidden.visually-hidden;
 }
 
