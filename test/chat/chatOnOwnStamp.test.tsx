@@ -304,24 +304,25 @@ describe('a chat paid for with my own stamp', () => {
     expect(button('Change stamp in Swarm ID')).toBeTruthy();
   });
 
-  it('opens the Swarm ID window from the warning, says when it was blocked, and lifts the hold once a stamp is picked there', async () => {
+  it("opens the Swarm ID window from Swarm ID's button in the warning, says when it was blocked, and lifts the hold once a stamp is picked there", async () => {
     chatOnMyBeeNode();
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     const swarmId = await watchPage({ ...BATCH, utilization: 1 });
     swarmId.client().nextWindow = 'blocked';
 
     click(button('Change stamp in Swarm ID'));
-    await settle();
+    expect(swarmId.client().shownButton().action).toBe('change-stamp');
     expect(chatRegion()?.textContent).toContain('Your browser blocked the Swarm ID window.');
+    expect(queryButton('Open Swarm ID')).toBeNull();
 
     swarmId.client().nextWindow = 'opens';
-    click(button('Open Swarm ID'));
-    await settle();
+    click(button('Change stamp in Swarm ID'));
     swarmId.client().pickStamp({ ...BATCH, label: 'A new stamp' });
     await settle();
     await settle();
 
-    expect(swarmId.client().connectCalls).toBe(2);
+    expect(swarmId.client().windowsOpened).toBe(1);
+    expect(swarmId.client().connectCalls).toBe(0);
     expect(chatRegion()?.textContent).not.toContain('Your stamp ran out.');
     expect(chatRegion()?.textContent).not.toContain('Your browser blocked the Swarm ID window.');
     expect(seen.chatStamp?.warning, 'nothing holds a message any more').toBeNull();

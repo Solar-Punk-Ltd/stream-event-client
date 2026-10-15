@@ -3,7 +3,6 @@ import { createElement, type ReactNode } from 'react';
 import { AppContextProvider, useAppContext } from '../../src/app/AppProvider';
 import { ThemeChoiceProvider } from '../../src/app/ThemeChoiceProvider';
 import type { RuntimeConfig } from '../../src/config/runtimeConfig';
-import { SwarmIdPageNotice } from '../../src/features/chat/swarmId/SwarmIdParts';
 import { AppChatUserProvider } from '../../src/app/AppChatUserProvider';
 import { ChatStampProvider, useChatStamp } from '../../src/features/chat/stamp/ChatStamp';
 import { useChatUser } from '../../src/features/chat/User';
@@ -65,7 +64,7 @@ interface ConnectPageOptions {
   readonly children?: readonly ReactNode[];
 }
 
-/** The page's header as the app builds it: Connect and the blocked line under it, in every provider the app has. */
+/** The page's header as the app builds it: Connect, in every provider the app has. */
 export function connectPage({
   config = chatConfig(),
   swarmId = null,
@@ -90,7 +89,6 @@ export function connectPage({
               ChatStampProvider,
               null,
               createElement(Connect, { key: 'connect' }),
-              createElement(SwarmIdPageNotice, { key: 'notice' }),
               createElement(Probe, { key: 'probe' }),
               ...children,
             ),

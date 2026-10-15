@@ -55,11 +55,54 @@ export interface SwarmIdStampedChunk {
   readonly signature?: string;
 }
 
+/** What a click on Swarm ID's button does: sign in, or, for a viewer signed in, pick the stamp this site uses. */
+export type SwarmIdButtonAction = 'sign-in' | 'change-stamp';
+
+/**
+ * How Swarm ID's button looks and reads. It is painted in Swarm ID's own frame, where this page's stylesheet cannot
+ * reach, so the look is handed over as values. Colours, sizes and the radius are CSS values, and the typeface is a CSS
+ * font-family that falls back to the first family the frame has, not the page.
+ */
+export interface SwarmIdButtonConfig {
+  readonly text?: string;
+  readonly busyText?: string;
+  readonly ariaLabel?: string;
+  readonly disabled?: boolean;
+  readonly busy?: boolean;
+  readonly backgroundColor?: string;
+  readonly color?: string;
+  readonly borderRadius?: string;
+  readonly fontFamily?: string;
+  readonly fontSize?: string;
+  readonly fontWeight?: string | number;
+}
+
+/** Where the window a click on Swarm ID's button opened is. `blocked`: the browser refused to open it. */
+export type SwarmIdWindowState = 'open' | 'closed' | 'blocked';
+
+export interface SwarmIdButtonOptions {
+  readonly action: SwarmIdButtonAction;
+  readonly config?: SwarmIdButtonConfig;
+  readonly onWindowChange?: (state: SwarmIdWindowState) => void;
+}
+
+/** A Swarm ID button shown in a container of this page. Taking it away leaves the session as it is. */
+export interface SwarmIdMountedButton {
+  /** Resolves once the button shows, and rejects when Swarm ID refuses its frame or it does not answer in time. */
+  readonly ready: Promise<void>;
+  update(next: { action?: SwarmIdButtonAction; config?: SwarmIdButtonConfig }): void;
+  unmount(): void;
+}
+
 export interface SwarmIdClient {
   /** Embeds the Swarm ID site's hidden frame and restores the session it keeps for this site, if any. */
   initialize(): Promise<void>;
-  /** Opens the Swarm ID window. Called from a click, or the browser blocks the window. */
-  connect(): Promise<void>;
+  /**
+   * Shows Swarm ID's button, a small frame of the Swarm ID site that fills the container. The click on it opens the
+   * Swarm ID window, which is the only way a site on another site than Swarm ID can sign in, since the browser keeps
+   * Swarm ID's frames apart from its storage there. Throws before {@link initialize} has resolved.
+   */
+  mountButton(container: HTMLElement, options: SwarmIdButtonOptions): SwarmIdMountedButton;
   /** Ends the session for this site, so a reload does not restore it. */
   disconnect(): Promise<void>;
   /** This site's chat key, which the frame gives only to a signed-in session. */
@@ -91,13 +134,6 @@ export interface SwarmIdClientOptions {
 }
 
 export type LoadSwarmIdClient = (options: SwarmIdClientOptions) => Promise<SwarmIdClient>;
-
-/** The library's error code for a window the browser refused to open. */
-const POPUP_BLOCKED = 'popup-blocked';
-
-export function isWindowBlocked(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === POPUP_BLOCKED;
-}
 
 /** The library is a file of the bundle of its own, fetched only by a deployment that offers Swarm ID. */
 export const loadSwarmIdLibrary: LoadSwarmIdClient = async (options) =>

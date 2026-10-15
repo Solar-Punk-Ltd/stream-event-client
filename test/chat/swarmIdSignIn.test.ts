@@ -9,16 +9,11 @@ import {
   frameRefusedWarning,
   NO_CHAT_KEY,
   SIGN_IN_INCOMPLETE,
-  STAMP_WINDOW_BLOCKED,
-  STAMP_WINDOW_FAILED,
-  STAMP_WINDOW_OPENED,
-  SWARM_ID_BLOCKED,
   SWARM_ID_SIGNED_IN,
   SWARM_ID_SIGNED_OUT,
   SWARM_ID_UNAVAILABLE,
   type SwarmIdSignIn,
   type SwarmIdState,
-  WINDOW_FAILED,
 } from '../../src/features/chat/swarmId/swarmIdSignIn';
 import { ACCOUNT_MISMATCH, BINDING_REFUSED, chatNameOf } from '../../src/features/chat/swarmId/swarmIdSession';
 import {
@@ -166,20 +161,11 @@ describe('signing in with Swarm ID', () => {
     expect(signIn.getState()).toEqual({ status: SWARM_ID_SIGNED_OUT, problem: null });
   });
 
-  it('opens the Swarm ID window in the same call as the click, so the browser lets it open', async () => {
-    const swarmId = await fakeSwarmId();
-    const signIn = await started(swarmId);
-
-    signIn.signIn();
-    expect(swarmId.client().connectCalls).toBe(1);
-  });
-
   it("signs in with the site's chat key and the binding the window hands over, mapped to the chat's spelling", async () => {
     const swarmId = await fakeSwarmId();
     const signIn = await started(swarmId);
     const key = await chatKeyFor(BOUND_SITE);
 
-    signIn.signIn();
     swarmId.client().handOver(SIGNED_IN);
 
     expect(signedInSession(await until(signIn, SWARM_ID_SIGNED_IN))).toEqual({
@@ -194,7 +180,6 @@ describe('signing in with Swarm ID', () => {
   it('sends messages that carry the binding, through the gateway, and pass the check for this page', async () => {
     const swarmId = await fakeSwarmId();
     const signIn = await started(swarmId);
-    signIn.signIn();
     swarmId.client().handOver(SIGNED_IN);
 
     const { user, infra } = chatSettings(CHAT, 'stream-one', signedInSession(await until(signIn, SWARM_ID_SIGNED_IN)));
@@ -286,7 +271,7 @@ describe('signing in with Swarm ID', () => {
     const signIn = await started(swarmId);
 
     expect(signedInSession(await until(signIn, SWARM_ID_SIGNED_IN)).username).toBe('Ida');
-    expect(swarmId.client().connectCalls).toBe(0);
+    expect(swarmId.client().windowsOpened).toBe(0);
   });
 
   it('signs out through the library, and drops the key and the binding at once', async () => {
@@ -316,36 +301,6 @@ describe('signing in with Swarm ID', () => {
   });
 });
 
-describe('a blocked Swarm ID window', () => {
-  it('shows as blocked, and the button that retries opens the window from its own click', async () => {
-    const swarmId = await fakeSwarmId({}, (client) => {
-      client.nextWindow = 'blocked';
-    });
-    const signIn = await started(swarmId);
-
-    signIn.signIn();
-    await settled();
-    expect(signIn.getState()).toEqual({ status: SWARM_ID_BLOCKED });
-
-    swarmId.client().nextWindow = 'opens';
-    signIn.signIn();
-    expect(swarmId.client().connectCalls).toBe(2);
-    await settled();
-    expect(signIn.getState()).toEqual({ status: SWARM_ID_SIGNED_OUT, problem: null });
-  });
-
-  it('says the window did not open on any other failure, rather than failing quietly', async () => {
-    const swarmId = await fakeSwarmId();
-    const signIn = await started(swarmId);
-    swarmId.client().connect = () => Promise.reject(new Error('timeout'));
-
-    signIn.signIn();
-    await settled();
-
-    expect(signIn.getState()).toEqual({ status: SWARM_ID_SIGNED_OUT, problem: WINDOW_FAILED });
-  });
-});
-
 describe('a Swarm ID site that cannot be used', () => {
   it('is unavailable when the library cannot start, as for a site not on its allow list', async () => {
     const swarmId = await fakeSwarmId({}, (client) => {
@@ -354,8 +309,6 @@ describe('a Swarm ID site that cannot be used', () => {
     const signIn = await started(swarmId);
 
     expect(signIn.getState()).toEqual({ status: SWARM_ID_UNAVAILABLE });
-    signIn.signIn();
-    expect(swarmId.client().connectCalls).toBe(0);
   });
 
   it('warns once in the console, naming the two settings that must agree', async () => {
@@ -496,35 +449,6 @@ describe('the stamp Swarm ID gives this site', () => {
     expect(await signIn.getPostageBatch()).toBeUndefined();
     await expect(signIn.stampChunk(CHUNK)).rejects.toMatchObject({ code: 'not-authenticated' });
     expect(swarmId.client().stamped).toEqual([]);
-  });
-
-  it('opens the Swarm ID window again for a signed-in viewer, where the stamp is picked, and stays signed in', async () => {
-    const swarmId = await fakeSwarmId(SIGNED_IN);
-    const signIn = await started(swarmId);
-    await until(signIn, SWARM_ID_SIGNED_IN);
-
-    expect(await signIn.changeStamp()).toBe(STAMP_WINDOW_OPENED);
-    expect(swarmId.client().connectCalls).toBe(1);
-    expect(signIn.getState().status).toBe(SWARM_ID_SIGNED_IN);
-  });
-
-  it('says the browser blocked that window, and keeps the viewer signed in', async () => {
-    const swarmId = await fakeSwarmId(SIGNED_IN, (client) => {
-      client.nextWindow = 'blocked';
-    });
-    const signIn = await started(swarmId);
-    await until(signIn, SWARM_ID_SIGNED_IN);
-
-    expect(await signIn.changeStamp()).toBe(STAMP_WINDOW_BLOCKED);
-    expect(signIn.getState().status).toBe(SWARM_ID_SIGNED_IN);
-  });
-
-  it('opens no window to change the stamp while nobody is signed in', async () => {
-    const swarmId = await fakeSwarmId();
-    const signIn = await started(swarmId);
-
-    expect(await signIn.changeStamp()).toBe(STAMP_WINDOW_FAILED);
-    expect(swarmId.client().connectCalls).toBe(0);
   });
 
   it('names the stamp each report says this site uses, and none while it gives none or nobody is signed in', async () => {

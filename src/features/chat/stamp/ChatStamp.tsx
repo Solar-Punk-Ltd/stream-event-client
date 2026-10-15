@@ -5,7 +5,6 @@ import { useAppContext } from '@/app/AppProvider';
 import { pushStampedSocThroughWeeb3 } from '@/swarm/providers/weeb-3/weeb3Push';
 import { useConnect } from '@/features/connect/ConnectContext';
 
-import { STAMP_WINDOW_BLOCKED, STAMP_WINDOW_FAILED, STAMP_WINDOW_OPENED } from '../swarmId/swarmIdSignIn';
 import { useChatUser } from '../User';
 import type { OwnStampSetup } from '../useSwarmChat';
 
@@ -18,8 +17,6 @@ export const SITE_STAMP_READING = 'reading';
 export const SITE_STAMP_NONE = 'none';
 export const SITE_STAMP_UNREADABLE = 'unreadable';
 export const SITE_STAMP_READ = 'read';
-
-type StampWindowProblem = typeof STAMP_WINDOW_BLOCKED | typeof STAMP_WINDOW_FAILED;
 
 /** What the viewer knows of the stamp Swarm ID gives this site. */
 type SiteStampRead =
@@ -42,10 +39,6 @@ interface ChatStampValue {
   readonly siteStamp: SiteStampRead;
   /** The warning above the message field while the viewer's own stamp pays, or null. */
   readonly warning: StampWarning | null;
-  /** Opens the Swarm ID window again, where the viewer picks the stamp this site uses. Null while not signed in. */
-  readonly changeStampInSwarmId: (() => void) | null;
-  /** Why the last Swarm ID window opened to change the stamp did not show, or null. */
-  readonly stampWindowProblem: StampWindowProblem | null;
   /** How the chat sends, for the chat's settings. */
   readonly sending: ChatSending;
   /** What the chat needs to send on the viewer's own stamp, or null while the gateway pays. */
@@ -60,8 +53,6 @@ const GATEWAY_ONLY: ChatStampValue = {
   route: { ok: false, reason: '', hint: '' },
   siteStamp: { status: SITE_STAMP_NONE },
   warning: null,
-  changeStampInSwarmId: null,
-  stampWindowProblem: null,
   sending: GATEWAY_SENDING,
   ownStamp: null,
 };
@@ -86,14 +77,7 @@ const READ_AFTER_SEND_MS = 15_000;
  */
 export function ChatStampProvider({ children }: { readonly children: ReactNode }) {
   const { sources, parts, swarmSettings } = useAppContext();
-  const {
-    swarmIdSession,
-    getSiteStamp,
-    getSiteStampId,
-    changeStampInSwarmId: openSwarmIdWindow,
-    onSwarmIdConnectionChange,
-    stampChunk,
-  } = useChatUser();
+  const { swarmIdSession, getSiteStamp, getSiteStampId, onSwarmIdConnectionChange, stampChunk } = useChatUser();
   const { isOpen } = useConnect();
 
   const [siteStamp, setSiteStamp] = useState<SiteStampRead>({ status: SITE_STAMP_READING });
@@ -175,17 +159,11 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
     }
   }, [isOpen, readSiteStamp]);
 
-  const [stampWindowProblem, setStampWindowProblem] = useState<StampWindowProblem | null>(null);
-  if (!canUseOwnStamp && stampWindowProblem !== null) {
-    setStampWindowProblem(null);
-  }
   /**
-   * A report from Swarm ID means its window did its work, so the line saying it was blocked goes. A focus alone, such
-   * as a tab switch, only reads the stamp again and leaves that line in place. A report that names the same stamp
-   * again changes none of its figures, so it is read only when the stamp changed or the last read went unanswered.
+   * A report that names the same stamp again changes none of its figures, so it is read only when the stamp changed or
+   * the last read went unanswered.
    */
   const readReportedStamp = useCallback(() => {
-    setStampWindowProblem(null);
     if (getSiteStampId() !== shownStampId.current) {
       readSiteStamp();
     }
@@ -265,19 +243,6 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
     [ownStampPays, readAfterSend],
   );
 
-  const changeStampInSwarmId = useMemo(
-    () =>
-      canUseOwnStamp
-        ? () => {
-            setStampWindowProblem(null);
-            void openSwarmIdWindow().then((outcome) =>
-              setStampWindowProblem(outcome === STAMP_WINDOW_OPENED ? null : outcome),
-            );
-          }
-        : null,
-    [canUseOwnStamp, openSwarmIdWindow],
-  );
-
   const value = useMemo(
     () => ({
       canUseOwnStamp,
@@ -287,24 +252,10 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
       route,
       siteStamp,
       warning,
-      changeStampInSwarmId,
-      stampWindowProblem,
       sending,
       ownStamp,
     }),
-    [
-      canUseOwnStamp,
-      choice,
-      choosePayWith,
-      chooseOwnFeed,
-      route,
-      siteStamp,
-      warning,
-      changeStampInSwarmId,
-      stampWindowProblem,
-      sending,
-      ownStamp,
-    ],
+    [canUseOwnStamp, choice, choosePayWith, chooseOwnFeed, route, siteStamp, warning, sending, ownStamp],
   );
 
   return <ChatStampContext.Provider value={value}>{children}</ChatStampContext.Provider>;

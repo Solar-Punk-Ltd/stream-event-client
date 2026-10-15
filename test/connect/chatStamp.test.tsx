@@ -171,17 +171,18 @@ describe('the chat stamp in Connect', () => {
     expect(seen.chatStamp?.sending).toMatchObject({ ownFeed: true });
   });
 
-  it('says when Swarm ID has given this site no stamp, and offers to choose one there', async () => {
+  it("says when Swarm ID has given this site no stamp, and offers to choose one there with Swarm ID's button", async () => {
     chatOnMyBeeNode();
-    await openConnect(null);
+    const swarmId = await openConnect(null);
     click(radio('My stamp')!);
     await settle();
 
     expect(group()?.textContent).toContain('Swarm ID has given this site no stamp yet.');
-    expect(button('Choose a stamp in Swarm ID')).toBeTruthy();
+    expect(button('Choose a stamp in Swarm ID')).toBe(swarmId.client().shownButton().element);
+    expect(swarmId.client().shownButton().action).toBe('change-stamp');
   });
 
-  it('opens the Swarm ID window again while signed in, and shows the stamp picked there at once', async () => {
+  it("opens the Swarm ID window again from Swarm ID's button while signed in, and shows the stamp picked there at once", async () => {
     chatOnMyBeeNode();
     const opened = vi.spyOn(window, 'open');
     const swarmId = await openConnect();
@@ -190,7 +191,9 @@ describe('the chat stamp in Connect', () => {
 
     click(button('Change stamp in Swarm ID'));
     await settle();
-    expect(swarmId.client().connectCalls).toBe(1);
+    expect(swarmId.client().shownButton().action).toBe('change-stamp');
+    expect(swarmId.client().windowsOpened).toBe(1);
+    expect(swarmId.client().connectCalls, 'the page opens no window of its own').toBe(0);
     expect(opened, 'the library opens its own window, never the Apps screen').not.toHaveBeenCalled();
 
     swarmId.client().pickStamp({ ...BATCH, label: 'Another stamp', utilization: 0.1 });
@@ -202,7 +205,7 @@ describe('the chat stamp in Connect', () => {
     expect(seen.chatUser?.swarmIdSession, 'still signed in').toBeTruthy();
   });
 
-  it('chooses a stamp in the same window for a site with none, which clears the warning at once', async () => {
+  it('chooses a stamp in the same window for a site with none, which clears the warning and relabels the button in place', async () => {
     chatOnMyBeeNode();
     const swarmId = await openConnect(null);
     click(radio('My stamp')!);
@@ -215,12 +218,15 @@ describe('the chat stamp in Connect', () => {
     await settle();
     await settle();
 
-    expect(swarmId.client().connectCalls).toBe(1);
+    expect(swarmId.client().windowsOpened).toBe(1);
     expect(group()?.textContent).toContain('Event chat');
     expect(seen.chatStamp?.warning).toBeNull();
+    const shown = swarmId.client().shownButton();
+    expect(shown.element.textContent).toBe('Change stamp in Swarm ID');
+    expect(swarmId.client().buttons, 'one button, relabelled rather than mounted again').toEqual([shown]);
   });
 
-  it('says when the browser blocked that window, and opens it from the button on that line', async () => {
+  it('says when the browser blocked that window, and that the button opens it once pop-ups are allowed', async () => {
     chatOnMyBeeNode();
     const swarmId = await openConnect();
     click(radio('My stamp')!);
@@ -228,26 +234,9 @@ describe('the chat stamp in Connect', () => {
     swarmId.client().nextWindow = 'blocked';
 
     click(button('Change stamp in Swarm ID'));
-    await settle();
     expect(group()?.textContent).toContain('Your browser blocked the Swarm ID window.');
+    expect(group()?.textContent).toContain('Allow pop-ups for this site, then press the button again.');
     expect(seen.chatUser?.swarmIdSession, 'a blocked window signs nobody out').toBeTruthy();
-
-    swarmId.client().nextWindow = 'opens';
-    click(button('Open Swarm ID'));
-    await settle();
-    expect(swarmId.client().connectCalls).toBe(2);
-    expect(group()?.textContent).not.toContain('Your browser blocked the Swarm ID window.');
-  });
-
-  it('keeps the blocked window line through a tab switch, and drops it on a new Swarm ID report', async () => {
-    chatOnMyBeeNode();
-    const swarmId = await openConnect();
-    click(radio('My stamp')!);
-    await settle();
-    swarmId.client().nextWindow = 'blocked';
-    click(button('Change stamp in Swarm ID'));
-    await settle();
-    expect(group()?.textContent).toContain('Your browser blocked the Swarm ID window.');
 
     window.dispatchEvent(new Event('focus'));
     await settle();
@@ -255,9 +244,10 @@ describe('the chat stamp in Connect', () => {
       'Your browser blocked the Swarm ID window.',
     );
 
-    swarmId.client().pickStamp(BATCH);
-    await settle();
-    expect(group()?.textContent, 'a new report').not.toContain('Your browser blocked the Swarm ID window.');
+    swarmId.client().nextWindow = 'opens';
+    click(button('Change stamp in Swarm ID'));
+    expect(swarmId.client().windowsOpened).toBe(1);
+    expect(group()?.textContent).not.toContain('Your browser blocked the Swarm ID window.');
   });
 
   it('reads the figures again on a report only when the stamp Swarm ID names for this site changed', async () => {

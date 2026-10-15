@@ -1,7 +1,8 @@
 import { MessageVia } from '@solarpunkltd/swarm-chat-js/message';
 
 import { SITE_STAMP_NONE, useChatStamp } from '@/features/chat/stamp/ChatStamp';
-import { SwarmIdStampWindowNotice } from '@/features/chat/swarmId/SwarmIdParts';
+import { SwarmIdButton } from '@/features/chat/swarmId/SwarmIdParts';
+import { SWARM_ID_BUTTON_COMPACT } from '@/features/chat/swarmId/swarmIdButtonLook';
 import { useConnect } from '@/features/connect/ConnectContext';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 
@@ -13,8 +14,8 @@ import './StampWarningBar.scss';
  * button the viewer presses. Nothing here moves a message to the gateway by itself.
  */
 export function StampWarningBar() {
-  const { warning, route, siteStamp, changeStampInSwarmId, choosePayWith } = useChatStamp();
-  const { open: openConnect, isOpen: isConnectOpen } = useConnect();
+  const { warning, route, siteStamp, canUseOwnStamp, choosePayWith } = useChatStamp();
+  const { open: openConnect } = useConnect();
   if (!warning) {
     return null;
   }
@@ -29,14 +30,12 @@ export function StampWarningBar() {
             Open Connect
           </Button>
         ) : (
-          changeStampInSwarmId && (
-            <Button
-              variant={warning.blocksSending ? ButtonVariant.PRIMARY : ButtonVariant.SECONDARY}
-              className="stamp-warning-button"
-              onClick={changeStampInSwarmId}
-            >
-              {siteStamp.status === SITE_STAMP_NONE ? 'Choose a stamp in Swarm ID' : 'Change stamp in Swarm ID'}
-            </Button>
+          canUseOwnStamp && (
+            <SwarmIdButton
+              action="change-stamp"
+              text={siteStamp.status === SITE_STAMP_NONE ? 'Choose a stamp in Swarm ID' : 'Change stamp in Swarm ID'}
+              size={SWARM_ID_BUTTON_COMPACT}
+            />
           )
         )}
         {warning.blocksSending && (
@@ -49,7 +48,6 @@ export function StampWarningBar() {
           </Button>
         )}
       </div>
-      {!isConnectOpen && <SwarmIdStampWindowNotice />}
     </div>
   );
 }

@@ -172,7 +172,8 @@ section counts the entries it did not show in its `data-hidden-copies` attribute
 ### Signing in with Swarm ID
 
 Connect offers two ways in. **Chat as guest** takes a name, as above. **Sign in with Swarm ID**
-opens the Swarm ID window, which the Swarm ID site draws, not this page. The person picks an account
+is Swarm ID's own button, a small frame of the Swarm ID site in Connect, and its click opens the Swarm ID window,
+which the Swarm ID site draws, not this page. The person picks an account
 there, or makes one. The ID then gives this site its chat key for that account and a chat binding, the
 account's signed statement that the key's address on this site is its own. Every message is signed
 with that key and carries the binding, so every reader shows the Swarm ID badge. The page never
@@ -205,8 +206,23 @@ stamps them, unless the person picks their own stamp, as the next section says.
   storage. A reload asks the Swarm ID library, whose frame keeps its own session for this site and
   signs the person in again without a window. When that session has ended, the person signs in again
   and the window opens again. Sign out ends that session too, so a reload does not restore it.
-- **A blocked window.** A browser opens the window only on a click. When it blocks it anyway, the page
-  says "Your browser blocked the Swarm ID window." with an Open Swarm ID button, whose click opens it.
+- **Why the button is Swarm ID's own.** The viewer and the Swarm ID site are on different sites, so the browser keeps
+  Swarm ID's frames in this page apart from the Swarm ID site's own storage, as Chrome does. The session reaches such
+  a frame only from a window a Swarm ID frame opened itself, and a frame may open a window only after a click inside
+  it. A window the page opened from a button of its own would end on Swarm ID's "Connected" with this site still
+  signed out, so the page has no button of its own for it and never opens the window. The library's `mountButton`
+  shows the button, in a container the page sizes, and the page hands it the label in the design's words and the look
+  of its primary button in the theme it wears: the primary colour, the colour on it, its corner radius, the theme's
+  typeface, size and weight. A viewer's theme switch changes the button in place. The typeface is named, but the
+  frame draws it only when the viewer's device has it, since the page's bundled fonts do not reach Swarm ID's frame,
+  and it falls back to the frame's own otherwise. The button is mounted once for as long as it is shown. Closing
+  Connect takes it away and leaves the session as it is.
+  Before Swarm ID has started, its place says "Connecting to Swarm ID". When Swarm ID refuses the button, or it does
+  not answer in time, its place says "Swarm ID cannot be reached right now." and the console warns as for a Swarm ID
+  that does not start, and a viewer already signed in stays so.
+- **A blocked window.** The click is Swarm ID's own, so a browser opens the window unless it blocks pop-ups outright.
+  When it does, the line under the button says "Your browser blocked the Swarm ID window. Allow pop-ups for this
+  site, then press the button again." The page has no window of its own to offer instead.
 - **A binding the chat would refuse** is refused at sign-in rather than at every message: one made for
   another site, naming another address than the key's, or signed by another account than the one the
   frame says is signed in, leaves the person signed out with the reason.
@@ -257,26 +273,26 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   valid push slower than a minute is reported as refused, the node is let go, and weeb-3 may still deliver the
   message later, when the chat reads it back.
 - **The stamp's figures.** With My stamp picked, Connect shows the site's stamp: its name, how full it is, its days
-  left, and **Change stamp in Swarm ID**, which opens the Swarm ID sign-in window again while the viewer stays
-  signed in (the library's `connect()`). The window shows the person's stamps, the person picks one for this site,
+  left, and **Change stamp in Swarm ID**, Swarm ID's button again, whose click opens the Swarm ID sign-in window
+  while the viewer stays signed in (the button's `change-stamp` action). The window shows the person's stamps, the person picks one for this site,
   and Swarm ID hands it to the open page at once and reports the session again (`onConnectionChange`) with the id
   of the stamp the site now uses (`postageBatchId`). When that id changed, the viewer reads the new stamp's figures
   with `getPostageBatch` straight away, with no reload, and a report naming the same stamp reads nothing. A browser
-  that blocks that window gets the same line as a blocked sign-in, with a button that opens it. The figures are also
+  that blocks that window gets the same line as a blocked sign-in, under the button. The figures are also
   read when the person signs in, when Connect opens, when the page comes back into focus, and after messages sent, at
   most every 15 seconds. **A known limit:** a stamp changed directly on Swarm ID's own Apps screen, rather than
   through this button, reaches an open viewer on another domain only at its next sign-in with Swarm ID, so until
   then the viewer may show the old stamp's figures. A report with no stamp id means Swarm ID gives this site no
   stamp, and the page shows that at once without reading. Every sign-in starts that way until the person confirms a
   stamp with Go to app in the Swarm ID window, so Connect says "Swarm ID has given this site no stamp yet. Choose
-  one and confirm it in the Swarm ID window." and offers Choose a stamp in Swarm ID, which opens the same window.
+  one and confirm it in the Swarm ID window." and the same button reads Choose a stamp in Swarm ID until it has one.
 - **Warnings above the message field.** At 80% used, or 3 days left, the field says how much is used and when it
-  runs out, offers Change stamp in Swarm ID, and sending goes on. When the stamp ran out or is not usable yet, the
-  field says so, sending is held with what was typed kept, and two buttons offer Change stamp in Swarm ID and Let
-  the gateway pay. When Swarm ID gives this site no stamp the first button reads Choose a stamp in Swarm ID. When
+  runs out, offers Change stamp in Swarm ID, Swarm ID's button, and sending goes on. When the stamp ran out or is not
+  usable yet, the field says so, sending is held with what was typed kept, and two buttons offer Change stamp in Swarm
+  ID and Let the gateway pay. When Swarm ID gives this site no stamp the first button reads Choose a stamp in Swarm ID. When
   the source picked for Chat history cannot send on the stamp, the field says why, sending is held, and the buttons
-  are Open Connect and Let the gateway pay. A Swarm ID window the browser blocked adds its own line under the
-  warning, with a button that opens it.
+  are Open Connect and Let the gateway pay. A Swarm ID window the browser blocked adds its own line under Swarm ID's
+  button there.
 - **Also write my own feed.** Off by default, and offered only with My stamp. With it on, every message is first
   copied into the sender's own feed, `ownFeedTopic(chatTopic)` from swarm-chat-js under the chat key's address,
   one entry per message at the next index, stamped by Swarm ID too, and only then sent, so a message that says
@@ -291,9 +307,10 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
 
 **How the page talks to Swarm ID.** The library, `@solarpunkltd/swarm-id` from the Solar Punk fork, is a file
 of the bundle of its own, fetched when the page starts on a deployment that offers Swarm ID, because
-restoring a session needs it. It embeds a hidden frame of the Swarm ID site, which is why the image's
-`SWARM_ID_URL` adds that site to the policy's `frame-src`, and talks to it with `postMessage`. The
-window is a window of its own, opened by the frame or by the page, which the policy does not govern.
+restoring a session needs it. It embeds a hidden frame of the Swarm ID site, and Swarm ID's button is a second,
+visible frame of the same site, which is why the image's `SWARM_ID_URL` adds that site to the policy's `frame-src`,
+and talks to both with `postMessage`. The window is a window of its own, opened by the button's frame, which the
+policy does not govern.
 `config.json` is mounted rather than written by the image, so the site is named twice, and
 `SWARM_ID_URL` and `swarmId.url` must be the identical origin. When they differ the policy refuses the
 frame, the page offers no sign-in, and the console warns once, naming both settings. It warns the same
@@ -325,7 +342,8 @@ it, or run the image below, which does both.
 The other scripts: `pnpm test` (vitest), `pnpm lint` (oxlint), `pnpm typecheck`, `pnpm format` and
 `pnpm format:check` (oxfmt). `pnpm e2e` builds the app and runs the browser journeys in Playwright:
 a replayed recording, the theme switcher on that recording, Connect, the weeb-3 journeys, chat messages on the
-viewer's own stamp against a fake Swarm ID site on that recording, through a Bee node and through a fake Weeb3, and real hls.js against a fake gateway publishing a live stream in four
+viewer's own stamp against a fake Swarm ID site on that recording, through a Bee node and through a fake Weeb3, signing
+in and changing the stamp through that site's button frame, and real hls.js against a fake gateway publishing a live stream in four
 qualities, each answer held back 650 ms. The first run downloads the Chromium build Playwright pins.
 Beyond that they need no Bee node and no network, and they print their timings and read rates
 without asserting them. Continuous integration runs the format check, lint, typecheck, tests, build and `pnpm e2e` on every
@@ -420,7 +438,7 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 - **Content security policy.** The page may reach its own origin, every https address, a Bee node on
   the viewer's own machine at any port, secure websockets for weeb-3, and the plain http addresses the
   image's settings name, as "What the page may reach" says. With `SWARM_ID_URL` set it may also frame
-  that one site, for the hidden frame the Swarm ID library talks to, and frame nothing else. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
+  that one site, for the hidden frame the Swarm ID library talks to and Swarm ID's button, and frame nothing else. Inline styles are allowed because the emoji picker writes its own, and blob URLs because the
   player plays through them, which is also why no gateway is named as a media source. Blob URLs are
   media, image and worker sources only, never a place the page connects to: hls.js reads a playlist
   with a request, so a stream card hands it its preview playlist from memory rather than as a blob.
