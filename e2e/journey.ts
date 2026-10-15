@@ -119,7 +119,11 @@ async function allEmojiCloseShows(page: Page, chat: Locator): Promise<void> {
   await expect(close, 'the expanded picker has its close button').toBeVisible();
   const picker = chat.locator('.reaction-toolbar .EmojiPickerReact');
   await expect(picker.locator('input'), 'the expanded picker shows its search').toBeVisible();
-  const [closeBox, pickerBox, chatBox] = await Promise.all([close.boundingBox(), picker.boundingBox(), chat.boundingBox()]);
+  const [closeBox, pickerBox, chatBox] = await Promise.all([
+    close.boundingBox(),
+    picker.boundingBox(),
+    chat.boundingBox(),
+  ]);
   if (!closeBox || !pickerBox || !chatBox) {
     throw new Error('the picker, its close button or the chat has no box');
   }
