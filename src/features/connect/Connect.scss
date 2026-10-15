@@ -1,20 +1,12 @@
 @use '@/design/media';
+@use '@/design/visually-hidden';
 
 // Connect as the design draws it: groups under small capital labels, one hairline between them, rows in one
 // outlined list, the checks as marked lines. Its controls are smaller than a page's, with a finger's worth on a
 // touch screen.
 
-@mixin visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 .connect-visually-hidden {
-  @include visually-hidden;
+  @include visually-hidden.visually-hidden;
 }
 
 // The header's trigger: the chat name with its badge, or Connect. The name gives way to the ellipsis, so the badge
