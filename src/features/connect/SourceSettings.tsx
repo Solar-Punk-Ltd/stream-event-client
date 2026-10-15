@@ -57,9 +57,15 @@ export function SourceSettings({ source, status, onRemoved }: SourceSettingsProp
   );
 
   const test = () => {
-    if (!hasAddress(source.type) && !holdsNode.current) {
-      holdsNode.current = true;
-      client.start().catch(() => undefined);
+    if (!hasAddress(source.type)) {
+      if (!holdsNode.current) {
+        holdsNode.current = true;
+        client.start().catch(() => undefined);
+      } else if (client.status().state === 'failed') {
+        // One hold given back and one taken, so these settings still hold the node once.
+        void client.stop();
+        client.start().catch(() => undefined);
+      }
     }
     void run(source, client);
   };

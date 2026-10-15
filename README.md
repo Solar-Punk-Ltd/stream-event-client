@@ -603,7 +603,8 @@ once and is kept in the browser, and nothing switches a source by itself.
   light check's time until then. A source the event offers says "Offered by this event. It cannot be changed or
   removed." and its fields are read only. An added source's name can be changed, its address cannot, and Remove takes
   it out, every part that read from it moving to the default gateway. Weeb3's settings show its peers, its network
-  and the weeb-3 build. Copy diagnostics is there for every source.
+  and the weeb-3 build, and its Test connection starts a node that failed once more. Copy diagnostics is there for
+  every source.
 - **No fallback.** A part reads from the source picked for it and from nothing else, whatever that source answers.
   The player's own retries ask the same source again.
 - **A source that fails.** When a part's reads, or the segments and pictures loaded for it, have had no answer it can use for 10 s, a bar under the header says

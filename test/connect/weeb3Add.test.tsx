@@ -2,6 +2,7 @@
 import { ChunkBuilder, Span } from '@ethersphere/bee-js';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { saveAddedSources } from '../../src/app/sourceStorage';
 import { sharedWeeb3Runtime } from '../../src/swarm/providers/weeb-3/weeb3Runtime';
 import { button, click, dialog, doubleClick, type Mounted, settle, text, waitFor } from '../helpers/dom';
 import { connectPage, seen } from '../helpers/connectPage';
@@ -198,5 +199,25 @@ describe('adding the node in this browser', () => {
     node.peers = 25;
 
     await waitFor(() => (button('Add Weeb3').disabled ? null : true), 200);
+  });
+});
+
+describe("an added node's settings", () => {
+  it('start the node again on Test connection after it failed, while the settings already hold it', async () => {
+    fakeWeeb3.current = (await import('../helpers/fakeWeeb3')).fakeWeeb3Package({ initFails: true });
+    saveAddedSources([{ id: 'added-1', type: 'weeb-3', name: 'Weeb3', url: '' }]);
+    mounted = connectPage();
+    await settle();
+    click(button('Connect'));
+    click(button('Settings of Weeb3'));
+    click(button('Test connection'));
+    await waitFor(() => (sharedWeeb3Runtime().status().state === 'failed' ? true : null), 200);
+
+    fakeWeeb3.current = (await import('../helpers/fakeWeeb3')).fakeWeeb3Package();
+    click(button('Test connection'));
+    const node = await waitFor(() => fakeWeeb3.current!.nodes[0], 200);
+    node.peers = 25;
+
+    await waitFor(() => (sharedWeeb3Runtime().status().state === 'ready' ? true : null), 200);
   });
 });
