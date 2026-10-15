@@ -95,6 +95,17 @@ async function anAsset(base) {
   return match[1];
 }
 
+// A font file of the bundle, read from the stylesheet the page names, since its name is a content hash too.
+async function aFontFile(base) {
+  const html = await (await get(`${base}/`)).text();
+  const sheet = html.match(/href="\.?\/?(assets\/[^"]+\.css)"/);
+  assert.ok(sheet, `the page names no stylesheet:\n${html}`);
+  const css = await (await get(`${base}/${sheet[1]}`)).text();
+  const font = css.match(/([\w.-]+\.woff2)/);
+  assert.ok(font, 'the stylesheet names no woff2 file');
+  return `assets/${font[1]}`;
+}
+
 function policyOf(response) {
   const policy = response.headers.get('content-security-policy');
   assert.ok(policy, 'the answer carries a content security policy');
@@ -161,6 +172,14 @@ void describe('proxy mode, the default', () => {
     assert.equal((await get(`${base}/assets/not-there.js`)).status, 404);
   });
 
+  void it('serves a font file of the bundle with no CORS header, since no Swarm ID site is set', async () => {
+    const response = await get(`${base}/${await aFontFile(base)}`, { headers: { Origin: SWARM_ID } });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('access-control-allow-origin'), null);
+    assert.equal(response.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+    policyOf(response);
+  });
+
   void it('forwards reads at /bee to the gateway and refuses writes', async () => {
     // Nothing listens at the gateway address, so a forwarded read fails upstream rather than serving the page.
     assert.equal((await get(`${base}/bee/health`)).status, 502);
@@ -188,6 +207,16 @@ void describe('proxy mode with SWARM_ID_URL', () => {
     assert.equal(read.headers.get('access-control-allow-origin'), SWARM_ID);
     assert.equal(read.headers.get('access-control-expose-headers'), '*');
     policyOf(read);
+  });
+
+  void it("lets the Swarm ID site fetch the bundle's font files, which its button frame loads, and no other file", async () => {
+    const font = await get(`${base}/${await aFontFile(base)}`, { headers: { Origin: SWARM_ID } });
+    assert.equal(font.status, 200);
+    assert.equal(font.headers.get('access-control-allow-origin'), SWARM_ID);
+    assert.equal(font.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+    policyOf(font);
+    const script = await get(`${base}/${await anAsset(base)}`, { headers: { Origin: SWARM_ID } });
+    assert.equal(script.headers.get('access-control-allow-origin'), null);
   });
 
   void it('answers a preflight for GET itself, and still refuses writes', async () => {

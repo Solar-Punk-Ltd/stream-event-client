@@ -369,15 +369,15 @@ docker run -p 8080:80 \
   stream-event-client
 ```
 
-| Setting              | What it is                                                                                                                                                                                                        |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GATEWAY_MODE`       | `proxy`, the default: the page reads the gateway at `/bee` on its own origin, so `config.json` names `/bee` as `gatewayUrl`. `direct`: the page reads the gateway at its own address, which `config.json` names   |
-| `BEE_GATEWAY_URL`    | Required. The gateway's address, with no path. In proxy mode `/bee` forwards to it. In direct mode the page reads it, which the policy allows at https, and names at plain http                                   |
-| `CHAT_READ_URL`      | The chat's read endpoint, the same as `chat.readUrl` in `config.json`. Checked at start, and named in the policy when it is plain http. Leave it out when there is no chat                                        |
-| `CHAT_WRITE_URL`     | The chat's write endpoint, the same as `chat.writeUrl`, checked and allowed the same way. The one `CHAT_BEE_URL` of before stops the container                                                                    |
-| `EXTRA_GATEWAY_URLS` | Optional. The addresses of the further gateways `config.json` offers in `providers.gateways`, separated by spaces, each with no path. Checked at start, and the plain http ones named in the policy               |
-| `SWARM_ID_URL`       | Optional. The Swarm ID site, the identical origin to `swarmId.url` in `config.json`, which the page is then allowed to frame, and which may then read `/bee` in proxy mode. Leave it out when there is no sign-in |
-| `config.json`        | Mounted over the image's example at `/usr/share/nginx/html/config.json`. Without it the page shows the example's placeholders as a configuration problem                                                          |
+| Setting              | What it is                                                                                                                                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GATEWAY_MODE`       | `proxy`, the default: the page reads the gateway at `/bee` on its own origin, so `config.json` names `/bee` as `gatewayUrl`. `direct`: the page reads the gateway at its own address, which `config.json` names                               |
+| `BEE_GATEWAY_URL`    | Required. The gateway's address, with no path. In proxy mode `/bee` forwards to it. In direct mode the page reads it, which the policy allows at https, and names at plain http                                                               |
+| `CHAT_READ_URL`      | The chat's read endpoint, the same as `chat.readUrl` in `config.json`. Checked at start, and named in the policy when it is plain http. Leave it out when there is no chat                                                                    |
+| `CHAT_WRITE_URL`     | The chat's write endpoint, the same as `chat.writeUrl`, checked and allowed the same way. The one `CHAT_BEE_URL` of before stops the container                                                                                                |
+| `EXTRA_GATEWAY_URLS` | Optional. The addresses of the further gateways `config.json` offers in `providers.gateways`, separated by spaces, each with no path. Checked at start, and the plain http ones named in the policy                                           |
+| `SWARM_ID_URL`       | Optional. The Swarm ID site, the identical origin to `swarmId.url` in `config.json`, which the page is then allowed to frame, and which may then read `/bee` in proxy mode and the bundle's font files. Leave it out when there is no sign-in |
+| `config.json`        | Mounted over the image's example at `/usr/share/nginx/html/config.json`. Without it the page shows the example's placeholders as a configuration problem                                                                                      |
 
 A setting that is missing or malformed stops the container at start, and its log says which one.
 `BEE_NODES` and `WEEB3`, which earlier images read, are no longer read, because the policy below now allows every
@@ -435,6 +435,9 @@ records the browser smoke test's answers, which is what a job with a Docker daem
 - **Caching.** The page is served `no-cache`, so a browser asks before reusing it after a deploy.
   `config.json` is served `no-store`. The bundle under `/assets/` is named by content hash and kept
   for a year.
+- **Font files for Swarm ID's button.** With `SWARM_ID_URL` set, the bundle's `.woff2` files answer with
+  `Access-Control-Allow-Origin` naming exactly that site, because Swarm ID's button frame loads the page's typeface
+  from its own origin. No other file gets the header, and without `SWARM_ID_URL` no file does.
 - **Content security policy.** The page may reach its own origin, every https address, a Bee node on
   the viewer's own machine at any port, secure websockets for weeb-3, and the plain http addresses the
   image's settings name, as "What the page may reach" says. With `SWARM_ID_URL` set it may also frame
