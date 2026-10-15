@@ -69,12 +69,12 @@ export const OWN_FEED_MARGIN = 25;
 export const MAX_OWN_FEED_ENTRIES = 1_000;
 
 /** How many own feed entries are read for a sender with `sentInChat` messages in the chat. */
-export function ownFeedCap(sentInChat: number): number {
+function ownFeedCap(sentInChat: number): number {
   return Math.min(sentInChat + OWN_FEED_MARGIN, MAX_OWN_FEED_ENTRIES);
 }
 
 /** Where the chat is read, and how each read is bounded. */
-export interface ChatWalkOptions {
+interface ChatWalkOptions {
   /** The chat's reader, on the source the viewer picked for the chat history. */
   readonly reads: () => ChatReads;
   readonly verify: MessageVerifier;
@@ -89,7 +89,7 @@ export interface ChatWalkOptions {
 /** Every message of the chat that passed the page's check, by its feed index. */
 export type WholeChat = ReadonlyMap<number, ChatMessage>;
 
-export interface CompareOwnFeedOptions extends ChatWalkOptions {
+interface CompareOwnFeedOptions extends ChatWalkOptions {
   /** The sender's chat address, 40 hex digits, which owns their own feed. */
   readonly sender: string;
   /** The chat as {@link readWholeChat} read it, for a caller that shares one walk between senders. Read here if absent. */
