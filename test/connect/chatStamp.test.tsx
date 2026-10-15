@@ -119,6 +119,7 @@ describe('the chat stamp in Connect', () => {
     expect(box).toContain('40 days left');
     expect(box).toContain('42% used');
     expect(group()?.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('42');
+    expect(radio('My stamp')?.closest('label')?.textContent).toContain('go out through your own Bee node');
   });
 
   it('offers my stamp with Weeb3 picked for the chat history, which sends the message itself', async () => {
@@ -133,6 +134,9 @@ describe('the chat stamp in Connect', () => {
     expect(seen.chatStamp?.route).toEqual({ ok: true, through: 'weeb-3' });
     expect(seen.chatStamp?.sending).toEqual({ via: MessageVia.OWN_STAMP, url: null, ownFeed: false });
     expect(seen.chatStamp?.warning).toBeNull();
+    const line = radio('My stamp')?.closest('label')?.textContent ?? '';
+    expect(line).toContain('go out through Weeb3, the Swarm node in this browser');
+    expect(line).not.toContain('Bee node');
   });
 
   it('starts another account on this browser on the gateway, whatever an earlier account picked', async () => {

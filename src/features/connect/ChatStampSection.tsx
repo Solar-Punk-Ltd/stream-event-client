@@ -17,6 +17,11 @@ const CHANGE_STAMP = 'Change stamp in Swarm ID';
 const CHOOSE_STAMP = 'Choose a stamp in Swarm ID';
 const UNNAMED_STAMP = 'Stamp for this site';
 
+const SENDS_THROUGH = {
+  'bee-node': 'your own Bee node',
+  'weeb-3': 'Weeb3, the Swarm node in this browser',
+} as const;
+
 /**
  * Who pays for the viewer's chat messages, between ID and Swarm access in Connect. The gateway pays by default, and
  * once signed in with Swarm ID the viewer may pick the stamp Swarm ID gives this site, which the chat's source must be
@@ -30,7 +35,7 @@ export function ChatStampSection() {
   const ownStampLine = !canUseOwnStamp
     ? SIGN_IN_FIRST
     : route.ok
-      ? "The stamp Swarm ID gives this site. Your messages go out through your own Bee node, without the event's gateway deciding."
+      ? `The stamp Swarm ID gives this site. Your messages go out through ${SENDS_THROUGH[route.through]}, without the event's gateway deciding.`
       : `${route.reason} ${route.hint}`;
 
   return (
