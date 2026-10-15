@@ -186,15 +186,14 @@ describe('a chat paid for with my own stamp', () => {
     expect(chatRegion()?.textContent).toContain(shown.text);
   });
 
-  it('signs every message on my stamp as keeping a copy, with nothing to switch on', async () => {
+  it('asks the chat to sign no own field on my stamp, whose copy is read from my own feed instead', async () => {
     chatOnMyBeeNode();
     await watchPage();
-    expect(FakeSwarmChat.latest().settings.infra.own, 'no copy while the gateway pays').toBeFalsy();
-
     await act(async () => seen.chatStamp?.choosePayWith(MessageVia.OWN_STAMP));
     await settle();
 
-    expect(FakeSwarmChat.latest().settings.infra).toMatchObject({ via: MessageVia.OWN_STAMP, own: true });
+    expect(FakeSwarmChat.latest().settings.infra.via).toBe(MessageVia.OWN_STAMP);
+    expect(FakeSwarmChat.latest().settings.infra).not.toHaveProperty('own');
   });
 
   it('shows a message Swarm ID would not stamp as not sent, with the reason, and sends it nowhere else', async () => {

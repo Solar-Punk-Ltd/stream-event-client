@@ -150,8 +150,8 @@ export function useSwarmChat(
   ownStamp: OwnStampSetup | null = null,
 ) {
   const settingsKey = JSON.stringify(settings);
-  // Who pays, where a message goes and whether it keeps a copy change how it is sent, not which chat is shown.
-  const { via: _via, writeUrl: _writeUrl, own: _own, ...where } = settings.infra;
+  // Who pays and where a message goes change how it is sent, not which chat is shown.
+  const { via: _via, writeUrl: _writeUrl, ...where } = settings.infra;
   const chatKey = JSON.stringify(where);
   const ownStampRef = useRef(ownStamp);
   ownStampRef.current = ownStamp;
@@ -179,7 +179,7 @@ export function useSwarmChat(
 
   useEffect(() => {
     const current = JSON.parse(settingsKey) as ChatSettings;
-    const { via: _currentVia, writeUrl: _currentWriteUrl, own: _currentOwn, ...currentWhere } = current.infra;
+    const { via: _currentVia, writeUrl: _currentWriteUrl, ...currentWhere } = current.infra;
     const currentChatKey = JSON.stringify(currentWhere);
     if (shownChatKeyRef.current !== currentChatKey) {
       shownChatKeyRef.current = currentChatKey;
