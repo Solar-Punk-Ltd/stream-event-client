@@ -226,9 +226,10 @@ stamps them, unless the person picks their own stamp, as the next section says.
   plain http elsewhere hands it none.
 - **The button is mounted once for as long as it is shown.** Closing Connect takes it away and leaves the session as
   it is.
-  Before Swarm ID has started, its place says "Connecting to Swarm ID". When Swarm ID refuses the button, or it does
-  not answer in time, its place says "Swarm ID cannot be reached right now." and the console warns as for a Swarm ID
-  that does not start, and a viewer already signed in stays so.
+  Before Swarm ID has started, its place is kept empty and says "Connecting to Swarm ID". When Swarm ID refuses the
+  button, or it does not answer within the library's 30 seconds, its place says "Swarm ID cannot be reached right
+  now." with Try again, which takes that button away and mounts a new one, and the console warns once as for a Swarm
+  ID that does not start. A viewer already signed in stays so. The button's label is also its accessible name.
 - **A blocked window.** The click is Swarm ID's own, so a browser opens the window unless it blocks pop-ups outright.
   When it does, the line under the button says "Your browser blocked the Swarm ID window. Allow pop-ups for this
   site, then press the button again." The page has no window of its own to offer instead.
