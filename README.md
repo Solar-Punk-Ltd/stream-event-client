@@ -683,7 +683,7 @@ controls the page, and counts as failed when it is not ready after 30 s.
 - **The video, in weeb-3's own player.** With weeb-3 as the video's source the watch page plays the stream with
   weeb-3's player, bare: a video element with the browser's controls and weeb-3's own choice of quality, from the
   newest entry for a live stream and the beginning for a finished one, and none of this app's overlays or `?level=`.
-  One quiet line under the player, never over the video,
+  The quality menu weeb-3 adds beside its video is hidden. One quiet line under the player, never over the video,
   shows the download, then the peers out of 200 with the same note under 200, until the node is ready, and says
   so again if it loses its peers. The stream is attached once the node is ready. Nothing replaces weeb-3's player: one whose node fails, or that cannot attach, says "The Swarm node in this browser could not play this stream." and stays. weeb-3's limits
   are its own: it plays about 16 s behind live, does not leave a quality that stopped, does not notice a broadcast

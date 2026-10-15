@@ -10,6 +10,11 @@
     max-height: 80vh;
     object-fit: contain;
   }
+
+  // weeb-3 adds its own quality menu beside the video it plays into, marked with this attribute.
+  [data-weeb3-hls-quality] {
+    display: none;
+  }
 }
 
 .own-player-status {
