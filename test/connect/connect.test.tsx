@@ -83,7 +83,7 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-describe("the header's connect button", () => {
+describe("the header's My Swarm button", () => {
   it('says My Swarm while the viewer is not chatting, and on a site with no chat', async () => {
     mounted = connectPage({ config: minimalConfig() });
     await settle();
@@ -110,6 +110,14 @@ describe('My Swarm', () => {
       'Use for',
     ]);
     expect(dialog()?.querySelector('h2')?.textContent).toBe('My Swarm');
+  });
+
+  it("names a chatting viewer once, in its ID, under the panel's own title", async () => {
+    persistUserSession(nicknameLogin('Ada'));
+    await openConnect();
+
+    expect(dialog()?.querySelector('h2')?.textContent).toBe('My Swarm');
+    expect(dialog()?.textContent?.split('Ada')).toHaveLength(2);
   });
 
   it('has no ID on a site with no chat', async () => {
