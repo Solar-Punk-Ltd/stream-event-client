@@ -15,7 +15,7 @@ interface OwnFeedPlaces {
   readonly writeAt: (index: number, payload: Uint8Array) => Promise<void>;
 }
 
-export interface OwnFeedCopies {
+interface OwnFeedCopies {
   /** The copy beside a message being sent: tried once per message, however often the chat sends it again. */
   copyBeside(id: string, payload: Uint8Array): Promise<CopyOutcome>;
   /** A copy the viewer asked for, tried again even when it was given up before. */

@@ -11,6 +11,7 @@ import type { Source } from '@/swarm/sources';
 import type { ChatReads } from '../chatParts';
 import { chatSettings } from '../chatSettings';
 import { useChatStamp } from '../stamp/ChatStamp';
+import { type OwnFeedChat, useShareOwnFeedChat } from '../stamp/OwnFeedChat';
 import { OwnFeedSourceProvider } from '../stamp/useOwnFeedComparison';
 import { useChatUser } from '../User';
 import { CHAT_LOADING, CHAT_UNREACHABLE, useSwarmChat, type VisibleMessage } from '../useSwarmChat';
@@ -68,8 +69,14 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
     fetchOlderMessages,
     retrySendMessage,
     restart,
+    copyToOwnFeed,
     refusedCount,
   } = useSwarmChat(settings, ownAddress, reads, ownStamp);
+  const ownFeedChat: OwnFeedChat | null = useMemo(
+    () => (ownStamp && ownAddress ? { source: ownFeedSource, sender: ownAddress, copy: copyToOwnFeed } : null),
+    [ownStamp, ownAddress, ownFeedSource, copyToOwnFeed],
+  );
+  useShareOwnFeedChat(ownFeedChat);
 
   const [threadId, setThreadId] = useState<string | null>(null);
   const [pendingReactions, setPendingReactions] = useState<PendingReactions>({});

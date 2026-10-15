@@ -10,6 +10,7 @@ import type { OwnStampSetup } from '../useSwarmChat';
 
 import { type ChatSending, GATEWAY_SENDING } from './chatSending';
 import { type ChatStampChoice, GATEWAY_PAYS, loadChatStampChoice, saveChatStampChoice } from './chatStampChoice';
+import { OwnFeedChatProvider } from './OwnFeedChat';
 import { type OwnStampRoute, ownStampRoute } from './ownStampRoute';
 import { type SiteStamp, siteStampOf, stampWarning, type StampWarning } from './siteStamp';
 
@@ -253,5 +254,9 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
     [canUseOwnStamp, choice, choosePayWith, route, siteStamp, warning, sending, ownStamp],
   );
 
-  return <ChatStampContext.Provider value={value}>{children}</ChatStampContext.Provider>;
+  return (
+    <ChatStampContext.Provider value={value}>
+      <OwnFeedChatProvider>{children}</OwnFeedChatProvider>
+    </ChatStampContext.Provider>
+  );
 }

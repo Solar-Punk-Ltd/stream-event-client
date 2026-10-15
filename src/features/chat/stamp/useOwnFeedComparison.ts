@@ -29,7 +29,7 @@ export const COUNTING = 'counting';
 export const COUNTED = 'counted';
 export const UNCOUNTABLE = 'uncountable';
 
-export type OwnFeedCount =
+type OwnFeedCount =
   | { readonly status: typeof COUNTING }
   | { readonly status: typeof COUNTED; readonly comparison: OwnFeedComparison }
   | { readonly status: typeof UNCOUNTABLE };
