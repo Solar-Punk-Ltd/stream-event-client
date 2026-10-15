@@ -506,8 +506,10 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   switched. When hls.js goes back to the old one before the new one plays, the new one stops instead.
   A switch asked before hls.js has reported its first quality is kept.
 - **A quality that stops.** A quality is judged by its own progress, never by comparing it with
-  another, because the qualities' feeds drift apart. A switch to a quality that has finished while
-  the playing one is live, or sits more than 30 seconds behind it, is refused. When the playing
+  another, because the qualities' feeds drift apart. A switch is refused to a quality that has
+  finished while the playing one is live, and to one still open whose newest segment sits more than
+  30 seconds behind the playing one's. When both have finished, as on a recording, no switch is
+  refused, because every quality of a recording is complete whatever its dates say. When the playing
   quality has had nothing new for 8 seconds, or finishes, the next lower quality is found and then
   read for three of its segments, never under 6 seconds: if it moves on, the player moves to it and drops the stopped one. There is no limit
   on how many are dropped: a quality refused at a switch is dropped too, and the player keeps moving on
@@ -527,7 +529,8 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   after another starts with all four. Past that, or for
   an older segment, a finished broadcast or a recording, the player handles the error as it always
   did: hls.js's own skip stands for a segment it gave up on, and a fatal network error restarts the
-  player. While another quality is left, a segment that failed to load is tried there instead and
+  player. A restart resumes a finished recording at the viewer's place, one segment further on each
+  time the same segment keeps failing, and rejoins a live stream at the live edge. While another quality is left, a segment that failed to load is tried there instead and
   nothing is marked. The playback quality panel counts each skipped segment once, under Segments
   Skipped, and not as a fatal error or a reconnect attempt.
 - **Where the video loads from.** Connect, the button in the header, is described below.

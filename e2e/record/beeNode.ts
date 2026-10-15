@@ -11,7 +11,7 @@ import { docker, ownContainerId } from './docker';
  * between them. One node pushes to nobody, so the released Bee program serves here, swapped into fdp-play's funded
  * queen image.
  */
-const BEE_VERSION = '2.8.2';
+const BEE_VERSION = '2.8.3';
 const FDP_PLAY_TAG = '2.6.0';
 const QUEEN_IMAGE = `fairdatasociety/fdp-play-queen:${FDP_PLAY_TAG}`;
 const CHAIN_IMAGE = 'fairdatasociety/fdp-play-blockchain';
