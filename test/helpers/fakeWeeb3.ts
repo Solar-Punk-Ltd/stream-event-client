@@ -56,6 +56,8 @@ export function fakeWeeb3Package(options: FakeWeeb3Options = {}): FakeWeeb3 {
       await options.onAttach?.(media);
     }
 
+    setStreamQuality(): void {}
+
     async postPushChunk(data: Uint8Array, soc: boolean, chunkAddress: Uint8Array, stamp: Uint8Array): Promise<string> {
       this.pushed.push({ data, soc, chunkAddress, stamp });
       return 'Upload result: success';

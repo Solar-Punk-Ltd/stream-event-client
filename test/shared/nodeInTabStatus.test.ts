@@ -37,11 +37,10 @@ describe('the node in this browser, in words', () => {
     expect(weeb3StatusWords(ready(200))).toBe('200 of 200 peers');
   });
 
-  it('adds one short note while the count is under the healthy one, and drops it there', () => {
+  it('adds one short note while the node connects, and none once it is ready', () => {
     expect(healthyPeersNote(connecting(0))).toBe('200 peers is the healthy target');
     expect(healthyPeersNote(connecting(1))).toBe('200 peers is the healthy target');
-    expect(healthyPeersNote(ready(88))).toBe('200 peers is the healthy target');
-    expect(healthyPeersNote(ready(200))).toBeNull();
+    expect(healthyPeersNote(ready(88))).toBeNull();
     expect(healthyPeersNote({ state: 'failed', peers: 0, healthyPeers: HEALTHY })).toBeNull();
     expect(
       healthyPeersNote({ ...connecting(0), download: { receivedBytes: 0, totalBytes: null } }),

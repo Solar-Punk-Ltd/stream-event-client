@@ -56,10 +56,10 @@ export function weeb3StatusLine(status: ProviderStatus): string {
   return status.state === 'lost' ? `${words}. Open Connect to start it again.` : words;
 }
 
-/** The one short note shown beside the count while it is under the healthy one, or null. */
+/** The one short note shown beside the count while the node connects, or null. */
 export function healthyPeersNote({ state, peers = 0, download, healthyPeers }: ProviderStatus): string | null {
-  const counting = (state === 'starting' && !download) || state === 'ready';
-  return counting && healthyPeers !== undefined && peers < healthyPeers
+  const connecting = state === 'starting' && !download;
+  return connecting && healthyPeers !== undefined && peers < healthyPeers
     ? `${healthyPeers} peers is the healthy target`
     : null;
 }

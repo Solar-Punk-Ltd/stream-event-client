@@ -60,10 +60,14 @@ test('weeb-3 picked for the video plays the stream in its own player, bare, once
   const video = page.locator('.own-player video');
   const ownerAndTopic = gateway.watchPath().split('/').slice(-2).join('/');
   await expect(video).toHaveAttribute('data-weeb3', `${ownerAndTopic}/live`, { timeout: 20_000 });
-  await expect(page.locator('.own-player-words'), 'the peer count stays beside the player').toHaveText(
-    '3 of 200 peers',
-  );
-  await expect(page.locator('.own-player-hint')).toHaveText('200 peers is the healthy target');
+  await expect(video, "weeb-3's player chooses its quality itself").toHaveAttribute('data-weeb3-quality', '-1');
+  await expect(page.locator('.own-player-status'), 'nothing under the player once the node is ready').toHaveCount(0);
+  await page.locator('.own-player').evaluate((stage) => {
+    const menu = document.createElement('select');
+    menu.setAttribute('data-weeb3-hls-quality', '');
+    stage.append(menu);
+  });
+  await expect(page.locator('.own-player [data-weeb3-hls-quality]'), "weeb-3's quality menu is hidden").toBeHidden();
   await expect(page.locator('.swarm-hls-feed-state'), 'none of the app overlays').toHaveCount(0);
   expect(gateway.unknownPaths(), 'every request was one the fake gateway knows').toEqual([]);
 });
