@@ -12,6 +12,7 @@ import type { ChatReads } from '../../src/features/chat/chatParts';
 import {
   compareOwnFeed,
   isInOwnFeed,
+  MAX_ENTRIES_READ_ALONE,
   MAX_HISTORY_FILES,
   MAX_OWN_FEED_ENTRIES,
   OWN_FEED_MARGIN,
@@ -39,6 +40,14 @@ function message(label: string, key = GUEST_KEY, via: MessageVia = MessageVia.OW
     via,
   }).message;
 }
+
+const compareOptions = () => ({
+  verify: inThreadVerifier(),
+  chatOwner: addressOf(SERVER_KEY),
+  chatTopic: CHAT_TOPIC,
+  sender: SENDER,
+  timeoutMs: 1_000,
+});
 
 const compare = (feeds: ReturnType<typeof servedFeeds>, reads = feeds.reads) =>
   compareOwnFeed({
@@ -258,5 +267,58 @@ describe("comparing a sender's own feed with the chat", () => {
     expect(ids(comparison.chatOnOwnStamp)).toEqual([idOf('b'), idOf('a')]);
     expect(ids(comparison.missingFromOwnFeed)).toEqual([idOf('b')]);
     expect(comparison.missingFromChat).toEqual([]);
+  });
+
+  it('hands its signal to every read it makes', async () => {
+    const [a, b, c] = [message('a'), message('b'), message('c')];
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b, c], { filesThrough: [0] });
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a, b]);
+    const signal = new AbortController().signal;
+    const seen: Array<AbortSignal | undefined> = [];
+    const reads: ChatReads = {
+      readFeedHead: async (owner, topic, options) => (
+        seen.push(options?.signal),
+        feeds.reads.readFeedHead(owner, topic)
+      ),
+      readChunk: async (address, options) => (seen.push(options?.signal), feeds.reads.readChunk(address)),
+      readBytes: async (reference, options) => (seen.push(options?.signal), feeds.reads.readBytes(reference)),
+    };
+
+    await compareOwnFeed({ ...compareOptions(), reads: () => reads, signal });
+
+    expect(seen.length).toBeGreaterThan(4);
+    expect(seen.every((given) => given === signal)).toBe(true);
+  });
+
+  it('stops reading once its signal is aborted, after the reads already in flight', async () => {
+    const messages = Array.from({ length: 30 }, (_, at) => message(`s${at}`));
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, messages);
+    const stop = new AbortController();
+    let chunkReads = 0;
+    const reads: ChatReads = {
+      ...feeds.reads,
+      readChunk: async (address, options) => {
+        chunkReads += 1;
+        stop.abort();
+        return options?.signal?.aborted ? { kind: 'aborted' } : feeds.reads.readChunk(address);
+      },
+    };
+
+    await expect(compareOwnFeed({ ...compareOptions(), reads: () => reads, signal: stop.signal })).rejects.toThrow();
+    expect(chunkReads, 'one batch at most').toBeLessThanOrEqual(8);
+  });
+
+  it('says the chat could not be counted when more entries than it reads one by one lie outside its history files', async () => {
+    const feeds = servedFeeds();
+    const owner = feeds.chat(SERVER_KEY, CHAT_TOPIC, [message('a')]);
+    const topic = Topic.fromString(CHAT_TOPIC).toHex();
+    const head = feeds.heads.get(`${owner}/${topic}`)!;
+    feeds.heads.set(`${owner}/${topic}`, { ...head, feedIndex: Number.MAX_SAFE_INTEGER } as SwarmAnswer);
+
+    await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedUnreadableError);
+    expect(feeds.asked.filter((read) => read.startsWith('chunk'))).toHaveLength(0);
+    expect(MAX_ENTRIES_READ_ALONE).toBe(500);
   });
 });

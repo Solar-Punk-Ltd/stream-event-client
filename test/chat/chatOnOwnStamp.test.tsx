@@ -420,6 +420,39 @@ describe("a sender's own feed in the message details", () => {
     expect(section.textContent).toContain('Their own feed is too large to count.');
   });
 
+  it('stops reading the chat and the own feed when the details close', async () => {
+    const a = mine('a');
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a]);
+    feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, [a]);
+    const comparedTopics = [CHAT_TOPIC, ownFeedTopic(CHAT_TOPIC)].map((topic) => Topic.fromString(topic).toHex());
+    const signals: AbortSignal[] = [];
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    reads = {
+      ...feeds.reads,
+      readFeedHead: async (owner, topic, options) => {
+        if (comparedTopics.includes(topic.toHex()) && options?.signal) {
+          signals.push(options.signal);
+        }
+        await held;
+        return feeds.reads.readFeedHead(owner, topic);
+      },
+    };
+    await watchPage(BATCH, ON_THIS_SERVER);
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(a, 0)));
+    await waitFor(() => (chatRegion()?.textContent?.includes(a.text) ? true : null));
+    click(button('Sent with their own stamp, show details'));
+    await waitFor(() => (signals.length === 2 ? true : null));
+
+    click(button('Close'));
+
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
+    release();
+  });
+
   it('says plainly when the sender keeps no own feed', async () => {
     const a = mine('a');
     const section = await openDetails(a, [a], null);
