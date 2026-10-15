@@ -1,7 +1,9 @@
 import { isInOwnFeed, type OwnFeedRecord } from '../../../stamp/ownFeedComparison';
 import {
+  COUNTED,
   COUNTING,
   messagesText,
+  TOO_LARGE,
   UNCOUNTABLE,
   useOwnFeedComparison,
   useOwnFeedSource,
@@ -55,7 +57,8 @@ export function OwnFeedCheck({ sender, signature }: { readonly sender: string; r
           </button>
         </span>
       )}
-      {count.status !== COUNTING && count.status !== UNCOUNTABLE && (
+      {count.status === TOO_LARGE && <span className="own-feed-hint">Their own feed is too large to count.</span>}
+      {count.status === COUNTED && (
         <>
           {count.comparison.own === null ? (
             <span>No own feed. This sender keeps no copies of their messages.</span>

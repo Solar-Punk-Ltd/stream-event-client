@@ -128,5 +128,12 @@ export function servedFeeds() {
     return feed(senderKey, Topic.fromString(ownFeedTopic(chatTopic)), payloads);
   }
 
-  return { reads, asked, chat, ownFeed, heads };
+  /** Makes the own feed's head name `index` as its newest entry, whatever the feed holds, as a hostile sender can. */
+  function ownFeedHeadAt(senderKey: string, chatTopic: string, index: number) {
+    const owner = new PrivateKey(senderKey).publicKey().address().toHex();
+    const topic = Topic.fromString(ownFeedTopic(chatTopic));
+    heads.set(`${owner}/${topic.toHex()}`, content(encoder.encode('{}'), index));
+  }
+
+  return { reads, asked, chat, ownFeed, ownFeedHeadAt, heads };
 }

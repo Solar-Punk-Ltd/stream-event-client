@@ -365,12 +365,18 @@ describe("a sender's own feed in the message details", () => {
     }).message;
 
   /** Opens the details of `shown`, in a chat holding `chatMessages` and an own feed holding `copies`, or none. */
-  async function openDetails(shown: ChatMessage, chatMessages: ChatMessage[], copies: ChatMessage[] | null) {
+  async function openDetails(
+    shown: ChatMessage,
+    chatMessages: ChatMessage[],
+    copies: ChatMessage[] | null,
+    arrange: (feeds: ReturnType<typeof servedFeeds>) => void = () => {},
+  ) {
     const feeds = servedFeeds();
     feeds.chat(SERVER_KEY, CHAT_TOPIC, chatMessages, { filesThrough: chatMessages.length > 2 ? [1] : [] });
     if (copies) {
       feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, copies);
     }
+    arrange(feeds);
     reads = feeds.reads;
     await watchPage(BATCH, ON_THIS_SERVER);
     await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(shown, 0)));
@@ -403,6 +409,15 @@ describe("a sender's own feed in the message details", () => {
       [...section.querySelectorAll(`[aria-label="${label}"] li`)].map((item) => item.textContent);
     expect(missing('Missing from their own feed')).toEqual([c.text, b.text]);
     expect(missing('Missing from the chat feed')).toEqual([d.text]);
+  });
+
+  it('says the own feed is too large to count when it names far more entries than the sender sent', async () => {
+    const a = mine('a');
+    const section = await openDetails(a, [a], [a], (feeds) =>
+      feeds.ownFeedHeadAt(SENDER_KEY, CHAT_TOPIC, Number.MAX_SAFE_INTEGER),
+    );
+
+    expect(section.textContent).toContain('Their own feed is too large to count.');
   });
 
   it('says plainly when the sender keeps no own feed', async () => {
@@ -439,10 +454,15 @@ describe('my own feed in My Swarm', () => {
   }
 
   /** The watch page on my own stamp, a chat holding `chatMessages`, and my own feed holding `copies`, in My Swarm. */
-  async function openMySwarm(chatMessages: ChatMessage[], copies: ChatMessage[]) {
+  async function openMySwarm(
+    chatMessages: ChatMessage[],
+    copies: ChatMessage[],
+    arrange: (feeds: ReturnType<typeof servedFeeds>, myKey: string) => void = () => {},
+  ) {
     const feeds = servedFeeds();
     feeds.chat(SERVER_KEY, CHAT_TOPIC, chatMessages);
     feeds.ownFeed(await chatKeyFor(BOUND_SITE), CHAT_TOPIC, copies);
+    arrange(feeds, await chatKeyFor(BOUND_SITE));
     reads = feeds.reads;
     chatOnMyBeeNode();
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
@@ -488,6 +508,16 @@ describe('my own feed in My Swarm', () => {
     expect(box()?.textContent).toContain('Own feed: 1 of 3 messages');
     expect(box()?.textContent).toContain('2 missing');
     expect(button('Sync')).toBeTruthy();
+  });
+
+  it('says my own feed is too large to count, and offers no sync, when it names far more entries than I sent', async () => {
+    const [a] = await myMessages(['a']);
+    const box = await openMySwarm([a!], [a!], (feeds, myKey) =>
+      feeds.ownFeedHeadAt(myKey, CHAT_TOPIC, Number.MAX_SAFE_INTEGER),
+    );
+
+    expect(box()?.textContent).toContain('Your own feed is too large to count.');
+    expect(queryButton('Sync')).toBeNull();
   });
 
   it('says nothing is missing and offers no sync when every message has its copy', async () => {

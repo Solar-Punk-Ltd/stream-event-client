@@ -4,7 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type OwnFeedChat, useOwnFeedChat } from '@/features/chat/stamp/OwnFeedChat';
 import type { OwnFeedRecord } from '@/features/chat/stamp/ownFeedComparison';
 import { COPIED } from '@/features/chat/stamp/ownFeedCopies';
-import { COUNTED, COUNTING, messagesText, useOwnFeedComparison } from '@/features/chat/stamp/useOwnFeedComparison';
+import {
+  COUNTED,
+  COUNTING,
+  messagesText,
+  TOO_LARGE,
+  useOwnFeedComparison,
+} from '@/features/chat/stamp/useOwnFeedComparison';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 
 const SYNC = 'Sync';
@@ -67,6 +73,13 @@ function OwnFeedSyncOf({ chat }: { readonly chat: OwnFeedChat }) {
     return (
       <div className="connect-own-feed" aria-label={OWN_FEED_GROUP} role="group">
         <span className="connect-ex">Counting…</span>
+      </div>
+    );
+  }
+  if (count.status === TOO_LARGE) {
+    return (
+      <div className="connect-own-feed" aria-label={OWN_FEED_GROUP} role="group">
+        <span className="connect-ex">Your own feed is too large to count.</span>
       </div>
     );
   }

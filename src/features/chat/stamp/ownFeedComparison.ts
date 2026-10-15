@@ -40,6 +40,35 @@ export class OwnFeedUnreadableError extends Error {
   }
 }
 
+/**
+ * The sender's own feed names more entries than their messages in the chat can account for. Its newest index is the
+ * sender's to choose, so it is never read whole past {@link ownFeedCap}.
+ */
+export class OwnFeedTooLargeError extends Error {
+  constructor(newest: number, cap: number) {
+    super(`the own feed names ${newest + 1} entries, more than the ${cap} its messages in the chat allow`);
+    this.name = 'OwnFeedTooLargeError';
+  }
+}
+
+/**
+ * How many entries past the sender's messages in the chat an own feed may hold. A copy is written for a message on the
+ * sender's own stamp, the chat's or not yet in it, and a failed copy keeps its index, so an honest feed outgrows the
+ * chat only by the messages that never reached it.
+ */
+export const OWN_FEED_MARGIN = 25;
+
+/**
+ * The most own feed entries read for one sender, whatever the chat holds. One chat history file holds up to 1,000
+ * messages, and 1,000 entries are 125 rounds of {@link SLOTS_AT_ONCE} reads.
+ */
+export const MAX_OWN_FEED_ENTRIES = 1_000;
+
+/** How many own feed entries are read for a sender with `sentInChat` messages in the chat. */
+export function ownFeedCap(sentInChat: number): number {
+  return Math.min(sentInChat + OWN_FEED_MARGIN, MAX_OWN_FEED_ENTRIES);
+}
+
 interface CompareOwnFeedOptions {
   /** The chat's reader, on the source the viewer picked for the chat history. */
   readonly reads: () => ChatReads;
@@ -145,20 +174,26 @@ async function readWholeChat(options: CompareOwnFeedOptions, window: ReadOptions
   return messages;
 }
 
+/** The own feed's newest entry, or null when the sender keeps no own feed. */
+function ownFeedHead(options: CompareOwnFeedOptions, window: ReadOptions) {
+  const topic = Topic.fromString(ownFeedTopic(options.chatTopic));
+  return newestIndex(options.reads(), bareHex(options.sender), topic, window, "the sender's own feed");
+}
+
 /**
- * The copies in the sender's own feed, by index, each checked as a chat message is, the sender's, and for this chat,
- * or left out. Null when the sender keeps no own feed.
+ * The copies in the sender's own feed at indices 0 to `newest`, each checked as a chat message is, the sender's, and
+ * for this chat, or left out.
  */
-async function readOwnFeed(options: CompareOwnFeedOptions, window: ReadOptions): Promise<OwnFeedRecord[] | null> {
+async function readOwnFeed(
+  options: CompareOwnFeedOptions,
+  newest: number,
+  window: ReadOptions,
+): Promise<OwnFeedRecord[]> {
   const { chatTopic, verify } = options;
   const reads = options.reads();
   const sender = bareHex(options.sender);
   const topic = Topic.fromString(ownFeedTopic(chatTopic));
-  const head = await newestIndex(reads, sender, topic, window, "the sender's own feed");
-  if (head === null) {
-    return null;
-  }
-  const indices = Array.from({ length: head.index + 1 }, (_, index) => index);
+  const indices = Array.from({ length: newest + 1 }, (_, index) => index);
   const copies = await inBatches(indices, async (index): Promise<OwnFeedRecord | null> => {
     const payload = await readEntry(reads, sender, topic, index, window);
     if (!payload) {
@@ -193,11 +228,18 @@ function onePerSignature(records: readonly OwnFeedRecord[]): OwnFeedRecord[] {
  * sender, does not.
  *
  * @throws OwnFeedUnreadableError when a feed's newest entry or a history file of the chat could not be read.
+ * @throws OwnFeedTooLargeError when the own feed names more entries than {@link ownFeedCap} allows.
  */
 export async function compareOwnFeed(options: CompareOwnFeedOptions): Promise<OwnFeedComparison> {
   const window = { timeoutMs: options.timeoutMs };
   const sender = bareHex(options.sender);
-  const [wholeChat, ownFeed] = await Promise.all([readWholeChat(options, window), readOwnFeed(options, window)]);
+  const [wholeChat, ownHead] = await Promise.all([readWholeChat(options, window), ownFeedHead(options, window)]);
+  const sentInChat = [...wholeChat.values()].filter((message) => message.addr === sender).length;
+  const cap = ownFeedCap(sentInChat);
+  if (ownHead !== null && ownHead.index >= cap) {
+    throw new OwnFeedTooLargeError(ownHead.index, cap);
+  }
+  const ownFeed = ownHead === null ? null : await readOwnFeed(options, ownHead.index, window);
 
   const chat = onePerSignature(
     [...wholeChat]

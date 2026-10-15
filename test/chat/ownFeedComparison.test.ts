@@ -1,7 +1,14 @@
 import { type ChatMessage, createChatMessage, MessageType, MessageVia } from '@solarpunkltd/swarm-chat-js';
 import { describe, expect, it } from 'vitest';
 
-import { compareOwnFeed, isInOwnFeed, OwnFeedUnreadableError } from '../../src/features/chat/stamp/ownFeedComparison';
+import {
+  compareOwnFeed,
+  isInOwnFeed,
+  MAX_OWN_FEED_ENTRIES,
+  OWN_FEED_MARGIN,
+  OwnFeedTooLargeError,
+  OwnFeedUnreadableError,
+} from '../../src/features/chat/stamp/ownFeedComparison';
 import type { SwarmAnswer } from '../../src/swarm/answers';
 import { servedFeeds } from '../helpers/chatFeed';
 import { addressOf, GUEST_KEY, idOf, inThreadVerifier, SECOND_GUEST_KEY } from '../helpers/signedChat';
@@ -121,4 +128,38 @@ describe("comparing a sender's own feed with the chat", () => {
       await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedUnreadableError);
     },
   );
+
+  it("refuses to read an own feed whose newest index is past the sender's messages in the chat and a margin", async () => {
+    const [a, b] = [message('a'), message('b')];
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b]);
+    feeds.ownFeedHeadAt(GUEST_KEY, CHAT_TOPIC, 2 + OWN_FEED_MARGIN);
+
+    await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedTooLargeError);
+    expect(
+      feeds.asked.filter((read) => read.startsWith('chunk')),
+      'only the chat entry before its head',
+    ).toHaveLength(1);
+  });
+
+  it('reads an own feed whose newest index is just inside the cap', async () => {
+    const [a, b] = [message('a'), message('b')];
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b]);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a]);
+    feeds.ownFeedHeadAt(GUEST_KEY, CHAT_TOPIC, 2 + OWN_FEED_MARGIN - 1);
+
+    const comparison = await compare(feeds);
+
+    expect(ids(comparison.own ?? [])).toEqual([idOf('a')]);
+  });
+
+  it('refuses an own feed past the flat ceiling however many messages the sender sent, and allocates nothing for it', async () => {
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [message('a')]);
+    feeds.ownFeedHeadAt(GUEST_KEY, CHAT_TOPIC, Number.MAX_SAFE_INTEGER);
+
+    await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedTooLargeError);
+    expect(MAX_OWN_FEED_ENTRIES).toBe(1_000);
+  });
 });
