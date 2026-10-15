@@ -33,6 +33,13 @@ export const ADD_VIEWS: Readonly<Record<SourceType, { readonly title: string; re
   'weeb-3': { title: 'Add Weeb3', action: 'Add Weeb3' },
 };
 
+/**
+ * The line in the My stamp box about the copy each message gets in the viewer's own feed. The message itself is a
+ * single-owner chunk Swarm ID stamps again in one slot, so only the copy takes new room on the stamp.
+ */
+export const OWN_FEED_COPY =
+  'A copy of each message goes to your own feed, so anyone can check the chat left none of yours out.';
+
 /** Where an address field starts, a Bee node at the API port on this machine, as Swarm Desktop runs it. */
 export const ADDRESS_PLACEHOLDERS: Readonly<Record<'gateway' | 'bee-node', string>> = {
   gateway: 'https://gateway.example.org',

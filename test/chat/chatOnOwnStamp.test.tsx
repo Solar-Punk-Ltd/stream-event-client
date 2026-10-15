@@ -139,7 +139,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it("writes each message through the viewer's Bee node, stamped by Swarm ID, and says so in every message", async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     const swarmId = await watchPage();
 
     const chat = FakeSwarmChat.latest();
@@ -147,15 +147,17 @@ describe('a chat paid for with my own stamp', () => {
     const { bytes } = { bytes: new TextEncoder().encode(JSON.stringify(signedMessage('mine'))) };
     await chat.parts?.write?.(bytes);
 
-    expect(swarmId.client().stamped).toHaveLength(1);
-    expect(posted).toHaveLength(1);
-    expect(posted[0].url.startsWith(`${NODE}/soc/`)).toBe(true);
-    expect(posted[0].stamp).toBe('e'.repeat(226));
+    expect(swarmId.client().stamped, 'the copy in my own feed, then the message').toHaveLength(2);
+    expect(posted).toHaveLength(2);
+    for (const chunk of posted) {
+      expect(chunk.url.startsWith(`${NODE}/soc/`)).toBe(true);
+      expect(chunk.stamp).toBe('e'.repeat(226));
+    }
   });
 
   it('pushes each message through Weeb3 when it reads the chat, stamped by Swarm ID, and posts it to no node', async () => {
     chatOnWeeb3();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     const swarmId = await watchPage();
 
     const chat = FakeSwarmChat.latest();
@@ -164,9 +166,9 @@ describe('a chat paid for with my own stamp', () => {
     expect(seen.chatStamp?.warning, 'Weeb3 can send on my stamp, so nothing holds the message').toBeNull();
     await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(signedMessage('through weeb-3'))));
 
-    expect(swarmId.client().stamped).toHaveLength(1);
-    expect(weeb3Pushes.pushed).toHaveLength(1);
-    expect(weeb3Pushes.pushed[0].stamp).toBe('e'.repeat(226));
+    expect(swarmId.client().stamped, 'the copy in my own feed, then the message').toHaveLength(2);
+    expect(weeb3Pushes.pushed).toHaveLength(2);
+    expect(weeb3Pushes.pushed.map(({ stamp }) => stamp)).toEqual(['e'.repeat(226), 'e'.repeat(226)]);
     expect(posted).toEqual([]);
   });
 
@@ -184,25 +186,20 @@ describe('a chat paid for with my own stamp', () => {
     expect(chatRegion()?.textContent).toContain(shown.text);
   });
 
-  it('starts the chat signing every message as keeping a copy once the own feed is on, and keeps the messages on screen', async () => {
+  it('signs every message on my stamp as keeping a copy, with nothing to switch on', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     await watchPage();
-    expect(FakeSwarmChat.latest().settings.infra.own).toBeFalsy();
-    const shown = signedMessage('before copies');
-    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(shown, 0)));
-    await waitFor(() => (chatRegion()?.textContent?.includes(shown.text) ? true : null));
+    expect(FakeSwarmChat.latest().settings.infra.own, 'no copy while the gateway pays').toBeFalsy();
 
-    await act(async () => seen.chatStamp?.chooseOwnFeed(true));
+    await act(async () => seen.chatStamp?.choosePayWith(MessageVia.OWN_STAMP));
     await settle();
 
     expect(FakeSwarmChat.latest().settings.infra).toMatchObject({ via: MessageVia.OWN_STAMP, own: true });
-    expect(chatRegion()?.textContent).toContain(shown.text);
   });
 
   it('shows a message Swarm ID would not stamp as not sent, with the reason, and sends it nowhere else', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     const swarmId = await watchPage();
     swarmId.client().stampRefusal = Object.assign(new Error('expired'), {
       code: 'upload-unavailable',
@@ -229,7 +226,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it('marks a failed message to be written again when its retry comes after the way messages are sent changed', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     const swarmId = await watchPage();
     swarmId.client().stampRefusal = Object.assign(new Error('expired'), {
       code: 'upload-unavailable',
@@ -264,7 +261,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it('warns above the message field when the stamp ran out, holds the message, and lets the viewer pick the gateway', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     await watchPage({ ...BATCH, utilization: 1 });
 
     expect(chatRegion()?.textContent).toContain('Your stamp ran out.');
@@ -278,7 +275,7 @@ describe('a chat paid for with my own stamp', () => {
   });
 
   it('warns when the chat source cannot send on my stamp, and never sends through the gateway in its place', async () => {
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     await watchPage();
 
     const chat = FakeSwarmChat.latest();
@@ -298,7 +295,7 @@ describe('a chat paid for with my own stamp', () => {
   it('warns while the stamp runs low, and still sends', async () => {
     wearThemeCss();
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     const swarmId = await watchPage({ ...BATCH, utilization: 0.9, batchTTL: 2 * DAY_S });
 
     expect(chatRegion()?.textContent).toContain('90% of your stamp is used.');
@@ -312,7 +309,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it("opens the Swarm ID window from Swarm ID's button in the warning, says when it was blocked, and lifts the hold once a stamp is picked there", async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     wearThemeCss();
     const swarmId = await watchPage({ ...BATCH, utilization: 1 });
     swarmId.client().nextWindow = 'blocked';

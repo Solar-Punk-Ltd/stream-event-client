@@ -14,6 +14,8 @@ import { daysLeftText, SITE_STAMP_RAN_OUT, type SiteStamp } from '@/features/cha
 import { ButtonVariant } from '@/shared/components/Button/Button';
 import { OwnStampIcon } from '@/shared/components/Icons/OwnStampIcon';
 
+import { OWN_FEED_COPY } from './connectWords';
+
 const SIGN_IN_FIRST = 'Sign in with Swarm ID first.';
 const CHANGE_STAMP = 'Change stamp in Swarm ID';
 const CHOOSE_STAMP = 'Choose a stamp in Swarm ID';
@@ -72,7 +74,7 @@ export function ChatStampSection() {
 }
 
 function SiteStampBox() {
-  const { siteStamp, canUseOwnStamp, choice, chooseOwnFeed } = useChatStamp();
+  const { siteStamp, canUseOwnStamp } = useChatStamp();
   return (
     <>
       <div className="connect-box connect-site-stamp">
@@ -97,17 +99,8 @@ function SiteStampBox() {
             />
           </div>
         )}
+        <p className="connect-hint">{OWN_FEED_COPY}</p>
       </div>
-      <label className="connect-choice">
-        <input type="checkbox" checked={choice.ownFeed} onChange={(event) => chooseOwnFeed(event.target.checked)} />
-        <span>
-          Also write my own feed
-          <small>
-            Every message you send is also saved to a feed only you can write. Anyone can compare it with the chat, so
-            your messages stay checkable even if the chat leaves one out. Uses about twice the stamp.
-          </small>
-        </span>
-      </label>
     </>
   );
 }

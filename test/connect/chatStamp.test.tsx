@@ -7,6 +7,7 @@ import { saveAddedSources, saveRouting } from '../../src/app/sourceStorage';
 import { nicknameLogin } from '../../src/features/chat/auth/login';
 import { persistUserSession } from '../../src/features/chat/auth/persistence';
 import { loadChatStampChoice, saveChatStampChoice } from '../../src/features/chat/stamp/chatStampChoice';
+import { OWN_FEED_COPY } from '../../src/features/connect/connectWords';
 import { EVENT_GATEWAY_STAMPS_ITSELF, PICK_A_SOURCE_THAT_SENDS } from '../../src/features/chat/stamp/ownStampRoute';
 import type { SwarmIdPostageBatch } from '../../src/features/chat/swarmId/swarmIdClient';
 import { chooseSource, defaultRouting } from '../../src/swarm/routing';
@@ -38,7 +39,6 @@ const radio = (name: string) =>
   [...(group()?.querySelectorAll<HTMLInputElement>('input[type="radio"]') ?? [])].find((candidate) =>
     candidate.closest('label')?.textContent?.startsWith(name),
   ) ?? null;
-const ownFeedBox = () => group()?.querySelector<HTMLInputElement>('input[type="checkbox"]') ?? null;
 
 /** The viewer's own Bee node, added, and picked for every feature, the chat history with them. */
 function chatOnMyBeeNode() {
@@ -112,7 +112,6 @@ describe('the chat stamp in Connect', () => {
     expect(seen.chatStamp?.sending).toEqual({
       via: MessageVia.OWN_STAMP,
       url: 'http://localhost:1633',
-      ownFeed: false,
     });
     const box = group()?.textContent ?? '';
     expect(box).toContain('Event chat');
@@ -132,7 +131,7 @@ describe('the chat stamp in Connect', () => {
     await settle();
 
     expect(seen.chatStamp?.route).toEqual({ ok: true, through: 'weeb-3' });
-    expect(seen.chatStamp?.sending).toEqual({ via: MessageVia.OWN_STAMP, url: null, ownFeed: false });
+    expect(seen.chatStamp?.sending).toEqual({ via: MessageVia.OWN_STAMP, url: null });
     expect(seen.chatStamp?.warning).toBeNull();
     const line = radio('My stamp')?.closest('label')?.textContent ?? '';
     expect(line).toContain('go out through Weeb3, the Swarm node in this browser');
@@ -141,7 +140,7 @@ describe('the chat stamp in Connect', () => {
 
   it('starts another account on this browser on the gateway, whatever an earlier account picked', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice('c'.repeat(40), { payWith: MessageVia.OWN_STAMP, ownFeed: true });
+    saveChatStampChoice('c'.repeat(40), { payWith: MessageVia.OWN_STAMP });
     await openConnect();
 
     expect(radio('Gateway pays')?.checked).toBe(true);
@@ -150,26 +149,23 @@ describe('the chat stamp in Connect', () => {
 
   it('keeps what the account picked across a reload', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: true });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     await openConnect();
 
     expect(radio('My stamp')?.checked).toBe(true);
-    expect(ownFeedBox()?.checked).toBe(true);
   });
 
-  it('keeps an own feed only when asked, and only with my stamp', async () => {
+  it('copies every message on my stamp to my own feed, with no setting to turn it off, and says so', async () => {
     chatOnMyBeeNode();
     await openConnect();
-    expect(ownFeedBox(), 'no own feed while the gateway pays').toBeNull();
+    expect(group()?.textContent, 'no own feed while the gateway pays').not.toContain(OWN_FEED_COPY);
 
     click(radio('My stamp')!);
     await settle();
-    expect(ownFeedBox()?.checked).toBe(false);
-    click(ownFeedBox()!);
-    await settle();
 
-    expect(loadChatStampChoice(signedInAddress)).toEqual({ payWith: MessageVia.OWN_STAMP, ownFeed: true });
-    expect(seen.chatStamp?.sending).toMatchObject({ ownFeed: true });
+    expect(group()?.querySelector('input[type="checkbox"]'), 'nothing to switch off').toBeNull();
+    expect(group()?.textContent).toContain(OWN_FEED_COPY);
+    expect(loadChatStampChoice(signedInAddress)).toEqual({ payWith: MessageVia.OWN_STAMP });
   });
 
   it("says when Swarm ID has given this site no stamp, and offers to choose one there with Swarm ID's button", async () => {
@@ -293,7 +289,7 @@ describe('the chat stamp in Connect', () => {
 
   it('shows a sign-in Swarm ID gave no stamp yet as having none, without a read', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     const swarmId = await fakeSwarmId(SIGNED_IN, (client) => {
       client.postageBatchHangs = true;
     });

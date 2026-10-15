@@ -33,7 +33,6 @@ interface ChatStampValue {
   /** Who pays, as the viewer picked. Always the gateway for a viewer who is not signed in with Swarm ID. */
   readonly choice: ChatStampChoice;
   readonly choosePayWith: (payWith: MessageVia) => void;
-  readonly chooseOwnFeed: (ownFeed: boolean) => void;
   /** Where a message on the viewer's own stamp goes out, or why the chat's source cannot send one. */
   readonly route: OwnStampRoute;
   readonly siteStamp: SiteStampRead;
@@ -49,7 +48,6 @@ const GATEWAY_ONLY: ChatStampValue = {
   canUseOwnStamp: false,
   choice: GATEWAY_PAYS,
   choosePayWith: () => {},
-  chooseOwnFeed: () => {},
   route: { ok: false, reason: '', hint: '' },
   siteStamp: { status: SITE_STAMP_NONE },
   warning: null,
@@ -103,8 +101,7 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
     },
     [accountId],
   );
-  const choosePayWith = useCallback((payWith: MessageVia) => pick({ ...choice, payWith }), [pick, choice]);
-  const chooseOwnFeed = useCallback((ownFeed: boolean) => pick({ ...choice, ownFeed }), [pick, choice]);
+  const choosePayWith = useCallback((payWith: MessageVia) => pick({ payWith }), [pick]);
 
   const chatSource = sources.find(({ id }) => id === parts.chat) ?? null;
   const route: OwnStampRoute = useMemo(
@@ -218,10 +215,9 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
         ? {
             via: MessageVia.OWN_STAMP,
             url: route.ok && route.through === 'bee-node' ? route.url : null,
-            ownFeed: choice.ownFeed,
           }
         : GATEWAY_SENDING,
-    [ownStampPays, route, choice.ownFeed],
+    [ownStampPays, route],
   );
 
   const ownStamp: OwnStampSetup | null = useMemo(
@@ -248,14 +244,13 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
       canUseOwnStamp,
       choice,
       choosePayWith,
-      chooseOwnFeed,
       route,
       siteStamp,
       warning,
       sending,
       ownStamp,
     }),
-    [canUseOwnStamp, choice, choosePayWith, chooseOwnFeed, route, siteStamp, warning, sending, ownStamp],
+    [canUseOwnStamp, choice, choosePayWith, route, siteStamp, warning, sending, ownStamp],
   );
 
   return <ChatStampContext.Provider value={value}>{children}</ChatStampContext.Provider>;

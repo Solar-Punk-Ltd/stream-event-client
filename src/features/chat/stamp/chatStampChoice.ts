@@ -10,19 +10,16 @@ export function chatStampStorageKey(chatAddress: string): string {
   return `${CHAT_STAMP_STORAGE_PREFIX}${chatAddress.toLowerCase()}`;
 }
 
-/** Who the viewer picked to pay for their chat messages, and whether each also gets a copy in their own feed. */
+/** Who the viewer picked to pay for their chat messages. On their own stamp each also gets a copy in their own feed. */
 export interface ChatStampChoice {
   readonly payWith: MessageVia;
-  /** Read only while `payWith` is the viewer's own stamp. */
-  readonly ownFeed: boolean;
 }
 
 /** Everyone starts here, and a signed-out viewer is always here. */
-export const GATEWAY_PAYS: ChatStampChoice = { payWith: MessageVia.GATEWAY, ownFeed: false };
+export const GATEWAY_PAYS: ChatStampChoice = { payWith: MessageVia.GATEWAY };
 
 const storedChoiceSchema = z.object({
   payWith: z.enum([MessageVia.GATEWAY, MessageVia.OWN_STAMP]),
-  ownFeed: z.boolean(),
 });
 
 /** What this account picked before in this browser. Anything else written under its key reads as the gateway paying. */

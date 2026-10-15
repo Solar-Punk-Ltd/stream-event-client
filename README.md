@@ -138,8 +138,8 @@ that two messages came from the same browser, and anyone may choose any name. So
 opens the details, where the sender's full public address tells apart two people who chose the same name.
 
 Nothing of a Swarm ID sign-in is kept there. What a Swarm ID account picked for paying, the gateway or its own
-stamp, and whether it keeps an own feed, sits under `stream-event-client:chat-stamp:<its chat address>`, one entry
-per account, so another account signing in on the same browser starts with the gateway paying.
+stamp, sits under `stream-event-client:chat-stamp:<its chat address>`, one entry per account, so another account
+signing in on the same browser starts with the gateway paying.
 
 **What the chat checks, and the badges.** Every message is signed by its sender's chat key. The page
 checks each one, live, from history and the viewer's own while it is still sending, in a Web Worker
@@ -306,13 +306,15 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   the source picked for Chat history cannot send on the stamp, the field says why, sending is held, and the buttons
   are Open Connect and Let the gateway pay. A Swarm ID window the browser blocked adds its own line under Swarm ID's
   button there.
-- **Also write my own feed.** Off by default, and offered only with My stamp. With it on, every message is first
-  copied into the sender's own feed, `ownFeedTopic(chatTopic)` from swarm-chat-js under the chat key's address,
-  one entry per message at the next index, stamped by Swarm ID too, and only then sent, so a message that says
+- **The copy in the viewer's own feed.** Always on with My stamp, with no setting to turn it off, and the My stamp
+  box says so. Every message is first copied into the sender's own feed, `ownFeedTopic(chatTopic)` from
+  swarm-chat-js under the chat key's address, one entry per message at the next index, stamped by Swarm ID too, and only then sent, so a message that says
   `own: true` always has its copy. The chat is started with `infra.own` on, so swarm-chat-js signs each message
   once with `own: true`, and the copy, the message and every resend of it are those same bytes. The feed's newest
   index is read once, through the chat history's source, and counted on from there. When it cannot be read, the
-  message waits with the reason rather than going out without its copy. Each message then costs two stamped chunks.
+  message waits with the reason rather than going out without its copy. Each message is stamped twice, but the
+  message itself goes to the chat's inbox address, which Swarm ID stamps again in one slot, so only the copy takes
+  new room on the stamp.
   **Two known limits.** The next index is counted from one read of the feed's newest entry each time the chat
   starts, so a chat started again seconds after a send, before that entry can be read back, can write the next
   copy at an index already used. And a copy is written before its message, so a message that then fails and is
@@ -672,14 +674,14 @@ once and is kept in the browser, and nothing switches a source by itself.
 What the browser keeps, in `localStorage`, every read and write guarded so a refusal leaves the
 deployment's defaults for that visit:
 
-| Key                                        | What it holds                                                                                                                                    |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `swarm-sources`                            | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3`                                     |
-| `swarm-routing`                            | All features or per feature, the source picked, and each part's source                                                                           |
-| `viewer-theme`                             | The theme a viewer picked with the theme switcher, kept after a logout                                                                           |
-| `stream-event-client:chat-session`         | A guest's chat login: the display name, the chat key this browser made for them, and its address                                                 |
-| `stream-event-client:chat-stamp:<address>` | Per account, by its chat address on this site: whether the gateway or their own stamp pays, and whether each message also goes to their own feed |
-| `stream-event-client:qoe-panel.v1`         | Where the playback quality panel (`?qoe=1`) sits, its size, and whether it is open                                                               |
+| Key                                        | What it holds                                                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `swarm-sources`                            | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3` |
+| `swarm-routing`                            | All features or per feature, the source picked, and each part's source                                       |
+| `viewer-theme`                             | The theme a viewer picked with the theme switcher, kept after a logout                                       |
+| `stream-event-client:chat-session`         | A guest's chat login: the display name, the chat key this browser made for them, and its address             |
+| `stream-event-client:chat-stamp:<address>` | Per account, by its chat address on this site: whether the gateway or their own stamp pays                   |
+| `stream-event-client:qoe-panel.v1`         | Where the playback quality panel (`?qoe=1`) sits, its size, and whether it is open                           |
 
 The Swarm ID sign-in is not among these. The Swarm ID library keeps what it needs for it, which this list does not
 cover.
