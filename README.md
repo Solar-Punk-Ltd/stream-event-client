@@ -694,7 +694,11 @@ controls the page, and counts as failed when it is not ready after 30 s.
 - **Reads.** weeb-3 reads through its service worker's routes: `/weeb-3/chunks/` for a chunk, a feed entry or a
   single-owner chunk, `/weeb-3/bytes/` for bytes, and segment URLs on its caching route `/weeb-3/hls/bytes/`. weeb-3
   puts a chunk's 8-byte span before bytes and before a single-owner chunk's payload, which Bee leaves out, so it is
-  taken off. A feed's head, which weeb-3 has no lookup for, is found by reading the feed's entries by index, eight at
+  taken off. A feed entry or a single-owner chunk whose body is longer than one chunk's 4 KB, such as a stream list
+  of more than a few dozen streams, wraps the root of a tree of chunks, and weeb-3 answers it with the root's own
+  payload, the addresses of the chunks below it, where Bee joins the body. So when the span says the body is longer
+  than the payload, the body is read whole from `/weeb-3/bytes/` at the root's address, and a body that is not the
+  length the span names answers unavailable. A feed's head, which weeb-3 has no lookup for, is found by reading the feed's entries by index, eight at
   a time: entry 0 and every power of four less one, then wider steps past the newest entry found until one misses,
   then even cuts of the gap until the newest entry and the missing one above it touch. A miss costs weeb-3 about
   17 s, so a head read takes a few of those, about a minute for a feed of a few hundred entries, and the answer it
