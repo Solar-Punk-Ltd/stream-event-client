@@ -8,6 +8,7 @@
  *
  * Pure, so the rule is tested without rendering the page.
  */
+import { failureTitle } from '@/features/connect/connectWords';
 
 type CatalogView =
   /** Streams to show. Stale ones count, which is the point of the ordering below. */
@@ -55,9 +56,21 @@ export function catalogViewFrom({
   return isLoading ? 'loading' : 'empty';
 }
 
-/** What each empty-ish view says. Kept beside the rule so a new view cannot ship without its copy. */
-export const CATALOG_VIEW_MESSAGE: Record<Exclude<CatalogView, 'streams'>, string> = {
-  unreachable: 'Could not reach this gateway. Check the address, or pick another one.',
+/** What the views that are not about a source say. Kept beside the rule so a new view cannot ship without its copy. */
+const CATALOG_VIEW_MESSAGE: Record<Exclude<CatalogView, 'streams' | 'unreachable'>, string> = {
   loading: 'Looking for streams...',
   empty: 'No streams here yet.',
 };
+
+/**
+ * What a view says. A list that cannot be read names the source it is read from as its Connect row and the failure
+ * bars name it, whatever kind of source it is.
+ */
+export function catalogViewMessage(view: Exclude<CatalogView, 'streams'>, sourceName: string | null): string {
+  if (view !== 'unreachable') {
+    return CATALOG_VIEW_MESSAGE[view];
+  }
+  return sourceName === null
+    ? 'The stream list cannot load. Open Connect to pick a source.'
+    : `${failureTitle('stream-list', sourceName)} Open Connect to check it, or pick another source.`;
+}

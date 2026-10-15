@@ -2,7 +2,8 @@ import { ChunkBuilder, FeedIndex, Identifier, Span, Topic } from '@ethersphere/b
 import { describe, expect, it } from 'vitest';
 
 import { makeFeedIdentifier } from '../../src/shared/feedFollow';
-import { singleOwnerChunkAddress } from '../../src/swarm/singleOwnerChunk';
+import { MAX_CHUNK_PAYLOAD, singleOwnerChunkAddress } from '../../src/swarm/singleOwnerChunk';
+import { CatalogFeedReader } from '../../src/features/catalog/catalogFeed';
 import { Weeb3Provider, type Weeb3RuntimeView } from '../../src/swarm/providers/weeb-3/weeb3Provider';
 import type { Weeb3Node } from '../../src/swarm/providers/weeb-3/weeb3Package';
 import type { Weeb3Status } from '../../src/swarm/providers/weeb-3/weeb3Runtime';
@@ -81,6 +82,66 @@ function feedFetch(topic: Topic, newest: number, log: AskedLog = { urls: [] }): 
       ? new Response('weeb-3 did not retrieve resource', { status: 404 })
       : new Response(withSpan(text(`entry ${index}`)).slice(), { status: 200 });
   }) as typeof fetch;
+}
+
+/**
+ * A body too big for one chunk, as Bee stores it: chunks of 4096 bytes, and a root whose span is the whole length and
+ * whose payload is their addresses. A feed entry holding it wraps the root.
+ */
+function treeOf(body: Uint8Array): { rootPayload: Uint8Array; rootAddress: string } {
+  const leaves: Uint8Array[] = [];
+  for (let at = 0; at < body.length; at += MAX_CHUNK_PAYLOAD) {
+    const leaf = body.slice(at, at + MAX_CHUNK_PAYLOAD);
+    const chunk = new ChunkBuilder(BigInt(leaf.length));
+    chunk.writer.buffer.set(leaf);
+    leaves.push(chunk.hash().toUint8Array());
+  }
+  const rootPayload = new Uint8Array(leaves.length * 32);
+  leaves.forEach((address, at) => rootPayload.set(address, at * 32));
+  const root = new ChunkBuilder(BigInt(body.length));
+  root.writer.buffer.set(rootPayload);
+  return { rootPayload, rootAddress: root.hash().toHex() };
+}
+
+/** What weeb-3 answers for a chunk whose span is longer than its payload: the span, then the payload as it is. */
+function withTreeSpan(totalLength: number, payload: Uint8Array): Uint8Array {
+  const spanned = new Uint8Array(8 + payload.length);
+  spanned.set(Span.fromBigInt(BigInt(totalLength)).toUint8Array());
+  spanned.set(payload, 8);
+  return spanned;
+}
+
+/**
+ * A feed whose only entry, index 0, is a stream list longer than one chunk, served as weeb-3 serves it: the entry's
+ * single-owner chunk as the root it wraps, and the joined list on the bytes route at the root's address.
+ */
+function bigEntryFetch(topic: Topic, body: Uint8Array, log: AskedLog = { urls: [] }): typeof fetch {
+  const { rootPayload, rootAddress } = treeOf(body);
+  const entryAddress = singleOwnerChunkAddress(makeFeedIdentifier(topic, FeedIndex.fromBigInt(0n)), OWNER);
+  const served: Record<string, Uint8Array> = {
+    [`/weeb-3/chunks/${entryAddress}`]: withTreeSpan(body.length, rootPayload),
+    [`/weeb-3/bytes/${rootAddress}`]: withSpan(body),
+  };
+  return (async (input: RequestInfo | URL) => {
+    log.urls.push(String(input));
+    const answer = served[new URL(String(input), PAGE_ORIGIN).pathname];
+    return answer
+      ? new Response(answer.slice(), { status: 200 })
+      : new Response('weeb-3 did not retrieve resource', { status: 404 });
+  }) as typeof fetch;
+}
+
+/** A stream list of `count` entries as JSON, which past a few dozen entries no longer fits one chunk. */
+function streamListOf(count: number): Uint8Array {
+  const entries = Array.from({ length: count }, (_, at) => ({
+    owner: OWNER,
+    topic: `stream-${at}`,
+    title: `Broadcast number ${at} of the event`,
+    timestamp: 1_760_000_000_000 + at,
+    mediatype: 'video',
+    state: 'vod',
+  }));
+  return text(JSON.stringify(entries));
 }
 
 type FakeRuntime = Weeb3RuntimeView & {
@@ -308,6 +369,46 @@ describe('the weeb-3 provider', () => {
 
     expect(answer).toEqual({ kind: 'unavailable', cause: { kind: 'status', status: 503 } });
     expect(log.urls.length).toBe(16);
+  });
+
+  it('reads a feed entry longer than one chunk whole, as Bee joins it, rather than the addresses its root holds', async () => {
+    const topic = Topic.fromString('a-long-stream-list');
+    const list = streamListOf(120);
+    const log: AskedLog = { urls: [] };
+    const { provider } = weeb3(bigEntryFetch(topic, list, log));
+
+    const answer = await provider.readFeedEntry(OWNER, topic, 0);
+
+    expect(list.length).toBeGreaterThan(3 * MAX_CHUNK_PAYLOAD);
+    expect(answer).toMatchObject({ kind: 'content', bytes: list });
+    expect(log.urls.at(-1)).toBe(`${PAGE_ORIGIN}/weeb-3/bytes/${treeOf(list).rootAddress}`);
+  });
+
+  it('answers unavailable when the joined body is not the length its root says, rather than a list cut short', async () => {
+    const topic = Topic.fromString('a-long-stream-list');
+    const list = streamListOf(120);
+    const served = bigEntryFetch(topic, list);
+    const cutShort = (async (input: RequestInfo | URL) => {
+      const response = await served(input);
+      if (!String(input).includes('/weeb-3/bytes/')) {
+        return response;
+      }
+      const whole = new Uint8Array(await response.arrayBuffer());
+      return new Response(whole.slice(0, whole.length - 10), { status: 200 });
+    }) as typeof fetch;
+
+    expect((await weeb3(cutShort).provider.readFeedEntry(OWNER, topic, 0)).kind).toBe('unavailable');
+  });
+
+  it('reads a stream list longer than one chunk through weeb-3 as JSON the stream list parses', async () => {
+    const topic = Topic.fromString('a-long-stream-list');
+    const list = streamListOf(120);
+    const { provider } = weeb3(bigEntryFetch(topic, list));
+
+    const snapshot = await new CatalogFeedReader(OWNER, topic).read(provider);
+
+    expect(snapshot?.slot).toBe(0n);
+    expect(JSON.parse(snapshot!.body)).toHaveLength(120);
   });
 
   it("gives a segment's URL on weeb-3's caching route, absolute because it is written into a playlist", () => {

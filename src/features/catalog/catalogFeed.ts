@@ -53,7 +53,7 @@ class CatalogFetchError extends Error {
  * The error an answer that is neither content nor not found reaches the browse page as. A refusing
  * status, a rate limit among them, is a {@link CatalogFetchError}, a window that ran out a
  * {@link FetchTimeoutError}, and no answer at all the error the request failed with, so the page's
- * "Could not reach this gateway" reads as it did when this reader fetched for itself.
+ * "Stream list cannot load" reads as it did when this reader fetched for itself.
  */
 function failureOf(answer: Exclude<SwarmAnswer, { kind: 'content' | 'not-found' }>, path: string): unknown {
   switch (answer.kind) {
@@ -193,7 +193,7 @@ export class CatalogFeedReader {
         }
         // What is left is a gateway that cannot be reached at all, raised when there is nothing to
         // salvage, so it reaches the caller as the error it is instead of reading as an idle catalog:
-        // the browse page decides between "Could not reach this gateway" and "No streams here yet" by
+        // the browse page decides between "Stream list cannot load" and "No streams here yet" by
         // whether this rejected.
         if (newest === null) {
           throw failureOf(answer, request.path);
@@ -268,7 +268,7 @@ export class CatalogFeedReader {
  * another node takes about a second and has a tail past six seconds under load. Raising it put the poll
  * into SWR's error state, which skips the regular reads and backs off, so one slow miss held an open
  * page behind until a reload. The head lookup still raises, see {@link CatalogFeedReader.readHead}:
- * that is the read the browse page's "Could not reach this gateway" rests on.
+ * that is the read the browse page's "Stream list cannot load" rests on.
  */
 function isNothingNewYet(answer: Exclude<SwarmAnswer, { kind: 'content' | 'not-found' }>): boolean {
   if (answer.kind === 'rate-limited') {

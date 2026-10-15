@@ -102,6 +102,21 @@ function chooseQualityItself(node: Weeb3Node, video: HTMLMediaElement): void {
 }
 
 /**
+ * The root a wrapped chunk is and the length of the body it stands for, when its span says the body is longer than one chunk, or null when the
+ * payload is the whole body. weeb-3 serves such a chunk as the root's span and the addresses of its children, where
+ * Bee's `/soc` joins the body they make.
+ */
+function treeRootOf(bytes: Uint8Array): { address: string; length: bigint } | null {
+  const length = Span.fromSlice(bytes, 0).toBigInt();
+  if (length <= BigInt(MAX_CHUNK_PAYLOAD) || bytes.length - SPAN_LENGTH > MAX_CHUNK_PAYLOAD) {
+    return null;
+  }
+  const root = new ChunkBuilder(length);
+  root.writer.buffer.set(bytes.slice(SPAN_LENGTH));
+  return { address: root.hash().toHex(), length };
+}
+
+/**
  * Swarm read through the node running in this browser, weeb-3, over the routes its service worker
  * answers on this page. A missing chunk is a 404 there, after weeb-3 has asked the network for about
  * 17 s, so every read is given weeb-3's own budget rather than the client's shorter default. A read
@@ -111,7 +126,9 @@ function chooseQualityItself(node: Weeb3Node, video: HTMLMediaElement): void {
  * Every chunk and bytes answer starts with the span, which Bee's `/soc` and `/bytes` leave out, so it
  * is taken off. A single-owner chunk comes back as its span and payload without the identifier and
  * signature that prove it its owner's, so it is read as the payload of `/soc` is, and a whole chunk is
- * served only where it is content-addressed and its address can be checked here.
+ * served only where it is content-addressed and its address can be checked here. A single-owner chunk whose
+ * body is longer than one chunk wraps the root of a tree, which weeb-3 serves as the root's own payload, so the
+ * body is read whole from the bytes route at the root's address, the way Bee's `/soc` joins it.
  */
 export class Weeb3Provider implements SwarmProvider {
   readonly shortestReadWindowMs = WEEB3_READ_WINDOW_MS;
@@ -277,7 +294,22 @@ export class Weeb3Provider implements SwarmProvider {
     } catch {
       return UNSUPPORTED;
     }
-    return withoutSpan(await this.read(`chunks/${address}`, options));
+    const answer = await this.read(`chunks/${address}`, options);
+    if (answer.kind !== 'content' || answer.bytes.length < SPAN_LENGTH) {
+      return withoutSpan(answer);
+    }
+    const root = treeRootOf(answer.bytes);
+    if (root === null) {
+      return withoutSpan(answer);
+    }
+    const joined = withoutSpan(await this.read(`bytes/${root.address}`, options));
+    if (joined.kind !== 'content') {
+      return joined;
+    }
+    if (BigInt(joined.bytes.length) !== root.length) {
+      return notReady(`answering ${joined.bytes.length} bytes for a body of ${root.length}`);
+    }
+    return { ...answer, bytes: joined.bytes };
   }
 
   private async read(path: string, options: ReadOptions = {}): Promise<SwarmAnswer> {

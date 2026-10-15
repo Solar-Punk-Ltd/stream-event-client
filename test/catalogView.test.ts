@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { CATALOG_VIEW_MESSAGE, catalogViewFrom } from '../src/features/catalog/StreamBrowser/catalogView';
+import { catalogViewFrom, catalogViewMessage } from '../src/features/catalog/StreamBrowser/catalogView';
 
 describe('what the browse page shows for a catalog fetch', () => {
   it('shows streams when there are streams', () => {
@@ -75,7 +75,9 @@ describe('what the browse page shows for a catalog fetch', () => {
 
   it('has copy for every view that is not a list of streams', () => {
     for (const view of ['unreachable', 'loading', 'empty'] as const) {
-      assert.ok(CATALOG_VIEW_MESSAGE[view]?.length > 0, `${view} would render a blank screen`);
+      for (const sourceName of ['Event gateway', null] as const) {
+        assert.ok(catalogViewMessage(view, sourceName).length > 0, `${view} would render a blank screen`);
+      }
     }
   });
 });
