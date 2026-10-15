@@ -4,7 +4,7 @@ import type { ChatIdentity } from '@solarpunkltd/swarm-chat-js';
 
 import { ShortAddress } from '@/shared/components/Address/ShortAddress';
 
-import { hasNonAsciiCharacters } from '../../../ens/ensLookup';
+import { hasNonAsciiCharacters, NON_LATIN_NAME_NOTE } from '../../../ens/ensLookup';
 import { OWN_STAMP_TITLE, type SenderBadge } from '../senderBadge';
 import { OwnFeedCheck } from '../OwnFeedCheck/OwnFeedCheck';
 import { BadgeIcon, EnsNameTick } from '../SenderLine/SenderLine';
@@ -17,7 +17,6 @@ const PUBLIC_ADDRESS_LABEL = 'public address';
 const SIGNATURE_LABEL = 'signature';
 const ACCOUNT_LABEL = 'Swarm ID account';
 const WALLET_LABEL = 'wallet address';
-const NON_ASCII_NAME_NOTE = 'contains non-Latin characters';
 
 /**
  * The verified ENS name with what it stands in for, the name the sender chose and the wallet it was read for. A name
@@ -28,12 +27,12 @@ function EnsRow({ ensName, chosenName, wallet }: { ensName: string; chosenName: 
     <>
       <dt>ENS</dt>
       <dd className="message-details-ens">
-        <span>{ensName}</span>
+        <bdi>{ensName}</bdi>
         <span>
-          <span className="message-details-ens-label">Chosen name</span> {chosenName}
+          <span className="message-details-ens-label">Chosen name</span> <bdi>{chosenName}</bdi>
         </span>
         <ShortAddress value={wallet} label={WALLET_LABEL} />
-        {hasNonAsciiCharacters(ensName) && <span className="message-details-ens-note">{NON_ASCII_NAME_NOTE}</span>}
+        {hasNonAsciiCharacters(ensName) && <span className="message-details-ens-note">{NON_LATIN_NAME_NOTE}</span>}
       </dd>
     </>
   );
@@ -103,7 +102,9 @@ export function MessageDetails({
     >
       <div className="message-details-header">
         <span className="message-details-title">
-          <b>{ensName ?? name}</b>
+          <b>
+            <bdi>{ensName ?? name}</bdi>
+          </b>
           {ensName !== undefined && <EnsNameTick />}
           <BadgeIcon badge={badge} />
         </span>

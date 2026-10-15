@@ -94,6 +94,9 @@ export function createEnsNames(
   };
 }
 
+/** What a name with a character outside ASCII is said to contain, as a reader may take it for another name. */
+export const NON_LATIN_NAME_NOTE = 'contains non-Latin characters';
+
 const NON_ASCII = /[^\x00-\x7f]/;
 
 /** Whether `name` has a character outside ASCII, which can look like a different name's letter on screen. */

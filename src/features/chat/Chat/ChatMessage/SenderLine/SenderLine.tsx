@@ -4,6 +4,7 @@ import { GuestBadgeIcon } from '@/shared/components/Icons/GuestBadgeIcon';
 import { OwnStampIcon } from '@/shared/components/Icons/OwnStampIcon';
 import { SwarmIdBadgeIcon } from '@/shared/components/Icons/SwarmIdBadgeIcon';
 
+import { hasNonAsciiCharacters, NON_LATIN_NAME_NOTE } from '../../../ens/ensLookup';
 import { messageTime } from '../messageTime';
 import { badgeLabel, OWN_STAMP_LABEL, OWN_STAMP_TITLE, type SenderBadge } from '../senderBadge';
 
@@ -27,6 +28,24 @@ export function EnsNameTick() {
       aria-label={ENS_NAME_TICK_LABEL}
     >
       <path d="M2.5 6.2 5 8.6l4.5-5" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** The short form of the details' note, for an ENS name with characters a reader may take for other letters. */
+function NonLatinNameMark() {
+  return (
+    <svg
+      className="ens-name-note"
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      role="img"
+      aria-label={NON_LATIN_NAME_NOTE}
+    >
+      <title>{NON_LATIN_NAME_NOTE}</title>
+      <circle cx="6" cy="6" r="5" fill="none" strokeWidth="1.2" />
+      <path d="M6 3.2v3.4M6 8.4v.4" fill="none" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   );
 }
@@ -62,6 +81,9 @@ export function SenderLine({
   onToggleDetails,
 }: SenderLineProps) {
   const time = messageTime(timestamp);
+  const nameClasses = ['chat-message-name', badge.isSwarmId ? 'linked' : 'guest', isEnsName && 'ens-name']
+    .filter(Boolean)
+    .join(' ');
   const toggle = (event: MouseEvent<HTMLButtonElement>) => {
     // The buttons are inside the message, whose own click shows its actions.
     event.stopPropagation();
@@ -69,8 +91,11 @@ export function SenderLine({
   };
   return (
     <p className="chat-message-sender">
-      <span className={badge.isSwarmId ? 'chat-message-name linked' : 'chat-message-name guest'}>{name}</span>
+      <bdi className={nameClasses} title={isEnsName ? name : undefined}>
+        {name}
+      </bdi>
       {isEnsName && <EnsNameTick />}
+      {isEnsName && hasNonAsciiCharacters(name) && <NonLatinNameMark />}
       <button
         type="button"
         className="sender-badge"

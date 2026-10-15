@@ -186,6 +186,47 @@ describe('a sender with a verified ENS name', () => {
   });
 });
 
+describe('a name shown beside a message', () => {
+  it('is isolated from the text around it, in the sender line and at the head of the details', async () => {
+    await open(panel(ENDPOINT, {}));
+    await emit(EVENTS.MESSAGE_RECEIVED, await idaSays('hello'));
+    await settle();
+    click(button('Swarm ID, show details'));
+
+    expect(senderLine().querySelector('.chat-message-name')?.tagName).toBe('BDI');
+    expect(details().querySelector('.message-details-title bdi')?.textContent).toBe('Ida');
+  });
+
+  it('is marked in the sender line too when the ENS name has characters outside ASCII', async () => {
+    await open(panel(ENDPOINT, { [LINK_WALLET]: 'іda.eth' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, await idaSays('hello'));
+    await settle();
+
+    expect(senderLine().querySelector('[aria-label="contains non-Latin characters"]')).not.toBeNull();
+  });
+
+  it('carries no such mark for an ENS name of plain ASCII', async () => {
+    await open(panel(ENDPOINT, { [LINK_WALLET]: 'ida.eth' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, await idaSays('hello'));
+    await settle();
+
+    expect(senderLine().querySelector('[aria-label="contains non-Latin characters"]')).toBeNull();
+  });
+
+  it('cuts a long ENS name in the sender line, keeping the whole of it as the title, and shows it whole in the details', async () => {
+    const long = `${'a-very-long-name-'.repeat(4)}ida.eth`;
+    await open(panel(ENDPOINT, { [LINK_WALLET]: long }));
+    await emit(EVENTS.MESSAGE_RECEIVED, await idaSays('hello'));
+    await settle();
+    click(button('Swarm ID, show details'));
+
+    const name = senderLine().querySelector<HTMLElement>('.chat-message-name');
+    expect(name?.classList.contains('ens-name')).toBe(true);
+    expect(name?.title).toBe(long);
+    expect(details().querySelector('.message-details-title')?.textContent).toBe(long);
+  });
+});
+
 describe('a sender with no name to show', () => {
   it('keeps the chosen name and no ENS row when the lookup finds none', async () => {
     await open(panel(ENDPOINT, {}));
