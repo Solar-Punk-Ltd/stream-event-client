@@ -33,7 +33,7 @@ export function rungProgressBoundMs(segmentMs: number | null | undefined): numbe
  *
  * Stamps come from one anchor the whole ladder shares, but a rung that started late or held back its
  * opening segments carries stamps up to about ten seconds off its siblings' (read from the uploader's
- * code, not measured). Thirty seconds is three times that, so only a rung that has clearly stopped is
+ * code in streaming-monorepo, not measured). Thirty seconds is three times that, so only a rung that has clearly stopped is
  * refused here. Anything closer is let through, and if it then shows no new index the playing-rung rule
  * deals with it.
  */
@@ -65,9 +65,18 @@ interface RungSnapshot {
  *
  * Only a rung that has clearly stopped is refused: one whose newest playlist is finished while the
  * playing rung is live, or whose newest segment is more than {@link STALE_RUNG_LAG_MS} behind.
+ *
+ * ⛔ **Two finished rungs refuse nothing.** On a recording every rung is complete, so a newest segment
+ * dated later says nothing about whether a rung stopped. On 2026-10-15 a 35 minute recording whose 1080p
+ * dates trailed by 496 s, every rung holding the same segments, had 1080p refused and dropped under a
+ * viewer, and the drop restarted the recording from the start. A finished playing rung alone is no such
+ * case, so an open target far behind it is still refused.
  */
 export function switchRefusal(target: RungSnapshot, playing: RungSnapshot): string | null {
-  if (target.isFinalized && !playing.isFinalized) {
+  if (target.isFinalized && playing.isFinalized) {
+    return null;
+  }
+  if (target.isFinalized) {
     return 'its newest playlist is finished while the playing quality is live';
   }
   const targetNewest = newestSegmentStartMs(target.segments);
