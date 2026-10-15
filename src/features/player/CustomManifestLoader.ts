@@ -50,8 +50,10 @@ export class CustomManifestLoader extends PlaylistLoader {
         // and hls.js renumbers the levels on a removal, so an error here names a level number that now
         // belongs to another rung or to none. With none hls.js finds nothing to switch to, calls the
         // error fatal, and the player restarts from the beginning: a recording viewer 2100 s in was sent
-        // back to 0 on 2026-10-15. hls.js gives a playlist request no abort to answer with, and drops
-        // this one itself at its next level request, which the move to another rung starts.
+        // back to 0 on 2026-10-15. hls.js's playlist loader passes no abort callback, so the request
+        // cannot be answered as cancelled either. hls.js cancels it itself: in 1.7.3, when its level list
+        // changes, it aborts a pending level request whose level is no longer in the list
+        // (`onLevelsUpdated` in its playlist loader), and nothing waits on this answer after that.
         if (error instanceof RungRefusedError) {
           return;
         }
