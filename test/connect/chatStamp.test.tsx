@@ -278,6 +278,23 @@ describe('the chat stamp in Connect', () => {
     expect(group()?.textContent).toContain('Another stamp');
   });
 
+  it('reads the figures again on the next report after a read Swarm ID did not answer', async () => {
+    chatOnMyBeeNode();
+    const swarmId = await openConnect();
+    click(radio('My stamp')!);
+    await settle();
+    swarmId.client().postageBatchFailsOnce = true;
+    window.dispatchEvent(new Event('focus'));
+    await settle();
+    await settle();
+    expect(group()?.textContent).toContain('Swarm ID did not say how your stamp stands.');
+
+    swarmId.client().pickStamp(BATCH);
+    await settle();
+    await settle();
+    expect(group()?.textContent, 'the same stamp reported again after a failed read').toContain('Event chat');
+  });
+
   it('shows a sign-in Swarm ID gave no stamp yet as having none, without a read', async () => {
     chatOnMyBeeNode();
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });

@@ -156,6 +156,7 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
       },
       () => {
         if (asked === readGeneration.current) {
+          shownStampId.current = null;
           setSiteStamp({ status: SITE_STAMP_UNREADABLE });
         }
       },
@@ -181,7 +182,7 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
   /**
    * A report from Swarm ID means its window did its work, so the line saying it was blocked goes. A focus alone, such
    * as a tab switch, only reads the stamp again and leaves that line in place. A report that names the same stamp
-   * again changes none of its figures, so it is read only when the stamp changed.
+   * again changes none of its figures, so it is read only when the stamp changed or the last read went unanswered.
    */
   const readReportedStamp = useCallback(() => {
     setStampWindowProblem(null);

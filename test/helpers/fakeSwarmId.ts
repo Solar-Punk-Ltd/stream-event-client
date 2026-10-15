@@ -65,6 +65,8 @@ class FakeSwarmIdClient implements SwarmIdClient {
   postageBatchReads = 0;
   /** A frame that never answers a read of the stamp's figures. */
   postageBatchHangs = false;
+  /** A frame that refuses the next read of the stamp's figures. */
+  postageBatchFailsOnce = false;
 
   constructor(
     readonly options: SwarmIdClientOptions,
@@ -125,6 +127,10 @@ class FakeSwarmIdClient implements SwarmIdClient {
     this.postageBatchReads += 1;
     if (this.postageBatchHangs) {
       return new Promise(() => {});
+    }
+    if (this.postageBatchFailsOnce) {
+      this.postageBatchFailsOnce = false;
+      throw new Error('Swarm ID did not answer');
     }
     if (!this.info.identity) {
       throw Object.assign(new Error('Not authenticated'), { code: 'not-authenticated' });
