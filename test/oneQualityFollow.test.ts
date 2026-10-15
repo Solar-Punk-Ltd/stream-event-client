@@ -32,7 +32,7 @@ import { SEGMENTS_AS_WRITTEN } from '../src/features/player/ManifestManagement';
 /**
  * The player follows only the quality it plays (Levi, 2026-10-07: "only one quality request at the
  * time. Not 4! We only request what we watch."). One case per behaviour,
- * Q1 to Q7, plus the two traps the uploader's own code sets: rungs whose indexes do not line up, and
+ * Q1 to Q8, plus the two traps the uploader's own code sets: rungs whose indexes do not line up, and
  * rungs whose stamps run seconds apart. Neither may be read as a dead rung.
  */
 
@@ -354,6 +354,37 @@ describe('Q2: a quality that stopped while not playing is found at switch time',
 
     assert.equal(rig.poller.readiness(hex(MID)), 'ready');
     assert.deepEqual(rig.stopped, []);
+  });
+
+  // Seen live on 2026-10-15: a finished 35 minute recording whose 1080p dates trailed its siblings' by
+  // 496 s was refused at a switch, the level drop that followed went fatal, and the viewer was sent back
+  // to the start. Every rung of a recording is complete, so a newest segment behind means nothing.
+  it('never refuses a rung of a finished recording, however far its dates trail the playing one', async () => {
+    const rig = makeRig();
+    rig.gateway.publishLive(TOP, 'top', 40);
+    rig.gateway.finishHead(TOP);
+    rig.gateway.publishLive(MID, 'mid', 40, { stampShiftMs: -496_000 });
+    rig.gateway.finishHead(MID);
+
+    await playTopThenSwitchTo(rig, MID);
+    await polls();
+
+    assert.equal(rig.poller.readiness(hex(MID)), 'ready');
+    assert.deepEqual(rig.stopped, []);
+  });
+
+  // Only a recording, where both have finished, lets dates go unread. A playing quality that finished
+  // says nothing about a sibling that is still open and far behind it.
+  it(`refuses an open rung more than ${STALE_RUNG_LAG_MS / 1000}s behind a playing rung that has finished`, async () => {
+    const rig = makeRig();
+    rig.gateway.publishLive(TOP, 'top', 60);
+    rig.gateway.finishHead(TOP);
+    rig.gateway.publishLive(MID, 'mid', 40);
+
+    await playTopThenSwitchTo(rig, MID);
+
+    assert.equal(rig.poller.readiness(hex(MID)), 'refused');
+    assert.equal(rig.stopped.length, 1);
   });
 });
 
