@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // @vitest-environment-options {"url":"https://example.com/"}
-import { createChatMessage, encodeChatMessage, EVENTS, MessageType, MessageVia } from '@solarpunkltd/swarm-chat-js';
+import { type ChatMessage, createChatMessage, EVENTS, MessageType, MessageVia } from '@solarpunkltd/swarm-chat-js';
 import { act, createElement } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -15,7 +15,7 @@ import { CHAT, connectPage, seen } from '../helpers/connectPage';
 import { wearThemeCss } from '../helpers/themeCss';
 import { button, click, nestedLiveRegions, queryButton, settle, type Mounted, waitFor } from '../helpers/dom';
 import { FakeSwarmChat } from '../helpers/fakeSwarmChat';
-import { ownFeed } from '../helpers/ownFeed';
+import { servedFeeds } from '../helpers/chatFeed';
 import { type FakeSwarmId, fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
 import {
   addressOf,
@@ -88,13 +88,13 @@ function chatOnMyBeeNode() {
   saveRouting(chooseSource(defaultRouting('event'), 'added-1'));
 }
 
-async function watchPage(batch: SwarmIdPostageBatch = BATCH): Promise<FakeSwarmId> {
+async function watchPage(batch: SwarmIdPostageBatch = BATCH, chat: typeof CHAT = CHAT): Promise<FakeSwarmId> {
   const swarmId = await fakeSwarmId(SIGNED_IN, (client) => {
     client.postageBatch = batch;
   });
   mounted = connectPage({
     swarmId,
-    children: [createElement(Chat, { key: 'chat', chat: CHAT, topic: 'stream-one', reads: () => reads })],
+    children: [createElement(Chat, { key: 'chat', chat, topic: 'stream-one', reads: () => reads })],
   });
   await settle();
   await waitFor(() => seen.chatUser?.swarmIdSession);
@@ -337,66 +337,68 @@ describe('a chat paid for with my own stamp', () => {
   });
 });
 
-describe("a sender's own copies in the message details", () => {
+describe("a sender's own feed in the message details", () => {
   const SENDER_KEY = 'a1'.repeat(32);
-  const copyOf = (index: number, text = `copy ${index}`) =>
+  const SERVER_KEY = 'c3'.repeat(32);
+  const CHAT_TOPIC = 'chat-stream-one';
+  const ON_THIS_SERVER = { ...CHAT, feedOwner: `0x${addressOf(SERVER_KEY)}` };
+  const mine = (label: string) =>
     createChatMessage(SENDER_KEY, {
-      id: idOf(`own-${index}`),
-      topic: 'chat-stream-one',
+      id: idOf(label),
+      topic: CHAT_TOPIC,
       type: MessageType.TEXT,
-      text,
+      text: `text of ${label}`,
       name: 'Bea',
-      ts: 1_000 + index,
+      ts: 1_000,
       via: MessageVia.OWN_STAMP,
-      own: true,
     }).message;
 
-  async function openDetailsOf(count: number, tamperedAt: number | null = null) {
-    const copies = Array.from({ length: count }, (_, index) =>
-      index === tamperedAt ? { ...copyOf(index), text: 'changed after signing' } : copyOf(index),
-    );
-    reads = ownFeed(
-      SENDER_KEY,
-      'chat-stream-one',
-      copies.map((copy) => encodeChatMessage(copy)),
-    ).reads;
-    await watchPage();
-    const newest = copyOf(count - 1);
-    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(newest, 0)));
-    await waitFor(() => (chatRegion()?.textContent?.includes(newest.text) ? true : null));
+  /** Opens the details of `shown`, in a chat holding `chatMessages` and an own feed holding `copies`, or none. */
+  async function openDetails(shown: ChatMessage, chatMessages: ChatMessage[], copies: ChatMessage[] | null) {
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, chatMessages, { filesThrough: chatMessages.length > 2 ? [1] : [] });
+    if (copies) {
+      feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, copies);
+    }
+    reads = feeds.reads;
+    await watchPage(BATCH, ON_THIS_SERVER);
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(shown, 0)));
+    await waitFor(() => (chatRegion()?.textContent?.includes(shown.text) ? true : null));
     click(button('Sent with their own stamp, show details'));
-    await waitFor(() => document.querySelector('[aria-label="Their own copies"] li'));
-    await settle();
-    return document.querySelector<HTMLElement>('[aria-label="Their own copies"]')!;
+    const section = () => document.querySelector<HTMLElement>('[aria-label="Own feed"]');
+    expect(section()?.textContent).toContain('Counting…');
+    await waitFor(() => (section()?.textContent?.includes('Counting…') ? null : true));
+    return section()!;
   }
 
-  const listed = (section: HTMLElement) =>
-    [...section.querySelectorAll('li .own-copy-text')].map((item) => item.textContent);
+  it('says how many messages each feed holds and that this one is in the own feed', async () => {
+    const [a, b] = [mine('a'), mine('b')];
+    const section = await openDetails(b, [a, b], [a, b]);
 
-  it("lists the copies in the sender's own feed, newest first, ten at a time, and loads more", async () => {
-    const section = await openDetailsOf(12);
-
-    expect(listed(section)).toEqual(Array.from({ length: 10 }, (_, at) => `copy ${11 - at}`));
-    click(button('Load more'));
-    await waitFor(() => (listed(section).length === 12 ? true : null));
-    expect(listed(section).slice(10)).toEqual(['copy 1', 'copy 0']);
-    expect(queryButton('Load more')).toBeNull();
+    expect(section.textContent).toContain('Own feed: 2 messages');
+    expect(section.textContent).toContain('Chat feed: 2 messages');
+    expect(section.textContent).toContain('In their own feed');
+    expect(section.querySelector('.own-feed-missing')).toBeNull();
   });
 
-  it('hides a copy that fails its check', async () => {
-    const section = await openDetailsOf(3, 1);
-    expect(listed(section)).toEqual(['copy 2', 'copy 0']);
-    expect(section.textContent).not.toContain('changed after signing');
+  it('names the messages missing on each side, newest first, when the feeds differ', async () => {
+    const [a, b, c, d] = ['a', 'b', 'c', 'd'].map(mine) as [ChatMessage, ChatMessage, ChatMessage, ChatMessage];
+    const section = await openDetails(c, [a, b, c], [a, d]);
+
+    expect(section.textContent).toContain('Own feed: 2 messages');
+    expect(section.textContent).toContain('Chat feed: 3 messages');
+    expect(section.textContent).toContain('Not in their own feed');
+    const missing = (label: string) =>
+      [...section.querySelectorAll(`[aria-label="${label}"] li`)].map((item) => item.textContent);
+    expect(missing('Missing from their own feed')).toEqual([c.text, b.text]);
+    expect(missing('Missing from the chat feed')).toEqual([d.text]);
   });
 
-  it('is not offered for a message that says it keeps no copy', async () => {
-    await watchPage();
-    const plain = signedMessage('no-copy', { key: SENDER_KEY, via: MessageVia.OWN_STAMP });
-    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(plain, 0)));
-    await waitFor(() => (chatRegion()?.textContent?.includes(plain.text) ? true : null));
-    click(button('Sent with their own stamp, show details'));
-    await settle();
-    expect(document.querySelector('[aria-label="Details for this message"]')).not.toBeNull();
-    expect(document.querySelector('[aria-label="Their own copies"]')).toBeNull();
+  it('says plainly when the sender keeps no own feed', async () => {
+    const a = mine('a');
+    const section = await openDetails(a, [a], null);
+
+    expect(section.textContent).toContain('No own feed');
+    expect(section.textContent).toContain('Chat feed: 1 message');
   });
 });

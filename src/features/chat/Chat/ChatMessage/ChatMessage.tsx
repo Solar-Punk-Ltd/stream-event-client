@@ -154,7 +154,6 @@ export function ChatMessage({
             badge={badge}
             identity={message.identity}
             ownStamp={ownStamp}
-            hasOwnCopy={message.signedMessage.own}
             onClose={details.close}
           />
         )}

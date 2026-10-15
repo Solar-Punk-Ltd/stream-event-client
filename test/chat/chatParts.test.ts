@@ -25,7 +25,7 @@ import {
   recordedFetch,
   recordedUrls,
 } from '../helpers/recordedBeeGateway';
-import { wrappedChunk } from '../helpers/ownFeed';
+import { wrappedChunk } from '../helpers/chatFeed';
 
 /** A throwaway key standing in for the chat server, which owns the chat feed and its notes. */
 const SERVER = new PrivateKey('b2'.repeat(32));

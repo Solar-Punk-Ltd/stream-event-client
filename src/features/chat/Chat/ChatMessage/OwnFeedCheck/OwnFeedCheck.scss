@@ -1,0 +1,49 @@
+// Under the details of a message sent with its sender's own stamp: their own feed against the chat.
+.own-feed-check {
+  display: grid;
+  gap: var(--spacing-2xs);
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.own-feed-hint {
+  color: var(--color-text-tertiary);
+}
+
+.own-feed-this {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2xs);
+}
+
+// The success colour, as the signature's check mark carries it.
+.own-feed-tick path {
+  stroke: var(--color-success);
+}
+
+.own-feed-missing {
+  display: grid;
+  gap: var(--spacing-2xs);
+
+  ul {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    overflow-wrap: anywhere;
+  }
+}
+
+.own-feed-again {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  cursor: pointer;
+}
