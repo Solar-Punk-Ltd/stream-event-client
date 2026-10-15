@@ -107,7 +107,8 @@ after the change.
 
 One chat per stream, beside the video on a desktop and under it on a phone, where it folds away.
 Anyone can read it. Writing asks once for a display name, 1 to 20 characters with no invisible formatting or control
-character such as a right-to-left override, and there is no
+character such as a right-to-left override. The zero width joiner and non-joiner are allowed, since joined emoji
+and Persian or Indic names need them. There is no
 password, wallet or account. A deployment that names a Swarm ID site in `swarmId.url` also offers
 signing in with Swarm ID, described [below](#signing-in-with-swarm-id). A viewer can send a message, react with an emoji, reply in a thread,
 load older messages, and retry a message that did not send. A message lights up under the pointer and shows its

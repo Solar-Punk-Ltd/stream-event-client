@@ -36,6 +36,8 @@ describe('the display name rule', () => {
     ['a byte order mark', 'Ad\ufeffa'],
     ['a newline inside it', 'Ada\nLovelace'],
     ['a NUL', 'Ada\u0000'],
+    ['a left-to-right mark', 'Ad\u200ea'],
+    ['a word joiner', 'Ad\u2060a'],
   ])('refuses a name with %s, which draws nothing yet changes how the name reads', (_what, raw) => {
     expect(checkDisplayName(raw)).toEqual({ ok: false, problem: INVISIBLE_CHARACTERS_PROBLEM });
   });
@@ -44,6 +46,14 @@ describe('the display name rule', () => {
     for (const name of ['Zoë', 'Алиса', '李雷', 'سارا', 'नमस्ते']) {
       expect(checkDisplayName(name)).toEqual({ ok: true, name });
     }
+  });
+
+  it.each([
+    ['a family emoji joined by zero width joiners', '\u{1F468}\u200d\u{1F469}\u200d\u{1F467}'],
+    ['a Persian name with a zero width non-joiner', 'می\u200cخواهم'],
+    ['a Devanagari conjunct with a zero width joiner', 'क्\u200dष'],
+  ])('accepts %s, since the joiners shape the name rather than hide anything', (_what, name) => {
+    expect(checkDisplayName(name)).toEqual({ ok: true, name });
   });
 
   it('counts an emoji as one character, not as the two code units it takes', () => {

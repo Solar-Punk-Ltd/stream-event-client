@@ -26,9 +26,11 @@ export const INVISIBLE_CHARACTERS_PROBLEM = 'A display name cannot hold invisibl
 
 /**
  * Unicode format and control characters, which draw nothing yet change how a name reads: a right-to-left override can
- * make one name look like another. The chat library refuses a message whose name holds one.
+ * make one name look like another. The chat library refuses a message whose name holds one. The zero width non-joiner
+ * U+200C and joiner U+200D are let through as the library lets them through, since Persian and Indic names and joined
+ * emoji are spelled with them.
  */
-const INVISIBLE_CHARACTER = /[\p{Cf}\p{Cc}]/u;
+const INVISIBLE_CHARACTER = /(?![\u200c\u200d])[\p{Cf}\p{Cc}]/u;
 
 /** Whether `name` holds a character that draws nothing yet changes how the name around it reads. */
 export function hasInvisibleCharacters(name: string): boolean {

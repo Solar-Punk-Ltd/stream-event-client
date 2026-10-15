@@ -346,6 +346,12 @@ describe("a Swarm ID account's chat name", () => {
     );
   });
 
+  it('keeps a name joined by a zero width joiner or non-joiner', () => {
+    const family = '\u{1F468}\u200d\u{1F469}\u200d\u{1F467}';
+    expect(chatNameOf({ ...FORK_IDENTITY, name: family })).toBe(family);
+    expect(chatNameOf({ ...FORK_IDENTITY, name: 'می\u200cخواهم' })).toBe('می\u200cخواهم');
+  });
+
   it('is the short account address for an account with no name', () => {
     expect(chatNameOf({ ...FORK_IDENTITY, name: '  ' })).toBe(
       `0x${FORK_ACCOUNT.slice(2, 6)}…${FORK_ACCOUNT.slice(-4)}`,
