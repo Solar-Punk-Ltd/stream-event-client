@@ -7,6 +7,7 @@ import {
   type ChatSettings,
   EVENTS,
   FeedStatus,
+  HeadLookupTimeoutError,
   type MessageData,
   MessageType,
   SwarmChat,
@@ -165,6 +166,11 @@ export function useSwarmChat(
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
   const [feedStatus, setFeedStatus] = useState<FeedStatus | null>(null);
+  /**
+   * The newest entry was not found in time while the chat opened, so the library opened it as empty and reads on from
+   * its first entry. Its history is unknown rather than empty until that read answers.
+   */
+  const [isFindingNewest, setIsFindingNewest] = useState(false);
   const [refusedCount, setRefusedCount] = useState(0);
   const [sendProblems, setSendProblems] = useState<Record<string, ShownProblem>>({});
   /** The refused messages of the chat on screen, so one carried by several events is counted once. */
@@ -183,6 +189,7 @@ export function useSwarmChat(
       setStatus(CHAT_LOADING);
       setHasOlder(false);
       setIsLoadingOlder(false);
+      setIsFindingNewest(false);
     } else {
       // A chat started again, for a new name or on request, has not failed yet.
       setStatus((previous) => (previous === CHAT_UNREACHABLE ? CHAT_LOADING : previous));
@@ -257,6 +264,9 @@ export function useSwarmChat(
         if (stopped) {
           return;
         }
+        if (loading) {
+          setIsFindingNewest(false);
+        }
         if (!loading) {
           setHasOlder(started.hasPreviousMessages());
         }
@@ -276,8 +286,17 @@ export function useSwarmChat(
         }
       });
       listen(EVENTS.STATUS, (next) => {
-        if (!stopped) {
-          setFeedStatus(next);
+        if (stopped) {
+          return;
+        }
+        setFeedStatus(next);
+        if (next !== FeedStatus.RECONNECTING) {
+          setIsFindingNewest(false);
+        }
+      });
+      listen(EVENTS.ERROR, (error) => {
+        if (!stopped && error instanceof HeadLookupTimeoutError) {
+          setIsFindingNewest(true);
         }
       });
       listen(EVENTS.CRITICAL_ERROR, () => {
@@ -404,6 +423,7 @@ export function useSwarmChat(
   return {
     status,
     feedStatus,
+    isFindingNewest,
     isLoadingOlder,
     hasOlder,
     messages: grouped.text,

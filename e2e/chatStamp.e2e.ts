@@ -44,6 +44,7 @@ const SITE_STAMP: FakeSiteStamp = {
 };
 const SPAN_BYTES = 8;
 const PHONE = { width: 360, height: 740 };
+const NARROWEST_PHONE = { width: 320, height: 640 };
 
 const read = <T>(file: string): T => JSON.parse(readFileSync(join(RECORDED_DIR, file), 'utf8')) as T;
 
@@ -367,6 +368,32 @@ test("a guest's Show it's really you row holds Swarm ID's button beside its word
   expect(frame!.x + frame!.width, 'inside the screen').toBeLessThanOrEqual(PHONE.width);
   const besideOrBelow = frame!.x >= words!.x + words!.width || frame!.y >= words!.y + words!.height;
   expect(besideOrBelow, 'the button does not cover the words').toBe(true);
+});
+
+test("the compact Swarm ID button's placeholder shows its whole label on the narrowest phone", async ({ page }) => {
+  await page.setViewportSize(NARROWEST_PHONE);
+  const { swarmId } = await deployment(
+    page,
+    () => SITE_STAMP,
+    'bee-node',
+    () => {},
+    false,
+  );
+  swarmId.holdButtons();
+  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'Your name', exact: true }).fill('Ada');
+  await dialog.getByRole('button', { name: 'Chat as guest', exact: true }).click();
+  if (!(await dialog.isVisible())) {
+    await page.getByRole('banner').getByRole('button', { name: /^Ada/ }).click();
+  }
+  const placeholder = dialog.locator('.compact > .swarm-id-button-placeholder');
+  await expect(placeholder).toHaveText('Sign in with Swarm ID');
+
+  const fits = await placeholder.evaluate((element) => element.scrollWidth <= element.clientWidth);
+  expect(fits, 'the label is not cut off').toBe(true);
+  const box = await placeholder.boundingBox();
+  expect(box!.x + box!.width, 'inside the screen').toBeLessThanOrEqual(NARROWEST_PHONE.width);
 });
 
 test('Change stamp in Swarm ID opens the Swarm ID window again, and the stamp picked there shows at once', async ({

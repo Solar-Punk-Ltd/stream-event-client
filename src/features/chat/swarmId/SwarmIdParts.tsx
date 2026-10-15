@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { useThemeChoice } from '@/app/ThemeChoiceProvider';
 import { ShortAddress } from '@/shared/components/Address/ShortAddress';
@@ -23,6 +23,9 @@ import './SwarmIdParts.scss';
 const SIGN_IN_LABEL = 'Sign in with Swarm ID';
 const UNAVAILABLE_TEXT = 'Swarm ID cannot be reached right now.';
 const STARTING_TEXT = 'Connecting to Swarm ID';
+const SLOW_TEXT = 'Swarm ID is taking longer than usual.';
+/** How long the button may wait for Swarm ID before the page says, in words anyone sees, that it is slow. */
+const SLOW_AFTER_MS = 30_000;
 const WINDOW_BLOCKED = 'blocked';
 const SWARM_ID_NAME = 'Swarm ID';
 const PUBLIC_ADDRESS_LABEL = 'public address';
@@ -59,6 +62,7 @@ export function SwarmIdButton({
   const [isShown, setIsShown] = useState(false);
   /** Raised by Try again, which mounts a new button in place of one Swarm ID refused or that never answered. */
   const [attempt, setAttempt] = useState(0);
+  const startingId = useId();
   const isStarting = swarmId?.status === SWARM_ID_STARTING;
   const canMount = swarmId !== null && !isStarting && swarmId.status !== SWARM_ID_UNAVAILABLE;
 
@@ -113,25 +117,45 @@ export function SwarmIdButton({
 
   const isUnavailable = swarmId?.status === SWARM_ID_UNAVAILABLE;
   const isWaiting = !isShown && !isRefused && !isUnavailable;
+  const [isSlow, setIsSlow] = useState(false);
+
+  useEffect(() => {
+    if (!isWaiting) {
+      return;
+    }
+    const timer = setTimeout(() => setIsSlow(true), SLOW_AFTER_MS);
+    return () => {
+      clearTimeout(timer);
+      setIsSlow(false);
+    };
+  }, [isWaiting]);
+
   // The slot stays while the hints show, so the button's place does not jump while Swarm ID starts, and a refused
   // frame is taken away by its own unmount rather than with a container React removed under it. Until the frame
-  // shows its button, a placeholder in the page's own look of that button stands over it.
+  // shows its button, a placeholder in the page's own look of that button stands over it. An unseen copy of the label
+  // keeps the slot at least as wide as the label, since the frame and the placeholder over it give the slot no width.
   return (
     <span className="swarm-id-button">
       <span className={`swarm-id-button-slot ${size}`} hidden={isUnavailable || isRefused}>
+        <span className={`button ${variant} swarm-id-button-sizer`} aria-hidden="true">
+          {text}
+        </span>
         <span ref={container} className="swarm-id-button-frame" aria-hidden={canMount ? undefined : true} />
         {isWaiting && (
-          <span className={`button ${variant} swarm-id-button-placeholder`} aria-hidden="true">
+          <span className={`button ${variant} swarm-id-button-placeholder`} role="img" aria-labelledby={startingId}>
             <Spinner />
             {text}
           </span>
         )}
       </span>
-      {isWaiting && (
-        <span className="swarm-id-status" role="status">
-          {STARTING_TEXT}
-        </span>
-      )}
+      <span className={isSlow ? 'swarm-id-status slow' : 'swarm-id-status'} role="status">
+        {isWaiting && (
+          <span id={startingId} className="swarm-id-spoken">
+            {STARTING_TEXT}
+          </span>
+        )}
+        {isSlow && <span className="swarm-id-hint">{SLOW_TEXT}</span>}
+      </span>
       {(isUnavailable || isRefused) && <span className="swarm-id-hint">{UNAVAILABLE_TEXT}</span>}
       {isRefused && (
         <Button

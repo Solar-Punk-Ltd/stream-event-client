@@ -124,7 +124,10 @@ reaction's picker beside a message.
   instead.
 - **The chat aggregator**, on swarm-chat-js 8, which listens on the shared address the key and topic above name, and
   appends each message to the stream's chat feed, `chat-<stream topic>` under `chat.feedOwner`.
-  Opening a chat reads the newest history file the chat feed points to, then the entries after it. The endpoint viewers write
+  Opening a chat reads the newest history file the chat feed points to, then the entries after it. When the feed's
+  newest entry is not found in time, as through Weeb3 where every entry not there costs a long wait, the library
+  opens the chat empty and reads on from its first entry, and the chat says "Loading the chat…" until that read
+  answers. "No messages yet." shows only once it found nothing. The endpoint viewers write
   through must be a different Bee node from the one the aggregator listens on, because Bee hands a
   message on to a listener only when it arrives from another node.
 
@@ -231,8 +234,12 @@ stamps them, unless the person picks their own stamp, as the next section says.
 - **The button is mounted once for as long as it is shown.** Closing My Swarm takes it away and leaves the session as
   it is.
   Until Swarm ID's frame shows its button, a placeholder stands in its place: the page's own button of the same look
-  and size, with its label and a small loader, which takes no click and no focus, and a screen reader hears
-  "Connecting to Swarm ID". The frame then shows the button in the same place, so nothing moves. A Try again shows
+  and size, with its label and a small loader, which takes no click and no focus. To a screen reader it is a picture
+  named "Connecting to Swarm ID", and a status that stays in place says the same. The frame then shows the button
+  in the same place, so nothing moves. When the wait passes 30 seconds, a line under it says "Swarm ID is taking
+  longer than usual." in that same status. That place is
+  never narrower than the label with its loader, so the smaller button beside other words, as in Show it's really
+  you, shows its whole label down to a 320 px wide screen. A Try again shows
   the placeholder again until the new button is ready. When Swarm ID refuses the
   button, or it does not answer within the library's 30 seconds, its place says "Swarm ID cannot be reached right
   now." with Try again, which takes that button away and mounts a new one, and the console warns once as for a Swarm

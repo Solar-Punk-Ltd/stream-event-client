@@ -6,6 +6,12 @@
   border-top-color: var(--color-primary);
   border-radius: var(--radius-full);
   animation: spinner-turn 1s linear infinite;
+
+  // Still of its own accord rather than by the page's rule that cuts every animation short, so it holds wherever the
+  // spinner is drawn. The words beside it carry the wait.
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 @keyframes spinner-turn {
