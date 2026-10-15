@@ -168,22 +168,25 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
   if (!canUseOwnStamp && stampWindowProblem !== null) {
     setStampWindowProblem(null);
   }
-  /** A line about the Swarm ID window belongs to the stamp read before it, so a fresh read drops it. */
-  const readSiteStampAgain = useCallback(() => {
+  /**
+   * A report from Swarm ID means its window did its work, so the line saying it was blocked goes. A focus alone, such
+   * as a tab switch, only reads the stamp again and leaves that line in place.
+   */
+  const readReportedStamp = useCallback(() => {
     setStampWindowProblem(null);
     readSiteStamp();
   }, [readSiteStamp]);
 
-  useEffect(() => onSwarmIdConnectionChange(readSiteStampAgain), [onSwarmIdConnectionChange, readSiteStampAgain]);
+  useEffect(() => onSwarmIdConnectionChange(readReportedStamp), [onSwarmIdConnectionChange, readReportedStamp]);
 
   // Back from Swarm ID's window, where the site's stamp may have changed.
   useEffect(() => {
     if (!canUseOwnStamp || typeof window === 'undefined') {
       return;
     }
-    window.addEventListener('focus', readSiteStampAgain);
-    return () => window.removeEventListener('focus', readSiteStampAgain);
-  }, [canUseOwnStamp, readSiteStampAgain]);
+    window.addEventListener('focus', readSiteStamp);
+    return () => window.removeEventListener('focus', readSiteStamp);
+  }, [canUseOwnStamp, readSiteStamp]);
 
   const readAfterSend = useCallback(() => {
     if (Date.now() - lastReadAt.current >= READ_AFTER_SEND_MS) {

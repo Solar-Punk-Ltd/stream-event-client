@@ -239,29 +239,25 @@ describe('the chat stamp in Connect', () => {
     expect(group()?.textContent).not.toContain('Your browser blocked the Swarm ID window.');
   });
 
-  it('drops the blocked window line once the stamp is read again, on focus or on a new Swarm ID report', async () => {
+  it('keeps the blocked window line through a tab switch, and drops it on a new Swarm ID report', async () => {
     chatOnMyBeeNode();
     const swarmId = await openConnect();
     click(radio('My stamp')!);
     await settle();
-    const blockedWindow = async () => {
-      swarmId.client().nextWindow = 'blocked';
-      click(button('Change stamp in Swarm ID'));
-      await settle();
-      expect(group()?.textContent).toContain('Your browser blocked the Swarm ID window.');
-    };
+    swarmId.client().nextWindow = 'blocked';
+    click(button('Change stamp in Swarm ID'));
+    await settle();
+    expect(group()?.textContent).toContain('Your browser blocked the Swarm ID window.');
 
-    await blockedWindow();
     window.dispatchEvent(new Event('focus'));
     await settle();
-    expect(group()?.textContent, 'read again on focus').not.toContain('Your browser blocked the Swarm ID window.');
-
-    await blockedWindow();
-    swarmId.client().pickStamp(BATCH);
-    await settle();
-    expect(group()?.textContent, 'read again on a new report').not.toContain(
+    expect(group()?.textContent, 'a focus only reads the stamp again').toContain(
       'Your browser blocked the Swarm ID window.',
     );
+
+    swarmId.client().pickStamp(BATCH);
+    await settle();
+    expect(group()?.textContent, 'a new report').not.toContain('Your browser blocked the Swarm ID window.');
   });
 
   it('says a stamp that ran out has run out', async () => {
