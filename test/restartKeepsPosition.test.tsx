@@ -127,6 +127,8 @@ function emit(index: number, event: string, data: unknown = {}): void {
 }
 
 const FATAL_LEVEL_LOAD = { fatal: true, type: ErrorTypes.NETWORK_ERROR, details: ErrorDetails.LEVEL_LOAD_ERROR };
+const FATAL_FRAGMENT_LOAD = { fatal: true, type: ErrorTypes.NETWORK_ERROR, details: ErrorDetails.FRAG_LOAD_ERROR };
+const FATAL_FRAGMENT_TIMEOUT = { fatal: true, type: ErrorTypes.NETWORK_ERROR, details: ErrorDetails.FRAG_LOAD_TIMEOUT };
 const SEGMENT_S = 2;
 const RECORDING_S = 2142;
 
@@ -161,14 +163,21 @@ function playTo(positionS: number): void {
  * Fails player `index` fatally with the playhead at `positionS`.
  *
  * @param levelLoaded Whether that player had loaded its level, which is what it reads its place from.
+ * @param error The fatal error, a playlist failure unless a test names a media one.
  */
-function failPlayer(index: number, positionS: number, live: boolean, levelLoaded = true): void {
+function failPlayer(
+  index: number,
+  positionS: number,
+  live: boolean,
+  levelLoaded = true,
+  error: object = FATAL_LEVEL_LOAD,
+): void {
   const instance = fakes.instances[index];
   instance.levels = levelLoaded ? [{ details: levelDetails(live) }] : [{}];
   instance.currentLevel = 0;
   playheadAt(positionS);
 
-  emit(index, Events.ERROR, FATAL_LEVEL_LOAD);
+  emit(index, Events.ERROR, error);
   assert.equal(instance.destroyed, true, `the fatal error did not restart player ${index}`);
   assert.equal(fakes.instances.length, index + 2, `no player was built after player ${index}`);
 }
@@ -216,15 +225,30 @@ describe('a player restarted by a fatal error', () => {
   });
 
   // The rebuilt player was asked to start at 2100 and failed before playback moved, so its own reading
-  // says nothing, and the place it was asked to start at is still where the viewer is. Failing there a
-  // second time is what moves the next player one segment on.
+  // says nothing, and the place it was asked to start at is still where the viewer is.
   it('keeps the recording position through a second fatal error after the rebuilt player has started loading', () => {
     failFatallyAt(2100, false);
 
     failPlayer(1, 0, false, false);
     emit(2, Events.MANIFEST_PARSED);
 
-    assert.deepEqual(fakes.instances[2].startLoads, [2100 + SEGMENT_S]);
+    assert.deepEqual(fakes.instances[2].startLoads, [2100]);
+  });
+
+  // A playlist that fails to load says nothing about the segment at the viewer's place, so moving past
+  // that segment would skip recording nothing showed was broken.
+  it('stays at the place its player started however often the playlist fails there', () => {
+    failFatallyAt(2100, false);
+
+    failPlayer(1, 2100, false);
+    emit(2, Events.MANIFEST_PARSED);
+    failPlayer(2, 0, false, false);
+    emit(3, Events.MANIFEST_PARSED);
+
+    assert.deepEqual(
+      fakes.instances.slice(1).map((instance) => instance.startLoads),
+      [[2100], [2100], [2100]],
+    );
   });
 
   // A segment that never loads fails every player sent to it, so resuming at the same place again
@@ -232,11 +256,11 @@ describe('a player restarted by a fatal error', () => {
   it('moves a segment on each time a recording fails again at the place its player started', () => {
     failFatallyAt(2100, false);
 
-    failPlayer(1, 2100, false);
+    failPlayer(1, 2100, false, true, FATAL_FRAGMENT_LOAD);
     emit(2, Events.MANIFEST_PARSED);
-    failPlayer(2, 2102, false);
+    failPlayer(2, 2102, false, true, FATAL_FRAGMENT_LOAD);
     emit(3, Events.MANIFEST_PARSED);
-    failPlayer(3, 0, false, false);
+    failPlayer(3, 0, false, false, FATAL_FRAGMENT_TIMEOUT);
     emit(4, Events.MANIFEST_PARSED);
 
     assert.deepEqual(
@@ -249,9 +273,9 @@ describe('a player restarted by a fatal error', () => {
     failFatallyAt(2100, false);
 
     playTo(2103);
-    failPlayer(1, 2110, false);
+    failPlayer(1, 2110, false, true, FATAL_FRAGMENT_LOAD);
     emit(2, Events.MANIFEST_PARSED);
-    failPlayer(2, 2110, false);
+    failPlayer(2, 2110, false, true, FATAL_FRAGMENT_LOAD);
     emit(3, Events.MANIFEST_PARSED);
 
     assert.deepEqual(
