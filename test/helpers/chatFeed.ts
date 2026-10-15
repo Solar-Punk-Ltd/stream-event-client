@@ -98,7 +98,14 @@ export function servedFeeds() {
     let fromSeq = 0;
     for (const toSeq of layout.filesThrough ?? []) {
       const ref = referenceOf(files.size + 1);
-      const file = { v: MESSAGE_VERSION, topic: chatTopic, fromSeq, toSeq, messages: rows.slice(fromSeq, toSeq + 1), prev: link };
+      const file = {
+        v: MESSAGE_VERSION,
+        topic: chatTopic,
+        fromSeq,
+        toSeq,
+        messages: rows.slice(fromSeq, toSeq + 1),
+        prev: link,
+      };
       files.set(ref, encoder.encode(JSON.stringify(file)));
       link = { ref, toSeq };
       linkAfter.set(toSeq, link);
