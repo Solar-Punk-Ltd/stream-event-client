@@ -54,6 +54,7 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
   const {
     status,
     feedStatus,
+    isFindingNewest,
     isLoadingOlder,
     hasOlder,
     messages,
@@ -139,13 +140,15 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
       );
     }
 
+    const loading = (
+      <div className="chat-loading">
+        <p role="status">Loading the chat…</p>
+        <NodeInTabProgress source={source} />
+      </div>
+    );
+
     if (status === CHAT_LOADING) {
-      return (
-        <div className="chat-loading">
-          <p role="status">Loading the chat…</p>
-          <NodeInTabProgress source={source} />
-        </div>
-      );
+      return loading;
     }
 
     if (threadParent) {
@@ -194,6 +197,8 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
             label="Messages"
             renderItem={(message, onHeightChange) => renderMessage(message, onHeightChange)}
           />
+        ) : isFindingNewest ? (
+          loading
         ) : (
           <p className="chat-empty">No messages yet.</p>
         )}

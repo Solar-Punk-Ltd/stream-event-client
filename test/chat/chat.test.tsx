@@ -3,6 +3,8 @@ import {
   type ChatBinding,
   ChatMessageError,
   EVENTS,
+  FeedStatus,
+  HeadLookupTimeoutError,
   type MessageData,
   MessageType,
   MessageVia,
@@ -266,12 +268,56 @@ describe('the chat on a watch page', () => {
     mounted = mount(panel());
     await settle();
     await emit(EVENTS.LOADING_INIT, true);
-    await emit(EVENTS.ERROR, new Error('the head lookup timed out, opening from slot 0'));
+    await emit(EVENTS.ERROR, new Error('a slot of the history could not be read, opening again'));
     expect(text()).toContain('Loading the chat');
     expect(text()).not.toContain('The chat cannot be reached right now');
     await emit(EVENTS.LOADING_INIT, false);
     expect(text()).not.toContain('Loading the chat');
     expect(text()).toContain('No messages yet.');
+  });
+
+  describe('a history whose newest entry was not found in time, as through the node in this tab', () => {
+    async function openWithoutTheNewest() {
+      mounted = mount(panel());
+      await settle();
+      await emit(EVENTS.LOADING_INIT, true);
+      await emit(EVENTS.ERROR, new HeadLookupTimeoutError());
+      await emit(EVENTS.LOADING_INIT, false);
+    }
+
+    it('keeps loading rather than saying the chat is empty, while it still reads from the first entry', async () => {
+      await openWithoutTheNewest();
+      expect(text()).toContain('Loading the chat');
+      expect(text()).not.toContain('No messages yet.');
+    });
+
+    it('says the chat is empty once its first read from the first entry answered with nothing', async () => {
+      await openWithoutTheNewest();
+      await emit(EVENTS.STATUS, FeedStatus.LIVE);
+      expect(text()).not.toContain('Loading the chat');
+      expect(text()).toContain('No messages yet.');
+    });
+
+    it('keeps loading through a read that failed, which answered nothing about the chat', async () => {
+      await openWithoutTheNewest();
+      await emit(EVENTS.STATUS, FeedStatus.RECONNECTING);
+      expect(text()).not.toContain('No messages yet.');
+    });
+
+    it('shows a message found meanwhile', async () => {
+      await openWithoutTheNewest();
+      await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'found' }));
+      expect(messageTexts()).toEqual(['text of found']);
+      expect(text()).not.toContain('Loading the chat');
+    });
+
+    it('says the chat is empty at once on a later open whose newest entry answered', async () => {
+      await openWithoutTheNewest();
+      await emit(EVENTS.STATUS, FeedStatus.LIVE);
+      await emit(EVENTS.LOADING_INIT, true);
+      await emit(EVENTS.LOADING_INIT, false);
+      expect(text()).toContain('No messages yet.');
+    });
   });
 
   it('says it is loading until the chat has read its history', async () => {
