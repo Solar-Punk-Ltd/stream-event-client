@@ -128,6 +128,15 @@ async function badgesAndDetails(chat: Locator, published: Published): Promise<vo
     'a message sent with its own stamp shows the stamp',
   ).toBeVisible();
 
+  const actions = guest.locator('.message-actions');
+  const opacity = () => actions.evaluate((bar) => getComputedStyle(bar).opacity);
+  await expect.poll(opacity, { message: "a message's actions are hidden until the pointer is over it" }).toBe('0');
+  await guest.hover();
+  await expect.poll(opacity, { message: 'hovering a message reveals its actions' }).toBe('1');
+  expect(await guest.evaluate((item) => getComputedStyle(item).cursor), 'a message shows it can be pressed').toBe(
+    'pointer',
+  );
+
   await swarmId.getByRole('button', { name: 'Swarm ID, show details', exact: true }).click();
   const details = swarmId.getByRole('region', { name: 'Details for this message', exact: true });
   await expect(details, 'the badge opens the details').toBeVisible();

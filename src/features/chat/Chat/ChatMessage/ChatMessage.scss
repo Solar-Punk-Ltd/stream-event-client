@@ -7,9 +7,22 @@
   align-items: flex-start;
   width: 100%;
   padding: var(--spacing-xs);
+  border-radius: var(--radius-base);
+  transition: background-color var(--duration-fast) ease;
 
   &.own-message {
     flex-direction: row-reverse;
+  }
+
+  // A message that can be acted on shows its actions under the pointer, as its own click shows them on a touch screen.
+  &.can-act {
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background: var(--color-surface-hover);
+    }
   }
 }
 
