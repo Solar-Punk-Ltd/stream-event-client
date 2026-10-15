@@ -37,9 +37,11 @@ describe('the chat settings', () => {
     expect(infra).not.toHaveProperty('stamp');
   });
 
-  it('have the chat sign every message on my stamp as keeping a copy, so a resend is the same bytes', () => {
-    expect(chatSettings(CHAT, 'stream-one', null, { via: MessageVia.OWN_STAMP, url: null }).infra.own).toBe(true);
-    expect(chatSettings(CHAT, 'stream-one', null).infra.own, 'no copy while the gateway pays').toBeFalsy();
+  it('have the chat sign no own field on my stamp or the gateway, since a copy is read from the own feed', () => {
+    expect(chatSettings(CHAT, 'stream-one', null, { via: MessageVia.OWN_STAMP, url: null }).infra).not.toHaveProperty(
+      'own',
+    );
+    expect(chatSettings(CHAT, 'stream-one', null).infra).not.toHaveProperty('own');
   });
 
   it("send a guest's messages with no binding", () => {
