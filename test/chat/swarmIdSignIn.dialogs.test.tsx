@@ -436,7 +436,7 @@ describe("the Swarm ID button's placeholder", () => {
 
   it('names its loader to a screen reader by what it waits for', async () => {
     await header(await fakeSwarmId({}, waiting));
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     const labelledBy = placeholder()?.getAttribute('aria-labelledby') ?? '';
     expect(labelledBy, 'named by words on the page').not.toBe('');
@@ -448,7 +448,7 @@ describe("the Swarm ID button's placeholder", () => {
     try {
       const swarmId = await fakeSwarmId({}, waiting);
       await header(swarmId);
-      click(button('Connect'));
+      click(button('My Swarm'));
       const status = () => dialog()?.querySelector('.swarm-id-button [role="status"]');
 
       await act(async () => {

@@ -380,7 +380,7 @@ test("the compact Swarm ID button's placeholder shows its whole label on the nar
     false,
   );
   swarmId.holdButtons();
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('textbox', { name: 'Your name', exact: true }).fill('Ada');
   await dialog.getByRole('button', { name: 'Chat as guest', exact: true }).click();
