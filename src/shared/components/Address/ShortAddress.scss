@@ -1,6 +1,8 @@
 @use '@/design/touch';
+@use '@/design/visually-hidden';
 
 .short-address {
+  position: relative;
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
@@ -52,4 +54,8 @@
     border-color: var(--color-border);
     color: var(--color-text);
   }
+}
+
+.short-address-status {
+  @include visually-hidden.visually-hidden;
 }

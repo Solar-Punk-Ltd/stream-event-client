@@ -168,7 +168,8 @@ their own. Every message this page sends says who paid, the event gateway or the
 there is one, open the message's details, across the chat column: the name with its badge, the identity (Guest or Swarm ID), the
 public chat address, a check mark for a signature that matches the text, for a Swarm ID the account's address, and
 who paid for the write (Event gateway or Own stamp). An address shows short, `0x0d7f…ab12`, and a press shows it in
-full with a Copy button beside it. A press on the check mark shows the signature the same way. For a message that says its sender keeps a copy in their own feed (`own: true`), the
+full with a Copy button beside it, which reads Copied for three seconds after a copy, and a screen reader hears that the
+copy worked. A press on the check mark shows the signature the same way. For a message that says its sender keeps a copy in their own feed (`own: true`), the
 details also list **Their own copies**: the sender's own feed, `ownFeedTopic(chatTopic)` under their chat
 address, read through the source picked for Chat history, newest first, ten at a time with Load more. Each entry
 is read by its address and must be the sender's own single-owner chunk, and each copy passes the same check as

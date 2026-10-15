@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { fullAddress, shortAddress } from './addressText';
 
@@ -6,6 +6,7 @@ import './ShortAddress.scss';
 
 const COPY_TEXT = 'Copy';
 const COPIED_TEXT = 'Copied';
+const COPIED_SHOWN_MS = 3_000;
 
 interface ShortAddressProps {
   /** The hex value, with or without its `0x`. */
@@ -35,6 +36,14 @@ export function ShortAddress({ value, label }: ShortAddressProps) {
   const [isCopied, setIsCopied] = useState(false);
   const valueRef = useRef<HTMLSpanElement>(null);
   const full = fullAddress(value);
+
+  useEffect(() => {
+    if (!isCopied) {
+      return;
+    }
+    const timer = setTimeout(() => setIsCopied(false), COPIED_SHOWN_MS);
+    return () => clearTimeout(timer);
+  }, [isCopied]);
 
   const copy = () => {
     // The clipboard is asked inside the click, the one moment a browser lets a page write to it.
@@ -69,6 +78,10 @@ export function ShortAddress({ value, label }: ShortAddressProps) {
           {isCopied ? COPIED_TEXT : COPY_TEXT}
         </button>
       )}
+      {/* The button's name stays put while its text flips, so the result is read out from here. */}
+      <span className="short-address-status" role="status">
+        {isCopied ? `Copied the ${label}` : ''}
+      </span>
     </span>
   );
 }

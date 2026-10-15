@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createElement } from 'react';
+import { act, createElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ShortAddress } from '../../src/shared/components/Address/ShortAddress';
@@ -39,6 +39,7 @@ describe('ShortAddress', () => {
   });
 
   const value = () => document.querySelector('.short-address-value');
+  const status = () => document.querySelector('.short-address [role="status"]');
 
   it('shows the short form, and a press shows the full form with a copy button beside it', () => {
     mounted = mount(createElement(ShortAddress, { value: ADDRESS, label: LABEL }));
@@ -66,6 +67,36 @@ describe('ShortAddress', () => {
 
     expect(writeText).toHaveBeenCalledWith(`0x${ADDRESS}`);
     expect(button('Copy the public address').textContent).toBe('Copied');
+  });
+
+  it('tells a screen reader the copy worked, through a status that is there before the press', async () => {
+    vi.stubGlobal('navigator', { clipboard: { writeText: () => Promise.resolve() } });
+    mounted = mount(createElement(ShortAddress, { value: ADDRESS, label: LABEL }));
+    expect(status()?.textContent).toBe('');
+
+    click(button('0x0d7f…ab12'));
+    click(button('Copy the public address'));
+    await settle();
+
+    expect(status()?.textContent).toBe('Copied the public address');
+  });
+
+  it('goes back to Copy a few seconds after copying', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      vi.stubGlobal('navigator', { clipboard: { writeText: () => Promise.resolve() } });
+      mounted = mount(createElement(ShortAddress, { value: ADDRESS, label: LABEL }));
+      click(button('0x0d7f…ab12'));
+      click(button('Copy the public address'));
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(button('Copy the public address').textContent).toBe('Copied');
+
+      await act(() => vi.advanceTimersByTimeAsync(3_000));
+      expect(button('Copy the public address').textContent).toBe('Copy');
+      expect(status()?.textContent).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('selects the full form for copying by hand when the browser refuses the clipboard', async () => {
