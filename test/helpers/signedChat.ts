@@ -4,6 +4,7 @@ import {
   type ChatMessage,
   createChatMessage,
   type MessageData,
+  MESSAGE_VERSION,
   MessageType,
   MessageVia,
   signedBytes,
@@ -14,7 +15,7 @@ import { createMessageVerifier, type VerifierPort } from '../../src/features/cha
 import { type VerifiedBatch, verifyBatch, type VerifyRequest } from '../../src/features/chat/verify/verdicts';
 
 /**
- * Chat bindings made by the Swarm ID fork for its test account, as swarm-chat-js 8 keeps them in
+ * Chat bindings made by the Swarm ID fork for its test account, as swarm-chat-js 9 keeps them in
  * `test/bindingVectors.ts`. The account key below holds nothing, and the chat key it gives a site is derived rather
  * than written down, the way the fork derives it.
  */
@@ -94,7 +95,7 @@ export function signedMessage(label: string, fields: SignedFields = {}): ChatMes
  */
 export function forgedWithBinding(label: string, key: string, binding: ChatBinding): ChatMessage {
   const unsigned: UnsignedChatMessage = {
-    v: 8,
+    v: MESSAGE_VERSION,
     topic: TEST_TOPIC,
     id: idOf(label),
     type: MessageType.TEXT,

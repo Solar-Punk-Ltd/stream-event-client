@@ -1,5 +1,5 @@
 import { Bytes, ChunkBuilder, FeedIndex, type Identifier, PrivateKey, Span, Topic } from '@ethersphere/bee-js';
-import { type ChatMessage, encodeChatMessage, ownFeedTopic } from '@solarpunkltd/swarm-chat-js';
+import { type ChatMessage, encodeChatMessage, MESSAGE_VERSION, ownFeedTopic } from '@solarpunkltd/swarm-chat-js';
 
 import type { ChatReads } from '../../src/features/chat/chatParts';
 import { makeFeedIdentifier } from '../../src/shared/feedFollow';
@@ -98,7 +98,7 @@ export function servedFeeds() {
     let fromSeq = 0;
     for (const toSeq of layout.filesThrough ?? []) {
       const ref = referenceOf(files.size + 1);
-      const file = { v: 8, topic: chatTopic, fromSeq, toSeq, messages: rows.slice(fromSeq, toSeq + 1), prev: link };
+      const file = { v: MESSAGE_VERSION, topic: chatTopic, fromSeq, toSeq, messages: rows.slice(fromSeq, toSeq + 1), prev: link };
       files.set(ref, encoder.encode(JSON.stringify(file)));
       link = { ref, toSeq };
       linkAfter.set(toSeq, link);
@@ -106,7 +106,7 @@ export function servedFeeds() {
     }
     let newestLink: typeof link = null;
     const entries = rows.map((row) => {
-      const entry = encoder.encode(JSON.stringify({ v: 8, ...row, history: newestLink }));
+      const entry = encoder.encode(JSON.stringify({ v: MESSAGE_VERSION, ...row, history: newestLink }));
       newestLink = linkAfter.get(row.seq) ?? newestLink;
       return layout.missingSlots?.includes(row.seq) ? null : entry;
     });
