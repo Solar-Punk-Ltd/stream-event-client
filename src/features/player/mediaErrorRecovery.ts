@@ -7,9 +7,9 @@
  * fragments, so a broadcast whose opening media a decoder cannot accept becomes a viewer sitting on a
  * black player pulling media forever.
  *
- * Kept as a pure function of an explicit clock reading so the escalation can be tested at all. The
- * player component has no test: this package runs vitest with `environment: 'node'` and no jsdom,
- * so the decision has to leave the component to be covered.
+ * Kept as a pure function of an explicit clock reading so the escalation is tested on its own. Tests
+ * that mount the player, such as `test/restartKeepsPosition.test.tsx` in jsdom with hls.js stubbed,
+ * would have to move a real clock across the window to reach each rung, so the decision is covered here.
  */
 
 /** hls.js's own figure. A second failure sooner than this is the same failure, not a new one. */
