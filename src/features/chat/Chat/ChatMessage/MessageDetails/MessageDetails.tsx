@@ -4,9 +4,10 @@ import type { ChatIdentity } from '@solarpunkltd/swarm-chat-js';
 
 import { ShortAddress } from '@/shared/components/Address/ShortAddress';
 
+import { hasNonAsciiCharacters } from '../../../ens/ensLookup';
 import { OWN_STAMP_TITLE, type SenderBadge } from '../senderBadge';
 import { OwnCopies } from '../OwnCopies/OwnCopies';
-import { BadgeIcon } from '../SenderLine/SenderLine';
+import { BadgeIcon, EnsNameTick } from '../SenderLine/SenderLine';
 
 import './MessageDetails.scss';
 
@@ -15,6 +16,28 @@ const SHOW_SIGNATURE = 'Signature checked, show it';
 const PUBLIC_ADDRESS_LABEL = 'public address';
 const SIGNATURE_LABEL = 'signature';
 const ACCOUNT_LABEL = 'Swarm ID account';
+const WALLET_LABEL = 'wallet address';
+const NON_ASCII_NAME_NOTE = 'contains non-Latin characters';
+
+/**
+ * The verified ENS name with what it stands in for, the name the sender chose and the wallet it was read for. A name
+ * with characters outside ASCII is said to be one, since such a character can pass for a Latin letter.
+ */
+function EnsRow({ ensName, chosenName, wallet }: { ensName: string; chosenName: string; wallet: string }) {
+  return (
+    <>
+      <dt>ENS</dt>
+      <dd className="message-details-ens">
+        <span>{ensName}</span>
+        <span>
+          <span className="message-details-ens-label">Chosen name</span> {chosenName}
+        </span>
+        <ShortAddress value={wallet} label={WALLET_LABEL} />
+        {hasNonAsciiCharacters(ensName) && <span className="message-details-ens-note">{NON_ASCII_NAME_NOTE}</span>}
+      </dd>
+    </>
+  );
+}
 
 /**
  * The check mark of a signature that matches the text, which a press turns into the signature itself. The mark carries
@@ -42,7 +65,10 @@ function SignatureCheck({ signature }: { signature: string }) {
 
 interface MessageDetailsProps {
   id: string;
+  /** The name the sender chose. */
   name: string;
+  /** The sender's verified ENS name, which heads the card in place of `name`. */
+  ensName?: string;
   /** The sender's chat address, 40 hex digits without 0x, as the message carries it. */
   address: string;
   /** The signature the check matched to the text, as the message carries it. */
@@ -59,6 +85,7 @@ interface MessageDetailsProps {
 export function MessageDetails({
   id,
   name,
+  ensName,
   address,
   signature,
   badge,
@@ -78,7 +105,8 @@ export function MessageDetails({
     >
       <div className="message-details-header">
         <span className="message-details-title">
-          <b>{name}</b>
+          <b>{ensName ?? name}</b>
+          {ensName !== undefined && <EnsNameTick />}
           <BadgeIcon badge={badge} />
         </span>
         <button type="button" className="message-details-close" aria-label="Close" onClick={onClose}>
@@ -101,6 +129,9 @@ export function MessageDetails({
               <ShortAddress value={identity.account} label={ACCOUNT_LABEL} />
             </dd>
           </>
+        )}
+        {ensName !== undefined && identity?.wallet && (
+          <EnsRow ensName={ensName} chosenName={name} wallet={identity.wallet} />
         )}
         <dt>Sent</dt>
         <dd>{ownStamp ? OWN_STAMP_TITLE : SENT_BY_GATEWAY}</dd>

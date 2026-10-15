@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import { MessageVia } from '@solarpunkltd/swarm-chat-js';
 
+import { useEnsName } from '../../ens/EnsNames';
 import type { ReactionSummary } from '../../reactions';
 import type { VisibleMessage } from '../../useSwarmChat';
 
@@ -119,6 +120,7 @@ export function ChatMessage({
   const details = useDetailsCard(onHeightChange);
   const detailsId = useId();
   const badge = senderBadge(message.identity);
+  const ensName = useEnsName(message.identity?.wallet);
   const ownStamp = message.signedMessage.via === MessageVia.OWN_STAMP;
 
   const classes = [
@@ -135,7 +137,8 @@ export function ChatMessage({
     <li className={classes} onClick={() => canAct && setAreActionsShown((shown) => !shown)}>
       <div className="chat-message-text">
         <SenderLine
-          name={message.username}
+          name={ensName ?? message.username}
+          isEnsName={ensName !== undefined}
           badge={badge}
           ownStamp={ownStamp}
           timestamp={message.timestamp}
@@ -149,6 +152,7 @@ export function ChatMessage({
           <MessageDetails
             id={detailsId}
             name={message.username}
+            ensName={ensName}
             address={message.address}
             signature={message.signedMessage.sig}
             badge={badge}

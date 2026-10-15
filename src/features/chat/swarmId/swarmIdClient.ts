@@ -163,3 +163,13 @@ export type LoadSwarmIdClient = (options: SwarmIdClientOptions) => Promise<Swarm
 /** The library is a file of the bundle of its own, fetched only by a deployment that offers Swarm ID. */
 export const loadSwarmIdLibrary: LoadSwarmIdClient = async (options) =>
   (await import('./swarmIdLibrary')).createLibraryClient(options);
+
+/**
+ * A wallet's ENS name read through the Ethereum JSON-RPC endpoint `rpcUrl`, answered only when the wallet's reverse
+ * record names it and its forward record names the wallet back, or undefined. Never rejects.
+ */
+export type ResolveEnsName = (wallet: string, rpcUrl: string) => Promise<string | undefined>;
+
+/** The library's own lookup, from the same file of the bundle as its client. */
+export const resolveEnsNameWithLibrary: ResolveEnsName = async (wallet, rpcUrl) =>
+  (await import('./swarmIdLibrary')).verifiedEnsName(wallet, rpcUrl);

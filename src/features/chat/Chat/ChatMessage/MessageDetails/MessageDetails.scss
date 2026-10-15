@@ -83,3 +83,15 @@
 .message-details-check path {
   stroke: var(--color-success);
 }
+
+.message-details-ens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2xs) var(--spacing-sm);
+}
+
+.message-details-ens-label,
+.message-details-ens-note {
+  color: var(--color-text-tertiary);
+}

@@ -261,6 +261,29 @@ stamps them, unless the person picks their own stamp, as the next section says.
 - **When the Swarm ID site cannot be used**, as for a site it does not serve, My Swarm says it
   cannot be reached and guests chat as before.
 
+### ENS names
+
+A Swarm ID sender who has "Show my ENS name on sites" on carries a wallet link in every message, as
+[above](#signing-in-with-swarm-id) says. The page's check in the Web Worker verifies both of its signatures and that
+it names the account the binding names, and only then does the message say which wallet it is. The page then looks
+that wallet's ENS name up through `ensRpcUrl`, an Ethereum mainnet JSON-RPC endpoint the deployment names, with the
+Swarm ID library's `resolveVerifiedEnsName`. A name counts only when the wallet's reverse record names it and the
+name's own record names the wallet back, and it is already in its ENSIP-15 normalised form.
+
+- **What a reader sees.** The verified name with a tick replaces the name the sender chose, on the message and at
+  the head of its details. The details add an **ENS** row with the name, the name the sender chose and the short
+  wallet address, which a press shows in full. A name with characters outside ASCII says "contains non-Latin
+  characters" there, because such a character can pass for a Latin letter of another name.
+- **When there is no name.** A wallet with no name, a name that fails a check and a lookup that fails or runs out of
+  time all show the message as before, under the name the sender chose, with no ENS row.
+- **When it looks.** After a message is drawn, never before it, so a slow endpoint holds nothing up. Messages of one
+  wallet share one lookup, and a name found is kept for the page's life. The library keeps its own answers too, a
+  name or no name for ten minutes and a failed read for 30 seconds.
+- **Without `ensRpcUrl`**, or without a chat, no name is ever looked up and no wallet is ever asked about.
+- **Whom the endpoint is trusted with.** It decides which name is shown beside a wallet, since nothing checks its
+  answers against the chain, and it sees every wallet looked up, from each viewer's own address. A deployment names
+  an endpoint it trusts with both.
+
 ### Who pays for a message
 
 My Swarm has a **Chat stamp** group, between ID and Swarm access, once the viewer is chatting. Every message on
@@ -433,6 +456,8 @@ The policy is the same on every deployment, because the page decides which sourc
 - **A Bee node on the viewer's own machine**, at `localhost` or `127.0.0.1`, any port, over plain http,
   in `connect-src` and `img-src`. A policy cannot name `[::1]`, so that address is refused where it is
   typed, with what to type instead.
+- **The ENS endpoint**, `ensRpcUrl` in `config.json`, at an https address, under the same `https:` in
+  `connect-src`, so the image needs no setting for it. One at plain http is reached only on the viewer's own machine.
 - **The node in this browser, weeb-3.** `'wasm-unsafe-eval'` in `script-src`, so the page and its
   workers may compile the WebAssembly module, and `wss:` in `connect-src`, so the node can reach its
   peers. That is every secure websocket host, on purpose. The package's mainnet bootnodes are all
