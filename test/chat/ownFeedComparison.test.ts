@@ -162,4 +162,25 @@ describe("comparing a sender's own feed with the chat", () => {
     await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedTooLargeError);
     expect(MAX_OWN_FEED_ENTRIES).toBe(1_000);
   });
+
+  it.each([
+    ['a history row', { filesThrough: [1] }, 1],
+    ['an entry read by its own index', {}, 1],
+    ['the newest entry', {}, 2],
+  ] as const)('counts and lists no chat message that fails the check, held as %s', async (_where, layout, at) => {
+    const messages = [message('a'), message('b'), message('c')];
+    messages[at] = { ...messages[at]!, text: 'changed after signing' };
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, messages, layout);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, []);
+
+    const comparison = await compare(feeds);
+
+    const kept = ['a', 'b', 'c']
+      .filter((_, index) => index !== at)
+      .map(idOf)
+      .reverse();
+    expect(ids(comparison.chat)).toEqual(kept);
+    expect(ids(comparison.missingFromOwnFeed)).toEqual(kept);
+  });
 });

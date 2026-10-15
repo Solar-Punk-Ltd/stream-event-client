@@ -124,7 +124,8 @@ async function readEntry(reads: ChatReads, owner: string, topic: Topic, index: n
 
 /**
  * Every message of the chat feed, by its index: the newest entry, every history file back to the first, and each entry
- * no history file holds, read by its own index. An entry or a row that fails the library's check is left out.
+ * no history file holds, read by its own index. An entry or a row that fails the library's check, or the check a
+ * message passes on this page, is left out.
  */
 async function readWholeChat(options: CompareOwnFeedOptions, window: ReadOptions): Promise<Map<number, ChatMessage>> {
   const { chatTopic } = options;
@@ -171,7 +172,27 @@ async function readWholeChat(options: CompareOwnFeedOptions, window: ReadOptions
       messages.set(index, read.value.msg);
     }
   });
-  return messages;
+  return checkedMessages(messages, options);
+}
+
+/**
+ * The messages that pass the check a chat message passes on this page, for this chat, each as the check read it. The
+ * chat server checked them before it published them, and a gateway serving the chat could still change one.
+ */
+async function checkedMessages(
+  messages: ReadonlyMap<number, ChatMessage>,
+  { verify, chatTopic }: CompareOwnFeedOptions,
+): Promise<Map<number, ChatMessage>> {
+  const verdicts = await Promise.all(
+    [...messages].map(async ([index, message]) => ({ index, verdict: await verify.verify(message) })),
+  );
+  const checked = new Map<number, ChatMessage>();
+  for (const { index, verdict } of verdicts) {
+    if (verdict.ok && verdict.message.topic === chatTopic) {
+      checked.set(index, verdict.message);
+    }
+  }
+  return checked;
 }
 
 /** The own feed's newest entry, or null when the sender keeps no own feed. */
