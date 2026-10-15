@@ -1,4 +1,4 @@
-import { createElement, type ReactNode } from 'react';
+import { createElement, type ReactNode, StrictMode } from 'react';
 
 import { AppContextProvider, useAppContext } from '../../src/app/AppProvider';
 import { ThemeChoiceProvider } from '../../src/app/ThemeChoiceProvider';
@@ -62,6 +62,8 @@ interface ConnectPageOptions {
   readonly config?: RuntimeConfig;
   readonly swarmId?: FakeSwarmId | null;
   readonly children?: readonly ReactNode[];
+  /** Under React's StrictMode, as the app renders, which mounts every effect twice in development. */
+  readonly strict?: boolean;
 }
 
 /** The page's header as the app builds it: Connect, in every provider the app has. */
@@ -69,32 +71,32 @@ export function connectPage({
   config = chatConfig(),
   swarmId = null,
   children = [],
+  strict = false,
 }: ConnectPageOptions = {}): Mounted {
-  return mount(
+  const page = createElement(
+    AppContextProvider,
+    { config },
     createElement(
-      AppContextProvider,
+      ThemeChoiceProvider,
       { config },
       createElement(
-        ThemeChoiceProvider,
-        { config },
+        AppChatUserProvider,
+        swarmId
+          ? { swarmIdUrl: 'https://id.example.com', appName: 'Devcon streams', loadSwarmIdClient: swarmId.load }
+          : {},
         createElement(
-          AppChatUserProvider,
-          swarmId
-            ? { swarmIdUrl: 'https://id.example.com', appName: 'Devcon streams', loadSwarmIdClient: swarmId.load }
-            : {},
+          ConnectProvider,
+          null,
           createElement(
-            ConnectProvider,
+            ChatStampProvider,
             null,
-            createElement(
-              ChatStampProvider,
-              null,
-              createElement(Connect, { key: 'connect' }),
-              createElement(Probe, { key: 'probe' }),
-              ...children,
-            ),
+            createElement(Connect, { key: 'connect' }),
+            createElement(Probe, { key: 'probe' }),
+            ...children,
           ),
         ),
       ),
     ),
   );
+  return mount(strict ? createElement(StrictMode, null, page) : page);
 }

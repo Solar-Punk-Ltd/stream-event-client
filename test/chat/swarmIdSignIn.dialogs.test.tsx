@@ -84,6 +84,12 @@ describe('signing in with Swarm ID from Connect', () => {
 
     click(button(/^Ada/));
     expect(dialog()?.textContent).toContain('Connecting to Swarm ID');
+    expect(dialog()?.querySelector('[role="status"]')?.textContent, 'said to a screen reader too').toBe(
+      'Connecting to Swarm ID',
+    );
+    expect(dialog()?.querySelector('.swarm-id-button-frame')?.hasAttribute('hidden'), "the button's place, kept").toBe(
+      false,
+    );
     expect(queryButton('Sign in with Swarm ID')).toBeNull();
     click(button('Close Connect'));
 
@@ -335,16 +341,89 @@ describe('a Swarm ID button frame that does not show', () => {
       click(button('Connect'));
       await settle();
 
-      expect(queryButton('Sign in with Swarm ID')).toBeNull();
+      expect(
+        dialog()?.querySelector('.swarm-id-button-frame')?.hasAttribute('hidden'),
+        'the refused frame is out of sight',
+      ).toBe(true);
       expect(dialog()?.textContent).toContain('Swarm ID cannot be reached right now.');
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn).toHaveBeenCalledWith(frameRefusedWarning('https://id.example.com'));
+      expect(dialog()?.querySelector('.swarm-id-button-frame'), 'the container stays, for a second try').toBeTruthy();
       type(input('Your name'), 'Ada');
       click(button('Chat as guest'));
       expect(restoreUserSession()?.username).toBe('Ada');
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+describe('trying the Swarm ID button again', () => {
+  it('mounts a new button in the same place, taking the refused one away first, once Try again is pressed', async () => {
+    const swarmId = await fakeSwarmId({}, (client) => {
+      client.buttonFails = true;
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await header(swarmId);
+      click(button('Connect'));
+      await settle();
+      expect(dialog()?.textContent).toContain('Swarm ID cannot be reached right now.');
+      const [refused] = swarmId.client().buttons;
+
+      swarmId.client().buttonFails = false;
+      click(button('Try again'));
+      await settle();
+
+      expect(refused.unmounted, 'the refused button is taken away').toBe(true);
+      expect(swarmId.client().buttons).toHaveLength(2);
+      const shown = swarmId.client().shownButton();
+      expect(shown.container).toBe(refused.container);
+      expect(dialog()?.textContent).not.toContain('Swarm ID cannot be reached right now.');
+      expect(queryButton('Try again')).toBeNull();
+      expect(swarmIdButton('Sign in with Swarm ID')).toBe(shown.element);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('says so again when the new button is refused too, and can be tried once more', async () => {
+    const swarmId = await fakeSwarmId({}, (client) => {
+      client.buttonFails = true;
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await header(swarmId);
+      click(button('Connect'));
+      await settle();
+      click(button('Try again'));
+      await settle();
+
+      expect(swarmId.client().buttons).toHaveLength(2);
+      expect(dialog()?.textContent).toContain('Swarm ID cannot be reached right now.');
+      expect(queryButton('Try again')).toBeTruthy();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe('Swarm ID button under StrictMode, as the app renders it', () => {
+  it('leaves exactly one live button once mounted, and none once the page goes', async () => {
+    const swarmId = await fakeSwarmId();
+    mounted = connectPage({ swarmId, strict: true });
+    await settle();
+    await settle();
+    click(button('Connect'));
+    await settle();
+
+    const live = () => swarmId.client().buttons.filter(({ unmounted }) => !unmounted);
+    expect(live()).toHaveLength(1);
+    expect(document.querySelectorAll('[data-fake-swarm-id-button]')).toHaveLength(1);
+
+    mounted.unmount();
+    mounted = null;
+    expect(live()).toHaveLength(0);
   });
 });
 

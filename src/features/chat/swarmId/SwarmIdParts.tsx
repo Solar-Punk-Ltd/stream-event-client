@@ -50,6 +50,8 @@ export function SwarmIdButton({
   const mounted = useRef<SwarmIdMountedButton | null>(null);
   const [windowState, setWindowState] = useState<SwarmIdWindowState | null>(null);
   const [isRefused, setIsRefused] = useState(false);
+  /** Raised by Try again, which mounts a new button in place of one Swarm ID refused or that never answered. */
+  const [attempt, setAttempt] = useState(0);
   const isStarting = swarmId?.status === SWARM_ID_STARTING;
   const canMount = swarmId !== null && !isStarting && swarmId.status !== SWARM_ID_UNAVAILABLE;
 
@@ -81,8 +83,9 @@ export function SwarmIdButton({
       isCurrent = false;
       mounted.current = null;
       button.unmount();
+      setIsRefused(false);
     };
-  }, [canMount, mountSwarmIdButton]);
+  }, [canMount, mountSwarmIdButton, attempt]);
 
   useEffect(() => {
     const options = { action, config: configOf(text, variant, size) };
@@ -93,13 +96,32 @@ export function SwarmIdButton({
     }
   }, [action, text, variant, size, look]);
 
-  if (swarmId?.status === SWARM_ID_UNAVAILABLE || isRefused) {
-    return <p className="swarm-id-hint">{UNAVAILABLE_TEXT}</p>;
-  }
+  const isUnavailable = swarmId?.status === SWARM_ID_UNAVAILABLE;
+  // The container stays while the hints show, so the button's place does not jump while Swarm ID starts, and a refused
+  // frame is taken away by its own unmount rather than with a container React removed under it.
   return (
     <span className="swarm-id-button">
-      <span ref={container} className={`swarm-id-button-frame ${size}`} hidden={!canMount} />
-      {isStarting && <span className="swarm-id-hint">{STARTING_TEXT}</span>}
+      <span
+        ref={container}
+        className={`swarm-id-button-frame ${size}`}
+        hidden={isUnavailable || isRefused}
+        aria-hidden={canMount ? undefined : true}
+      />
+      {isStarting && (
+        <span className="swarm-id-hint" role="status">
+          {STARTING_TEXT}
+        </span>
+      )}
+      {(isUnavailable || isRefused) && <span className="swarm-id-hint">{UNAVAILABLE_TEXT}</span>}
+      {isRefused && (
+        <Button
+          variant={ButtonVariant.SECONDARY}
+          className="swarm-id-small"
+          onClick={() => setAttempt((count) => count + 1)}
+        >
+          Try again
+        </Button>
+      )}
       {windowState === WINDOW_BLOCKED && <SwarmIdWindowBlocked />}
     </span>
   );
