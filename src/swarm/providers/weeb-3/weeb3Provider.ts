@@ -76,6 +76,31 @@ function isContentAddressedAt(bytes: Uint8Array, address: string): boolean {
   return chunk.hash().toHex() === address.toLowerCase();
 }
 
+/** weeb-3's level that lets its player choose the quality itself. */
+const AUTO_QUALITY = -1;
+
+/**
+ * Lets weeb-3's player choose its quality, now if the stream's qualities have loaded, and otherwise once the video
+ * knows its first quality, by which time they have.
+ */
+function chooseQualityItself(node: Weeb3Node, video: HTMLMediaElement): void {
+  try {
+    node.setStreamQuality(video, AUTO_QUALITY);
+  } catch {
+    video.addEventListener(
+      'loadedmetadata',
+      () => {
+        try {
+          node.setStreamQuality(video, AUTO_QUALITY);
+        } catch (error) {
+          console.warn("weeb-3's player stays on its highest quality, it would not choose its own:", error);
+        }
+      },
+      { once: true },
+    );
+  }
+}
+
 /**
  * Swarm read through the node running in this browser, weeb-3, over the routes its service worker
  * answers on this page. A missing chunk is a 404 there, after weeb-3 has asked the network for about
@@ -190,7 +215,8 @@ export class Weeb3Provider implements SwarmProvider {
 
   /**
    * weeb-3 plays a stream with its own player on the page's node. Loading it holds the node, starting it
-   * if nothing has, and answers once the node is ready.
+   * if nothing has, and answers once the node is ready. The page shows no quality menu, so the player is
+   * set to choose its quality itself, as the app's own player does.
    */
   readonly ownPlayer = async (): Promise<OwnPlayer> => {
     const { runtime } = this;
@@ -204,7 +230,10 @@ export class Weeb3Provider implements SwarmProvider {
     }
     let held = true;
     return {
-      attach: (video, owner, topic, from) => node.attachStream(video, owner, topic, from),
+      attach: async (video, owner, topic, from) => {
+        await node.attachStream(video, owner, topic, from);
+        chooseQualityItself(node, video);
+      },
       detach: () => {
         if (held) {
           held = false;

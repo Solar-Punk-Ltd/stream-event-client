@@ -19,6 +19,7 @@ export class Weeb3No103 {
   start() {}
   async connectionCount() { return 3; }
   async attachStream(media, owner, topic, start) { media.dataset.weeb3 = [owner, topic, start].join('/'); }
+  setStreamQuality(media, level) { media.dataset.weeb3Quality = String(level); }
   async postPushChunk(data, soc, address, stamp) {
     (window.weeb3Pushes ??= []).push({ data: hex(data), soc, address: hex(address), stamp: hex(stamp) });
     return 'Upload result: success';

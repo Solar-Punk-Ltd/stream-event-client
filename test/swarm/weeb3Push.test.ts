@@ -34,6 +34,7 @@ function runtimeWith(push: Weeb3Node['postPushChunk'], state: 'ready' | 'failed'
     start: () => undefined,
     connectionCount: async () => 3,
     attachStream: async () => undefined,
+    setStreamQuality: () => undefined,
     free: () => undefined,
     postPushChunk: (data: Uint8Array, soc: boolean, address: Uint8Array, stamp: Uint8Array) => {
       pushed.push({ data, soc, address, stamp });

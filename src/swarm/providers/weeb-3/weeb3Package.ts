@@ -16,6 +16,11 @@ export interface Weeb3Node {
   /** Plays a stream into a media element the page owns, with the package's own player. */
   attachStream(media: HTMLMediaElement, owner: string, topic: string, start: HlsStart): Promise<void>;
   /**
+   * Holds an attached stream at one quality, by its level, or lets the player choose with -1, Auto. The player starts
+   * held at the highest. Throws until the stream's master playlist has loaded its qualities.
+   */
+  setStreamQuality(media: HTMLMediaElement, level: number): void;
+  /**
    * Pushes one chunk stamped elsewhere to the network: its bytes as Bee keeps them (a single-owner chunk's identifier,
    * signature, span and payload), whether it is a single-owner chunk, its address and the 113-byte stamp. Answers
    * "Upload result: success" once pushed. A stamp from a key that does not own the batch never answers.

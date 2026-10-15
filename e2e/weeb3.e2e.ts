@@ -60,6 +60,7 @@ test('weeb-3 picked for the video plays the stream in its own player, bare, once
   const video = page.locator('.own-player video');
   const ownerAndTopic = gateway.watchPath().split('/').slice(-2).join('/');
   await expect(video).toHaveAttribute('data-weeb3', `${ownerAndTopic}/live`, { timeout: 20_000 });
+  await expect(video, "weeb-3's player chooses its quality itself").toHaveAttribute('data-weeb3-quality', '-1');
   await expect(page.locator('.own-player-status'), 'nothing under the player once the node is ready').toHaveCount(0);
   await page.locator('.own-player').evaluate((stage) => {
     const menu = document.createElement('select');
