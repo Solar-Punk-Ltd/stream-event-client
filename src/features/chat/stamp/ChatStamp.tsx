@@ -164,16 +164,26 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
     }
   }, [isOpen, readSiteStamp]);
 
-  useEffect(() => onSwarmIdConnectionChange(readSiteStamp), [onSwarmIdConnectionChange, readSiteStamp]);
+  const [stampWindowProblem, setStampWindowProblem] = useState<StampWindowProblem | null>(null);
+  if (!canUseOwnStamp && stampWindowProblem !== null) {
+    setStampWindowProblem(null);
+  }
+  /** A line about the Swarm ID window belongs to the stamp read before it, so a fresh read drops it. */
+  const readSiteStampAgain = useCallback(() => {
+    setStampWindowProblem(null);
+    readSiteStamp();
+  }, [readSiteStamp]);
+
+  useEffect(() => onSwarmIdConnectionChange(readSiteStampAgain), [onSwarmIdConnectionChange, readSiteStampAgain]);
 
   // Back from Swarm ID's window, where the site's stamp may have changed.
   useEffect(() => {
     if (!canUseOwnStamp || typeof window === 'undefined') {
       return;
     }
-    window.addEventListener('focus', readSiteStamp);
-    return () => window.removeEventListener('focus', readSiteStamp);
-  }, [canUseOwnStamp, readSiteStamp]);
+    window.addEventListener('focus', readSiteStampAgain);
+    return () => window.removeEventListener('focus', readSiteStampAgain);
+  }, [canUseOwnStamp, readSiteStampAgain]);
 
   const readAfterSend = useCallback(() => {
     if (Date.now() - lastReadAt.current >= READ_AFTER_SEND_MS) {
@@ -239,10 +249,6 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
     [ownStampPays, choice.ownFeed, readAfterSend],
   );
 
-  const [stampWindowProblem, setStampWindowProblem] = useState<StampWindowProblem | null>(null);
-  if (!canUseOwnStamp && stampWindowProblem !== null) {
-    setStampWindowProblem(null);
-  }
   const changeStampInSwarmId = useMemo(
     () =>
       canUseOwnStamp
