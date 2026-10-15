@@ -32,7 +32,8 @@ const IDLE: SyncState = { status: NOT_SYNCED };
 
 /**
  * My messages in the chat on screen against the copies in my own feed, in the My stamp box, with a sync that writes
- * the missing copies with my stamp, one after the other. Shown only while a chat on my own stamp is on screen.
+ * the missing copies with my stamp, one after the other, stopping at the first that fails, and counts again after.
+ * Shown only while a chat on my own stamp is on screen.
  */
 export function OwnFeedSync() {
   const chat = useOwnFeedChat();
@@ -52,21 +53,24 @@ function OwnFeedSyncOf({ chat }: { readonly chat: OwnFeedChat }) {
 
   const copyAll = useCallback(
     async (records: readonly OwnFeedRecord[]) => {
-      const failed: OwnFeedRecord[] = [];
+      let failed: readonly OwnFeedRecord[] = [];
       for (const [at, record] of records.entries()) {
         if (isShown.current) {
           setSync({ status: SYNCING, at: at + 1, total: records.length });
         }
         const outcome = await chat.copy(record.message.id, encodeChatMessage(record.message));
+        // A copy given up after its tries keeps its index, so every later copy would wait out the same tries first.
         if (outcome !== COPIED) {
-          failed.push(record);
+          failed = records.slice(at);
+          break;
         }
       }
       if (isShown.current) {
         setSync(failed.length === 0 ? { status: SYNCED } : { status: SYNC_FAILED, failed });
+        recount();
       }
     },
-    [chat],
+    [chat, recount],
   );
 
   if (count.status === COUNTING) {

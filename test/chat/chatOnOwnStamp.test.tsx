@@ -603,6 +603,46 @@ describe('my own feed in My Swarm', () => {
     expect(copies.every(({ stamp }) => stamp === 'e'.repeat(226))).toBe(true);
   });
 
+  it('stops a sync at the first copy that fails, and says the rest were not copied either', async () => {
+    const [a, b, c] = await myMessages(['a', 'b', 'c']);
+    const box = await openMySwarm([a!, b!, c!], [a!]);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const refusing = globalThis.fetch;
+    let copyWrites = 0;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        copyWrites += 1;
+        return new Response('', { status: 503 });
+      }
+      return refusing(input, init);
+    }) as typeof fetch;
+
+    click(button('Sync'));
+    await act(async () => vi.advanceTimersByTimeAsync(3 * OWN_COPY_RETRY_MS));
+    await waitFor(() => (box()?.textContent?.includes('2 could not be copied') ? true : null));
+
+    expect(copyWrites, "the first copy's three tries, and none for the second").toBe(3);
+    globalThis.fetch = refusing;
+    vi.useRealTimers();
+  });
+
+  it('counts the chat and my own feed again once a sync has finished', async () => {
+    const [a, b] = await myMessages(['a', 'b']);
+    let served: ReturnType<typeof servedFeeds> | null = null;
+    const box = await openMySwarm([a!, b!], [a!], (feeds) => {
+      served = feeds;
+    });
+    const chatHeadReads = () =>
+      served!.asked.filter((read) => read.startsWith('head ') && read.endsWith(Topic.fromString(CHAT_TOPIC).toHex()))
+        .length;
+    const before = chatHeadReads();
+
+    click(button('Sync'));
+    await waitFor(() => (box()?.textContent?.includes('All 2 copied') ? true : null));
+
+    expect(chatHeadReads()).toBeGreaterThan(before);
+  });
+
   it('says how many could not be copied after three tries each, and tries them again when asked', async () => {
     const [a, b] = await myMessages(['a', 'b']);
     const box = await openMySwarm([a!, b!], [a!]);
