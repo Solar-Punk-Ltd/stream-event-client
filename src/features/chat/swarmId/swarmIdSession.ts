@@ -3,13 +3,14 @@ import {
   type ChatBinding,
   checkChatBinding,
   checkWalletLink,
+  displayNameProblem,
   MAX_NAME_CHARACTERS,
   type WalletLink,
 } from '@solarpunkltd/swarm-chat-js/message';
 
 import { shortAddress } from '@/shared/components/Address/addressText';
 
-import { hasInvisibleCharacters, type Session, sessionFromKey } from '../auth/login';
+import { type Session, sessionFromKey } from '../auth/login';
 import type { VerifyScope } from '../verify/verdicts';
 
 import type { SwarmIdChatBinding, SwarmIdIdentity, SwarmIdWalletLink } from './swarmIdClient';
@@ -55,7 +56,7 @@ function walletLinkFor(identity: SwarmIdIdentity, account: string): WalletLink |
  */
 export function chatNameOf(identity: SwarmIdIdentity): string {
   const name = [...identity.name.trim()].slice(0, MAX_NAME_CHARACTERS).join('').trim();
-  if (name && !hasInvisibleCharacters(name)) {
+  if (name && displayNameProblem(name) === null) {
     return name;
   }
   return shortAddress(identity.address);

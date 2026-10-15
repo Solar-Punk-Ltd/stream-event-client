@@ -1,7 +1,10 @@
 import { PrivateKey } from '@ethersphere/bee-js';
-import type { ChatBinding, WalletLink } from '@solarpunkltd/swarm-chat-js';
-
-export const DISPLAY_NAME_MAX_LENGTH = 20;
+import {
+  type ChatBinding,
+  displayNameProblem,
+  MAX_NAME_CHARACTERS,
+  type WalletLink,
+} from '@solarpunkltd/swarm-chat-js/message';
 
 const KEY_LENGTH_BYTES = 32;
 
@@ -20,31 +23,21 @@ export interface Session {
 
 export type DisplayNameCheck = { ok: true; name: string } | { ok: false; problem: string };
 
-export const DISPLAY_NAME_PROBLEM = `A display name is 1 to ${DISPLAY_NAME_MAX_LENGTH} characters.`;
+export const DISPLAY_NAME_PROBLEM = `A display name is 1 to ${MAX_NAME_CHARACTERS} characters.`;
 
 export const INVISIBLE_CHARACTERS_PROBLEM = 'A display name cannot hold invisible formatting or control characters.';
-
-/**
- * Unicode format and control characters, which draw nothing yet change how a name reads: a right-to-left override can
- * make one name look like another. The chat library refuses a message whose name holds one. The zero width non-joiner
- * U+200C and joiner U+200D are let through as the library lets them through, since Persian and Indic names and joined
- * emoji are spelled with them.
- */
-const INVISIBLE_CHARACTER = /(?![\u200c\u200d])[\p{Cf}\p{Cc}]/u;
-
-/** Whether `name` holds a character that draws nothing yet changes how the name around it reads. */
-export function hasInvisibleCharacters(name: string): boolean {
-  return INVISIBLE_CHARACTER.test(name);
-}
 
 /** Counted in characters as a reader sees them, so an emoji is one and not the two code units it takes. */
 export function checkDisplayName(raw: string): DisplayNameCheck {
   const name = raw.trim();
-  const length = [...name].length;
-  if (length < 1 || length > DISPLAY_NAME_MAX_LENGTH) {
-    return { ok: false, problem: DISPLAY_NAME_PROBLEM };
+  switch (displayNameProblem(name)) {
+    case 'length':
+      return { ok: false, problem: DISPLAY_NAME_PROBLEM };
+    case 'invisible':
+      return { ok: false, problem: INVISIBLE_CHARACTERS_PROBLEM };
+    default:
+      return { ok: true, name };
   }
-  return hasInvisibleCharacters(name) ? { ok: false, problem: INVISIBLE_CHARACTERS_PROBLEM } : { ok: true, name };
 }
 
 export type RandomBytes = (length: number) => Uint8Array;

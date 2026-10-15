@@ -1,12 +1,8 @@
 import { PrivateKey } from '@ethersphere/bee-js';
+import { MAX_NAME_CHARACTERS } from '@solarpunkltd/swarm-chat-js';
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  checkDisplayName,
-  DISPLAY_NAME_MAX_LENGTH,
-  INVISIBLE_CHARACTERS_PROBLEM,
-  nicknameLogin,
-} from '../../src/features/chat/auth/login';
+import { checkDisplayName, INVISIBLE_CHARACTERS_PROBLEM, nicknameLogin } from '../../src/features/chat/auth/login';
 
 const HEX_KEY = /^[0-9a-f]{64}$/;
 const HEX_ADDRESS = /^[0-9a-f]{40}$/;
@@ -15,7 +11,7 @@ describe('the display name rule', () => {
   it('accepts 1 to 20 characters once the ends are trimmed, and hands back the trimmed name', () => {
     expect(checkDisplayName('  Ada  ')).toEqual({ ok: true, name: 'Ada' });
     expect(checkDisplayName('a')).toEqual({ ok: true, name: 'a' });
-    expect(checkDisplayName('b'.repeat(DISPLAY_NAME_MAX_LENGTH))).toEqual({ ok: true, name: 'b'.repeat(20) });
+    expect(checkDisplayName('b'.repeat(MAX_NAME_CHARACTERS))).toEqual({ ok: true, name: 'b'.repeat(20) });
   });
 
   it('refuses an empty name, or one of spaces only, and says what is wanted', () => {
