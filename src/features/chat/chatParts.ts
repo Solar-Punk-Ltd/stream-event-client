@@ -170,8 +170,8 @@ const NOTHING_REFUSED = () => {};
  * The two parts swarm-chat-js takes in place of reaching Bee itself: its reads, through the Swarm client's chat
  * reader, and its one write. While the event pays, a message goes to the event's chat write address, which stamps it,
  * through the library's own write, unchanged. On the viewer's own stamp it is stamped by Swarm ID and goes to their Bee
- * node at `writeUrl`, or through the node in this browser where the chat reads from it, and never anywhere else. With
- * neither it is refused.
+ * node at `writeUrl`, or through the node in this browser where the chat reads from it, and never anywhere else, after
+ * its copy in the sender's own feed. With neither it is refused.
  *
  * @param reads The client's chat reader as it is now, see {@link ChatSourceOptions.reads}.
  * @throws When the settings say the viewer's own stamp and nothing can stamp.
@@ -198,14 +198,12 @@ export function chatParts(settings: ChatSettings, reads: () => ChatReads, ownSta
       gsocKey: bareHex(infra.gsocResourceId),
       gsocTopic: infra.gsocTopic,
       timeoutMs: writeMs,
-      ownFeed: infra.own
-        ? {
-            chatKey: settings.user.privateKey,
-            chatTopic: infra.chatTopic,
-            reads,
-            readTimeoutMs: infra.feedReadTimeout ?? FEED_READ_MS,
-          }
-        : null,
+      ownFeed: {
+        chatKey: settings.user.privateKey,
+        chatTopic: infra.chatTopic,
+        reads,
+        readTimeoutMs: infra.feedReadTimeout ?? FEED_READ_MS,
+      },
       ...(ownStamp.onProblem ? { onProblem: ownStamp.onProblem } : {}),
       ...(ownStamp.onSent ? { onSent: ownStamp.onSent } : {}),
       ...(ownStamp.push ? { push: ownStamp.push } : {}),

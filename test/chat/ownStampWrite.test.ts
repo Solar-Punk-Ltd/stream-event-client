@@ -31,7 +31,7 @@ const CHAT_TOPIC = 'chat-a-stream';
 const STAMP = 'ee'.repeat(113);
 const SIGNATURE = 'ab'.repeat(65);
 
-function payloadOf(label: string, own = false): Uint8Array {
+function payloadOf(label: string): Uint8Array {
   const { bytes } = createChatMessage(GUEST_KEY, {
     id: idOf(label),
     topic: CHAT_TOPIC,
@@ -40,7 +40,7 @@ function payloadOf(label: string, own = false): Uint8Array {
     name: 'Ada',
     ts: 1_000,
     via: MessageVia.OWN_STAMP,
-    own,
+    own: true,
   });
   return bytes;
 }
@@ -102,7 +102,7 @@ function setUp(extra: Partial<OwnStampWriteOptions> = {}) {
     gsocKey: GSOC_KEY,
     gsocTopic: GSOC_TOPIC,
     timeoutMs: 1_000,
-    ownFeed: null,
+    ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: headReads(NOT_FOUND).reads, readTimeoutMs: 1_000 },
     onProblem: (id, problem) => problems.push({ id, problem }),
     fetcher: bee.fetcher,
     ...extra,
@@ -120,13 +120,20 @@ describe("a chat message sent on the viewer's own stamp", () => {
     const payload = payloadOf('first');
     await writer.write(payload);
 
-    expect(stamper.asked).toEqual([
-      { kind: 'soc', identifier: inboxIdentifier, data: withSpan(payload), signer: { privateKey: GSOC_KEY } },
-    ]);
+    expect(stamper.asked, 'the copy in the own feed, then the message').toHaveLength(2);
+    expect(stamper.asked[1]).toEqual({
+      kind: 'soc',
+      identifier: inboxIdentifier,
+      data: withSpan(payload),
+      signer: { privateKey: GSOC_KEY },
+    });
     const owner = addressOf(GSOC_KEY);
-    expect(bee.posted).toEqual([
-      { url: `${NODE}/soc/${owner}/${inboxIdentifier}?sig=${SIGNATURE}`, body: withSpan(payload), stamp: STAMP },
-    ]);
+    expect(bee.posted).toHaveLength(2);
+    expect(bee.posted[1]).toEqual({
+      url: `${NODE}/soc/${owner}/${inboxIdentifier}?sig=${SIGNATURE}`,
+      body: withSpan(payload),
+      stamp: STAMP,
+    });
   });
 
   it('is refused with the reason when Swarm ID will not stamp it, and is not tried again until asked', async () => {
@@ -144,8 +151,8 @@ describe("a chat message sent on the viewer's own stamp", () => {
     stamper.refusal = null;
     writer.forgetRefusal(idOf('refused'));
     await writer.write(payload);
-    expect(stamper.asked).toHaveLength(2);
-    expect(bee.posted).toHaveLength(1);
+    expect(stamper.asked, 'the copy asked again, then the message').toHaveLength(3);
+    expect(bee.posted).toHaveLength(2);
   });
 
   it('is refused when nobody is signed in with Swarm ID any more', async () => {
@@ -182,13 +189,6 @@ describe("a chat message sent on the viewer's own stamp", () => {
     expect(stamper.asked).toEqual([]);
     expect(bee.posted).toEqual([]);
   });
-
-  it('is sent as it was signed while the own feed is off', async () => {
-    const { bee, writer } = setUp();
-    const payload = payloadOf('as-signed');
-    await writer.write(payload);
-    expect(bee.posted[0].body).toEqual(withSpan(payload));
-  });
 });
 
 describe("a copy in the sender's own feed", () => {
@@ -200,8 +200,8 @@ describe("a copy in the sender's own feed", () => {
     const { stamper, bee, writer } = setUp({
       ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
     });
-    await writer.write(payloadOf('one', true));
-    await writer.write(payloadOf('two', true));
+    await writer.write(payloadOf('one'));
+    await writer.write(payloadOf('two'));
 
     expect(head.asked, 'the own feed is looked up once').toEqual([`${addressOf(GUEST_KEY)}/${ownTopic.toHex()}`]);
     expect(stamper.asked.map(({ identifier, signer }) => [identifier, signer.privateKey])).toEqual([
@@ -224,7 +224,7 @@ describe("a copy in the sender's own feed", () => {
     const { bee, writer } = setUp({
       ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
     });
-    const handed = payloadOf('handed', true);
+    const handed = payloadOf('handed');
     const reordered = new TextEncoder().encode(JSON.stringify(JSON.parse(new TextDecoder().decode(handed)), null, 1));
 
     await writer.write(reordered);
@@ -311,11 +311,11 @@ describe("a chat message on the viewer's own stamp through the node in this brow
 
     await writer.write(payload);
 
-    expect(stamper.asked).toHaveLength(1);
+    expect(stamper.asked, 'the copy in the own feed, then the message').toHaveLength(2);
     expect(bee.posted).toEqual([]);
-    expect(weeb3.pushed).toHaveLength(1);
-    expect(weeb3.pushed[0]).toMatchObject({ identifier: inboxIdentifier, signature: SIGNATURE, stamp: STAMP });
-    expect(weeb3.pushed[0].data).toEqual(withSpan(payload));
+    expect(weeb3.pushed).toHaveLength(2);
+    expect(weeb3.pushed[1]).toMatchObject({ identifier: inboxIdentifier, signature: SIGNATURE, stamp: STAMP });
+    expect(weeb3.pushed[1].data).toEqual(withSpan(payload));
   });
 
   it('fails at once when the push ran past its deadline, and the chat resending it asks neither Swarm ID nor the node again', async () => {

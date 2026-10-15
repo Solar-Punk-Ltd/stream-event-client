@@ -52,8 +52,7 @@ export interface OwnStampWriteOptions {
   readonly gsocKey: string;
   readonly gsocTopic: string;
   readonly timeoutMs: number;
-  /** Null while the viewer keeps no own feed. */
-  readonly ownFeed: OwnFeedOptions | null;
+  readonly ownFeed: OwnFeedOptions;
   /** Told why a message did not go out, every time it did not. */
   readonly onProblem?: (messageId: string, problem: SendProblem) => void;
   /** Told after every message the node took, so what is shown of the stamp can be read again. */
@@ -97,14 +96,14 @@ function withSpan(payload: Uint8Array): Uint8Array<ArrayBuffer> {
  * single-owner chunk address, which Swarm ID stamps again in the slot it already holds, so a busy chat costs one slot.
  *
  * A refusal a resend cannot mend, such as a stamp that ran out, fails the message at once, and the chat's own resends
- * of it are refused here without asking Swarm ID again, until the viewer retries it. With the own feed on, a copy is
- * written to the sender's own feed before the message goes out, so a message that says it has a copy always has one.
+ * of it are refused here without asking Swarm ID again, until the viewer retries it. A copy is written to the sender's
+ * own feed before the message goes out, so a message that says it has a copy always has one.
  */
 export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
   const { url, gsocKey, timeoutMs, ownFeed, onProblem, onSent, fetcher } = options;
   const inboxIdentifier = Identifier.fromString(options.gsocTopic).toHex();
   const refusals = new Map<string, SendProblem>();
-  const copies = ownFeed ? ownFeedCopies(ownFeed, (chunk) => stampAndSend(chunk)) : null;
+  const copies = ownFeedCopies(ownFeed, (chunk) => stampAndSend(chunk));
 
   async function stampAndSend(chunk: SwarmIdChunkToStamp): Promise<void> {
     const push = options.push?.() ?? null;
@@ -153,7 +152,7 @@ export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
       if (blocked !== null) {
         throw new SendRefusedError({ text: blocked, final: true });
       }
-      await copies?.append(message.id, payload);
+      await copies.append(message.id, payload);
       await stampAndSend({
         kind: 'soc',
         identifier: inboxIdentifier,

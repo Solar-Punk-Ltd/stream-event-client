@@ -7,6 +7,7 @@ import {
   MessageVia,
   HeadLookupTimeoutError,
   noteIdentifier,
+  ownFeedTopic,
   UnreadableSlotError,
 } from '@solarpunkltd/swarm-chat-js';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -332,7 +333,7 @@ describe("the chat's write", () => {
     expect(posted[0].deferred).toBe('false');
   });
 
-  it("on the viewer's own stamp, has Swarm ID stamp the inbox chunk and sends it to the viewer's node alone", async () => {
+  it("on the viewer's own stamp, has Swarm ID stamp the copy for the own feed and then the inbox chunk, and sends both to the viewer's node alone", async () => {
     const posted: { url: string; stamp: string | null }[] = [];
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       posted.push({ url: String(input), stamp: new Headers(init?.headers).get('swarm-postage-stamp') });
@@ -360,14 +361,18 @@ describe("the chat's write", () => {
       text: 'on my stamp',
       name: 'Ada',
       via: MessageVia.OWN_STAMP,
+      own: true,
     }).bytes;
 
     await chatParts(own, () => readsAnswering({}), { stamper: () => stamper }).write(payload);
 
-    expect(stamped).toEqual([Identifier.fromString('the-inbox').toHex()]);
-    expect(posted).toHaveLength(1);
-    expect(posted[0].url.startsWith('http://localhost:1633/soc/')).toBe(true);
-    expect(posted[0].stamp).toBe('e'.repeat(226));
+    const firstCopy = makeFeedIdentifier(Topic.fromString(ownFeedTopic(CHAT_TOPIC)), FeedIndex.fromBigInt(0n));
+    expect(stamped).toEqual([firstCopy.toHex(), Identifier.fromString('the-inbox').toHex()]);
+    expect(posted).toHaveLength(2);
+    for (const { url, stamp } of posted) {
+      expect(url.startsWith('http://localhost:1633/soc/')).toBe(true);
+      expect(stamp).toBe('e'.repeat(226));
+    }
   });
 
   it('refuses to start on the own stamp with nothing to stamp', () => {
