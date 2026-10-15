@@ -56,7 +56,7 @@ afterEach(() => {
 describe('a deployment without Swarm ID', () => {
   it('offers the guest name alone, as before', async () => {
     await header(null);
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     expect(queryButton('Sign in with Swarm ID')).toBeNull();
     type(input('Your name'), 'Ada');
@@ -65,10 +65,10 @@ describe('a deployment without Swarm ID', () => {
   });
 });
 
-describe('signing in with Swarm ID from Connect', () => {
+describe('signing in with Swarm ID from My Swarm', () => {
   it('offers both ways in, a guest name and Swarm ID', async () => {
     await header(await fakeSwarmId());
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     expect(dialog()?.textContent).toContain('Or sign in with your Swarm ID.');
     expect(queryButton('Chat as guest')).toBeTruthy();
@@ -91,12 +91,12 @@ describe('signing in with Swarm ID from Connect', () => {
       false,
     );
     expect(queryButton('Sign in with Swarm ID')).toBeNull();
-    click(button('Close Connect'));
+    click(button('Close My Swarm'));
 
     mounted?.unmount();
     localStorage.clear();
     await header(await fakeSwarmId({}, starting));
-    click(button('Connect'));
+    click(button('My Swarm'));
     expect(dialog()?.textContent).toContain('Connecting to Swarm ID');
     expect(queryButton('Sign in with Swarm ID')).toBeNull();
   });
@@ -104,7 +104,7 @@ describe('signing in with Swarm ID from Connect', () => {
   it("signs in through Swarm ID's own button, whose window hands over the key and binding the viewer chats with", async () => {
     const swarmId = await fakeSwarmId();
     await header(swarmId);
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     click(swarmIdButton('Sign in with Swarm ID'));
     expect(swarmId.client().shownButton().action).toBe('sign-in');
@@ -122,7 +122,7 @@ describe('signing in with Swarm ID from Connect', () => {
   it('never writes the chat key, the binding or the session anywhere the browser keeps', async () => {
     const swarmId = await fakeSwarmId();
     await header(swarmId);
-    click(button('Connect'));
+    click(button('My Swarm'));
     click(swarmIdButton('Sign in with Swarm ID'));
     swarmId.client().handOver(SIGNED_IN);
     await signedIn();
@@ -146,7 +146,7 @@ describe('signing in with Swarm ID from Connect', () => {
 
     expect(swarmId.client().disconnectCalls).toBe(1);
     expect(chatsAs()).toBeNull();
-    expect(queryButton('Connect')).toBeTruthy();
+    expect(queryButton('My Swarm')).toBeTruthy();
   });
 });
 
@@ -209,11 +209,11 @@ describe("the header's connect button", () => {
   });
 });
 
-describe('the Swarm ID button in Connect', () => {
-  it('is mounted once while Connect stays open, whatever else changes there', async () => {
+describe('the Swarm ID button in My Swarm', () => {
+  it('is mounted once while My Swarm stays open, whatever else changes there', async () => {
     const swarmId = await fakeSwarmId();
     await header(swarmId);
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     type(input('Your name'), 'Ad');
     swarmId.client().handOver({ identity: SIGNED_IN.identity });
@@ -226,23 +226,23 @@ describe('the Swarm ID button in Connect', () => {
     expect(swarmId.client().buttons[0].unmounted).toBe(false);
   });
 
-  it('goes with Connect when it closes, and comes back with it, leaving a signed-in session as it is', async () => {
+  it('goes with My Swarm when it closes, and comes back with it, leaving a signed-in session as it is', async () => {
     const swarmId = await fakeSwarmId();
     await header(swarmId);
-    click(button('Connect'));
-    click(button('Close Connect'));
+    click(button('My Swarm'));
+    click(button('Close My Swarm'));
     expect(swarmId.client().buttons[0].unmounted).toBe(true);
 
-    click(button('Connect'));
+    click(button('My Swarm'));
     expect(swarmId.client().buttons).toHaveLength(2);
     expect(swarmId.client().shownButton()).toBe(swarmId.client().buttons[1]);
 
     click(swarmIdButton('Sign in with Swarm ID'));
     swarmId.client().handOver(SIGNED_IN);
     await signedIn();
-    click(button('Close Connect'));
+    click(button('Close My Swarm'));
     await settle();
-    expect(chatsAs()?.username, 'closing Connect signs nobody out').toBe('Ida');
+    expect(chatsAs()?.username, 'closing My Swarm signs nobody out').toBe('Ida');
     expect(swarmId.client().disconnectCalls).toBe(0);
   });
 
@@ -251,7 +251,7 @@ describe('the Swarm ID button in Connect', () => {
       client.nextWindow = 'blocked';
     });
     await header(swarmId);
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     click(swarmIdButton('Sign in with Swarm ID'));
     expect(text()).toContain('Your browser blocked the Swarm ID window.');
@@ -313,13 +313,13 @@ describe('a Swarm ID frame the page policy refuses', () => {
 });
 
 describe('a Swarm ID site that cannot be used', () => {
-  it('says so in Connect and offers no sign-in, while guests chat as before', async () => {
+  it('says so in My Swarm and offers no sign-in, while guests chat as before', async () => {
     await header(
       await fakeSwarmId({}, (client) => {
         client.initializeFails = true;
       }),
     );
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     expect(queryButton('Sign in with Swarm ID')).toBeNull();
     expect(dialog()?.textContent).toContain('Swarm ID cannot be reached right now.');
@@ -338,7 +338,7 @@ describe('a Swarm ID button frame that does not show', () => {
           client.buttonFails = true;
         }),
       );
-      click(button('Connect'));
+      click(button('My Swarm'));
       await settle();
 
       expect(
@@ -370,7 +370,7 @@ describe("the Swarm ID button's placeholder", () => {
         client.initializeHangs = true;
       }),
     );
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     const shown = placeholder();
     expect(shown?.textContent).toBe('Sign in with Swarm ID');
@@ -382,7 +382,7 @@ describe("the Swarm ID button's placeholder", () => {
 
   it('is neither focusable nor clickable, and is no button to a screen reader', async () => {
     await header(await fakeSwarmId({}, waiting));
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     const shown = placeholder();
     expect(shown?.tagName).not.toBe('BUTTON');
@@ -394,7 +394,7 @@ describe("the Swarm ID button's placeholder", () => {
   it('stays over the loading frame until the frame is ready, then goes, leaving the frame in the same place', async () => {
     const swarmId = await fakeSwarmId({}, waiting);
     await header(swarmId);
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     expect(placeholder(), 'the frame is mounted but not ready yet').toBeTruthy();
     expect(swarmId.client().shownButton().container.closest('.swarm-id-button-slot')).toBe(
@@ -427,7 +427,7 @@ describe("the Swarm ID button's placeholder", () => {
         client.buttonFails = true;
       });
       await header(swarmId);
-      click(button('Connect'));
+      click(button('My Swarm'));
       await settle();
       expect(placeholder()).toBeNull();
 
@@ -454,7 +454,7 @@ describe('trying the Swarm ID button again', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       await header(swarmId);
-      click(button('Connect'));
+      click(button('My Swarm'));
       await settle();
       expect(dialog()?.textContent).toContain('Swarm ID cannot be reached right now.');
       const [refused] = swarmId.client().buttons;
@@ -482,7 +482,7 @@ describe('trying the Swarm ID button again', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       await header(swarmId);
-      click(button('Connect'));
+      click(button('My Swarm'));
       await settle();
       click(button('Try again'));
       await settle();
@@ -502,7 +502,7 @@ describe('Swarm ID button under StrictMode, as the app renders it', () => {
     mounted = connectPage({ swarmId, strict: true });
     await settle();
     await settle();
-    click(button('Connect'));
+    click(button('My Swarm'));
     await settle();
 
     const live = () => swarmId.client().buttons.filter(({ unmounted }) => !unmounted);

@@ -5,6 +5,7 @@ import { SwarmIdButton } from '@/features/chat/swarmId/SwarmIdParts';
 import { SWARM_ID_BUTTON_COMPACT } from '@/features/chat/swarmId/swarmIdButtonLook';
 import { useConnect } from '@/features/connect/ConnectContext';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
+import { OPEN_MY_SWARM } from '@/shared/mySwarmPanel';
 
 import './StampWarningBar.scss';
 
@@ -27,7 +28,7 @@ export function StampWarningBar() {
       <div className="stamp-warning-actions">
         {!route.ok ? (
           <Button variant={ButtonVariant.SECONDARY} className="stamp-warning-button" onClick={openConnect}>
-            Open Connect
+            {OPEN_MY_SWARM}
           </Button>
         ) : (
           canUseOwnStamp && (

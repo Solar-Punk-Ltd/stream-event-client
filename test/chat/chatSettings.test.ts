@@ -32,18 +32,14 @@ describe('the chat settings', () => {
     const infra = chatSettings(CHAT, 'stream-one', null, {
       via: MessageVia.OWN_STAMP,
       url: 'http://localhost:1633',
-      ownFeed: true,
     }).infra;
     expect(infra).toMatchObject({ via: MessageVia.OWN_STAMP, writeUrl: 'http://localhost:1633', beeUrl: '/chat-read' });
     expect(infra).not.toHaveProperty('stamp');
   });
 
-  it('have the chat sign every message as keeping a copy while the own feed is on, so a resend is the same bytes', () => {
-    const onMyStamp = (ownFeed: boolean) =>
-      chatSettings(CHAT, 'stream-one', null, { via: MessageVia.OWN_STAMP, url: null, ownFeed }).infra;
-    expect(onMyStamp(true).own).toBe(true);
-    expect(onMyStamp(false).own).toBeFalsy();
-    expect(chatSettings(CHAT, 'stream-one', null).infra.own).toBeFalsy();
+  it('have the chat sign every message on my stamp as keeping a copy, so a resend is the same bytes', () => {
+    expect(chatSettings(CHAT, 'stream-one', null, { via: MessageVia.OWN_STAMP, url: null }).infra.own).toBe(true);
+    expect(chatSettings(CHAT, 'stream-one', null).infra.own, 'no copy while the gateway pays').toBeFalsy();
   });
 
   it("send a guest's messages with no binding", () => {

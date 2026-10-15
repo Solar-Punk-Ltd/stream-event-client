@@ -27,7 +27,7 @@ import {
  * recorded deployment and a fake Swarm ID site whose session frame keeps a signed-in session, or signs one in once its
  * button is clicked. The viewer's own Bee node is a made-up address on this computer, answered by the page's
  * routes: its reads replay the recording, and its writes are recorded and taken. A message on the stamp is stamped by
- * the fake Swarm ID and posted to that node, never to the event gateway, and with the own feed on its copy goes first.
+ * the fake Swarm ID and posted to that node, never to the event gateway, after its copy in the viewer's own feed.
  * A stamp that ran out holds the message field with a way to let the gateway pay. With Weeb3, a fake of the node in
  * this browser, picked for the chat history instead, the chat reads through it and a message on the stamp is pushed
  * through it, to no Bee node and not to the gateway.
@@ -146,7 +146,7 @@ async function deployment(
   await page.goto(`/#/watch/video/${published.stream.owner}/${published.stream.topic}`);
   const chat = page.getByRole('region', { name: 'Chat', exact: true });
   await expect(
-    page.getByRole('banner').getByRole('button', { name: startsSignedIn ? ACCOUNT_NAME : 'Connect', exact: true }),
+    page.getByRole('banner').getByRole('button', { name: startsSignedIn ? ACCOUNT_NAME : 'My Swarm', exact: true }),
   ).toBeVisible({ timeout: 20_000 });
   if (startsSignedIn) {
     await expect(chat.getByRole('textbox', { name: 'Message', exact: true })).toBeVisible({ timeout: 20_000 });
@@ -154,17 +154,14 @@ async function deployment(
   return { chat, toGateway, toMyNode, swarmId };
 }
 
-async function payWithMyStamp(page: Page, ownFeed = false) {
+async function payWithMyStamp(page: Page) {
   await page.getByRole('banner').getByRole('button', { name: ACCOUNT_NAME }).click();
   const group = page.getByRole('dialog').getByRole('region', { name: 'Chat stamp' });
   await group.getByRole('radio', { name: /^My stamp/ }).check();
   await expect(group.getByText('Event chat')).toBeVisible();
   await expect(group.getByText('30 days left')).toBeVisible();
   await expect(group.getByText(/25% used/)).toBeVisible();
-  if (ownFeed) {
-    await group.getByRole('checkbox', { name: /Also write my own feed/ }).check();
-  }
-  await page.getByRole('button', { name: 'Close Connect', exact: true }).click();
+  await page.getByRole('button', { name: 'Close My Swarm', exact: true }).click();
 }
 
 /** Swarm ID's own button, inside its frame, in the part of the page that shows it. */
@@ -187,19 +184,21 @@ test('a message on my own stamp is stamped by Swarm ID and sent through my Bee n
   await chat.getByRole('textbox', { name: 'Message', exact: true }).fill('on my own stamp');
   await chat.getByRole('button', { name: 'Send', exact: true }).click();
 
-  await expect.poll(() => toMyNode.length, { message: 'the message reached my Bee node' }).toBeGreaterThan(0);
+  await expect.poll(() => toMyNode.length, { message: 'the copy and the message reached my Bee node' }).toBe(2);
   expect(toGateway, 'nothing went to the event gateway').toEqual([]);
-  expect(toMyNode[0].url.startsWith(`${MY_BEE_NODE}/soc/`)).toBe(true);
-  expect(toMyNode[0].stamp, 'the stamp Swarm ID returned rides in the envelope header').toBe('ee'.repeat(113));
-  expect(swarmId.stamped).toHaveLength(1);
-  const check = messageIn(toMyNode[0]);
+  for (const written of toMyNode) {
+    expect(written.url.startsWith(`${MY_BEE_NODE}/soc/`)).toBe(true);
+    expect(written.stamp, 'the stamp Swarm ID returned rides in the envelope header').toBe('ee'.repeat(113));
+  }
+  expect(swarmId.stamped).toHaveLength(2);
+  const check = messageIn(toMyNode[1]);
   expect(check.ok, check.ok ? '' : `${check.reason}: ${check.detail}`).toBe(true);
-  expect(check.ok && check.message).toMatchObject({ text: 'on my own stamp', via: MessageVia.OWN_STAMP, own: false });
+  expect(check.ok && check.message).toMatchObject({ text: 'on my own stamp', via: MessageVia.OWN_STAMP, own: true });
 });
 
-test('with the own feed on, the copy is written first and the message says it has one', async ({ page }) => {
+test('the copy in my own feed is written first and the message says it has one', async ({ page }) => {
   const { chat, toMyNode, swarmId } = await deployment(page, () => SITE_STAMP);
-  await payWithMyStamp(page, true);
+  await payWithMyStamp(page);
 
   await chat.getByRole('textbox', { name: 'Message', exact: true }).fill('kept in my own feed');
   await chat.getByRole('button', { name: 'Send', exact: true }).click();
@@ -222,7 +221,7 @@ test('a stamp that ran out holds the message, and the viewer may let the gateway
     .getByRole('region', { name: 'Chat stamp' })
     .getByRole('radio', { name: /^My stamp/ })
     .check();
-  await page.getByRole('button', { name: 'Close Connect', exact: true }).click();
+  await page.getByRole('button', { name: 'Close My Swarm', exact: true }).click();
 
   await expect(chat.getByText('Your stamp ran out.')).toBeVisible();
   await chat.getByRole('textbox', { name: 'Message', exact: true }).fill('waiting for a stamp');
@@ -248,11 +247,13 @@ test('a message on my own stamp with Weeb3 reading the chat is pushed through We
   await chat.getByRole('textbox', { name: 'Message', exact: true }).fill('through weeb-3');
   await chat.getByRole('button', { name: 'Send', exact: true }).click();
 
-  await expect.poll(async () => (await weeb3Pushes(page)).length, { message: 'weeb-3 pushed it' }).toBeGreaterThan(0);
-  const [pushed] = await weeb3Pushes(page);
+  await expect
+    .poll(async () => (await weeb3Pushes(page)).length, { message: 'weeb-3 pushed the copy and the message' })
+    .toBe(2);
+  const [, pushed] = await weeb3Pushes(page);
   expect(toGateway, 'nothing went to the event gateway').toEqual([]);
   expect(toMyNode, 'nothing went to a Bee node').toEqual([]);
-  expect(swarmId.stamped).toHaveLength(1);
+  expect(swarmId.stamped).toHaveLength(2);
   expect(pushed.soc).toBe(true);
   expect(pushed.stamp, 'the stamp Swarm ID returned, as its 113 bytes').toBe('ee'.repeat(113));
   const wrapped = Buffer.from(pushed.data, 'hex').subarray(32 + 65);
@@ -272,7 +273,7 @@ test("Sign in with Swarm ID is Swarm ID's own button, in the page's look, and it
     () => {},
     false,
   );
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
   const dialog = page.getByRole('dialog');
   const button = swarmIdButton(dialog, 'Sign in with Swarm ID');
   await expect(button).toBeVisible();
@@ -311,7 +312,7 @@ test("Swarm ID's button shows a placeholder of itself in its own place until its
     false,
   );
   swarmId.holdButtons();
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
   const dialog = page.getByRole('dialog');
   const placeholder = dialog.locator('.swarm-id-button-placeholder');
   const frame = dialog.locator('iframe[title="Swarm ID"]');
@@ -348,7 +349,7 @@ test("a guest's Show it's really you row holds Swarm ID's button beside its word
     () => {},
     false,
   );
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('textbox', { name: 'Your name', exact: true }).fill('Ada');
   await dialog.getByRole('button', { name: 'Chat as guest', exact: true }).click();

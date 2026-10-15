@@ -25,7 +25,7 @@ async function keepAddedNode(page: Page): Promise<void> {
 }
 
 async function pickNodeInThisBrowser(page: Page, rowSays: string): Promise<void> {
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
   const connect = page.getByRole('dialog');
   const useFor = connect.getByRole('region', { name: 'Use for' });
   await expect(
@@ -36,7 +36,7 @@ async function pickNodeInThisBrowser(page: Page, rowSays: string): Promise<void>
   await useFor.getByLabel('Video', { exact: true }).selectOption({ label: 'Weeb3' });
   const row = connect.locator('[data-source-row]', { hasText: 'Weeb3' });
   await expect(row, 'the row says how far the node has got').toContainText(rowSays, { timeout: 20_000 });
-  await connect.getByRole('button', { name: 'Close Connect', exact: true }).click();
+  await connect.getByRole('button', { name: 'Close My Swarm', exact: true }).click();
 }
 
 async function openWatchPage(page: Page, gateway: LadderGateway, module: string, rowSays: string): Promise<void> {

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import type { DownloadProgress, ProviderStatus } from '@/swarm/provider';
 
+import { OPEN_MY_SWARM } from './mySwarmPanel';
+
 /*
  * How a node that runs in the viewer's tab is shown starting: Connect's row and the watch
  * page's stage say the same words, read the same way.
@@ -53,7 +55,7 @@ export function weeb3StatusWords({ state, peers = 0, download, healthyPeers }: P
 /** The status line where the node is waited for outside Connect, which also says where to start a lost node again. */
 export function weeb3StatusLine(status: ProviderStatus): string {
   const words = weeb3StatusWords(status);
-  return status.state === 'lost' ? `${words}. Open Connect to start it again.` : words;
+  return status.state === 'lost' ? `${words}. ${OPEN_MY_SWARM} to start it again.` : words;
 }
 
 /** The one short note shown beside the count while the node connects, or null. */

@@ -90,10 +90,10 @@ describe('the look a viewer picked', () => {
   });
 });
 
-describe('the theme switcher in Connect', () => {
+describe('the theme switcher in My Swarm', () => {
   it('is not offered before the viewer joins the chat', async () => {
     await header();
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     expect(queryButton('Chat as guest')).toBeTruthy();
     for (const name of THEME_NAMES) {
@@ -143,7 +143,7 @@ describe('the theme switcher in Connect', () => {
     expect(document.documentElement.dataset.theme).toBe('web3privacy');
   });
 
-  it('is left out of Connect on a deployment that has the switcher off', async () => {
+  it('is left out of My Swarm on a deployment that has the switcher off', async () => {
     persistUserSession(nicknameLogin('Ada'));
     await header(chatConfig({ themeSwitcher: false }));
     click(button(/^Ada/));
