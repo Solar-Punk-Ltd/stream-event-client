@@ -478,7 +478,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
               break;
             }
             // Playhead read before recovery detaches the media. recoverFromMediaError starts loading
-            // by hand when it is zero, which is the case autoStartLoad off leaves stopped for good.
+            // by hand when it is zero, which covers an error before loading ever started.
             if (hls) {
               recoverFromMediaError(hls, video.currentTime, decision.action === 'swap-codec-and-recover');
             }

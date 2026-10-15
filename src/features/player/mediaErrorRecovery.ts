@@ -84,13 +84,14 @@ export interface MediaErrorRecoverer {
  * Runs a `recover` or `swap-codec-and-recover` rung and makes sure loading resumes, even at playhead
  * zero.
  *
- * hls.js's `recoverMediaError` detaches the media, re-attaches it, and restarts loading only when the
- * playhead is past zero: `if (time) this.startLoad(time)` (1.6.15). The player runs with
- * `autoStartLoad` off so it can set `startLevel` before the first load, so a re-attach does not
- * autostart either. A fatal media error before the first frame, such as an incompatible-codec error
- * raised at manifest parse, therefore leaves the player stopped for good with the recovery ladder's
- * higher rungs unreachable. Starting the load by hand in exactly that case fills the gap and does not
- * disturb the past-zero path, which `recoverMediaError` already restarts itself.
+ * hls.js's `recoverMediaError` detaches the media, re-attaches it, and restarts loading only when
+ * loading had been started: at the old playhead when it is past zero, and from the start otherwise,
+ * because the player runs with `autoStartLoad` off (read in hls.js 1.7.3). The player keeps it off so it
+ * can set `startLevel` first, and starts loading only once the manifest has parsed. A fatal media error
+ * before that, such as an incompatible-codec error raised at manifest parse, therefore leaves the player
+ * stopped for good with the recovery ladder's higher rungs unreachable. Starting the load by hand at
+ * playhead zero fills that gap. Where hls.js had already started at zero, the call starts the same load
+ * from the start again. The past-zero path is left to `recoverMediaError`.
  *
  * @param currentTimeSeconds The playhead read *before* recovery, since `recoverMediaError` detaches
  *   the media and the reading is lost after it.
