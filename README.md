@@ -268,8 +268,8 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   through this button, reaches an open viewer on another domain only at its next sign-in with Swarm ID, so until
   then the viewer may show the old stamp's figures. A report with no stamp id means Swarm ID gives this site no
   stamp, and the page shows that at once without reading. Every sign-in starts that way until the person confirms a
-  stamp with Go to app in the Swarm ID window, and Connect says so and offers Choose a stamp in Swarm ID, which
-  opens the same window.
+  stamp with Go to app in the Swarm ID window, so Connect says "Swarm ID has given this site no stamp yet. Choose
+  one and confirm it in the Swarm ID window." and offers Choose a stamp in Swarm ID, which opens the same window.
 - **Warnings above the message field.** At 80% used, or 3 days left, the field says how much is used and when it
   runs out, offers Change stamp in Swarm ID, and sending goes on. When the stamp ran out or is not usable yet, the
   field says so, sending is held with what was typed kept, and two buttons offer Change stamp in Swarm ID and Let

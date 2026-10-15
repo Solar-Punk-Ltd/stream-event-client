@@ -70,7 +70,7 @@ export function stampWarning(stamp: SiteStamp | null): StampWarning | null {
   if (stamp === null) {
     return {
       title: 'No stamp for this site.',
-      detail: 'Choose one in Swarm ID, or let the gateway pay.',
+      detail: 'Choose one and confirm it in the Swarm ID window, or let the gateway pay.',
       blocksSending: true,
     };
   }

@@ -81,7 +81,9 @@ function SiteStampBox() {
           <p className="connect-hint">Swarm ID did not say how your stamp stands. It is read again shortly.</p>
         )}
         {siteStamp.status === SITE_STAMP_NONE && (
-          <p className="connect-hint">Swarm ID has given this site no stamp yet.</p>
+          <p className="connect-hint">
+            Swarm ID has given this site no stamp yet. Choose one and confirm it in the Swarm ID window.
+          </p>
         )}
         {changeStampInSwarmId && (
           <div className="connect-between">

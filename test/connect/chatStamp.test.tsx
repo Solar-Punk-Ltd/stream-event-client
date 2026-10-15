@@ -289,7 +289,9 @@ describe('the chat stamp in Connect', () => {
     click(button(/^Ida/));
     await settle();
 
-    expect(group()?.textContent).toContain('Swarm ID has given this site no stamp yet.');
+    expect(group()?.textContent).toContain(
+      'Swarm ID has given this site no stamp yet. Choose one and confirm it in the Swarm ID window.',
+    );
     expect(swarmId.client().postageBatchReads).toBe(0);
   });
 

@@ -88,7 +88,7 @@ describe('the warning a stamp gives', () => {
   it('stops sending when Swarm ID has given this site no stamp', () => {
     expect(stampWarning(null)).toEqual({
       title: 'No stamp for this site.',
-      detail: 'Choose one in Swarm ID, or let the gateway pay.',
+      detail: 'Choose one and confirm it in the Swarm ID window, or let the gateway pay.',
       blocksSending: true,
     });
   });
