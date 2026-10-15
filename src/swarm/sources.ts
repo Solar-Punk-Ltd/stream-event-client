@@ -55,8 +55,6 @@ const ADDED_ID_PREFIX = 'added-';
 /** As long as a row shows without cutting it on a phone. */
 export const SOURCE_NAME_MAX_LENGTH = 40;
 
-/** What a viewer's own node saved before sources existed is called once it is one. */
-
 const isAddedId = (id: string) => id.startsWith(ADDED_ID_PREFIX);
 
 /** A name as a viewer typed it, trimmed and cut to {@link SOURCE_NAME_MAX_LENGTH}, or null for a blank one. */
