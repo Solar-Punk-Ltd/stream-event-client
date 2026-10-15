@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
 import { ChunkBuilder, Span } from '@ethersphere/bee-js';
+import { act } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { saveAddedSources } from '../../src/app/sourceStorage';
-import { sharedWeeb3Runtime } from '../../src/swarm/providers/weeb-3/weeb3Runtime';
+import {
+  sharedWeeb3Runtime,
+  WEEB3_LOST_AFTER_MS,
+  WEEB3_PEER_POLL_MS,
+} from '../../src/swarm/providers/weeb-3/weeb3Runtime';
 import { button, click, dialog, doubleClick, type Mounted, settle, text, waitFor } from '../helpers/dom';
 import { connectPage, seen } from '../helpers/connectPage';
 
@@ -233,7 +238,16 @@ describe("an added node's settings", () => {
     await waitFor(() => (sharedWeeb3Runtime().status().state === 'ready' ? true : null), 200);
 
     first.peers = 0;
-    await waitFor(() => (sharedWeeb3Runtime().status().state === 'lost' ? true : null), 200);
+    // The poll goes on through the faked clock once the check already waiting on the real one has run.
+    const realSetTimeout = globalThis.setTimeout;
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await act(() => new Promise((resolve) => realSetTimeout(resolve, 2 * WEEB3_PEER_POLL_MS)));
+      await act(() => vi.advanceTimersByTimeAsync(WEEB3_LOST_AFTER_MS));
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(sharedWeeb3Runtime().status().state).toBe('lost');
     await waitFor(() => (text().includes('Lost its peers') ? true : null), 100);
     expect(fakeWeeb3.current!.nodes, 'nothing starts it again by itself').toHaveLength(1);
 

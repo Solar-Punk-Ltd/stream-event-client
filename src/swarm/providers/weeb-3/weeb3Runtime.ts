@@ -23,10 +23,13 @@ export const WEEB3_PEER_POLL_MS = 500;
 export const WEEB3_START_DEADLINE_MS = 30_000;
 
 /**
- * How many peer checks in a row, each reading no peers or throwing, take a ready node to lost. A phone that locked the
- * tab can leave its node with no peers, or with no node behind the shared worker at all, and nothing restarts it.
+ * How long a ready node's peer checks must read no peers, or throw, without a break before it counts as lost. A phone
+ * that locked the tab can leave its node with no peers, or with no node behind the shared worker at all, and nothing
+ * restarts it. A network handover drops the count to zero for a second or two, which this outlasts.
  */
-const WEEB3_LOST_AFTER_CHECKS = 3;
+export const WEEB3_LOST_AFTER_MS = 20_000;
+
+const LOST_AFTER_CHECKS = Math.ceil(WEEB3_LOST_AFTER_MS / WEEB3_PEER_POLL_MS);
 
 /** What a read, a push or the page says while the node is lost, which only starting it again in Connect mends. */
 export const WEEB3_LOST_PEERS = 'The Swarm node in this browser lost its peers. Open Connect to start it again.';
@@ -293,7 +296,7 @@ export class Weeb3Runtime {
       }
       if (this.current.state === 'ready') {
         const missed = peers === 0 ? misses + 1 : 0;
-        if (missed >= WEEB3_LOST_AFTER_CHECKS) {
+        if (missed >= LOST_AFTER_CHECKS) {
           this.poll = null;
           this.set({ state: 'lost', peers: 0 });
           return;

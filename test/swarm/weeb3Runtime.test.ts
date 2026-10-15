@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  WEEB3_LOST_AFTER_MS,
   WEEB3_LOST_PEERS,
   WEEB3_PEER_POLL_MS,
   WEEB3_DOWNLOAD_DEADLINE_MS,
@@ -325,19 +326,20 @@ describe('the node in this browser once it is ready', () => {
     return { fake, runtime };
   }
 
-  it('is lost after three peer checks in a row that read no peers or throw, and a good check in between starts the count again', async () => {
+  it('is lost only after its peer checks read no peers or throw for the whole lost window, a good check in between starting it again', async () => {
     const { fake, runtime } = await readyRuntime();
     const node = fake.nodes[0];
+    const justShortOfTheWindow = WEEB3_LOST_AFTER_MS - WEEB3_PEER_POLL_MS;
 
     node.peers = 0;
-    await vi.advanceTimersByTimeAsync(2 * WEEB3_PEER_POLL_MS);
-    expect(runtime.status().state).toBe('ready');
+    await vi.advanceTimersByTimeAsync(justShortOfTheWindow);
+    expect(runtime.status().state, 'a dip shorter than the window, such as a network handover').toBe('ready');
     node.peers = 2;
     await vi.advanceTimersByTimeAsync(WEEB3_PEER_POLL_MS);
     expect(runtime.status()).toEqual({ state: 'ready', peers: 2 });
 
     node.peers = 0;
-    await vi.advanceTimersByTimeAsync(2 * WEEB3_PEER_POLL_MS);
+    await vi.advanceTimersByTimeAsync(justShortOfTheWindow);
     expect(runtime.status().state).toBe('ready');
     node.connectionCount = async () => {
       throw new Error('the shared worker is gone');
@@ -350,7 +352,7 @@ describe('the node in this browser once it is ready', () => {
   it('is not started again by a hold or a wait while lost, and a wait fails at once with what to do', async () => {
     const { fake, runtime } = await readyRuntime();
     fake.nodes[0].peers = 0;
-    await vi.advanceTimersByTimeAsync(3 * WEEB3_PEER_POLL_MS);
+    await vi.advanceTimersByTimeAsync(WEEB3_LOST_AFTER_MS);
     expect(runtime.status().state).toBe('lost');
 
     await runtime.acquire();
@@ -364,7 +366,7 @@ describe('the node in this browser once it is ready', () => {
   it('starts again on asking, keeping whatever holds it, and is ready once it has peers again', async () => {
     const { fake, runtime } = await readyRuntime();
     fake.nodes[0].peers = 0;
-    await vi.advanceTimersByTimeAsync(3 * WEEB3_PEER_POLL_MS);
+    await vi.advanceTimersByTimeAsync(WEEB3_LOST_AFTER_MS);
     expect(runtime.status().state).toBe('lost');
 
     runtime.restart();

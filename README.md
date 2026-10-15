@@ -669,8 +669,9 @@ controls the page, and counts as failed when it is not ready after 30 s.
   weeb-3's own connection target (`CONNECTION_BUILDUP_LIMIT` in its `src/accounting.rs`, which its project README
   says drops to four fifths for every 100 lost connections, down to 30). The node is ready at its first peer, so
   the video does not wait for the rest, and the count keeps building up after that.
-- **A node that lost its peers.** Once ready, the node's peers are read every half second. Three reads in a row
-  that find no peers, or that throw, as after a phone locked the tab, mark the node lost. Connect's row says "Lost
+- **A node that lost its peers.** Once ready, the node's peers are read every half second. When every read for
+  20 s finds no peers or throws, as after a phone locked the tab, the node is lost
+  (`WEEB3_LOST_AFTER_MS`). A shorter dip, such as a network handover, leaves it ready. Connect's row says "Lost
   its peers", its settings say Test connection starts it again, and the line on the watch page adds "Open Connect to
   start it again." While it is lost, every read through it is unavailable at once, and a message pushed through it
   fails at once with "The Swarm node in this browser lost its peers. Open Connect to start it again." Nothing starts
