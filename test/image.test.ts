@@ -232,6 +232,18 @@ describe('the image start-up script', () => {
       }
     });
 
+    it('names the site in lower case wherever it lets it read, since a browser sends its Origin so', () => {
+      const started = start({
+        BEE_GATEWAY_URL: 'https://gateway.example.com',
+        SWARM_ID_URL: 'https://ID.Example.com:8443/',
+      });
+      expect(started.status).toBe(0);
+      expect(started.fonts).toContain('add_header Access-Control-Allow-Origin "https://id.example.com:8443" always;');
+      expect(started.gateway).toContain('add_header Access-Control-Allow-Origin "https://id.example.com:8443" always;');
+      expect(started.gateway).not.toMatch(/Example/);
+      expect(policy(started.headers)).toContain('frame-src https://id.example.com:8443;');
+    });
+
     it('adds no CORS header to the font files when it is not set', () => {
       const started = start({ BEE_GATEWAY_URL: 'https://gateway.example.com' });
       expect(started.status).toBe(0);

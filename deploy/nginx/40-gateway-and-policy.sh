@@ -76,7 +76,10 @@ done
 SWARM_ID_DIRECTIVE=""
 SWARM_ID=""
 if [ -n "${SWARM_ID_URL:-}" ]; then
+  # In lower case, because a browser sends the Swarm ID frame's Origin so, and Access-Control-Allow-Origin is compared
+  # with it exactly. The scheme and the host name no case, so config.json's swarmId.url may keep its own spelling.
   SWARM_ID="$(origin_of SWARM_ID_URL "$SWARM_ID_URL")"
+  SWARM_ID="$(printf '%s' "$SWARM_ID" | tr '[:upper:]' '[:lower:]')"
   SWARM_ID_DIRECTIVE="; frame-src $SWARM_ID"
 fi
 
