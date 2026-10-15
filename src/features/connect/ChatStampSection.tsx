@@ -8,6 +8,7 @@ import {
   SITE_STAMP_UNREADABLE,
   useChatStamp,
 } from '@/features/chat/stamp/ChatStamp';
+import { SwarmIdStampWindowNotice } from '@/features/chat/swarmId/SwarmIdParts';
 import { daysLeftText, SITE_STAMP_RAN_OUT, type SiteStamp } from '@/features/chat/stamp/siteStamp';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { OwnStampIcon } from '@/shared/components/Icons/OwnStampIcon';
@@ -70,7 +71,7 @@ export function ChatStampSection() {
 }
 
 function SiteStampBox() {
-  const { siteStamp, openStampInSwarmId, choice, chooseOwnFeed } = useChatStamp();
+  const { siteStamp, changeStampInSwarmId, choice, chooseOwnFeed } = useChatStamp();
   return (
     <>
       <div className="connect-box connect-site-stamp">
@@ -82,14 +83,15 @@ function SiteStampBox() {
         {siteStamp.status === SITE_STAMP_NONE && (
           <p className="connect-hint">Swarm ID has given this site no stamp yet.</p>
         )}
-        {openStampInSwarmId && (
+        {changeStampInSwarmId && (
           <div className="connect-between">
             <span className="connect-ex">Chosen, topped up and made bigger in Swarm ID</span>
-            <Button variant={ButtonVariant.SECONDARY} className="connect-small" onClick={openStampInSwarmId}>
+            <Button variant={ButtonVariant.SECONDARY} className="connect-small" onClick={changeStampInSwarmId}>
               {siteStamp.status === SITE_STAMP_NONE ? CHOOSE_STAMP : CHANGE_STAMP}
             </Button>
           </div>
         )}
+        <SwarmIdStampWindowNotice />
       </div>
       <label className="connect-choice">
         <input type="checkbox" checked={choice.ownFeed} onChange={(event) => chooseOwnFeed(event.target.checked)} />

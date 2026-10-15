@@ -20,6 +20,8 @@ import {
 } from './swarmId/swarmIdClient';
 import {
   createSwarmIdSignIn,
+  STAMP_WINDOW_FAILED,
+  type StampWindowOutcome,
   SWARM_ID_SIGNED_IN,
   type SwarmIdSignIn,
   type SwarmIdState,
@@ -45,10 +47,12 @@ interface ChatUserContextValue {
   /** Opens the Swarm ID window. Called from a click only, or the browser blocks the window. */
   signInWithSwarmId: () => void;
   signOutOfSwarmId: () => void;
-  /** The Swarm ID site's origin, or null on a deployment that offers no Swarm ID. */
-  swarmIdUrl: string | null;
   /** The stamp Swarm ID gives this site, or undefined while nobody is signed in or it gives none. */
   getSiteStamp: () => Promise<SwarmIdPostageBatch | undefined>;
+  /** Opens the Swarm ID window again, where a signed-in viewer picks this site's stamp. From a click only. */
+  changeStampInSwarmId: () => Promise<StampWindowOutcome>;
+  /** Hears of every report Swarm ID makes about the session, a stamp picked in its window among them. */
+  onSwarmIdConnectionChange: (listener: () => void) => () => void;
   /** Has Swarm ID sign and stamp a chunk with the stamp it gives this site. Rejects while nobody is signed in. */
   stampChunk: (chunk: SwarmIdChunkToStamp) => Promise<SwarmIdStampedChunk>;
 }
@@ -144,6 +148,14 @@ export function ChatUserProvider({
   const signInWithSwarmId = useCallback(() => signIn?.signIn(), [signIn]);
   const signOutOfSwarmId = useCallback(() => void signIn?.signOut(), [signIn]);
   const getSiteStamp = useCallback(async () => signIn?.getPostageBatch(), [signIn]);
+  const changeStampInSwarmId = useCallback(
+    (): Promise<StampWindowOutcome> => (signIn ? signIn.changeStamp() : Promise.resolve(STAMP_WINDOW_FAILED)),
+    [signIn],
+  );
+  const onSwarmIdConnectionChange = useCallback(
+    (listener: () => void) => (signIn ? signIn.subscribeConnectionChange(listener) : () => {}),
+    [signIn],
+  );
   const stampChunk = useCallback(
     (chunk: SwarmIdChunkToStamp) =>
       signIn ? signIn.stampChunk(chunk) : Promise.reject(new Error('This deployment offers no Swarm ID')),
@@ -163,8 +175,9 @@ export function ChatUserProvider({
       swarmIdSession,
       signInWithSwarmId,
       signOutOfSwarmId,
-      swarmIdUrl,
       getSiteStamp,
+      changeStampInSwarmId,
+      onSwarmIdConnectionChange,
       stampChunk,
     }),
     [
@@ -176,8 +189,9 @@ export function ChatUserProvider({
       swarmIdSession,
       signInWithSwarmId,
       signOutOfSwarmId,
-      swarmIdUrl,
       getSiteStamp,
+      changeStampInSwarmId,
+      onSwarmIdConnectionChange,
       stampChunk,
     ],
   );

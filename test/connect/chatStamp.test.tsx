@@ -6,7 +6,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { saveAddedSources, saveRouting } from '../../src/app/sourceStorage';
 import { nicknameLogin } from '../../src/features/chat/auth/login';
 import { persistUserSession } from '../../src/features/chat/auth/persistence';
-import { swarmIdAppsUrl } from '../../src/features/chat/stamp/ChatStamp';
 import { loadChatStampChoice, saveChatStampChoice } from '../../src/features/chat/stamp/chatStampChoice';
 import { EVENT_GATEWAY_STAMPS_ITSELF, PICK_A_SOURCE_THAT_SENDS } from '../../src/features/chat/stamp/ownStampRoute';
 import type { SwarmIdPostageBatch } from '../../src/features/chat/swarmId/swarmIdClient';
@@ -182,57 +181,62 @@ describe('the chat stamp in Connect', () => {
     expect(button('Choose a stamp in Swarm ID')).toBeTruthy();
   });
 
-  it("opens this site's row on Swarm ID's Apps screen in a window of its own, and reads the stamp again once it closes", async () => {
+  it('opens the Swarm ID window again while signed in, and shows the stamp picked there at once', async () => {
     chatOnMyBeeNode();
-    const appsWindow = { closed: false, opener: {} as unknown };
-    const opened = vi.spyOn(window, 'open').mockReturnValue(appsWindow as unknown as Window);
+    const opened = vi.spyOn(window, 'open');
     const swarmId = await openConnect();
     click(radio('My stamp')!);
     await settle();
 
-    vi.useFakeTimers();
-    try {
-      click(button('Change stamp in Swarm ID'));
-
-      const appsUrl = `https://id.example.com/#apps/${encodeURIComponent('https://example.com')}`;
-      expect(swarmIdAppsUrl('https://id.example.com/', 'https://example.com')).toBe(appsUrl);
-      expect(opened).toHaveBeenCalledWith(appsUrl, 'swarm-id-apps', expect.stringContaining('popup'));
-      expect(appsWindow.opener, 'the Swarm ID window cannot reach back into this page').toBeNull();
-
-      swarmId.client().postageBatch = { ...BATCH, label: 'Another stamp' };
-      appsWindow.closed = true;
-      await vi.advanceTimersByTimeAsync(2_000);
-    } finally {
-      vi.useRealTimers();
-    }
+    click(button('Change stamp in Swarm ID'));
     await settle();
-    expect(group()?.textContent).toContain('Another stamp');
+    expect(swarmId.client().connectCalls).toBe(1);
+    expect(opened, 'the library opens its own window, never the Apps screen').not.toHaveBeenCalled();
+
+    swarmId.client().pickStamp({ ...BATCH, label: 'Another stamp', utilization: 0.1 });
+    await settle();
+    await settle();
+    const box = group()?.textContent ?? '';
+    expect(box).toContain('Another stamp');
+    expect(box).toContain('10% used');
+    expect(seen.chatUser?.swarmIdSession, 'still signed in').toBeTruthy();
   });
 
-  it('still reads the stamp again when the window is already on the Swarm ID site and refuses to drop its opener', async () => {
+  it('chooses a stamp in the same window for a site with none, which clears the warning at once', async () => {
     chatOnMyBeeNode();
-    const appsWindow = {
-      closed: false,
-      set opener(_value: unknown) {
-        throw new DOMException('Blocked a frame from accessing a cross-origin frame.', 'SecurityError');
-      },
-    };
-    vi.spyOn(window, 'open').mockReturnValue(appsWindow as unknown as Window);
+    const swarmId = await openConnect(null);
+    click(radio('My stamp')!);
+    await settle();
+    expect(seen.chatStamp?.warning?.title).toBe('No stamp for this site.');
+
+    click(button('Choose a stamp in Swarm ID'));
+    await settle();
+    swarmId.client().pickStamp(BATCH);
+    await settle();
+    await settle();
+
+    expect(swarmId.client().connectCalls).toBe(1);
+    expect(group()?.textContent).toContain('Event chat');
+    expect(seen.chatStamp?.warning).toBeNull();
+  });
+
+  it('says when the browser blocked that window, and opens it from the button on that line', async () => {
+    chatOnMyBeeNode();
     const swarmId = await openConnect();
     click(radio('My stamp')!);
     await settle();
+    swarmId.client().nextWindow = 'blocked';
 
-    vi.useFakeTimers();
-    try {
-      expect(() => click(button('Change stamp in Swarm ID'))).not.toThrow();
-      swarmId.client().postageBatch = { ...BATCH, label: 'Picked again' };
-      appsWindow.closed = true;
-      await vi.advanceTimersByTimeAsync(2_000);
-    } finally {
-      vi.useRealTimers();
-    }
+    click(button('Change stamp in Swarm ID'));
     await settle();
-    expect(group()?.textContent).toContain('Picked again');
+    expect(group()?.textContent).toContain('Your browser blocked the Swarm ID window.');
+    expect(seen.chatUser?.swarmIdSession, 'a blocked window signs nobody out').toBeTruthy();
+
+    swarmId.client().nextWindow = 'opens';
+    click(button('Open Swarm ID'));
+    await settle();
+    expect(swarmId.client().connectCalls).toBe(2);
+    expect(group()?.textContent).not.toContain('Your browser blocked the Swarm ID window.');
   });
 
   it('says a stamp that ran out has run out', async () => {

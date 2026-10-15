@@ -5,6 +5,7 @@ import { useAppContext } from '@/app/AppProvider';
 import { pushStampedSocThroughWeeb3 } from '@/swarm/providers/weeb-3/weeb3Push';
 import { useConnect } from '@/features/connect/ConnectContext';
 
+import { STAMP_WINDOW_BLOCKED, STAMP_WINDOW_FAILED, STAMP_WINDOW_OPENED } from '../swarmId/swarmIdSignIn';
 import { useChatUser } from '../User';
 import type { OwnStampSetup } from '../useSwarmChat';
 
@@ -17,6 +18,8 @@ export const SITE_STAMP_READING = 'reading';
 export const SITE_STAMP_NONE = 'none';
 export const SITE_STAMP_UNREADABLE = 'unreadable';
 export const SITE_STAMP_READ = 'read';
+
+type StampWindowProblem = typeof STAMP_WINDOW_BLOCKED | typeof STAMP_WINDOW_FAILED;
 
 /** What the viewer knows of the stamp Swarm ID gives this site. */
 type SiteStampRead =
@@ -39,8 +42,10 @@ interface ChatStampValue {
   readonly siteStamp: SiteStampRead;
   /** The warning above the message field while the viewer's own stamp pays, or null. */
   readonly warning: StampWarning | null;
-  /** Opens Swarm ID's Apps screen in a window of its own, where this site's stamp is chosen and managed. */
-  readonly openStampInSwarmId: (() => void) | null;
+  /** Opens the Swarm ID window again, where the viewer picks the stamp this site uses. Null while not signed in. */
+  readonly changeStampInSwarmId: (() => void) | null;
+  /** Why the last Swarm ID window opened to change the stamp did not show, or null. */
+  readonly stampWindowProblem: StampWindowProblem | null;
   /** How the chat sends, for the chat's settings. */
   readonly sending: ChatSending;
   /** What the chat needs to send on the viewer's own stamp, or null while the gateway pays. */
@@ -55,7 +60,8 @@ const GATEWAY_ONLY: ChatStampValue = {
   route: { ok: false, reason: '', hint: '' },
   siteStamp: { status: SITE_STAMP_NONE },
   warning: null,
-  openStampInSwarmId: null,
+  changeStampInSwarmId: null,
+  stampWindowProblem: null,
   sending: GATEWAY_SENDING,
   ownStamp: null,
 };
@@ -67,27 +73,25 @@ export function useChatStamp(): ChatStampValue {
   return useContext(ChatStampContext);
 }
 
-/** This site's row on Swarm ID's Apps screen, where the stamp it gives the site is chosen, topped up and made bigger. */
-export function swarmIdAppsUrl(swarmIdUrl: string, siteOrigin: string): string {
-  return `${swarmIdUrl.replace(/\/+$/, '')}/#apps/${encodeURIComponent(siteOrigin)}`;
-}
-
-const APPS_WINDOW_NAME = 'swarm-id-apps';
-const APPS_WINDOW_FEATURES = 'popup,width=480,height=760';
-/** How often the page looks whether the Swarm ID window it opened has closed. */
-const WINDOW_CLOSED_POLL_MS = 1_000;
 /** The stamp is read again after a send at most this often, since each message changes it by one chunk. */
 const READ_AFTER_SEND_MS = 15_000;
 
 /**
  * Who pays for the viewer's chat messages: the event's gateway, as for everyone by default, or the stamp Swarm ID
  * gives this site, once the viewer is signed in with Swarm ID and picks it. The viewer never buys, tops up or holds a
- * stamp. It only reads how the site's stamp stands, again whenever Connect opens, the page comes back into focus, and
- * after messages it sent, and asks Swarm ID to stamp each message. Nothing here switches who pays by itself.
+ * stamp. It only reads how the site's stamp stands, again whenever Connect opens, the page comes back into focus, Swarm
+ * ID reports the session, as it does once a stamp is picked in its window, and after messages it sent, and asks Swarm
+ * ID to stamp each message. Nothing here switches who pays by itself.
  */
 export function ChatStampProvider({ children }: { readonly children: ReactNode }) {
   const { sources, parts, swarmSettings } = useAppContext();
-  const { swarmIdSession, swarmIdUrl, getSiteStamp, stampChunk } = useChatUser();
+  const {
+    swarmIdSession,
+    getSiteStamp,
+    changeStampInSwarmId: openSwarmIdWindow,
+    onSwarmIdConnectionChange,
+    stampChunk,
+  } = useChatUser();
   const { isOpen } = useConnect();
 
   const [siteStamp, setSiteStamp] = useState<SiteStampRead>({ status: SITE_STAMP_READING });
@@ -159,6 +163,8 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
       readSiteStamp();
     }
   }, [isOpen, readSiteStamp]);
+
+  useEffect(() => onSwarmIdConnectionChange(readSiteStamp), [onSwarmIdConnectionChange, readSiteStamp]);
 
   // Back from Swarm ID's window, where the site's stamp may have changed.
   useEffect(() => {
@@ -233,34 +239,21 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
     [ownStampPays, choice.ownFeed, readAfterSend],
   );
 
-  const openStampInSwarmId = useMemo(
+  const [stampWindowProblem, setStampWindowProblem] = useState<StampWindowProblem | null>(null);
+  if (!canUseOwnStamp && stampWindowProblem !== null) {
+    setStampWindowProblem(null);
+  }
+  const changeStampInSwarmId = useMemo(
     () =>
-      swarmIdUrl
+      canUseOwnStamp
         ? () => {
-            const opened = window.open(
-              swarmIdAppsUrl(swarmIdUrl, window.location.origin),
-              APPS_WINDOW_NAME,
-              APPS_WINDOW_FEATURES,
+            setStampWindowProblem(null);
+            void openSwarmIdWindow().then((outcome) =>
+              setStampWindowProblem(outcome === STAMP_WINDOW_OPENED ? null : outcome),
             );
-            if (!opened) {
-              return;
-            }
-            // Kept as a handle only, to see it close: the Swarm ID site gets no way back into this page. A window of
-            // this name already showing the Swarm ID site may refuse the assignment, and is watched all the same.
-            try {
-              opened.opener = null;
-            } catch {
-              // Its opener stays, as it was for the window that was already open.
-            }
-            const watch = window.setInterval(() => {
-              if (opened.closed) {
-                window.clearInterval(watch);
-                readSiteStamp();
-              }
-            }, WINDOW_CLOSED_POLL_MS);
           }
         : null,
-    [swarmIdUrl, readSiteStamp],
+    [canUseOwnStamp, openSwarmIdWindow],
   );
 
   const value = useMemo(
@@ -272,7 +265,8 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
       route,
       siteStamp,
       warning,
-      openStampInSwarmId,
+      changeStampInSwarmId,
+      stampWindowProblem,
       sending,
       ownStamp,
     }),
@@ -284,7 +278,8 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
       route,
       siteStamp,
       warning,
-      openStampInSwarmId,
+      changeStampInSwarmId,
+      stampWindowProblem,
       sending,
       ownStamp,
     ],

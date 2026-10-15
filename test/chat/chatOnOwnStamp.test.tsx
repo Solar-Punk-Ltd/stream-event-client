@@ -252,6 +252,29 @@ describe('a chat paid for with my own stamp', () => {
     expect(chatRegion()?.textContent).toContain('It runs out in about 2 days.');
     expect(button('Change stamp in Swarm ID')).toBeTruthy();
   });
+
+  it('opens the Swarm ID window from the warning, says when it was blocked, and lifts the hold once a stamp is picked there', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    const swarmId = await watchPage({ ...BATCH, utilization: 1 });
+    swarmId.client().nextWindow = 'blocked';
+
+    click(button('Change stamp in Swarm ID'));
+    await settle();
+    expect(chatRegion()?.textContent).toContain('Your browser blocked the Swarm ID window.');
+
+    swarmId.client().nextWindow = 'opens';
+    click(button('Open Swarm ID'));
+    await settle();
+    swarmId.client().pickStamp(BATCH);
+    await settle();
+    await settle();
+
+    expect(swarmId.client().connectCalls).toBe(2);
+    expect(chatRegion()?.textContent).not.toContain('Your stamp ran out.');
+    expect(chatRegion()?.textContent).not.toContain('Your browser blocked the Swarm ID window.');
+    expect(seen.chatStamp?.warning, 'nothing holds a message any more').toBeNull();
+  });
 });
 
 describe("a sender's own copies in the message details", () => {

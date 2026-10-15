@@ -248,13 +248,16 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   the wrong size." The own-feed
   copy goes through Weeb3 the same way, before the message.
 - **The stamp's figures.** With My stamp picked, Connect shows the site's stamp: its name, how full it is, its days
-  left, and **Change stamp in Swarm ID**, which opens this site's row on Swarm ID's Apps screen,
-  `<swarmId.url>/#apps/<this site's origin>`, in a window of its own. The figures are read from Swarm ID's
-  `getPostageBatch` when the person signs in, when Connect opens, when that window closes, when the page comes back
-  into focus, and after messages sent, at most every 15 seconds. **A known limit:** in the hosted Swarm ID, a site
-  on another domain does not hear of a stamp change, live or on reload, until the person signs in with Swarm ID
-  again, so a changed stamp may show its old figures until then. With no stamp given, Connect says so and offers
-  Choose a stamp in Swarm ID.
+  left, and **Change stamp in Swarm ID**, which opens the Swarm ID sign-in window again while the viewer stays
+  signed in (the library's `connect()`). The window shows the person's stamps, the person picks one for this site,
+  and Swarm ID hands it to the open page at once and reports the session again (`onConnectionChange`), so the
+  viewer reads the new stamp's figures with `getPostageBatch` straight away, with no reload. A browser that blocks
+  that window gets the same line as a blocked sign-in, with a button that opens it. The figures are also read when
+  the person signs in, when Connect opens, when the page comes back into focus, and after messages sent, at most
+  every 15 seconds. **A known limit:** a stamp changed directly on Swarm ID's own Apps screen, rather than through
+  this button, reaches an open viewer on another domain only at its next sign-in with Swarm ID, so until then the
+  viewer may show the old stamp's figures. With no stamp given, Connect says so and offers Choose a stamp in Swarm
+  ID, which opens the same window.
 - **Warnings above the message field.** At 80% used, or 3 days left, the field says how much is used and when it
   runs out, and sending goes on. When the stamp ran out, is not usable yet, or Swarm ID gives this site none, the
   field says so, sending is held with what was typed kept, and two buttons offer Change stamp in Swarm ID and Let
