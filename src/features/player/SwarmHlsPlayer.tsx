@@ -17,6 +17,7 @@ import { nextMediaErrorAction, NO_MEDIA_ERRORS_YET, recoverFromMediaError } from
 import { attachPlaybackStallReporter } from './playbackHealth';
 import { buildPlayerConfig, HLS_TUNING } from './playerConfig';
 import { buildSwarmUri } from './playlist';
+import { attachResumeOnReturn } from './resumeOnReturn';
 import { attachReturningBroadcastRejoin } from './returningBroadcast';
 import { attachActiveRungFollower, attachRungFailover, attachWatchedRungReporter } from './rungHealth';
 import { segmentLoadFailure } from './segmentLoads';
@@ -378,6 +379,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
     const onHlsPlay = () => {
       hls?.startLoad();
     };
+    let detachResumeOnReturn: (() => void) | null = null;
 
     if (Hls.isSupported()) {
       const tuning: HlsTuning = { ...DEFAULT_HLS_TUNING, ...callerTuning };
@@ -385,6 +387,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
 
       const restartStream = () => {
         console.warn('Restarting stream due to manifest parsing error.');
+        detachResumeOnReturn?.();
         hls?.destroy();
         setRestartTrigger((prev) => prev + 1);
       };
@@ -395,6 +398,16 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
 
       video.addEventListener('pause', onHlsPause);
       video.addEventListener('play', onHlsPlay);
+      // An iPhone pauses the video when the phone locks and does not resume it on unlock (SPDV-1655).
+      const returningHls = hls;
+      detachResumeOnReturn = attachResumeOnReturn(
+        video,
+        { document, window },
+        () => returningHls.latestLevelDetails?.live ?? false,
+        (err) => {
+          console.warn('[SwarmHls] resuming the live stream after the page came back failed:', err);
+        },
+      );
 
       hls.on(Events.FRAG_LOADED, () => manifestFetcher.reportSegmentLoad({ loaded: true }));
       hls.on(Events.ERROR, (_event, data) => {
@@ -546,6 +559,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
       stopLadderWatch();
       video.removeEventListener('pause', onHlsPause);
       video.removeEventListener('play', onHlsPlay);
+      detachResumeOnReturn?.();
       detachQoe?.();
       detachLiveSync?.();
       detachStallReporter?.();
