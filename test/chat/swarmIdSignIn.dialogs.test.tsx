@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 // @vitest-environment-options {"url":"https://example.com/"}
+import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { nicknameLogin } from '../../src/features/chat/auth/login';
@@ -7,7 +8,19 @@ import { persistUserSession, restoreUserSession } from '../../src/features/chat/
 import { frameRefusedWarning } from '../../src/features/chat/swarmId/swarmIdSignIn';
 import type { useChatUser } from '../../src/features/chat/User';
 import { CHAT, chatConfig, connectPage, seen } from '../helpers/connectPage';
-import { button, click, dialog, input, queryButton, settle, text, type, type Mounted, waitFor } from '../helpers/dom';
+import {
+  button,
+  click,
+  dialog,
+  input,
+  nestedLiveRegions,
+  queryButton,
+  settle,
+  text,
+  type,
+  type Mounted,
+  waitFor,
+} from '../helpers/dom';
 import { type FakeSwarmId, type FakeSwarmIdClient, fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
 import { BOUND_SITE, CHAT_BINDING, chatKeyFor } from '../helpers/signedChat';
 
@@ -398,6 +411,34 @@ describe("the Swarm ID button's placeholder", () => {
     const labelledBy = placeholder()?.getAttribute('aria-labelledby') ?? '';
     expect(labelledBy, 'named by words on the page').not.toBe('');
     expect(document.getElementById(labelledBy)?.textContent).toBe('Connecting to Swarm ID');
+  });
+
+  it('says in words when Swarm ID takes longer than 30 seconds, in its one live region, and stops once the button shows', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const swarmId = await fakeSwarmId({}, waiting);
+      await header(swarmId);
+      click(button('Connect'));
+      const status = () => dialog()?.querySelector('.swarm-id-button [role="status"]');
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(29_000);
+      });
+      expect(dialog()?.textContent).not.toContain('Swarm ID is taking longer than usual.');
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_000);
+      });
+      expect(status()?.textContent).toContain('Swarm ID is taking longer than usual.');
+      expect(dialog()?.querySelectorAll('.swarm-id-button [role="status"]')).toHaveLength(1);
+      expect(nestedLiveRegions(dialog()!)).toEqual([]);
+
+      swarmId.client().showButtons();
+      await settle();
+      expect(dialog()?.textContent).not.toContain('Swarm ID is taking longer than usual.');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('stays over the loading frame until the frame is ready, then goes, leaving the frame in the same place', async () => {

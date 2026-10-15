@@ -232,7 +232,8 @@ stamps them, unless the person picks their own stamp, as the next section says.
   Until Swarm ID's frame shows its button, a placeholder stands in its place: the page's own button of the same look
   and size, with its label and a small loader, which takes no click and no focus. To a screen reader it is a picture
   named "Connecting to Swarm ID", and a status that stays in place says the same. The frame then shows the button
-  in the same place, so nothing moves. That place is
+  in the same place, so nothing moves. When the wait passes 30 seconds, a line under it says "Swarm ID is taking
+  longer than usual." in that same status. That place is
   never narrower than the label with its loader, so the smaller button beside other words, as in Show it's really
   you, shows its whole label down to a 320 px wide screen. A Try again shows
   the placeholder again until the new button is ready. When Swarm ID refuses the

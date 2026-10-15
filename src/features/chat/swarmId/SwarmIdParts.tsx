@@ -22,6 +22,9 @@ import './SwarmIdParts.scss';
 const SIGN_IN_LABEL = 'Sign in with Swarm ID';
 const UNAVAILABLE_TEXT = 'Swarm ID cannot be reached right now.';
 const STARTING_TEXT = 'Connecting to Swarm ID';
+const SLOW_TEXT = 'Swarm ID is taking longer than usual.';
+/** How long the button may wait for Swarm ID before the page says, in words anyone sees, that it is slow. */
+const SLOW_AFTER_MS = 30_000;
 const WINDOW_BLOCKED = 'blocked';
 
 interface SwarmIdButtonProps {
@@ -110,6 +113,19 @@ export function SwarmIdButton({
 
   const isUnavailable = swarmId?.status === SWARM_ID_UNAVAILABLE;
   const isWaiting = !isShown && !isRefused && !isUnavailable;
+  const [isSlow, setIsSlow] = useState(false);
+
+  useEffect(() => {
+    if (!isWaiting) {
+      return;
+    }
+    const timer = setTimeout(() => setIsSlow(true), SLOW_AFTER_MS);
+    return () => {
+      clearTimeout(timer);
+      setIsSlow(false);
+    };
+  }, [isWaiting]);
+
   // The slot stays while the hints show, so the button's place does not jump while Swarm ID starts, and a refused
   // frame is taken away by its own unmount rather than with a container React removed under it. Until the frame
   // shows its button, a placeholder in the page's own look of that button stands over it. An unseen copy of the label
@@ -128,12 +144,13 @@ export function SwarmIdButton({
           </span>
         )}
       </span>
-      <span className="swarm-id-status" role="status">
+      <span className={isSlow ? 'swarm-id-status slow' : 'swarm-id-status'} role="status">
         {isWaiting && (
           <span id={startingId} className="swarm-id-spoken">
             {STARTING_TEXT}
           </span>
         )}
+        {isSlow && <span className="swarm-id-hint">{SLOW_TEXT}</span>}
       </span>
       {(isUnavailable || isRefused) && <span className="swarm-id-hint">{UNAVAILABLE_TEXT}</span>}
       {isRefused && (
