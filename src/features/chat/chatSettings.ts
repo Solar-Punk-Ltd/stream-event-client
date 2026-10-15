@@ -34,6 +34,7 @@ export function chatSettings(
       privateKey: session?.privateKey ?? READ_ONLY_PRIVATE_KEY,
       nickname: session?.username ?? '',
       ...(session?.binding ? { binding: session.binding } : {}),
+      ...(session?.walletLink ? { walletLink: session.walletLink } : {}),
     },
     infra: {
       beeUrl: config.readUrl,

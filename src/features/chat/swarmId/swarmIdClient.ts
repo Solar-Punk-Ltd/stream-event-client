@@ -3,11 +3,23 @@
  * imports the library, so how it is installed stays one line, and a test stands in for it with these shapes.
  */
 
+/**
+ * The account's statement, signed by its wallet and countersigned by its own key, that the two belong to the same
+ * person, which lets a reader show the wallet's ENS name. Shared only while the person has "Show my ENS name on sites"
+ * on in Swarm ID.
+ */
+export interface SwarmIdWalletLink {
+  readonly message: string;
+  readonly walletSignature: string;
+  readonly accountSignature: string;
+}
+
 /** The account a session belongs to. `address` is the account key's address, 40 hex digits with no 0x. */
 export interface SwarmIdIdentity {
   readonly id: string;
   readonly name: string;
   readonly address: string;
+  readonly walletLink?: SwarmIdWalletLink;
 }
 
 /** The account's signed statement that this site's chat address is its own, spelled as the library spells it. */
@@ -151,3 +163,13 @@ export type LoadSwarmIdClient = (options: SwarmIdClientOptions) => Promise<Swarm
 /** The library is a file of the bundle of its own, fetched only by a deployment that offers Swarm ID. */
 export const loadSwarmIdLibrary: LoadSwarmIdClient = async (options) =>
   (await import('./swarmIdLibrary')).createLibraryClient(options);
+
+/**
+ * A wallet's ENS name read through the Ethereum JSON-RPC endpoint `rpcUrl`, answered only when the wallet's reverse
+ * record names it and its forward record names the wallet back, or undefined. Never rejects.
+ */
+export type ResolveEnsName = (wallet: string, rpcUrl: string) => Promise<string | undefined>;
+
+/** The library's own lookup, from the same file of the bundle as its client. */
+export const resolveEnsNameWithLibrary: ResolveEnsName = async (wallet, rpcUrl) =>
+  (await import('./swarmIdLibrary')).verifiedEnsName(wallet, rpcUrl);

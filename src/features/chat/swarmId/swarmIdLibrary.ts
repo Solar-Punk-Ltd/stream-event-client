@@ -1,6 +1,6 @@
-import { SwarmIdClient as LibraryClient } from '@solarpunkltd/swarm-id';
+import { SwarmIdClient as LibraryClient, resolveVerifiedEnsName } from '@solarpunkltd/swarm-id';
 
-import type { SwarmIdClient, SwarmIdClientOptions } from './swarmIdClient';
+import type { ResolveEnsName, SwarmIdClient, SwarmIdClientOptions } from './swarmIdClient';
 
 /** The library refuses a site name outside 1 to 100 characters. */
 const APP_NAME_MAX_LENGTH = 100;
@@ -34,3 +34,5 @@ export function createLibraryClient({
     destroy: () => client.destroy(),
   };
 }
+
+export const verifiedEnsName: ResolveEnsName = (wallet, rpcUrl) => resolveVerifiedEnsName(wallet, { rpcUrl });

@@ -1,12 +1,18 @@
 import { PrivateKey } from '@ethersphere/bee-js';
-import { type ChatBinding, checkChatBinding, MAX_NAME_CHARACTERS } from '@solarpunkltd/swarm-chat-js/message';
+import {
+  type ChatBinding,
+  checkChatBinding,
+  checkWalletLink,
+  MAX_NAME_CHARACTERS,
+  type WalletLink,
+} from '@solarpunkltd/swarm-chat-js/message';
 
 import { shortAddress } from '@/shared/components/Address/addressText';
 
 import { type Session, sessionFromKey } from '../auth/login';
 import type { VerifyScope } from '../verify/verdicts';
 
-import type { SwarmIdChatBinding, SwarmIdIdentity } from './swarmIdClient';
+import type { SwarmIdChatBinding, SwarmIdIdentity, SwarmIdWalletLink } from './swarmIdClient';
 
 /** A viewer signed in with Swarm ID: the chat key the ID gave this site, and the binding that names its address. */
 export interface SwarmIdSession extends Session {
@@ -23,6 +29,23 @@ export interface SwarmIdSession extends Session {
  */
 function toChatBinding({ message, signature }: SwarmIdChatBinding): ChatBinding {
   return { msg: message, sig: signature.toLowerCase() };
+}
+
+/** The chat library spells the wallet link `{ msg, wsig, asig }`, and reads its signatures in lower case only. */
+function toChatWalletLink({ message, walletSignature, accountSignature }: SwarmIdWalletLink): WalletLink {
+  return { msg: message, wsig: walletSignature.toLowerCase(), asig: accountSignature.toLowerCase() };
+}
+
+/**
+ * The wallet link to send, checked as every reader will check it, for the account the binding names. A link that
+ * fails is left out rather than sent, since every reader would refuse each message that carried it.
+ */
+function walletLinkFor(identity: SwarmIdIdentity, account: string): WalletLink | null {
+  if (!identity.walletLink) {
+    return null;
+  }
+  const link = toChatWalletLink(identity.walletLink);
+  return checkWalletLink(link, account).ok ? link : null;
 }
 
 /**
@@ -67,11 +90,13 @@ export function swarmIdSession(
   if (check.identity.account !== accountOf(identity)) {
     return { ok: false, problem: ACCOUNT_MISMATCH };
   }
+  const walletLink = walletLinkFor(identity, check.identity.account);
   return {
     ok: true,
     session: {
       ...session,
       binding: chatBinding,
+      ...(walletLink ? { walletLink } : {}),
       accountName: identity.name.trim(),
       account: check.identity.account,
     },

@@ -41,16 +41,17 @@ The repository's `public/config.json` is an example with placeholders. The page 
 a value still in `<angle brackets>`, so the example can never pass for a real deployment. Real values
 live with the deployment, never in this repository.
 
-| Field           | What it is                                                                                                                                                         |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `gatewayUrl`    | The event gateway: a path on this site such as `/bee`, which the site proxies to Bee, or an http or https address of a Bee node. Set this or `providers`, not both |
-| `providers`     | Optional in place of `gatewayUrl`. The gateways offered and the default, below                                                                                     |
-| `catalog.owner` | The Ethereum address that owns the stream list feed                                                                                                                |
-| `catalog.topic` | The stream list feed's topic, as text                                                                                                                              |
-| `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                                                   |
-| `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused                                               |
-| `themeSwitcher` | Optional. Whether a viewer logged in to the chat may switch the colours and typefaces between the build's themes, `true` by default                                |
-| `swarmId.url`   | Optional. The Swarm ID site a viewer may sign in to the chat with, an origin such as `https://id.example.com`. Without it, or without a chat, there is no sign-in  |
+| Field           | What it is                                                                                                                                                                                               |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gatewayUrl`    | The event gateway: a path on this site such as `/bee`, which the site proxies to Bee, or an http or https address of a Bee node. Set this or `providers`, not both                                       |
+| `providers`     | Optional in place of `gatewayUrl`. The gateways offered and the default, below                                                                                                                           |
+| `catalog.owner` | The Ethereum address that owns the stream list feed                                                                                                                                                      |
+| `catalog.topic` | The stream list feed's topic, as text                                                                                                                                                                    |
+| `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                                                                                         |
+| `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused                                                                                     |
+| `themeSwitcher` | Optional. Whether a viewer logged in to the chat may switch the colours and typefaces between the build's themes, `true` by default                                                                      |
+| `swarmId.url`   | Optional. The Swarm ID site a viewer may sign in to the chat with, an origin such as `https://id.example.com`. Without it, or without a chat, there is no sign-in                                        |
+| `ensRpcUrl`     | Optional. An Ethereum mainnet JSON-RPC endpoint, an http or https address, that the page reads senders' ENS names through ([ENS names](#ens-names)). Without it, or without a chat, no name is looked up |
 
 A theme has two halves. Its look, the colours and typefaces, is in `src/design/themes/`. Its content, the
 logo, the hero, the footer links and the tab's title and icon, is in `src/design/themes.ts`. The deployment's
@@ -213,6 +214,12 @@ stamps them, unless the person picks their own stamp, as the next section says.
   hexagon of a guest or the filled one of Swarm ID, as every message does. My Swarm shows the name once, says "Swarm ID",
   with the account's own name beside it only where it differs from the chat name, and Sign out. Under them are the
   public chat address and the Swarm ID account's address, each short and expandable as in a message's details.
+- **The wallet link, for an ENS name.** While the person has "Show my ENS name on sites" on in Swarm ID, the ID
+  also shares a wallet link: a statement signed by the account's wallet and countersigned by the account that the
+  two belong to the same person. Every message then carries it beside the binding, so a reader can show the wallet's
+  ENS name, as [ENS names](#ens-names) says. The page checks the link first, as every reader will, and leaves out
+  one that does not name the signed-in account, so the person still chats and no reader refuses their messages.
+  Without the setting nothing of the wallet is sent.
 - **A guest can sign in later.** The menu of a guest says "Show it's really you" beside Sign in with
   Swarm ID. Signing in keeps the guest's name and key in this browser, and signing out chats as that
   guest again. Leave forgets the guest.
@@ -259,6 +266,29 @@ stamps them, unless the person picks their own stamp, as the next section says.
   frame says is signed in, leaves the person signed out with the reason.
 - **When the Swarm ID site cannot be used**, as for a site it does not serve, My Swarm says it
   cannot be reached and guests chat as before.
+
+### ENS names
+
+A Swarm ID sender who has "Show my ENS name on sites" on carries a wallet link in every message, as
+[above](#signing-in-with-swarm-id) says. The page's check in the Web Worker verifies both of its signatures and that
+it names the account the binding names, and only then does the message say which wallet it is. The page then looks
+that wallet's ENS name up through `ensRpcUrl`, an Ethereum mainnet JSON-RPC endpoint the deployment names, with the
+Swarm ID library's `resolveVerifiedEnsName`. A name counts only when the wallet's reverse record names it and the
+name's own record names the wallet back, and it is already in its ENSIP-15 normalised form.
+
+- **What a reader sees.** The verified name with a tick replaces the name the sender chose, on the message and at
+  the head of its details. The details add an **ENS** row with the name, the name the sender chose and the short
+  wallet address, which a press shows in full. A name with characters outside ASCII says "contains non-Latin
+  characters" there, because such a character can pass for a Latin letter of another name.
+- **When there is no name.** A wallet with no name, a name that fails a check and a lookup that fails or runs out of
+  time all show the message as before, under the name the sender chose, with no ENS row.
+- **When it looks.** After a message is drawn, never before it, so a slow endpoint holds nothing up. Messages of one
+  wallet share one lookup, and a name found is kept for the page's life. The library keeps its own answers too, a
+  name or no name for ten minutes and a failed read for 30 seconds.
+- **Without `ensRpcUrl`**, or without a chat, no name is ever looked up and no wallet is ever asked about.
+- **Whom the endpoint is trusted with.** It decides which name is shown beside a wallet, since nothing checks its
+  answers against the chain, and it sees every wallet looked up, from each viewer's own address. A deployment names
+  an endpoint it trusts with both.
 
 ### Who pays for a message
 
@@ -436,6 +466,8 @@ The policy is the same on every deployment, because the page decides which sourc
 - **A Bee node on the viewer's own machine**, at `localhost` or `127.0.0.1`, any port, over plain http,
   in `connect-src` and `img-src`. A policy cannot name `[::1]`, so that address is refused where it is
   typed, with what to type instead.
+- **The ENS endpoint**, `ensRpcUrl` in `config.json`, at an https address, under the same `https:` in
+  `connect-src`, so the image needs no setting for it. One at plain http is reached only on the viewer's own machine.
 - **The node in this browser, weeb-3.** `'wasm-unsafe-eval'` in `script-src`, so the page and its
   workers may compile the WebAssembly module, and `wss:` in `connect-src`, so the node can reach its
   peers. That is every secure websocket host, on purpose. The package's mainnet bootnodes are all

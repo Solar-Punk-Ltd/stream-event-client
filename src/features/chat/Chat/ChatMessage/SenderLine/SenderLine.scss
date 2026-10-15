@@ -39,3 +39,7 @@
   line-height: 0;
   cursor: pointer;
 }
+
+.ens-name-tick path {
+  stroke: var(--color-success);
+}

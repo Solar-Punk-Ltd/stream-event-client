@@ -115,6 +115,15 @@ const swarmIdSchema = z.object({
   }),
 });
 
+/**
+ * The Ethereum mainnet JSON-RPC endpoint a viewer's page reads ENS names through. It decides which name is shown beside
+ * a wallet and sees every wallet looked up, from the viewer's own address, so a deployment names one it trusts with
+ * both. A page on https reaches any https address, so the image's policy needs nothing more for one.
+ */
+const ensRpcUrlSchema = filledIn.refine((value) => /^https?:\/\/[^/\s]/i.test(value), {
+  message: 'must be an http or https address such as https://ethereum-rpc.example.org',
+});
+
 const runtimeConfigSchema = z
   .object({
     /** Which of this build's themes the page wears. Absent means the default. */
@@ -127,6 +136,7 @@ const runtimeConfigSchema = z
     catalog: catalogSchema,
     chat: chatSchema.optional(),
     swarmId: swarmIdSchema.optional(),
+    ensRpcUrl: ensRpcUrlSchema.optional(),
   })
   .superRefine((config, context) => {
     if (config.gatewayUrl !== undefined && config.providers !== undefined) {
@@ -170,6 +180,11 @@ export function enabledChat(config: RuntimeConfig): ChatConfig | null {
 /** The Swarm ID site to offer sign-in with, or null when there is none or no chat for it to sign in to. */
 export function swarmIdUrl(config: RuntimeConfig): string | null {
   return enabledChat(config) && config.swarmId ? config.swarmId.url : null;
+}
+
+/** The endpoint to read ENS names through, or null when there is none or no chat to show them in. */
+export function ensRpcUrl(config: RuntimeConfig): string | null {
+  return enabledChat(config) && config.ensRpcUrl ? config.ensRpcUrl : null;
 }
 
 export function parseRuntimeConfig(raw: unknown): RuntimeConfigResult {

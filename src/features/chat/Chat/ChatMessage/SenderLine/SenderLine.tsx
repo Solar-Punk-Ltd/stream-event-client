@@ -13,8 +13,28 @@ export function BadgeIcon({ badge }: { badge: SenderBadge }) {
   return badge.isSwarmId ? <SwarmIdBadgeIcon /> : <GuestBadgeIcon />;
 }
 
+const ENS_NAME_TICK_LABEL = 'Verified ENS name';
+
+/** The tick after a name that is the sender's ENS name, read both ways on chain, rather than one they chose. */
+export function EnsNameTick() {
+  return (
+    <svg
+      className="ens-name-tick"
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      role="img"
+      aria-label={ENS_NAME_TICK_LABEL}
+    >
+      <path d="M2.5 6.2 5 8.6l4.5-5" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 interface SenderLineProps {
   name: string;
+  /** Whether `name` is the sender's verified ENS name, which a tick then follows. */
+  isEnsName?: boolean;
   badge: SenderBadge;
   /** Whether the sender paid for the write with a stamp of their own. */
   ownStamp: boolean;
@@ -33,6 +53,7 @@ interface SenderLineProps {
  */
 export function SenderLine({
   name,
+  isEnsName = false,
   badge,
   ownStamp,
   timestamp,
@@ -49,6 +70,7 @@ export function SenderLine({
   return (
     <p className="chat-message-sender">
       <span className={badge.isSwarmId ? 'chat-message-name linked' : 'chat-message-name guest'}>{name}</span>
+      {isEnsName && <EnsNameTick />}
       <button
         type="button"
         className="sender-badge"
