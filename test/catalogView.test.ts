@@ -75,8 +75,8 @@ describe('what the browse page shows for a catalog fetch', () => {
 
   it('has copy for every view that is not a list of streams', () => {
     for (const view of ['unreachable', 'loading', 'empty'] as const) {
-      for (const sourceType of ['gateway', 'bee-node', 'weeb-3', null] as const) {
-        assert.ok(catalogViewMessage(view, sourceType).length > 0, `${view} would render a blank screen`);
+      for (const sourceName of ['Event gateway', null] as const) {
+        assert.ok(catalogViewMessage(view, sourceName).length > 0, `${view} would render a blank screen`);
       }
     }
   });

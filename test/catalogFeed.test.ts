@@ -257,7 +257,7 @@ describe('CatalogFeedReader', () => {
    * A 404 is the ordinary answer on a catalog nobody has broadcast to yet, so it has to stay quiet.
    * Every other status is the gateway failing, and returning null for those made a failing gateway
    * indistinguishable from an idle one: the browse page reads SWR's `error` to choose between
-   * "Could not reach this gateway" and "No streams here yet", and without a throw it always picked
+   * "Stream list cannot load" and "No streams here yet", and without a throw it always picked
    * the second. `catalogView.ts` was written to remove exactly that confusion.
    *
    * `ManifestFetcher` already draws this line, naming 404 `SLOT_NOT_WRITTEN_YET` and failing on

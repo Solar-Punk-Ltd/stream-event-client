@@ -8,7 +8,7 @@
  *
  * Pure, so the rule is tested without rendering the page.
  */
-import type { SourceType } from '@/swarm/sources';
+import { failureTitle } from '@/features/connect/connectWords';
 
 type CatalogView =
   /** Streams to show. Stale ones count, which is the point of the ordering below. */
@@ -56,18 +56,21 @@ export function catalogViewFrom({
   return isLoading ? 'loading' : 'empty';
 }
 
-/** What each empty-ish view says. Kept beside the rule so a new view cannot ship without its copy. */
-const CATALOG_VIEW_MESSAGE: Record<Exclude<CatalogView, 'streams'>, string> = {
-  unreachable: 'Could not reach this gateway. Check the address, or pick another one.',
+/** What the views that are not about a source say. Kept beside the rule so a new view cannot ship without its copy. */
+const CATALOG_VIEW_MESSAGE: Record<Exclude<CatalogView, 'streams' | 'unreachable'>, string> = {
   loading: 'Looking for streams...',
   empty: 'No streams here yet.',
 };
 
-/** Weeb3 has no address to check and is not a gateway, so its failure names it and where its state is shown. */
-const WEEB3_UNREACHABLE =
-  'Could not read the stream list through Weeb3, the Swarm node in this browser. Open Connect to check it, or pick another source.';
-
-/** What a view says, naming the kind of source the stream list is read from where the failure is about it. */
-export function catalogViewMessage(view: Exclude<CatalogView, 'streams'>, sourceType: SourceType | null): string {
-  return view === 'unreachable' && sourceType === 'weeb-3' ? WEEB3_UNREACHABLE : CATALOG_VIEW_MESSAGE[view];
+/**
+ * What a view says. A list that cannot be read names the source it is read from as its Connect row and the failure
+ * bars name it, whatever kind of source it is.
+ */
+export function catalogViewMessage(view: Exclude<CatalogView, 'streams'>, sourceName: string | null): string {
+  if (view !== 'unreachable') {
+    return CATALOG_VIEW_MESSAGE[view];
+  }
+  return sourceName === null
+    ? 'The stream list cannot load. Open Connect to pick a source.'
+    : `${failureTitle('stream-list', sourceName)} Open Connect to check it, or pick another source.`;
 }

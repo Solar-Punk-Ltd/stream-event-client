@@ -42,22 +42,15 @@ async function alertFor(source: Source): Promise<string> {
 }
 
 describe('the browse page when the stream list cannot be read', () => {
-  it('names Weeb3, the node in this browser, rather than a gateway it is not', async () => {
-    const words = await alertFor({ id: 'added-weeb3', type: 'weeb-3', name: 'Weeb3', url: '', offered: false });
+  it.each<Source>([
+    { id: 'added-weeb3', type: 'weeb-3', name: 'Weeb3', url: '', offered: false },
+    { id: 'added-node', type: 'bee-node', name: 'My Bee node', url: 'http://localhost:1633', offered: false },
+    { id: 'event', type: 'gateway', name: 'Event gateway', url: 'https://gateway.example.org', offered: true },
+  ])('names the source it reads from, $name, as the failure bars do', async (source) => {
+    const words = await alertFor(source);
 
-    expect(words).toContain('Weeb3');
-    expect(words).not.toContain('gateway');
-  });
-
-  it('still says a gateway could not be reached when the list is read from one', async () => {
-    const words = await alertFor({
-      id: 'added-gateway',
-      type: 'gateway',
-      name: 'A gateway',
-      url: 'https://gateway.example.org',
-      offered: false,
-    });
-
-    expect(words).toBe('Could not reach this gateway. Check the address, or pick another one.');
+    expect(words).toBe(
+      `Stream list cannot load from ${source.name}. Open Connect to check it, or pick another source.`,
+    );
   });
 });

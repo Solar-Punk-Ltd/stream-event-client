@@ -71,7 +71,7 @@ export function StreamBrowser() {
         ) : (
           <div className={`stream-browser-notice ${view}`} role={view === 'unreachable' ? 'alert' : 'status'}>
             {view === 'loading' && <Spinner />}
-            <p>{catalogViewMessage(view, streamListSource?.type ?? null)}</p>
+            <p>{catalogViewMessage(view, streamListSource?.name ?? null)}</p>
             {view === 'loading' && <NodeInTabProgress source={streamListSource} />}
           </div>
         )}
