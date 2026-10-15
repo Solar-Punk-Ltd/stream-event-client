@@ -324,19 +324,14 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   swarm-chat-js under the chat key's address, one entry per message at the next index, stamped by Swarm ID too, and only then sent, so a message that says
   `own: true` always has its copy. The chat is started with `infra.own` on, so swarm-chat-js signs each message
   once with `own: true`, and the copy, the message and every resend of it are those same bytes. The feed's newest
-  index is read through the chat history's source until it answers once, and counted on from there. When it cannot
-  be read, the message still goes out, signed again with `own: false` and with no copy, so the chat never waits on
-  the own feed, and every resend of it carries those bytes. The next message tries the copy again. A copy whose own
-  write fails fails its message with the reason, as the message would on the same stamp and route, and the chat's
-  resend writes both again at the same index. Each message is stamped twice, but the
+  index is read once, through the chat history's source, and counted on from there. When it cannot be read, the
+  message waits with the reason rather than going out without its copy. Each message is stamped twice, but the
   message itself goes to the chat's inbox address, which Swarm ID stamps again in one slot, so only the copy takes
   new room on the stamp.
-  **Three known limits.** The next index is counted from one read of the feed's newest entry each time the chat
+  **Two known limits.** The next index is counted from one read of the feed's newest entry each time the chat
   starts, so a chat started again seconds after a send, before that entry can be read back, can write the next
   copy at an index already used. And a copy is written before its message, so a message that then fails and is
-  never retried leaves a copy that no chat message matches. And until the chat feed shows a message that went out
-  without its copy, the sender's own screen shows it as the chat signed it, so its details list Their own copies
-  until the published `own: false` message replaces it.
+  never retried leaves a copy that no chat message matches.
 
 **How the page talks to Swarm ID.** The library, `@solarpunkltd/swarm-id` from the Solar Punk fork, is a file
 of the bundle of its own, fetched when the page starts on a deployment that offers Swarm ID, because

@@ -1,5 +1,5 @@
 import { FeedIndex, Identifier, PrivateKey, Span, Topic } from '@ethersphere/bee-js';
-import { type ChatMessage, createChatMessage, type GsocWrite, ownFeedTopic } from '@solarpunkltd/swarm-chat-js';
+import { type ChatMessage, type GsocWrite, ownFeedTopic } from '@solarpunkltd/swarm-chat-js';
 
 import { makeFeedIdentifier } from '@/shared/feedFollow';
 import { postStampedSoc, type StampedSoc } from '@/swarm/providers/bee-http/stampedSocUpload';
@@ -12,6 +12,8 @@ import { beeNodeUploadProblem, NOT_SIGNED_IN, type SendProblem, stampRefusal, we
 export type { SendProblem } from './stampProblems';
 
 const NO_NODE = 'There is no Bee node to send it through.';
+
+export const OWN_FEED_UNREADABLE = 'Your own feed could not be read, so the message and its copy wait.';
 
 /** Sends a chunk Swarm ID signed and stamped, other than to a Bee node's URL: through the node in this browser. */
 export type StampedPush = (chunk: StampedSoc) => Promise<void>;
@@ -26,7 +28,7 @@ interface OwnFeedOptions {
   /** The chat key, 64 hex digits, which owns the feed as it signs the messages. */
   readonly chatKey: string;
   readonly chatTopic: string;
-  /** Read through for the feed's newest entry, until it answers once, to find where the next copy goes. */
+  /** Read through for the feed's newest entry, once, to find where the next copy goes. */
   readonly reads: () => Pick<ChatReads, 'readFeedHead'>;
   readonly readTimeoutMs: number;
 }
@@ -78,25 +80,6 @@ function messageOf(payload: Uint8Array): ChatMessage {
   return JSON.parse(decoder.decode(payload)) as ChatMessage;
 }
 
-/**
- * The message signed again with `own: false`, every other field as it was. Its signature covers `own`, so the bytes the
- * chat signed with `own: true` cannot simply be edited.
- */
-function withoutOwnCopy(chatKey: string, message: ChatMessage): Uint8Array {
-  return createChatMessage(chatKey, {
-    topic: message.topic,
-    type: message.type,
-    ...(message.target ? { target: message.target } : {}),
-    text: message.text,
-    name: message.name,
-    id: message.id,
-    ts: message.ts,
-    via: message.via,
-    own: false,
-    ...(message.idb ? { idb: message.idb } : {}),
-  }).bytes;
-}
-
 /** A chunk's body: its 8-byte little-endian span, then its payload. */
 function withSpan(payload: Uint8Array): Uint8Array<ArrayBuffer> {
   const span = Span.fromBigInt(BigInt(payload.length)).toUint8Array();
@@ -114,15 +97,12 @@ function withSpan(payload: Uint8Array): Uint8Array<ArrayBuffer> {
  *
  * A refusal a resend cannot mend, such as a stamp that ran out, fails the message at once, and the chat's own resends
  * of it are refused here without asking Swarm ID again, until the viewer retries it. A copy is written to the sender's
- * own feed before the message goes out, so a message that says it has a copy always has one. When the own feed's
- * newest entry cannot be looked up, the message goes out signed again with `own: false` and no copy, and every resend
- * of it carries those bytes. The next message tries the copy again.
+ * own feed before the message goes out, so a message that says it has a copy always has one.
  */
 export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
   const { url, gsocKey, timeoutMs, ownFeed, onProblem, onSent, fetcher } = options;
   const inboxIdentifier = Identifier.fromString(options.gsocTopic).toHex();
   const refusals = new Map<string, SendProblem>();
-  const sentWithoutCopy = new Map<string, Uint8Array>();
   const copies = ownFeedCopies(ownFeed, (chunk) => stampAndSend(chunk));
 
   async function stampAndSend(chunk: SwarmIdChunkToStamp): Promise<void> {
@@ -172,20 +152,13 @@ export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
       if (blocked !== null) {
         throw new SendRefusedError({ text: blocked, final: true });
       }
-      let sent = sentWithoutCopy.get(message.id) ?? null;
-      if (sent === null) {
-        const hasCopy = await copies.append(message.id, payload);
-        sent = hasCopy ? payload : withoutOwnCopy(ownFeed.chatKey, message);
-      }
+      await copies.append(message.id, payload);
       await stampAndSend({
         kind: 'soc',
         identifier: inboxIdentifier,
-        data: withSpan(sent),
+        data: withSpan(payload),
         signer: { privateKey: gsocKey },
       });
-      if (sent !== payload) {
-        sentWithoutCopy.set(message.id, sent);
-      }
       onSent?.();
     } catch (error) {
       const problem = error instanceof SendRefusedError ? error.problem : stampRefusal(error);
@@ -204,8 +177,7 @@ const NOT_FOUND = 'not-found';
 
 /**
  * The copies in the sender's own feed, one entry per message at indices 0, 1, 2 and on. The newest index is looked up
- * until it answers once and counted on from there, and copies are written one at a time, so two quick messages never
- * take one place. A message whose lookup did not answer gets no copy, and the next message asks again.
+ * once and counted on from there, and copies are written one at a time, so two quick messages never take one place.
  * Another tab or device writing the same feed at once can take the same place, which one device at a time avoids.
  */
 function ownFeedCopies(feed: OwnFeedOptions, send: (chunk: SwarmIdChunkToStamp) => Promise<void>) {
@@ -215,35 +187,25 @@ function ownFeedCopies(feed: OwnFeedOptions, send: (chunk: SwarmIdChunkToStamp) 
   let next: number | null = null;
   let queue: Promise<void> = Promise.resolve();
 
-  /** The place for the next copy, or null when the feed's newest entry could not be looked up. */
-  async function nextIndex(): Promise<number | null> {
+  async function nextIndex(): Promise<number> {
     if (next !== null) {
       return next;
     }
-    let head: Awaited<ReturnType<ChatReads['readFeedHead']>>;
-    try {
-      head = await feed.reads().readFeedHead(owner, topic, { timeoutMs: feed.readTimeoutMs });
-    } catch {
-      return null;
-    }
+    const head = await feed.reads().readFeedHead(owner, topic, { timeoutMs: feed.readTimeoutMs });
     if (head.kind === NOT_FOUND) {
       return 0;
     }
     if (head.kind !== 'content' || head.feedIndex === null) {
-      return null;
+      throw new SendRefusedError({ text: OWN_FEED_UNREADABLE, final: false });
     }
     return head.feedIndex + 1;
   }
 
-  /** Whether the message has its copy, written now or by an earlier send of it. */
-  async function appendNow(id: string, payload: Uint8Array): Promise<boolean> {
+  async function appendNow(id: string, payload: Uint8Array): Promise<void> {
     if (copied.has(id)) {
-      return true;
+      return;
     }
     const index = await nextIndex();
-    if (index === null) {
-      return false;
-    }
     next = index;
     await send({
       kind: 'soc',
@@ -253,16 +215,12 @@ function ownFeedCopies(feed: OwnFeedOptions, send: (chunk: SwarmIdChunkToStamp) 
     });
     copied.add(id);
     next = index + 1;
-    return true;
   }
 
   return {
-    append(id: string, payload: Uint8Array): Promise<boolean> {
+    append(id: string, payload: Uint8Array): Promise<void> {
       const appended = queue.then(() => appendNow(id, payload));
-      queue = appended.then(
-        () => {},
-        () => {},
-      );
+      queue = appended.catch(() => {});
       return appended;
     },
   };

@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import { type ChatReads } from '../../src/features/chat/chatParts';
 import {
+  OWN_FEED_UNREADABLE,
   ownStampWrite,
   type OwnStampWriteOptions,
   type SendProblem,
@@ -281,93 +282,15 @@ describe("a copy in the sender's own feed", () => {
     expect(stamper.asked.map(({ identifier }) => identifier)).toEqual([slot(0), inboxIdentifier, inboxIdentifier]);
   });
 
-  it('sends the message without a copy, signed own false, when the own feed cannot be looked up', async () => {
+  it('holds the message back when the own feed cannot be read, so no message claims a copy it does not have', async () => {
     const head = headReads({ kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: 1_000 } });
     const { stamper, bee, problems, writer } = setUp({
       ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
     });
-    await writer.write(payloadOf('no-feed'));
-
-    expect(problems).toEqual([]);
-    expect(
-      stamper.asked.map(({ identifier }) => identifier),
-      'no copy chunk is stamped',
-    ).toEqual([inboxIdentifier]);
-    expect(bee.posted).toHaveLength(1);
-    const check = parseChatMessage(bee.posted[0].body.subarray(8), { origin: 'https://example.com' });
-    expect(check.ok, check.ok ? '' : `${check.reason}: ${check.detail}`).toBe(true);
-    expect(check.ok && check.message).toMatchObject({
-      id: idOf('no-feed'),
-      own: false,
-      via: MessageVia.OWN_STAMP,
-      text: 'the text of no-feed',
-      ts: 1_000,
-    });
-  });
-
-  it("keeps a signed-in sender's binding on a message sent again without a copy", async () => {
-    const boundKey = await chatKeyFor(BOUND_SITE);
-    const head = headReads({ kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: 1_000 } });
-    const { bee, writer } = setUp({
-      ownFeed: { chatKey: boundKey, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
-    });
-    const { bytes } = createChatMessage(boundKey, {
-      id: idOf('bound-no-copy'),
-      topic: CHAT_TOPIC,
-      type: MessageType.THREAD,
-      target: idOf('parent'),
-      text: 'signed in',
-      name: 'Ida',
-      ts: 1_000,
-      via: MessageVia.OWN_STAMP,
-      own: true,
-      idb: CHAT_BINDING,
-    });
-
-    await writer.write(bytes);
-
-    const check = parseChatMessage(bee.posted[0].body.subarray(8), { origin: BOUND_SITE });
-    expect(check.ok, check.ok ? '' : `${check.reason}: ${check.detail}`).toBe(true);
-    expect(check.ok && check.identity).not.toBeNull();
-    expect(check.ok && check.message).toMatchObject({ own: false, idb: CHAT_BINDING, target: idOf('parent') });
-  });
-
-  it('sends a resend of a message that went out without a copy as those same bytes, with no copy', async () => {
-    const head = headReads({ kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: 1_000 } });
-    const { stamper, bee, writer } = setUp({
-      ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
-    });
-    await writer.write(payloadOf('resent'));
-    await writer.write(payloadOf('resent'));
-
-    expect(head.asked, 'a resend does not look the own feed up again').toHaveLength(1);
-    expect(stamper.asked.map(({ identifier }) => identifier)).toEqual([inboxIdentifier, inboxIdentifier]);
-    expect(hexOf(bee.posted[1].body), 'the resend carries the bytes that went out').toBe(hexOf(bee.posted[0].body));
-  });
-
-  it('tries the copy again with the next message, and writes it there once the own feed answers', async () => {
-    let answer: SwarmAnswer = { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: 1_000 } };
-    const asked: string[] = [];
-    const reader = {
-      readFeedHead: async (owner: string, topic: Topic) => {
-        asked.push(`${owner}/${topic.toHex()}`);
-        return answer;
-      },
-    } as unknown as ChatReads;
-    const { stamper, bee, writer } = setUp({
-      ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: () => reader, readTimeoutMs: 1_000 },
-    });
-    await writer.write(payloadOf('first'));
-    answer = { kind: 'content', bytes: new Uint8Array([1]), feedIndex: 6, serverTimeMs: null };
-    await writer.write(payloadOf('second'));
-
-    expect(asked, 'the own feed is looked up again for the next message').toHaveLength(2);
-    expect(stamper.asked.map(({ identifier }) => identifier)).toEqual([inboxIdentifier, slot(7), inboxIdentifier]);
-    const second = parseChatMessage(bee.posted[2].body.subarray(8), { origin: 'https://example.com' });
-    expect(second.ok && second.message).toMatchObject({ id: idOf('second'), own: true });
-    expect(hexOf(bee.posted[1].body.subarray(8)), 'its copy is the message as it is sent').toBe(
-      hexOf(bee.posted[2].body.subarray(8)),
-    );
+    await expect(writer.write(payloadOf('no-feed'))).rejects.toThrow(OWN_FEED_UNREADABLE);
+    expect(problems[0].problem).toEqual({ text: OWN_FEED_UNREADABLE, final: false });
+    expect(stamper.asked).toEqual([]);
+    expect(bee.posted).toEqual([]);
   });
 });
 
