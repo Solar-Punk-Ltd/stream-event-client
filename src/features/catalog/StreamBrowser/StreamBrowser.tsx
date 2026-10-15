@@ -7,7 +7,7 @@ import { NodeInTabProgress } from '@/features/gateway/NodeInTabProgress';
 import { SocialLinks } from '@/shared/components/SocialLinks/SocialLinks';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 
-import { CATALOG_VIEW_MESSAGE, catalogViewFrom } from './catalogView';
+import { catalogViewFrom, catalogViewMessage } from './catalogView';
 
 import './StreamBrowser.scss';
 
@@ -71,7 +71,7 @@ export function StreamBrowser() {
         ) : (
           <div className={`stream-browser-notice ${view}`} role={view === 'unreachable' ? 'alert' : 'status'}>
             {view === 'loading' && <Spinner />}
-            <p>{CATALOG_VIEW_MESSAGE[view]}</p>
+            <p>{catalogViewMessage(view, streamListSource?.type ?? null)}</p>
             {view === 'loading' && <NodeInTabProgress source={streamListSource} />}
           </div>
         )}

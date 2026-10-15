@@ -690,7 +690,9 @@ controls the page, and counts as failed when it is not ready after 30 s.
 - **No switching.** A part that reads from weeb-3 reads from it alone, as every part reads from its own source alone.
   None of its reads is handed to another source whatever it answers. Every read through it gets weeb-3's
   own 30 s budget rather than the client's 10 s, so a missing chunk, which weeb-3 gives up on after about 17 s, ends
-  as not found rather than cut short.
+  as not found rather than cut short. A stream list that cannot be read through it says so by name on the browse
+  page, "Could not read the stream list through Weeb3, the Swarm node in this browser. Open Connect to check it, or
+  pick another source.", rather than the gateway's "Could not reach this gateway".
 - **Reads.** weeb-3 reads through its service worker's routes: `/weeb-3/chunks/` for a chunk, a feed entry or a
   single-owner chunk, `/weeb-3/bytes/` for bytes, and segment URLs on its caching route `/weeb-3/hls/bytes/`. weeb-3
   puts a chunk's 8-byte span before bytes and before a single-owner chunk's payload, which Bee leaves out, so it is
