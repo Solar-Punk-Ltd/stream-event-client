@@ -340,6 +340,12 @@ describe("a Swarm ID account's chat name", () => {
     expect([...chatNameOf({ ...FORK_IDENTITY, name: '🐝'.repeat(30) })]).toHaveLength(20);
   });
 
+  it('is the short account address for an account whose name has a format or control character', () => {
+    expect(chatNameOf({ ...FORK_IDENTITY, name: 'evil\u202egnp.exe' })).toBe(
+      `0x${FORK_ACCOUNT.slice(2, 6)}…${FORK_ACCOUNT.slice(-4)}`,
+    );
+  });
+
   it('is the short account address for an account with no name', () => {
     expect(chatNameOf({ ...FORK_IDENTITY, name: '  ' })).toBe(
       `0x${FORK_ACCOUNT.slice(2, 6)}…${FORK_ACCOUNT.slice(-4)}`,

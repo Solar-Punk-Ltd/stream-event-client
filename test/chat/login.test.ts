@@ -1,7 +1,12 @@
 import { PrivateKey } from '@ethersphere/bee-js';
 import { describe, expect, it, vi } from 'vitest';
 
-import { checkDisplayName, DISPLAY_NAME_MAX_LENGTH, nicknameLogin } from '../../src/features/chat/auth/login';
+import {
+  checkDisplayName,
+  DISPLAY_NAME_MAX_LENGTH,
+  INVISIBLE_CHARACTERS_PROBLEM,
+  nicknameLogin,
+} from '../../src/features/chat/auth/login';
 
 const HEX_KEY = /^[0-9a-f]{64}$/;
 const HEX_ADDRESS = /^[0-9a-f]{40}$/;
@@ -23,6 +28,22 @@ describe('the display name rule', () => {
 
   it('refuses a name longer than 20 characters', () => {
     expect(checkDisplayName('c'.repeat(21)).ok).toBe(false);
+  });
+
+  it.each([
+    ['a right-to-left override', 'evil\u202egnp.exe'],
+    ['a zero width space', 'ad\u200bmin'],
+    ['a byte order mark', 'Ad\ufeffa'],
+    ['a newline inside it', 'Ada\nLovelace'],
+    ['a NUL', 'Ada\u0000'],
+  ])('refuses a name with %s, which draws nothing yet changes how the name reads', (_what, raw) => {
+    expect(checkDisplayName(raw)).toEqual({ ok: false, problem: INVISIBLE_CHARACTERS_PROBLEM });
+  });
+
+  it('accepts names in any script', () => {
+    for (const name of ['Zoë', 'Алиса', '李雷', 'سارا', 'नमस्ते']) {
+      expect(checkDisplayName(name)).toEqual({ ok: true, name });
+    }
   });
 
   it('counts an emoji as one character, not as the two code units it takes', () => {

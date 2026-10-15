@@ -22,13 +22,27 @@ export type DisplayNameCheck = { ok: true; name: string } | { ok: false; problem
 
 export const DISPLAY_NAME_PROBLEM = `A display name is 1 to ${DISPLAY_NAME_MAX_LENGTH} characters.`;
 
+export const INVISIBLE_CHARACTERS_PROBLEM = 'A display name cannot hold invisible formatting or control characters.';
+
+/**
+ * Unicode format and control characters, which draw nothing yet change how a name reads: a right-to-left override can
+ * make one name look like another. The chat library refuses a message whose name holds one.
+ */
+const INVISIBLE_CHARACTER = /[\p{Cf}\p{Cc}]/u;
+
+/** Whether `name` holds a character that draws nothing yet changes how the name around it reads. */
+export function hasInvisibleCharacters(name: string): boolean {
+  return INVISIBLE_CHARACTER.test(name);
+}
+
 /** Counted in characters as a reader sees them, so an emoji is one and not the two code units it takes. */
 export function checkDisplayName(raw: string): DisplayNameCheck {
   const name = raw.trim();
   const length = [...name].length;
-  return length >= 1 && length <= DISPLAY_NAME_MAX_LENGTH
-    ? { ok: true, name }
-    : { ok: false, problem: DISPLAY_NAME_PROBLEM };
+  if (length < 1 || length > DISPLAY_NAME_MAX_LENGTH) {
+    return { ok: false, problem: DISPLAY_NAME_PROBLEM };
+  }
+  return hasInvisibleCharacters(name) ? { ok: false, problem: INVISIBLE_CHARACTERS_PROBLEM } : { ok: true, name };
 }
 
 export type RandomBytes = (length: number) => Uint8Array;

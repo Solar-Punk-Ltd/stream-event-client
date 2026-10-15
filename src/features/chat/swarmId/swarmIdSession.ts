@@ -9,7 +9,7 @@ import {
 
 import { shortAddress } from '@/shared/components/Address/addressText';
 
-import { type Session, sessionFromKey } from '../auth/login';
+import { hasInvisibleCharacters, type Session, sessionFromKey } from '../auth/login';
 import type { VerifyScope } from '../verify/verdicts';
 
 import type { SwarmIdChatBinding, SwarmIdIdentity, SwarmIdWalletLink } from './swarmIdClient';
@@ -50,11 +50,12 @@ function walletLinkFor(identity: SwarmIdIdentity, account: string): WalletLink |
 
 /**
  * The account's name as a chat name: trimmed, and cut to the chat's limit counted in characters as a reader sees them.
- * An account with no name chats under its short address, so a sender line is never empty.
+ * An account with no name, or one with a character the chat refuses in a name, chats under its short address, so a
+ * sender line is never empty and every message is one the chat accepts.
  */
 export function chatNameOf(identity: SwarmIdIdentity): string {
   const name = [...identity.name.trim()].slice(0, MAX_NAME_CHARACTERS).join('').trim();
-  if (name) {
+  if (name && !hasInvisibleCharacters(name)) {
     return name;
   }
   return shortAddress(identity.address);
