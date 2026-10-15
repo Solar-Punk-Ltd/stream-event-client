@@ -372,6 +372,20 @@ describe('Q2: a quality that stopped while not playing is found at switch time',
     assert.equal(rig.poller.readiness(hex(MID)), 'ready');
     assert.deepEqual(rig.stopped, []);
   });
+
+  // Only a recording, where both have finished, lets dates go unread. A playing quality that finished
+  // says nothing about a sibling that is still open and far behind it.
+  it(`refuses an open rung more than ${STALE_RUNG_LAG_MS / 1000}s behind a playing rung that has finished`, async () => {
+    const rig = makeRig();
+    rig.gateway.publishLive(TOP, 'top', 60);
+    rig.gateway.finishHead(TOP);
+    rig.gateway.publishLive(MID, 'mid', 40);
+
+    await playTopThenSwitchTo(rig, MID);
+
+    assert.equal(rig.poller.readiness(hex(MID)), 'refused');
+    assert.equal(rig.stopped.length, 1);
+  });
 });
 
 describe('Q3: the playing quality stops', () => {
