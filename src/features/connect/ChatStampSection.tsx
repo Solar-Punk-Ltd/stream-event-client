@@ -15,6 +15,7 @@ import { ButtonVariant } from '@/shared/components/Button/Button';
 import { OwnStampIcon } from '@/shared/components/Icons/OwnStampIcon';
 
 import { OWN_FEED_COPY, OWN_STAMP_NEEDS_SIGN_IN, OWN_STAMP_NEEDS_SOURCE } from './connectWords';
+import { OwnFeedSync } from './OwnFeedSync';
 
 const CHANGE_STAMP = 'Change stamp in Swarm ID';
 const CHOOSE_STAMP = 'Choose a stamp in Swarm ID';
@@ -78,6 +79,7 @@ function SiteStampBox() {
     <>
       <div className="connect-box connect-site-stamp">
         {siteStamp.status === SITE_STAMP_READ && <StampFigures stamp={siteStamp.stamp} />}
+        <OwnFeedSync />
         {siteStamp.status === SITE_STAMP_READING && <p className="connect-hint">Reading your stamp from Swarm ID…</p>}
         {siteStamp.status === SITE_STAMP_UNREADABLE && (
           <p className="connect-hint">Swarm ID did not say how your stamp stands. It is read again shortly.</p>

@@ -104,7 +104,6 @@ export function forgedWithBinding(label: string, key: string, binding: ChatBindi
     addr: addressOf(key),
     ts: 1_000,
     via: MessageVia.GATEWAY,
-    own: false,
     idb: binding,
   };
   return { ...unsigned, sig: new PrivateKey(key).sign(signedBytes(unsigned)).toHex() };

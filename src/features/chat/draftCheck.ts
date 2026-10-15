@@ -49,7 +49,6 @@ export function draftProblem({ topic, name, type, target = '', text, via, bindin
     addr: ADDRESS_PLACEHOLDER,
     ts: Date.now(),
     via,
-    own: false,
     ...(binding ? { idb: binding } : {}),
     sig: SIGNATURE_PLACEHOLDER,
   }).length;

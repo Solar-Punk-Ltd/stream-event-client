@@ -11,12 +11,13 @@ import type { Source } from '@/swarm/sources';
 import type { ChatReads } from '../chatParts';
 import { chatSettings } from '../chatSettings';
 import { useChatStamp } from '../stamp/ChatStamp';
+import { type OwnFeedChat, useShareOwnFeedChat } from '../stamp/OwnFeedChat';
+import { OwnFeedSourceProvider } from '../stamp/useOwnFeedComparison';
 import { useChatUser } from '../User';
 import { CHAT_LOADING, CHAT_UNREACHABLE, useSwarmChat, type VisibleMessage } from '../useSwarmChat';
 
 import { ChatMessage } from './ChatMessage/ChatMessage';
 import { FeedNotice } from './FeedNotice/FeedNotice';
-import { OwnCopiesProvider } from './ChatMessage/OwnCopies/OwnCopies';
 import { MessageSender } from './MessageSender/MessageSender';
 import { ScrollableMessageList } from './ScrollableMessageList/ScrollableMessageList';
 import { StampWarningBar } from './StampWarningBar/StampWarningBar';
@@ -46,9 +47,9 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
   const { sending, ownStamp, warning } = useChatStamp();
   const settings = useMemo(() => chatSettings(chat, topic, session, sending), [chat, topic, session, sending]);
   const isSendingHeld = warning?.blocksSending ?? false;
-  const ownCopiesSource = useMemo(
-    () => ({ reads, chatTopic: settings.infra.chatTopic }),
-    [reads, settings.infra.chatTopic],
+  const ownFeedSource = useMemo(
+    () => ({ reads, chatTopic: settings.infra.chatTopic, chatOwner: settings.infra.chatAddress }),
+    [reads, settings.infra.chatTopic, settings.infra.chatAddress],
   );
   const ownAddress = session?.address ?? null;
   const {
@@ -68,8 +69,14 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
     fetchOlderMessages,
     retrySendMessage,
     restart,
+    copyToOwnFeed,
     refusedCount,
   } = useSwarmChat(settings, ownAddress, reads, ownStamp);
+  const ownFeedChat: OwnFeedChat | null = useMemo(
+    () => (ownStamp && ownAddress ? { source: ownFeedSource, sender: ownAddress, copy: copyToOwnFeed } : null),
+    [ownStamp, ownAddress, ownFeedSource, copyToOwnFeed],
+  );
+  useShareOwnFeedChat(ownFeedChat);
 
   const [threadId, setThreadId] = useState<string | null>(null);
   const [pendingReactions, setPendingReactions] = useState<PendingReactions>({});
@@ -241,7 +248,7 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
         </button>
       </header>
       <div id={bodyId} className="chat-body" hidden={isFolded}>
-        <OwnCopiesProvider source={ownCopiesSource}>{body()}</OwnCopiesProvider>
+        <OwnFeedSourceProvider value={ownFeedSource}>{body()}</OwnFeedSourceProvider>
       </div>
     </section>
   );

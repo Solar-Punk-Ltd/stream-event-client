@@ -169,12 +169,18 @@ there is one, open the message's details, across the chat column: the name with 
 public chat address, a check mark for a signature that matches the text, for a Swarm ID the account's address, and
 who paid for the write (Event gateway or Own stamp). An address shows short, `0x0d7f…ab12`, and a press shows it in
 full with a Copy button beside it, which reads Copied for three seconds after a copy, and a screen reader hears that the
-copy worked. A press on the check mark shows the signature the same way. For a message that says its sender keeps a copy in their own feed (`own: true`), the
-details also list **Their own copies**: the sender's own feed, `ownFeedTopic(chatTopic)` under their chat
-address, read through the source picked for Chat history, newest first, ten at a time with Load more. Each entry
-is read by its address and must be the sender's own single-owner chunk, and each copy passes the same check as
-every chat message and must be the sender's and for this chat, or it is not shown. The list only reads, and the
-section counts the entries it did not show in its `data-hidden-copies` attribute.
+copy worked. A press on the check mark shows the signature the same way. For a message sent with its sender's own
+stamp, the details also compare the sender's own feed, `ownFeedTopic(chatTopic)` under their chat address, with the
+chat: **Own feed: N messages**, **Chat feed: N messages**, a tick and In their own feed when this message has its
+copy there or Not in their own feed when it has none, and, when the two differ, which messages are missing from
+their own feed and which from the chat feed, five of each at most, newest first. They say Counting… while they read,
+and No own feed when the sender keeps none. Both are read whole through the source picked for Chat history: the chat
+feed from its newest entry back through every history file, each entry no file holds read by its own index, and the
+own feed from its first entry to its newest. Each copy is read by its address and must be the sender's own
+single-owner chunk, and must pass the same check as every chat message and be the sender's and for this chat, or it
+is not counted. A copy and a chat message are the same message when their signatures are: a message has one valid
+signature, over every field it says, so a copy that passed the check with the same signature is the very message the
+chat holds. The comparison only reads (`src/features/chat/stamp/ownFeedComparison.ts`).
 
 ### Signing in with Swarm ID
 
@@ -295,7 +301,7 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   Swarm ID that is not exactly 113 bytes never reaches weeb-3: the message fails at once, "Swarm ID gave a stamp of
   the wrong size." Anything else that fails on the way, such as a chunk that could not be built, fails the message
   at once as "Weeb3 could not push it", with what went wrong. The own-feed copy goes through Weeb3 the same way,
-  before the message. **A known limit:** the deadline does not cancel the push, since weeb-3 offers no way to. A
+  after the message. **A known limit:** the deadline does not cancel the push, since weeb-3 offers no way to. A
   valid push slower than a minute is reported as refused, the node is let go, and weeb-3 may still deliver the
   message later, when the chat reads it back.
 - **The stamp's figures.** With My stamp picked, My Swarm shows the site's stamp: its name, how full it is, its days
@@ -320,23 +326,27 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   are Open My Swarm and Let the gateway pay. A Swarm ID window the browser blocked adds its own line under Swarm ID's
   button there.
 - **The copy in the viewer's own feed.** Always on with My stamp, with no setting to turn it off, and the My stamp
-  box says so. Every message is first copied into the sender's own feed, `ownFeedTopic(chatTopic)` from
-  swarm-chat-js under the chat key's address, one entry per message at the next index, stamped by Swarm ID too, and only then sent, so a message that says
-  `own: true` always has its copy. The chat is started with `infra.own` on, so swarm-chat-js signs each message
-  once with `own: true`, and the copy, the message and every resend of it are those same bytes. The feed's newest
-  index is read through the chat history's source until it answers once, and counted on from there. When it cannot
-  be read, the message still goes out, signed again with `own: false` and with no copy, so the chat never waits on
-  the own feed, and every resend of it carries those bytes. The next message tries the copy again. A copy whose own
-  write fails fails its message with the reason, as the message would on the same stamp and route, and the chat's
-  resend writes both again at the same index. Each message is stamped twice, but the
-  message itself goes to the chat's inbox address, which Swarm ID stamps again in one slot, so only the copy takes
-  new room on the stamp.
-  **Three known limits.** The next index is counted from one read of the feed's newest entry each time the chat
-  starts, so a chat started again seconds after a send, before that entry can be read back, can write the next
-  copy at an index already used. And a copy is written before its message, so a message that then fails and is
-  never retried leaves a copy that no chat message matches. And until the chat feed shows a message that went out
-  without its copy, the sender's own screen shows it as the chat signed it, so its details list Their own copies
-  until the published `own: false` message replaces it.
+  box says so. Once the viewer's node took a message, a copy of it goes into the sender's own feed,
+  `ownFeedTopic(chatTopic)` from swarm-chat-js under the chat key's address, one entry per message at the next index,
+  stamped by Swarm ID too. The message goes out at once and never waits on its copy, and nothing in the message says
+  whether there is one: anyone compares the own feed with the chat instead. A copy is the message's bytes exactly as
+  they were sent. The feed's newest index is read once, through the chat history's source, and counted on from there.
+  A copy whose lookup or write fails is tried three times in all, three seconds apart, and then left, and a copy
+  that fails never fails its message. A copy given an index keeps it until it is written there, since its write may
+  have landed although it reported a failure, so the next copy first writes it there again and the feed never holds
+  two different copies at one index, or a gap (`src/features/chat/stamp/ownFeedCopies.ts`). Each message is stamped
+  twice, but the message itself goes to the chat's inbox address, which Swarm ID stamps again in one slot, so only
+  the copy takes new room on the stamp.
+- **Own feed in My Swarm.** While a chat on My stamp is on screen, the My stamp box says under the stamp how many of
+  the viewer's messages in that chat have their copy, as in Own feed: 45 of 47 messages, and 2 missing when some
+  have none, with a **Sync** button. It reads the whole chat history and the whole own feed, as the message details
+  do, and the viewer's messages are the ones signed by their chat address, which is the same on every device. Sync
+  writes the missing copies with the stamp, one after the other, each tried three times as above, and says
+  Syncing… 1 of 2 while it runs, then All 47 copied, or 1 could not be copied with Try again. It says Counting…
+  while it reads.
+  **A known limit.** The next index is counted from one read of the feed's newest entry each time the chat starts,
+  so a chat started again seconds after a send, before that entry can be read back, or another device writing the
+  same feed at once, can write a copy at an index already used.
 
 **How the page talks to Swarm ID.** The library, `@solarpunkltd/swarm-id` from the Solar Punk fork, is a file
 of the bundle of its own, fetched when the page starts on a deployment that offers Swarm ID, because

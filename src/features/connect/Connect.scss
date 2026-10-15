@@ -541,3 +541,9 @@
     background: var(--color-border-strong);
   }
 }
+
+// My messages in the chat on screen against my own feed, under the stamp in the My stamp box.
+.connect-own-feed {
+  display: grid;
+  gap: var(--spacing-2xs);
+}

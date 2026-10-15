@@ -27,7 +27,7 @@ import {
  * recorded deployment and a fake Swarm ID site whose session frame keeps a signed-in session, or signs one in once its
  * button is clicked. The viewer's own Bee node is a made-up address on this computer, answered by the page's
  * routes: its reads replay the recording, and its writes are recorded and taken. A message on the stamp is stamped by
- * the fake Swarm ID and posted to that node, never to the event gateway, after its copy in the viewer's own feed.
+ * the fake Swarm ID and posted to that node, never to the event gateway, and its copy in the viewer's own feed after it.
  * A stamp that ran out holds the message field with a way to let the gateway pay. With Weeb3, a fake of the node in
  * this browser, picked for the chat history instead, the chat reads through it and a message on the stamp is pushed
  * through it, to no Bee node and not to the gateway.
@@ -185,19 +185,20 @@ test('a message on my own stamp is stamped by Swarm ID and sent through my Bee n
   await chat.getByRole('textbox', { name: 'Message', exact: true }).fill('on my own stamp');
   await chat.getByRole('button', { name: 'Send', exact: true }).click();
 
-  await expect.poll(() => toMyNode.length, { message: 'the copy and the message reached my Bee node' }).toBe(2);
+  await expect.poll(() => toMyNode.length, { message: 'the message and its copy reached my Bee node' }).toBe(2);
   expect(toGateway, 'nothing went to the event gateway').toEqual([]);
   for (const written of toMyNode) {
     expect(written.url.startsWith(`${MY_BEE_NODE}/soc/`)).toBe(true);
     expect(written.stamp, 'the stamp Swarm ID returned rides in the envelope header').toBe('ee'.repeat(113));
   }
   expect(swarmId.stamped).toHaveLength(2);
-  const check = messageIn(toMyNode[1]);
+  const check = messageIn(toMyNode[0]);
   expect(check.ok, check.ok ? '' : `${check.reason}: ${check.detail}`).toBe(true);
-  expect(check.ok && check.message).toMatchObject({ text: 'on my own stamp', via: MessageVia.OWN_STAMP, own: true });
+  expect(check.ok && check.message).toMatchObject({ text: 'on my own stamp', via: MessageVia.OWN_STAMP });
+  expect(check.ok && 'own' in check.message, 'the message says nothing of a copy').toBe(false);
 });
 
-test('the copy in my own feed is written first and the message says it has one', async ({ page }) => {
+test('the copy in my own feed is written after the message, as the message was sent', async ({ page }) => {
   const { chat, toMyNode, swarmId } = await deployment(page, () => SITE_STAMP);
   await payWithMyStamp(page);
 
@@ -205,12 +206,12 @@ test('the copy in my own feed is written first and the message says it has one',
   await chat.getByRole('button', { name: 'Send', exact: true }).click();
 
   await expect.poll(() => toMyNode.length).toBeGreaterThanOrEqual(2);
-  expect(swarmId.stamped[0].signer, 'the copy is signed by the chat key').toBe(CHAT_ADDRESS);
-  expect(toMyNode[0].url.startsWith(`${MY_BEE_NODE}/soc/${CHAT_ADDRESS}/`)).toBe(true);
-  const copy = messageIn(toMyNode[0]);
-  const sent = messageIn(toMyNode[1]);
+  expect(swarmId.stamped[1].signer, 'the copy is signed by the chat key').toBe(CHAT_ADDRESS);
+  expect(toMyNode[1].url.startsWith(`${MY_BEE_NODE}/soc/${CHAT_ADDRESS}/`)).toBe(true);
+  const sent = messageIn(toMyNode[0]);
+  const copy = messageIn(toMyNode[1]);
   expect(copy.ok && sent.ok).toBe(true);
-  expect(sent.ok && sent.message).toMatchObject({ text: 'kept in my own feed', own: true });
+  expect(sent.ok && sent.message).toMatchObject({ text: 'kept in my own feed' });
   expect(toMyNode[0].body.equals(toMyNode[1].body), 'the copy is the message as it was sent').toBe(true);
 });
 
@@ -249,9 +250,9 @@ test('a message on my own stamp with Weeb3 reading the chat is pushed through We
   await chat.getByRole('button', { name: 'Send', exact: true }).click();
 
   await expect
-    .poll(async () => (await weeb3Pushes(page)).length, { message: 'weeb-3 pushed the copy and the message' })
+    .poll(async () => (await weeb3Pushes(page)).length, { message: 'weeb-3 pushed the message and its copy' })
     .toBe(2);
-  const [, pushed] = await weeb3Pushes(page);
+  const [pushed] = await weeb3Pushes(page);
   expect(toGateway, 'nothing went to the event gateway').toEqual([]);
   expect(toMyNode, 'nothing went to a Bee node').toEqual([]);
   expect(swarmId.stamped).toHaveLength(2);

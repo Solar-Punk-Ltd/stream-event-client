@@ -5,7 +5,7 @@ import type { ChatIdentity } from '@solarpunkltd/swarm-chat-js';
 import { ShortAddress } from '@/shared/components/Address/ShortAddress';
 
 import { OWN_STAMP_TITLE, type SenderBadge } from '../senderBadge';
-import { OwnCopies } from '../OwnCopies/OwnCopies';
+import { OwnFeedCheck } from '../OwnFeedCheck/OwnFeedCheck';
 import { BadgeIcon } from '../SenderLine/SenderLine';
 
 import './MessageDetails.scss';
@@ -49,9 +49,8 @@ interface MessageDetailsProps {
   signature: string;
   badge: SenderBadge;
   identity: ChatIdentity | null;
+  /** Whether its sender paid with their own stamp, and so keeps a copy in their own feed, which the details read. */
   ownStamp: boolean;
-  /** Whether the message says its sender keeps a copy in their own feed, which the details then read. */
-  hasOwnCopy: boolean;
   onClose: () => void;
 }
 
@@ -64,7 +63,6 @@ export function MessageDetails({
   badge,
   identity,
   ownStamp,
-  hasOwnCopy,
   onClose,
 }: MessageDetailsProps) {
   return (
@@ -105,7 +103,7 @@ export function MessageDetails({
         <dt>Sent</dt>
         <dd>{ownStamp ? OWN_STAMP_TITLE : SENT_BY_GATEWAY}</dd>
       </dl>
-      {hasOwnCopy && <OwnCopies owner={address} />}
+      {ownStamp && <OwnFeedCheck sender={address} signature={signature} />}
     </div>
   );
 }
