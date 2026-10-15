@@ -362,7 +362,7 @@ describe("the chat's write", () => {
       via: MessageVia.OWN_STAMP,
     }).bytes;
 
-    await chatParts(own, () => readsAnswering({}), { stamper: () => stamper, ownFeed: false }).write(payload);
+    await chatParts(own, () => readsAnswering({}), { stamper: () => stamper }).write(payload);
 
     expect(stamped).toEqual([Identifier.fromString('the-inbox').toHex()]);
     expect(posted).toHaveLength(1);

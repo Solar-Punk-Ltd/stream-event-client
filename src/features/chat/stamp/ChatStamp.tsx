@@ -237,7 +237,6 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
       ownStampPays
         ? {
             stamper: () => (signedInRef.current ? { stampChunk: (chunk) => stampChunkRef.current(chunk) } : null),
-            ownFeed: choice.ownFeed,
             refusal: () => {
               const current = warningRef.current;
               return current?.blocksSending ? current.title : null;
@@ -249,7 +248,7 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
             },
           }
         : null,
-    [ownStampPays, choice.ownFeed, readAfterSend],
+    [ownStampPays, readAfterSend],
   );
 
   const changeStampInSwarmId = useMemo(

@@ -38,6 +38,14 @@ describe('the chat settings', () => {
     expect(infra).not.toHaveProperty('stamp');
   });
 
+  it('have the chat sign every message as keeping a copy while the own feed is on, so a resend is the same bytes', () => {
+    const onMyStamp = (ownFeed: boolean) =>
+      chatSettings(CHAT, 'stream-one', null, { via: MessageVia.OWN_STAMP, url: null, ownFeed }).infra;
+    expect(onMyStamp(true).own).toBe(true);
+    expect(onMyStamp(false).own).toBeFalsy();
+    expect(chatSettings(CHAT, 'stream-one', null).infra.own).toBeFalsy();
+  });
+
   it("send a guest's messages with no binding", () => {
     const guest: Session = { username: 'Ada', privateKey: GUEST_KEY, address: addressOf(GUEST_KEY) };
     expect(chatSettings(CHAT, 'stream-one', guest).user).toEqual({ privateKey: GUEST_KEY, nickname: 'Ada' });

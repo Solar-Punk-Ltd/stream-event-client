@@ -1,5 +1,5 @@
 import { FeedIndex, Identifier, PrivateKey, Span, Topic } from '@ethersphere/bee-js';
-import { type ChatMessage, createChatMessage, type GsocWrite, ownFeedTopic } from '@solarpunkltd/swarm-chat-js';
+import { type ChatMessage, type GsocWrite, ownFeedTopic } from '@solarpunkltd/swarm-chat-js';
 
 import { makeFeedIdentifier } from '@/shared/feedFollow';
 import { postStampedSoc, type StampedSoc } from '@/swarm/providers/bee-http/stampedSocUpload';
@@ -91,25 +91,6 @@ function withSpan(payload: Uint8Array): Uint8Array<ArrayBuffer> {
 }
 
 /**
- * The chat library 8 always signs `own: false`, so a sender that keeps a copy signs the same message again with
- * `own: true`: the same id, time and text, which the chat server tells apart from a new message by its id.
- */
-function claimingOwnCopy(message: ChatMessage, chatKey: string): Uint8Array {
-  return createChatMessage(chatKey, {
-    topic: message.topic,
-    type: message.type,
-    ...(message.target ? { target: message.target } : {}),
-    text: message.text,
-    name: message.name,
-    id: message.id,
-    ts: message.ts,
-    via: message.via,
-    own: true,
-    ...(message.idb ? { idb: message.idb } : {}),
-  }).bytes;
-}
-
-/**
  * The chat's one write for a viewer who pays with their own stamp. Swarm ID signs and stamps each chunk, and the chunk
  * goes to the viewer's own Bee node or through the node in this browser, never through the event's gateway, whatever
  * happens. The chat's inbox is one
@@ -172,12 +153,11 @@ export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
       if (blocked !== null) {
         throw new SendRefusedError({ text: blocked, final: true });
       }
-      const bytes = ownFeed && copies ? claimingOwnCopy(message, ownFeed.chatKey) : payload;
-      await copies?.append(message.id, bytes);
+      await copies?.append(message.id, payload);
       await stampAndSend({
         kind: 'soc',
         identifier: inboxIdentifier,
-        data: withSpan(bytes),
+        data: withSpan(payload),
         signer: { privateKey: gsocKey },
       });
       onSent?.();

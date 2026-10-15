@@ -151,8 +151,6 @@ function chatSource(options: ChatSourceOptions): ChatSource {
 interface OwnStampParts {
   /** Read at every write: Swarm ID while the viewer is signed in with it, null otherwise. */
   readonly stamper: () => ChunkStamper | null;
-  /** Whether each message also gets a copy in the sender's own feed. */
-  readonly ownFeed: boolean;
   /** Read at every write: why the page cannot send on the viewer's stamp now, or null when it can. */
   readonly refusal?: () => string | null;
   readonly onProblem?: (messageId: string, problem: SendProblem) => void;
@@ -200,7 +198,7 @@ export function chatParts(settings: ChatSettings, reads: () => ChatReads, ownSta
       gsocKey: bareHex(infra.gsocResourceId),
       gsocTopic: infra.gsocTopic,
       timeoutMs: writeMs,
-      ownFeed: ownStamp.ownFeed
+      ownFeed: infra.own
         ? {
             chatKey: settings.user.privateKey,
             chatTopic: infra.chatTopic,

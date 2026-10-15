@@ -183,6 +183,22 @@ describe('a chat paid for with my own stamp', () => {
     expect(chatRegion()?.textContent).toContain(shown.text);
   });
 
+  it('starts the chat signing every message as keeping a copy once the own feed is on, and keeps the messages on screen', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    await watchPage();
+    expect(FakeSwarmChat.latest().settings.infra.own).toBeFalsy();
+    const shown = signedMessage('before copies');
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(shown, 0)));
+    await waitFor(() => (chatRegion()?.textContent?.includes(shown.text) ? true : null));
+
+    await act(async () => seen.chatStamp?.chooseOwnFeed(true));
+    await settle();
+
+    expect(FakeSwarmChat.latest().settings.infra).toMatchObject({ via: MessageVia.OWN_STAMP, own: true });
+    expect(chatRegion()?.textContent).toContain(shown.text);
+  });
+
   it('shows a message Swarm ID would not stamp as not sent, with the reason, and sends it nowhere else', async () => {
     chatOnMyBeeNode();
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });

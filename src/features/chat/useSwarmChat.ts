@@ -61,7 +61,6 @@ const SENDER_GONE: ShownProblem = { text: ROUTE_CHANGED, final: true, canRetry: 
 export interface OwnStampSetup {
   /** Read at every write: Swarm ID while the viewer is signed in with it, null otherwise. */
   readonly stamper: () => ChunkStamper | null;
-  readonly ownFeed: boolean;
   /** Read at every write: why the page cannot send on the viewer's stamp now, or null when it can. */
   readonly refusal: () => string | null;
   /** Told after every message the viewer's node took. */
@@ -149,10 +148,9 @@ export function useSwarmChat(
   ownStamp: OwnStampSetup | null = null,
 ) {
   const settingsKey = JSON.stringify(settings);
-  // Who pays and where a message is written change how it is sent, not which chat is on screen.
-  const { via: _via, writeUrl: _writeUrl, ...where } = settings.infra;
+  // Who pays, where a message goes and whether it keeps a copy change how it is sent, not which chat is shown.
+  const { via: _via, writeUrl: _writeUrl, own: _own, ...where } = settings.infra;
   const chatKey = JSON.stringify(where);
-  const ownFeed = ownStamp?.ownFeed ?? false;
   const ownStampRef = useRef(ownStamp);
   ownStampRef.current = ownStamp;
   const partsRef = useRef<ChatPartsForPage | null>(null);
@@ -174,7 +172,7 @@ export function useSwarmChat(
 
   useEffect(() => {
     const current = JSON.parse(settingsKey) as ChatSettings;
-    const { via: _currentVia, writeUrl: _currentWriteUrl, ...currentWhere } = current.infra;
+    const { via: _currentVia, writeUrl: _currentWriteUrl, own: _currentOwn, ...currentWhere } = current.infra;
     const currentChatKey = JSON.stringify(currentWhere);
     if (shownChatKeyRef.current !== currentChatKey) {
       shownChatKeyRef.current = currentChatKey;
@@ -199,7 +197,6 @@ export function useSwarmChat(
     const timer = setTimeout(() => {
       const parts = chatParts(current, () => readsRef.current(), {
         stamper: () => ownStampRef.current?.stamper() ?? null,
-        ownFeed,
         refusal: () => ownStampRef.current?.refusal() ?? null,
         onProblem: (id, problem) => {
           if (!stopped) {
@@ -309,7 +306,7 @@ export function useSwarmChat(
         void chat.stop();
       }
     };
-  }, [settingsKey, ownFeed, restarts]);
+  }, [settingsKey, restarts]);
 
   const shown = useMemo(
     () =>

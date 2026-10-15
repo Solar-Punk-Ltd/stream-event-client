@@ -277,10 +277,10 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
 - **Also write my own feed.** Off by default, and offered only with My stamp. With it on, every message is first
   copied into the sender's own feed, `ownFeedTopic(chatTopic)` from swarm-chat-js under the chat key's address,
   one entry per message at the next index, stamped by Swarm ID too, and only then sent, so a message that says
-  `own: true` always has its copy. swarm-chat-js 8 signs every message with `own: false`, so the page signs it
-  again with `own: true`, the same id, time and text. The feed's newest index is read once, through the chat
-  history's source, and counted on from there. When it cannot be read, the message waits with the reason rather
-  than going out without its copy. Each message then costs two stamped chunks.
+  `own: true` always has its copy. The chat is started with `infra.own` on, so swarm-chat-js signs each message
+  once with `own: true`, and the copy, the message and every resend of it are those same bytes. The feed's newest
+  index is read once, through the chat history's source, and counted on from there. When it cannot be read, the
+  message waits with the reason rather than going out without its copy. Each message then costs two stamped chunks.
   **Two known limits.** The next index is counted from one read of the feed's newest entry each time the chat
   starts, so a chat started again seconds after a send, before that entry can be read back, can write the next
   copy at an index already used. And a copy is written before its message, so a message that then fails and is
@@ -764,7 +764,7 @@ Weeb3 (`providers/weeb-3/weeb3Push`) in `ChatStamp.tsx`, and the errors of both,
   the previews and pictures through `reader('previews')`, Connect checks a source through a
   client made for that source alone, and the chat reads through `reader('chat')`, on the source picked for the
   chat history.
-- **The chat.** swarm-chat-js 8.0.0 is handed a source and a write in place of its own Bee client
+- **The chat.** swarm-chat-js 8.1.0 is handed a source and a write in place of its own Bee client
   (`src/features/chat/chatParts.ts`). The source makes the library's own reads at the same URLs: the
   feed head, each slot and note as a single-owner chunk checked to be the chat owner's
   (`src/swarm/singleOwnerChunk.ts`), or through the node in this browser by its owner and identifier, and history

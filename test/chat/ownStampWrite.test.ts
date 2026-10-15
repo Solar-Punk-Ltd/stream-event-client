@@ -195,13 +195,13 @@ describe("a copy in the sender's own feed", () => {
   const ownTopic = Topic.fromString(ownFeedTopic(CHAT_TOPIC));
   const slot = (index: number) => makeFeedIdentifier(ownTopic, FeedIndex.fromBigInt(BigInt(index))).toHex();
 
-  it('is written first, at the next place of the own feed, signed by the chat key, and the message says own', async () => {
+  it('is written first, at the next place of the own feed, signed by the chat key, as the message itself', async () => {
     const head = headReads(NOT_FOUND);
     const { stamper, bee, writer } = setUp({
       ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
     });
-    await writer.write(payloadOf('one'));
-    await writer.write(payloadOf('two'));
+    await writer.write(payloadOf('one', true));
+    await writer.write(payloadOf('two', true));
 
     expect(head.asked, 'the own feed is looked up once').toEqual([`${addressOf(GUEST_KEY)}/${ownTopic.toHex()}`]);
     expect(stamper.asked.map(({ identifier, signer }) => [identifier, signer.privateKey])).toEqual([
@@ -219,6 +219,19 @@ describe("a copy in the sender's own feed", () => {
     expect(hexOf(sent)).toBe(hexOf(encodeChatMessage(check.ok ? check.message : ({} as never))));
   });
 
+  it('writes the copy and the message from the bytes the chat handed over, signing nothing again', async () => {
+    const head = headReads(NOT_FOUND);
+    const { bee, writer } = setUp({
+      ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
+    });
+    const handed = payloadOf('handed', true);
+    const reordered = new TextEncoder().encode(JSON.stringify(JSON.parse(new TextDecoder().decode(handed)), null, 1));
+
+    await writer.write(reordered);
+
+    expect(bee.posted.map(({ body }) => hexOf(body.subarray(8)))).toEqual([hexOf(reordered), hexOf(reordered)]);
+  });
+
   it("keeps a signed-in sender's Swarm ID binding, so the copy and the message still show the account", async () => {
     const boundKey = await chatKeyFor(BOUND_SITE);
     const head = headReads(NOT_FOUND);
@@ -233,6 +246,7 @@ describe("a copy in the sender's own feed", () => {
       name: 'Ida',
       ts: 1_000,
       via: MessageVia.OWN_STAMP,
+      own: true,
       idb: CHAT_BINDING,
     });
 

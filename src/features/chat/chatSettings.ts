@@ -21,7 +21,8 @@ const SOC_READ_TIMEOUT_MS = 5_000;
  * feed is `chat-<stream topic>`, written by the chat feed owner. The chat is read through one endpoint and
  * written through another. While the event pays, the write endpoint stamps what is written through it. On the
  * viewer's own stamp, Swarm ID stamps each message and it goes to their own Bee node or through Weeb3. Either way
- * no stamp is passed, and every message says in its `via` who paid.
+ * no stamp is passed, and every message says in its `via` who paid. With the own feed on, every message is signed
+ * once saying it keeps a copy, and the write stores that copy from the same bytes.
  */
 export function chatSettings(
   config: ChatConfig,
@@ -43,6 +44,7 @@ export function chatSettings(
           ? {}
           : { writeUrl: sending.url }),
       via: sending.via,
+      ...(sending.via === MessageVia.OWN_STAMP && sending.ownFeed ? { own: true } : {}),
       gsocResourceId: config.gsocResourceId,
       gsocTopic: config.gsocTopic,
       chatTopic: `chat-${streamTopic}`,
