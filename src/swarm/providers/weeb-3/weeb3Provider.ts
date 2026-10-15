@@ -7,7 +7,7 @@ import type { OwnPlayer, ProbeResult, ProviderStatus, ReadOptions, SwarmProvider
 import { MAX_CHUNK_PAYLOAD, singleOwnerChunkAddress } from '../../singleOwnerChunk';
 import { findNewestEntry } from './newestEntrySearch';
 import type { Weeb3Node } from './weeb3Package';
-import { WEEB3_HEALTHY_PEERS, WEEB3_PATH, type Weeb3Runtime } from './weeb3Runtime';
+import { WEEB3_HEALTHY_PEERS, WEEB3_LOST_PEERS, WEEB3_PATH, type Weeb3Runtime } from './weeb3Runtime';
 
 const SPAN_LENGTH = 8;
 
@@ -15,7 +15,7 @@ const SPAN_LENGTH = 8;
 const WEEB3_READ_WINDOW_MS = 30_000;
 
 /** What the provider needs of the page's node: where it is, and a way to start and stop it. */
-export type Weeb3RuntimeView = Pick<Weeb3Runtime, 'status' | 'acquire' | 'release' | 'whenReady'>;
+export type Weeb3RuntimeView = Pick<Weeb3Runtime, 'status' | 'acquire' | 'release' | 'whenReady' | 'restart'>;
 
 interface Weeb3ProviderOptions {
   readonly runtime: Weeb3RuntimeView;
@@ -222,6 +222,8 @@ export class Weeb3Provider implements SwarmProvider {
         return { kind: 'ok', elapsedMs: 0 };
       case 'failed':
         return { kind: 'unreachable' };
+      case 'lost':
+        return { kind: 'not-ready', reason: { kind: 'no-peers' } };
       case 'stopped':
       case 'starting':
         return { kind: 'not-ready', reason: { kind: 'starting' } };
@@ -236,6 +238,8 @@ export class Weeb3Provider implements SwarmProvider {
   async stop(): Promise<void> {
     this.runtime.release();
   }
+
+  readonly restart = (): void => this.runtime.restart();
 
   private async readSocAt(identifier: Identifier, owner: string, options?: ReadOptions): Promise<SwarmAnswer> {
     let address: string;
@@ -253,8 +257,11 @@ export class Weeb3Provider implements SwarmProvider {
       return ABORTED;
     }
     const url = new URL(`${WEEB3_PATH}${path}`, this.pageOrigin).href;
-    if (this.runtime.status().state === 'ready') {
-      return httpRead(url, { ...options, fetcher: this.fetcher });
+    switch (this.runtime.status().state) {
+      case 'ready':
+        return httpRead(url, { ...options, fetcher: this.fetcher });
+      case 'lost':
+        return { kind: 'unavailable', cause: { kind: 'network', error: new Error(WEEB3_LOST_PEERS) } };
     }
     const { runtime } = this;
     try {

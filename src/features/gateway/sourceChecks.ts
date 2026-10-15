@@ -391,7 +391,7 @@ class CheckRun {
       if (state === 'ready' || (state === 'starting' && download === undefined)) {
         return pass();
       }
-      if (state === 'failed' || this.now() >= until) {
+      if (state === 'failed' || state === 'lost' || this.now() >= until) {
         return fail(NODE_FAILED);
       }
       if (this.context.signal?.aborted) {
@@ -408,7 +408,7 @@ class CheckRun {
       if (peers >= WEEB3_CHECK_PEERS) {
         return pass();
       }
-      if (state === 'failed') {
+      if (state === 'failed' || state === 'lost') {
         return fail(NODE_FAILED);
       }
       const waitedMs = this.now() - startedAtMs;

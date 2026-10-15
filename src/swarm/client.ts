@@ -230,6 +230,13 @@ export class SwarmClient {
     await Promise.all(this.providers().map(({ provider }) => provider.stop()));
   }
 
+  /** Starts a node in the tab that failed or was lost again, on the viewer's asking. Nothing for any other provider. */
+  restart(): void {
+    for (const { provider } of this.providers()) {
+      provider.restart?.();
+    }
+  }
+
   /** A provider that names a shortest window of its own gets at least that, whatever the caller asked. */
   private async read(
     feature: SwarmFeature,

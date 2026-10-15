@@ -114,6 +114,7 @@ function runtimeAt(status: Weeb3Status): FakeRuntime {
     release() {
       this.holds -= 1;
     },
+    restart: () => undefined,
     whenReady: () => (status.state === 'ready' ? Promise.resolve(node) : readiness),
   };
 }
@@ -331,6 +332,20 @@ describe('the weeb-3 provider', () => {
     runtime.settle(false);
 
     expect(await reading).toMatchObject({ kind: 'unavailable', cause: { kind: 'network' } });
+    expect(log.urls).toEqual([]);
+    expect(runtime.holds).toBe(0);
+  });
+
+  it('answers unavailable at once, asking nothing and starting nothing, while the node has lost its peers', async () => {
+    const log: AskedLog = { urls: [] };
+    const { provider, runtime } = weeb3(servedFetch(log), { state: 'lost', peers: 0 });
+
+    const answer = await provider.readBytes(REFERENCE);
+
+    expect(answer).toMatchObject({ kind: 'unavailable', cause: { kind: 'network' } });
+    expect(String((answer as { cause: { error: unknown } }).cause.error)).toContain(
+      'The Swarm node in this browser lost its peers. Open Connect to start it again.',
+    );
     expect(log.urls).toEqual([]);
     expect(runtime.holds).toBe(0);
   });

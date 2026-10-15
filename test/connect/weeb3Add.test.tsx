@@ -220,4 +220,27 @@ describe("an added node's settings", () => {
 
     await waitFor(() => (sharedWeeb3Runtime().status().state === 'ready' ? true : null), 200);
   });
+
+  it('say the node lost its peers, and start it again on Test connection, which nothing else does', async () => {
+    saveAddedSources([{ id: 'added-1', type: 'weeb-3', name: 'Weeb3', url: '' }]);
+    mounted = connectPage();
+    await settle();
+    click(button('Connect'));
+    click(button('Settings of Weeb3'));
+    click(button('Test connection'));
+    const first = await waitFor(() => fakeWeeb3.current!.nodes[0], 200);
+    first.peers = 25;
+    await waitFor(() => (sharedWeeb3Runtime().status().state === 'ready' ? true : null), 200);
+
+    first.peers = 0;
+    await waitFor(() => (sharedWeeb3Runtime().status().state === 'lost' ? true : null), 200);
+    await waitFor(() => (text().includes('Lost its peers') ? true : null), 100);
+    expect(fakeWeeb3.current!.nodes, 'nothing starts it again by itself').toHaveLength(1);
+
+    click(button('Test connection'));
+    const second = await waitFor(() => fakeWeeb3.current!.nodes[1], 200);
+    second.peers = 25;
+    await waitFor(() => (sharedWeeb3Runtime().status().state === 'ready' ? true : null), 200);
+    expect(first.freed).toBe(true);
+  });
 });

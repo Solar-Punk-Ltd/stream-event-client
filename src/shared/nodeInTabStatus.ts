@@ -7,6 +7,9 @@ import type { DownloadProgress, ProviderStatus } from '@/swarm/provider';
  * page's stage say the same words, read the same way.
  */
 
+/** How a node that was ready and then had no peers is named, in Connect and on the watch page. */
+export const LOST_WORDS = 'Lost its peers';
+
 const peerCount = (peers: number) => `${peers} ${peers === 1 ? 'peer' : 'peers'}`;
 
 const BYTES_PER_MB = 1_000_000;
@@ -42,7 +45,15 @@ export function weeb3StatusWords({ state, peers = 0, download, healthyPeers }: P
       return peersWords(peers, healthyPeers);
     case 'failed':
       return 'Failed to start';
+    case 'lost':
+      return LOST_WORDS;
   }
+}
+
+/** The status line where the node is waited for outside Connect, which also says where to start a lost node again. */
+export function weeb3StatusLine(status: ProviderStatus): string {
+  const words = weeb3StatusWords(status);
+  return status.state === 'lost' ? `${words}. Open Connect to start it again.` : words;
 }
 
 /** The one short note shown beside the count while it is under the healthy one, or null. */

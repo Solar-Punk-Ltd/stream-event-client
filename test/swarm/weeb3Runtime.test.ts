@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  WEEB3_LOST_PEERS,
   WEEB3_PEER_POLL_MS,
   WEEB3_DOWNLOAD_DEADLINE_MS,
   WEEB3_START_DEADLINE_MS,
@@ -309,5 +310,83 @@ describe('the node in this browser', () => {
     const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
 
     expect(await runtime.start()).toBe(fake.nodes[0]);
+  });
+});
+
+describe('the node in this browser once it is ready', () => {
+  async function readyRuntime() {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
+    void runtime.acquire();
+    await vi.advanceTimersByTimeAsync(0);
+    fake.nodes[0].peers = 4;
+    await vi.advanceTimersByTimeAsync(WEEB3_PEER_POLL_MS);
+    expect(runtime.status()).toEqual({ state: 'ready', peers: 4 });
+    return { fake, runtime };
+  }
+
+  it('is lost after three peer checks in a row that read no peers or throw, and a good check in between starts the count again', async () => {
+    const { fake, runtime } = await readyRuntime();
+    const node = fake.nodes[0];
+
+    node.peers = 0;
+    await vi.advanceTimersByTimeAsync(2 * WEEB3_PEER_POLL_MS);
+    expect(runtime.status().state).toBe('ready');
+    node.peers = 2;
+    await vi.advanceTimersByTimeAsync(WEEB3_PEER_POLL_MS);
+    expect(runtime.status()).toEqual({ state: 'ready', peers: 2 });
+
+    node.peers = 0;
+    await vi.advanceTimersByTimeAsync(2 * WEEB3_PEER_POLL_MS);
+    expect(runtime.status().state).toBe('ready');
+    node.connectionCount = async () => {
+      throw new Error('the shared worker is gone');
+    };
+    await vi.advanceTimersByTimeAsync(WEEB3_PEER_POLL_MS);
+
+    expect(runtime.status()).toEqual({ state: 'lost', peers: 0 });
+  });
+
+  it('is not started again by a hold or a wait while lost, and a wait fails at once with what to do', async () => {
+    const { fake, runtime } = await readyRuntime();
+    fake.nodes[0].peers = 0;
+    await vi.advanceTimersByTimeAsync(3 * WEEB3_PEER_POLL_MS);
+    expect(runtime.status().state).toBe('lost');
+
+    await runtime.acquire();
+    await expect(runtime.whenReady()).rejects.toThrow(WEEB3_LOST_PEERS);
+    await vi.advanceTimersByTimeAsync(10 * WEEB3_PEER_POLL_MS);
+
+    expect(fake.nodes).toHaveLength(1);
+    expect(runtime.status().state).toBe('lost');
+  });
+
+  it('starts again on asking, keeping whatever holds it, and is ready once it has peers again', async () => {
+    const { fake, runtime } = await readyRuntime();
+    fake.nodes[0].peers = 0;
+    await vi.advanceTimersByTimeAsync(3 * WEEB3_PEER_POLL_MS);
+    expect(runtime.status().state).toBe('lost');
+
+    runtime.restart();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fake.nodes).toHaveLength(2);
+    expect(fake.nodes[0].freed).toBe(true);
+    fake.nodes[1].peers = 6;
+    await vi.advanceTimersByTimeAsync(WEEB3_PEER_POLL_MS);
+    expect(runtime.status()).toEqual({ state: 'ready', peers: 6 });
+
+    runtime.release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(runtime.status().state).toBe('stopped');
+  });
+
+  it('leaves a node that is ready or starting alone on asking it to start again', async () => {
+    const { fake, runtime } = await readyRuntime();
+
+    runtime.restart();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fake.nodes).toHaveLength(1);
+    expect(runtime.status().state).toBe('ready');
   });
 });

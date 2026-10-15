@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { healthyPeersNote, weeb3StatusWords } from '../../src/shared/nodeInTabStatus';
+import { healthyPeersNote, weeb3StatusLine, weeb3StatusWords } from '../../src/shared/nodeInTabStatus';
 import type { ProviderStatus } from '../../src/swarm/provider';
 
 const HEALTHY = 200;
@@ -21,6 +21,13 @@ describe('the node in this browser, in words', () => {
     ).toBe('Downloading 1.1 MB');
     expect(weeb3StatusWords(connecting(0))).toBe('Starting');
     expect(weeb3StatusWords({ state: 'failed', peers: 0, healthyPeers: HEALTHY })).toBe('Failed to start');
+  });
+
+  it('names a node that lost its peers, and outside Connect says to start it again there', () => {
+    const lost: ProviderStatus = { state: 'lost', peers: 0, healthyPeers: HEALTHY };
+    expect(weeb3StatusWords(lost)).toBe('Lost its peers');
+    expect(weeb3StatusLine(lost)).toBe('Lost its peers. Open Connect to start it again.');
+    expect(weeb3StatusLine(ready(5))).toBe('5 of 200 peers');
   });
 
   it('counts the peers it builds up to against the healthy count, while connecting and once in use', () => {

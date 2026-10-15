@@ -221,13 +221,9 @@ export function AddWeeb3View({ onAdded }: AddWeeb3Props) {
   const canAdd = results !== null && checksPassed(results);
   const isFinished = results !== null && results.every(({ state }) => state !== 'running' && state !== 'waiting');
 
-  /** The checks once more on the node this view holds, which is started again first if it failed. */
+  /** The checks once more on the node this view holds, which is started again first if it failed or was lost. */
   const testAgain = () => {
-    if (client.status().state === 'failed') {
-      // One hold given back and one taken, so the node this view holds is still held once.
-      void client.stop();
-      client.start().catch(() => undefined);
-    }
+    client.restart();
     void run({ id: 'checked', type: 'weeb-3', url: '', offered: false }, client);
   };
 

@@ -85,6 +85,7 @@ const STAMP_WRONG_SIZE = 'Swarm ID gave a stamp of the wrong size.';
  * What a failed push through the node in this browser means for the message. weeb-3 answers a stamp it will not take
  * with silence, so a push that ran out its deadline is most likely refused, and a resend on the same stamp would wait
  * the whole deadline again: it fails at once. A node not running is started again by the next push, so that resends.
+ * A node that lost its peers is started again only from Connect, so that fails at once with what to do.
  * Anything else thrown on the way, such as a chunk that could not be built, would be thrown again by a resend of the
  * same bytes, so it fails at once too.
  */
@@ -99,6 +100,8 @@ export function weeb3PushProblem(error: unknown): SendProblem {
       return refused(`Weeb3 refused it${error.detail ? ` (${error.detail})` : ''}.`);
     case 'node':
       return retried(WEEB3_NOT_RUNNING);
+    case 'lost':
+      return refused(error.message);
     case 'stamp-size':
       return refused(STAMP_WRONG_SIZE);
   }

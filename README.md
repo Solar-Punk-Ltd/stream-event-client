@@ -657,6 +657,13 @@ controls the page, and counts as failed when it is not ready after 30 s.
   weeb-3's own connection target (`CONNECTION_BUILDUP_LIMIT` in its `src/accounting.rs`, which its project README
   says drops to four fifths for every 100 lost connections, down to 30). The node is ready at its first peer, so
   the video does not wait for the rest, and the count keeps building up after that.
+- **A node that lost its peers.** Once ready, the node's peers are read every half second. Three reads in a row
+  that find no peers, or that throw, as after a phone locked the tab, mark the node lost. Connect's row says "Lost
+  its peers", its settings say Test connection starts it again, and the line on the watch page adds "Open Connect to
+  start it again." While it is lost, every read through it is unavailable at once, and a message pushed through it
+  fails at once with "The Swarm node in this browser lost its peers. Open Connect to start it again." Nothing starts
+  it again by itself and nothing switches to another source: Test connection in its settings, or Test again while
+  adding it, starts a new node in its place, which is ready again at its first peer.
 - **The video, in weeb-3's own player.** With weeb-3 as the video's source the watch page plays the stream with
   weeb-3's player, bare: a video element with the browser's controls and weeb-3's own choice of quality, from the
   newest entry for a live stream and the beginning for a finished one, and none of this app's overlays or `?level=`.

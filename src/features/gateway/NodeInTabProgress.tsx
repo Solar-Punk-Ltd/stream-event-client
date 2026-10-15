@@ -1,4 +1,4 @@
-import { weeb3StatusWords } from '@/shared/nodeInTabStatus';
+import { weeb3StatusLine } from '@/shared/nodeInTabStatus';
 import type { Source } from '@/swarm/sources';
 
 import { useNodeInTabStatus } from './useNodeInTabStatus';
@@ -12,7 +12,7 @@ function Weeb3Progress({ source }: { readonly source: Source }) {
   }
   return (
     <p className="node-in-tab-progress" role="status">
-      The Swarm node in this browser: {weeb3StatusWords(status)}
+      The Swarm node in this browser: {weeb3StatusLine(status)}
     </p>
   );
 }

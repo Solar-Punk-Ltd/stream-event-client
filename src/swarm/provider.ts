@@ -29,8 +29,11 @@ export interface ReadOptions {
  */
 export type UrlUse = 'segment' | 'preview-segment' | 'thumbnail';
 
-/** Where a provider is in its own life. A provider over HTTP is always ready. */
-export type ProviderState = 'stopped' | 'starting' | 'ready' | 'failed';
+/**
+ * Where a provider is in its own life. A provider over HTTP is always ready. `lost` is a node in the tab that was ready
+ * and has since had no peers, which only starting it again on the viewer's asking mends.
+ */
+export type ProviderState = 'stopped' | 'starting' | 'ready' | 'failed' | 'lost';
 
 /** How much of a download has arrived, and how much the server said there is, when it said. */
 export interface DownloadProgress {
@@ -136,6 +139,12 @@ export interface SwarmProvider {
 
   /** Starts a node in the tab. Resolves at once for a provider that reaches a node elsewhere. */
   start(): Promise<void>;
+
+  /**
+   * Starts a node in the tab that failed or was lost again, keeping whatever holds it, on the viewer's asking. Absent
+   * for a provider that reaches a node elsewhere.
+   */
+  readonly restart?: () => void;
 
   stop(): Promise<void>;
 }

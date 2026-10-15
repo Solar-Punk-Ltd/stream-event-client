@@ -80,6 +80,13 @@ describe('why the node in this browser did not push a message', () => {
     });
   });
 
+  it('fails at once while the node lost its peers, saying to start it again in Connect, which no resend does', () => {
+    expect(weeb3PushProblem(new Weeb3PushError('lost', null))).toEqual({
+      text: 'The Swarm node in this browser lost its peers. Open Connect to start it again.',
+      final: true,
+    });
+  });
+
   it('names Weeb3 for anything else thrown on the way, and fails at once since a resend would throw it again', () => {
     expect(weeb3PushProblem(new TypeError('invalid hex'))).toEqual({
       text: 'Weeb3 could not push it (invalid hex).',

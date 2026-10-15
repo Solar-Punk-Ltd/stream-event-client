@@ -22,6 +22,15 @@ export const WEEB3_PEER_POLL_MS = 500;
  */
 export const WEEB3_START_DEADLINE_MS = 30_000;
 
+/**
+ * How many peer checks in a row, each reading no peers or throwing, take a ready node to lost. A phone that locked the
+ * tab can leave its node with no peers, or with no node behind the shared worker at all, and nothing restarts it.
+ */
+const WEEB3_LOST_AFTER_CHECKS = 3;
+
+/** What a read, a push or the page says while the node is lost, which only starting it again in Connect mends. */
+export const WEEB3_LOST_PEERS = 'The Swarm node in this browser lost its peers. Open Connect to start it again.';
+
 /** How long the 2.2 MB module may take to download, a slow connection's worth, before the start fails. */
 export const WEEB3_DOWNLOAD_DEADLINE_MS = 60_000;
 
@@ -91,17 +100,30 @@ export class Weeb3Runtime {
 
   /**
    * Starts the page's node if it is not running, and answers it once made. It is not ready yet: that
-   * is what {@link status} says. A node that failed is started again.
+   * is what {@link status} says. A node that failed is started again. A lost one is not, so a read or a
+   * push fails at once rather than starting it again unasked: only {@link restart} does.
    */
   start(): Promise<Weeb3Node> {
     if (this.node === null || this.current.state === 'failed') {
-      this.node?.then(
-        (old) => old.free(),
-        () => undefined,
-      );
-      this.node = this.started(++this.generation);
+      this.node = this.startedAfresh();
     }
     return this.node;
+  }
+
+  /** Starts a node that failed or was lost again, keeping whatever holds it. A node in any other state is left as it is. */
+  restart(): void {
+    if (this.current.state === 'failed' || this.current.state === 'lost') {
+      this.node = this.startedAfresh();
+    }
+  }
+
+  /** A new node in place of the one there was, which is freed. */
+  private startedAfresh(): Promise<Weeb3Node> {
+    this.node?.then(
+      (old) => old.free(),
+      () => undefined,
+    );
+    return this.started(++this.generation);
   }
 
   /** Holds the node, starting it if nothing held it, and answers it once made. */
@@ -143,6 +165,9 @@ export class Weeb3Runtime {
         if (status.state === 'ready' && this.node) {
           unsubscribe();
           this.node.then(resolve, reject);
+        } else if (status.state === 'lost') {
+          unsubscribe();
+          reject(new Error(WEEB3_LOST_PEERS));
         } else if (status.state === 'failed' || status.state === 'stopped') {
           unsubscribe();
           reject(
@@ -179,7 +204,7 @@ export class Weeb3Runtime {
       }
       const node = new weeb3.Weeb3No103(undefined, SERVICE_WORKER_SCOPE);
       node.start();
-      this.watchPeers(node, generation, Date.now() + WEEB3_START_DEADLINE_MS);
+      this.watchPeers(node, generation, Date.now() + WEEB3_START_DEADLINE_MS, 0);
       return node;
     } catch (error) {
       if (generation === this.generation) {
@@ -254,7 +279,8 @@ export class Weeb3Runtime {
     return whole;
   }
 
-  private watchPeers(node: Weeb3Node, generation: number, deadlineMs: number): void {
+  /** `misses` counts the checks in a row since the node was ready that read no peers or threw. */
+  private watchPeers(node: Weeb3Node, generation: number, deadlineMs: number, misses: number): void {
     this.poll = setTimeout(async () => {
       let peers: number;
       try {
@@ -265,7 +291,18 @@ export class Weeb3Runtime {
       if (generation !== this.generation) {
         return;
       }
-      const ready = this.current.state === 'ready' || (peers > 0 && this.isControlled());
+      if (this.current.state === 'ready') {
+        const missed = peers === 0 ? misses + 1 : 0;
+        if (missed >= WEEB3_LOST_AFTER_CHECKS) {
+          this.poll = null;
+          this.set({ state: 'lost', peers: 0 });
+          return;
+        }
+        this.set({ state: 'ready', peers });
+        this.watchPeers(node, generation, deadlineMs, missed);
+        return;
+      }
+      const ready = peers > 0 && this.isControlled();
       if (!ready && Date.now() >= deadlineMs) {
         this.node = null;
         node.free();
@@ -273,7 +310,7 @@ export class Weeb3Runtime {
         return;
       }
       this.set({ state: ready ? 'ready' : 'starting', peers });
-      this.watchPeers(node, generation, deadlineMs);
+      this.watchPeers(node, generation, deadlineMs, 0);
     }, WEEB3_PEER_POLL_MS);
   }
 

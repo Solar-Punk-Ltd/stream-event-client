@@ -5,6 +5,7 @@
  */
 import { Topic } from '@ethersphere/bee-js';
 
+import { LOST_WORDS } from '@/shared/nodeInTabStatus';
 import { supportsLocalNetworkRequests } from '@/swarm/addressSpace';
 import type { SwarmClient } from '@/swarm/client';
 import { createSwarmClient } from '@/swarm/createSwarmClient';
@@ -119,6 +120,8 @@ function nodeInTabStatus(client: Pick<SwarmClient, 'status'>): SourceStatus {
       return { health: 'unknown', elapsedMs: null, words: 'Not started' };
     case 'failed':
       return failing;
+    case 'lost':
+      return { health: 'failing', elapsedMs: null, words: LOST_WORDS };
   }
 }
 

@@ -8,6 +8,7 @@ import { type SourceStatus, sourceStatusWords } from '@/features/gateway/sourceS
 import { StatusDot } from '@/features/gateway/StatusDot';
 import { useNodeInTabStatus } from '@/features/gateway/useNodeInTabStatus';
 import { BUILD_LABEL, WEEB3_VERSION } from '@/shared/buildLabel';
+import { LOST_WORDS } from '@/shared/nodeInTabStatus';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { hasAddress, SOURCE_NAME_MAX_LENGTH, type Source, sourceName } from '@/swarm/sources';
 
@@ -61,11 +62,8 @@ export function SourceSettings({ source, status, onRemoved }: SourceSettingsProp
       if (!holdsNode.current) {
         holdsNode.current = true;
         client.start().catch(() => undefined);
-      } else if (client.status().state === 'failed') {
-        // One hold given back and one taken, so these settings still hold the node once.
-        void client.stop();
-        client.start().catch(() => undefined);
       }
+      client.restart();
     }
     void run(source, client);
   };
@@ -205,19 +203,26 @@ function LastAnswer({ status }: { status?: SourceStatus }) {
 function NodeFacts({ source }: { source: Source }) {
   const status = useNodeInTabStatus(source);
   return (
-    <dl className="connect-kv">
-      <dt>Peers</dt>
-      <dd>
-        {status.peers ?? 0} of {status.healthyPeers ?? 200}
-      </dd>
-      <dt>Network</dt>
-      <dd>{WEEB3_NETWORK}</dd>
-      {WEEB3_VERSION !== null && (
-        <>
-          <dt>Version</dt>
-          <dd>weeb-3 {WEEB3_VERSION}</dd>
-        </>
+    <>
+      {status.state === 'lost' && (
+        <p className="connect-warn" role="status">
+          {LOST_WORDS}. Test connection starts it again.
+        </p>
       )}
-    </dl>
+      <dl className="connect-kv">
+        <dt>Peers</dt>
+        <dd>
+          {status.peers ?? 0} of {status.healthyPeers ?? 200}
+        </dd>
+        <dt>Network</dt>
+        <dd>{WEEB3_NETWORK}</dd>
+        {WEEB3_VERSION !== null && (
+          <>
+            <dt>Version</dt>
+            <dd>weeb-3 {WEEB3_VERSION}</dd>
+          </>
+        )}
+      </dl>
+    </>
   );
 }

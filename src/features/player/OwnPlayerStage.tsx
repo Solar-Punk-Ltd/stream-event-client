@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { healthyPeersNote, useNodeStatus, weeb3StatusWords } from '@/shared/nodeInTabStatus';
+import { healthyPeersNote, useNodeStatus, weeb3StatusLine, weeb3StatusWords } from '@/shared/nodeInTabStatus';
 import type { OwnPlayer, PlaybackStart, ProviderStatus } from '@/swarm/provider';
 
 import './OwnPlayerStage.scss';
@@ -62,11 +62,12 @@ export function OwnPlayerStage({ load, status, owner, topic, from }: OwnPlayerSt
 
   const note = failed ? null : healthyPeersNote(node);
   // A ready node whose player would not attach could not play this stream. Any other failure is the node's own.
-  const words = !failed
-    ? weeb3StatusWords(node)
-    : node.state === 'ready'
-      ? PLAY_FAILED
-      : weeb3StatusWords({ state: 'failed' });
+  const words =
+    !failed || node.state === 'lost'
+      ? weeb3StatusLine(node)
+      : node.state === 'ready'
+        ? PLAY_FAILED
+        : weeb3StatusWords({ state: 'failed' });
   return (
     <div className="own-player-stage">
       <div className="own-player">

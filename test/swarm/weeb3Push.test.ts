@@ -27,7 +27,8 @@ interface Pushed {
   readonly stamp: Uint8Array;
 }
 
-function runtimeWith(push: Weeb3Node['postPushChunk'], ready = true) {
+function runtimeWith(push: Weeb3Node['postPushChunk'], state: 'ready' | 'failed' | 'lost' = 'ready') {
+  const ready = state === 'ready';
   const pushed: Pushed[] = [];
   const node = {
     start: () => undefined,
@@ -41,7 +42,7 @@ function runtimeWith(push: Weeb3Node['postPushChunk'], ready = true) {
   } as Weeb3Node;
   const runtime = {
     holds: 0,
-    status: () => ({ state: ready ? 'ready' : 'failed', peers: 3 }) as const,
+    status: () => ({ state, peers: ready ? 3 : 0 }),
     async acquire() {
       runtime.holds += 1;
       return node;
@@ -49,7 +50,8 @@ function runtimeWith(push: Weeb3Node['postPushChunk'], ready = true) {
     release() {
       runtime.holds -= 1;
     },
-    whenReady: () => (ready ? Promise.resolve(node) : Promise.reject(new Error('the node failed to start'))),
+    restart: () => undefined,
+    whenReady: () => (ready ? Promise.resolve(node) : Promise.reject(new Error('the node is not ready'))),
   } satisfies Weeb3RuntimeView & { holds: number };
   return { runtime, pushed };
 }
@@ -108,11 +110,24 @@ describe('a stamped single-owner chunk pushed through weeb-3', () => {
   });
 
   it('fails as the node not running when it cannot start, and pushes nothing', async () => {
-    const { runtime, pushed } = runtimeWith(async () => 'Upload result: success', false);
+    const { runtime, pushed } = runtimeWith(async () => 'Upload result: success', 'failed');
 
     const error = await pushStampedSocThroughWeeb3(CHUNK, { runtime }).catch((reason: unknown) => reason);
 
     expect(error).toMatchObject({ reason: 'node' });
+    expect(pushed).toEqual([]);
+    expect(runtime.holds).toBe(0);
+  });
+
+  it('fails at once as lost when the node lost its peers, saying to start it again in Connect, and pushes nothing', async () => {
+    const { runtime, pushed } = runtimeWith(async () => 'Upload result: success', 'lost');
+
+    const error = await pushStampedSocThroughWeeb3(CHUNK, { runtime }).catch((reason: unknown) => reason);
+
+    expect(error).toMatchObject({
+      reason: 'lost',
+      message: 'The Swarm node in this browser lost its peers. Open Connect to start it again.',
+    });
     expect(pushed).toEqual([]);
     expect(runtime.holds).toBe(0);
   });

@@ -3,7 +3,7 @@ import { Bytes, Identifier } from '@ethersphere/bee-js';
 import { singleOwnerChunkAddress } from '../../singleOwnerChunk';
 import type { StampedSoc } from '../bee-http/stampedSocUpload';
 import type { Weeb3RuntimeView } from './weeb3Provider';
-import { sharedWeeb3Runtime } from './weeb3Runtime';
+import { sharedWeeb3Runtime, WEEB3_LOST_PEERS } from './weeb3Runtime';
 
 /**
  * How long a push through weeb-3 may take before it counts as refused. Measured pushes took 6.6 s and 14.6 s, and one
@@ -18,10 +18,10 @@ const STAMP_BYTES = 113;
 const STAMP_HEX = new RegExp(`^(?:0x)?[0-9a-f]{${STAMP_BYTES * 2}}$`, 'i');
 
 /**
- * Why a push through weeb-3 did not go out: no answer by the deadline, a refusal it named, no node to push with, or a
- * stamp that is not one, which is never handed to the node.
+ * Why a push through weeb-3 did not go out: no answer by the deadline, a refusal it named, no node to push with, a node
+ * that lost its peers, or a stamp that is not one, which is never handed to the node.
  */
-type Weeb3PushFailure = 'deadline' | 'refused' | 'node' | 'stamp-size';
+type Weeb3PushFailure = 'deadline' | 'refused' | 'node' | 'lost' | 'stamp-size';
 
 export class Weeb3PushError extends Error {
   constructor(
@@ -34,9 +34,11 @@ export class Weeb3PushError extends Error {
         ? `the node in this browser did not confirm the push in ${WEEB3_PUSH_DEADLINE_MS / 1000} s`
         : reason === 'node'
           ? 'the node in this browser is not running'
-          : reason === 'stamp-size'
-            ? `the stamp is not ${STAMP_BYTES} bytes`
-            : `the node in this browser refused the push${detail ? `: ${detail}` : ''}`,
+          : reason === 'lost'
+            ? WEEB3_LOST_PEERS
+            : reason === 'stamp-size'
+              ? `the stamp is not ${STAMP_BYTES} bytes`
+              : `the node in this browser refused the push${detail ? `: ${detail}` : ''}`,
       options,
     );
     this.name = 'Weeb3PushError';
@@ -73,7 +75,7 @@ export async function pushStampedSocThroughWeeb3(chunk: StampedSoc, options: Pus
       await runtime.acquire();
       node = await runtime.whenReady();
     } catch (error) {
-      throw new Weeb3PushError('node', null, { cause: error });
+      throw new Weeb3PushError(runtime.status().state === 'lost' ? 'lost' : 'node', null, { cause: error });
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
     const deadline = new Promise<never>((_, reject) => {
