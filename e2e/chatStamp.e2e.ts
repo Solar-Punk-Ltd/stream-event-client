@@ -299,6 +299,35 @@ test("Sign in with Swarm ID is Swarm ID's own button, in the page's look, and it
   expect((await page.request.get(faces[0].url)).status(), 'the file the build emitted').toBe(200);
 });
 
+test("a guest's Show it's really you row holds Swarm ID's button beside its words at phone width", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await deployment(
+    page,
+    () => SITE_STAMP,
+    'bee-node',
+    () => {},
+    false,
+  );
+  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'Your name', exact: true }).fill('Ada');
+  await dialog.getByRole('button', { name: 'Chat as guest', exact: true }).click();
+  if (!(await dialog.isVisible())) {
+    await page.getByRole('banner').getByRole('button', { name: /^Ada/ }).click();
+  }
+  await expect(swarmIdButton(dialog, 'Sign in with Swarm ID')).toBeVisible();
+
+  const words = await dialog.getByText("Show it's really you", { exact: true }).boundingBox();
+  const frame = await dialog.locator('iframe[title="Swarm ID"]').boundingBox();
+  const panel = await dialog.boundingBox();
+  expect(words && frame && panel, 'the words, the frame and the panel are on screen').toBeTruthy();
+  expect(frame!.width, 'room for the button').toBeGreaterThan(100);
+  expect(frame!.x + frame!.width, 'inside the panel').toBeLessThanOrEqual(panel!.x + panel!.width);
+  expect(frame!.x + frame!.width, 'inside the screen').toBeLessThanOrEqual(PHONE.width);
+  const besideOrBelow = frame!.x >= words!.x + words!.width || frame!.y >= words!.y + words!.height;
+  expect(besideOrBelow, 'the button does not cover the words').toBe(true);
+});
+
 test('Change stamp in Swarm ID opens the Swarm ID window again, and the stamp picked there shows at once', async ({
   page,
 }) => {
