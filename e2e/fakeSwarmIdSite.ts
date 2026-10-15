@@ -126,6 +126,7 @@ addEventListener('message', async (event) => {
   if (message.type === 'buttonIdentify') {
     document.body.style.margin = '0';
     document.body.append(button);
+    await window.fakeSwarmIdButtonMayShow();
     parent.postMessage({ type: 'buttonReady' }, event.origin);
   }
 });
@@ -208,6 +209,10 @@ export async function serveFakeSwarmIdSite(
   await page.exposeFunction('fakeSwarmIdButton', (action: string, config: Record<string, unknown>) => {
     buttons.push({ action, config });
   });
+  const held = { isHolding: false, waiting: [] as Array<() => void> };
+  await page.exposeFunction('fakeSwarmIdButtonMayShow', () =>
+    held.isHolding ? new Promise<void>((resolve) => held.waiting.push(resolve)) : undefined,
+  );
   await page.exposeFunction('fakeSwarmIdStamp', (identifier: string, data: number[], privateKey: string) => {
     stamped.push({ identifier, signer: new PrivateKey(privateKey).publicKey().address().toHex() });
     return { address: '0'.repeat(64), stamp: 'ee'.repeat(STAMP_BYTES), ...signedAs(privateKey, identifier, data) };
@@ -223,5 +228,19 @@ export async function serveFakeSwarmIdSite(
       body: `<!doctype html><meta charset="utf-8"><script>${script}</script>`,
     });
   });
-  return { stamped, windows, buttons };
+  return {
+    stamped,
+    windows,
+    buttons,
+    /** Button frames drawn from now on say they are ready only once released, as a slow one does. */
+    holdButtons: () => {
+      held.isHolding = true;
+    },
+    releaseButtons: () => {
+      held.isHolding = false;
+      for (const release of held.waiting.splice(0)) {
+        release();
+      }
+    },
+  };
 }

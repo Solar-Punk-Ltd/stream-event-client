@@ -299,6 +299,46 @@ test("Sign in with Swarm ID is Swarm ID's own button, in the page's look, and it
   expect((await page.request.get(faces[0].url)).status(), 'the file the build emitted').toBe(200);
 });
 
+test("Swarm ID's button shows a placeholder of itself in its own place until its frame is ready, and nothing moves", async ({
+  page,
+}) => {
+  await page.setViewportSize(PHONE);
+  const { swarmId } = await deployment(
+    page,
+    () => SITE_STAMP,
+    'bee-node',
+    () => {},
+    false,
+  );
+  swarmId.holdButtons();
+  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const placeholder = dialog.locator('.swarm-id-button-placeholder');
+  const frame = dialog.locator('iframe[title="Swarm ID"]');
+
+  await expect(placeholder).toBeVisible();
+  await expect(placeholder).toHaveText('Sign in with Swarm ID');
+  await expect(dialog.getByRole('status').filter({ hasText: 'Connecting to Swarm ID' })).toBeAttached();
+  await expect(frame).toBeAttached();
+  const held = await placeholder.boundingBox();
+  const fill = await placeholder.evaluate((element) => getComputedStyle(element).backgroundColor);
+  const primary = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = 'var(--color-primary)';
+    document.body.append(probe);
+    const colour = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return colour;
+  });
+  expect(fill, "the page's primary fill").toBe(primary);
+
+  swarmId.releaseButtons();
+  await expect(placeholder).toHaveCount(0);
+  const shown = await frame.boundingBox();
+  expect(shown, 'the frame stands where the placeholder stood').toEqual(held);
+  await expect(swarmIdButton(dialog, 'Sign in with Swarm ID')).toBeVisible();
+});
+
 test("a guest's Show it's really you row holds Swarm ID's button beside its words at phone width", async ({ page }) => {
   await page.setViewportSize(PHONE);
   await deployment(
