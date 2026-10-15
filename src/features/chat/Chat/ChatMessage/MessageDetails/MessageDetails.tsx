@@ -1,27 +1,41 @@
+import { useState } from 'react';
+
 import type { ChatIdentity } from '@solarpunkltd/swarm-chat-js';
 
-import type { SenderBadge } from '../senderBadge';
+import { ShortAddress } from '@/shared/components/Address/ShortAddress';
+
+import { OWN_STAMP_TITLE, type SenderBadge } from '../senderBadge';
 import { OwnCopies } from '../OwnCopies/OwnCopies';
 import { BadgeIcon } from '../SenderLine/SenderLine';
 
 import './MessageDetails.scss';
 
-const SIGNATURE_MATCHES = 'matches this text';
-const ID_LINK_CONFIRMED = 'confirmed by Swarm ID for this site';
-const SENT_WITH_OWN_STAMP = 'with their own stamp';
-const SENT_BY_GATEWAY = 'by the event gateway';
+const SENT_BY_GATEWAY = 'Event gateway';
+const SHOW_SIGNATURE = 'Signature checked, show it';
+const PUBLIC_ADDRESS_LABEL = 'public address';
+const SIGNATURE_LABEL = 'signature';
+const ACCOUNT_LABEL = 'Swarm ID account';
 
 /**
- * A line the check confirmed. The check mark carries the success colour, which on the Swarm theme measures 3.4:1, enough
- * for a mark and short of the 4.5:1 text needs, so the words stay in the text colour.
+ * The check mark of a signature that matches the text, which a press turns into the signature itself. The mark carries
+ * the success colour, which on the Swarm theme measures 3.4:1, enough for a mark.
  */
-function ConfirmedLine({ text }: { text: string }) {
+function SignatureCheck({ signature }: { signature: string }) {
+  const [isShown, setIsShown] = useState(false);
   return (
-    <dd className="message-details-ok">
-      <svg className="message-details-check" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-        <path d="M2.5 6.2 5 8.6l4.5-5" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      {text}
+    <dd className="message-details-signature">
+      <button
+        type="button"
+        className="message-details-check-button"
+        aria-label={SHOW_SIGNATURE}
+        aria-expanded={isShown}
+        onClick={() => setIsShown((shown) => !shown)}
+      >
+        <svg className="message-details-check" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+          <path d="M2.5 6.2 5 8.6l4.5-5" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {isShown && <ShortAddress value={signature} label={SIGNATURE_LABEL} />}
     </dd>
   );
 }
@@ -31,6 +45,8 @@ interface MessageDetailsProps {
   name: string;
   /** The sender's chat address, 40 hex digits without 0x, as the message carries it. */
   address: string;
+  /** The signature the check matched to the text, as the message carries it. */
+  signature: string;
   badge: SenderBadge;
   identity: ChatIdentity | null;
   ownStamp: boolean;
@@ -44,6 +60,7 @@ export function MessageDetails({
   id,
   name,
   address,
+  signature,
   badge,
   identity,
   ownStamp,
@@ -61,32 +78,32 @@ export function MessageDetails({
     >
       <div className="message-details-header">
         <span className="message-details-title">
+          <b>{name}</b>
           <BadgeIcon badge={badge} />
-          <b>{badge.name}</b>
         </span>
         <button type="button" className="message-details-close" aria-label="Close" onClick={onClose}>
           ×
         </button>
       </div>
       <dl className="message-details-list">
-        <dt>Name</dt>
-        <dd>{name}</dd>
         <dt>Identity</dt>
-        <dd>{badge.line}</dd>
+        <dd>{badge.name}</dd>
         <dt>Public address</dt>
-        <dd className="message-details-address">0x{address}</dd>
+        <dd>
+          <ShortAddress value={address} label={PUBLIC_ADDRESS_LABEL} />
+        </dd>
         <dt>Signature</dt>
-        <ConfirmedLine text={SIGNATURE_MATCHES} />
+        <SignatureCheck signature={signature} />
         {identity && (
           <>
-            <dt>ID link</dt>
-            <ConfirmedLine text={ID_LINK_CONFIRMED} />
             <dt>Swarm ID account</dt>
-            <dd className="message-details-address">{identity.account}</dd>
+            <dd>
+              <ShortAddress value={identity.account} label={ACCOUNT_LABEL} />
+            </dd>
           </>
         )}
         <dt>Sent</dt>
-        <dd>{ownStamp ? SENT_WITH_OWN_STAMP : SENT_BY_GATEWAY}</dd>
+        <dd>{ownStamp ? OWN_STAMP_TITLE : SENT_BY_GATEWAY}</dd>
       </dl>
       {hasOwnCopy && <OwnCopies owner={address} />}
     </div>

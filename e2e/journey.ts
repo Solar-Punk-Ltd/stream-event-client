@@ -1,6 +1,8 @@
 import { expect, type BrowserContext, type Locator, type Page, type Route } from '@playwright/test';
 import { DEFAULT_NOTE_SLOT_MS, noteAddress, noteSlotOf } from '@solarpunkltd/swarm-chat-js';
 
+import { shortAddress } from '../src/shared/components/Address/addressText';
+
 import { PREVIEW_ORIGIN, type Published, SMOKE_MESSAGE, SMOKE_USER } from './recording';
 
 /** The codecs the event's streams are encoded with. A build without them loads every segment and shows nothing. */
@@ -129,9 +131,10 @@ async function badgesAndDetails(chat: Locator, published: Published): Promise<vo
   await swarmId.getByRole('button', { name: 'Swarm ID, show details', exact: true }).click();
   const details = swarmId.getByRole('region', { name: 'Details for this message', exact: true });
   await expect(details, 'the badge opens the details').toBeVisible();
-  await expect(details).toContainText('confirmed by Swarm ID for this site');
-  await expect(details).toContainText(published.chat.swarmId.account);
-  await expect(details).toContainText('by the event gateway');
+  await expect(details).toContainText('Swarm ID');
+  await details.getByRole('button', { name: shortAddress(published.chat.swarmId.account), exact: true }).click();
+  await expect(details, 'the account expands to its full address').toContainText(published.chat.swarmId.account);
+  await expect(details).toContainText('Event gateway');
   await details.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(details, 'the details close').toHaveCount(0);
 }

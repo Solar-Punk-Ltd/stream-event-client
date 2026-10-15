@@ -149,6 +149,7 @@ export function ChatMessage({
             id={detailsId}
             name={message.username}
             address={message.address}
+            signature={message.signedMessage.sig}
             badge={badge}
             identity={message.identity}
             ownStamp={ownStamp}

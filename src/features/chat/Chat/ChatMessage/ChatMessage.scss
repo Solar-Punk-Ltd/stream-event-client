@@ -17,8 +17,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  flex: 1;
   min-width: 0;
-  max-width: 70%;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
   overflow-wrap: anywhere;
@@ -27,6 +27,12 @@
   .own-message & {
     align-items: flex-end;
     text-align: right;
+  }
+
+  // The bubble and what sits under it keep to most of the row, leaving the actions their side. The details card
+  // spans the whole chat column.
+  > :not(.message-details) {
+    max-width: 70%;
   }
 
   .message {
