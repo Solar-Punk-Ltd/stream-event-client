@@ -183,7 +183,8 @@ fails, and Their own feed is too large to count when it names more entries than 
 and 25 more, or more than 1,000. Both are read through the source picked for Chat history: the chat feed from its
 newest entry back through its history files, each file older than the one before and 50 at most, and each entry no
 file holds read by its own index, 500 at most, then the own feed from its first entry to its newest. Past those
-limits the chat is not counted. An entry the source answers is not there counts as missing, and any other answer
+limits the chat is not counted. An entry the source answers is not there counts as missing, by the rule the chat
+reads its slots with, so a 404 or the 500 a Bee 2.6 cluster gives a slot never written, and any other answer
 makes the count fail rather than call a message missing. Each copy is read by its address and must be the sender's
 own single-owner chunk, and every copy and every chat message must pass the same check as a message shown in the
 chat and be for this chat, the copies also the sender's, or it is not counted. A copy and a chat message are the same

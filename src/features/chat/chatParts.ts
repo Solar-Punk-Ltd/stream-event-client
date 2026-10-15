@@ -38,7 +38,7 @@ const ABSENT_ON_A_CLUSTER = 500;
  * cluster answers for a slot never written, as bee-js's `isRetrievable` counts it. Neither ever means
  * the chat has ended, and one that is wrong about "not there" is asked again on the next poll.
  */
-function isAbsent(answer: SwarmAnswer): boolean {
+export function isAbsent(answer: SwarmAnswer): boolean {
   return (
     answer.kind === 'not-found' ||
     (answer.kind === 'unavailable' && answer.cause.kind === 'status' && answer.cause.status === ABSENT_ON_A_CLUSTER)

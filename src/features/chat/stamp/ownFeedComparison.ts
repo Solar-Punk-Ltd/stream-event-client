@@ -11,7 +11,7 @@ import {
 import { makeFeedIdentifier } from '@/shared/feedFollow';
 import type { ReadOptions } from '@/swarm/provider';
 
-import type { ChatReads } from '../chatParts';
+import { type ChatReads, isAbsent } from '../chatParts';
 import { readOwnersChunk } from '../ownersChunk';
 import type { MessageVerifier } from '../verify/messageVerifier';
 
@@ -134,8 +134,9 @@ async function inBatches<T>(
 }
 
 /**
- * The payload of an owner's feed entry at `index`, or null when the source answers that it is not there. Any other
- * answer, and a chunk that is not the owner's, says nothing about whether the entry is there.
+ * The payload of an owner's feed entry at `index`, or null when the source answers that it is not there, by the rule the
+ * chat reads its slots with. Any other answer, and a chunk that is not the owner's, says nothing about whether the
+ * entry is there.
  *
  * @throws OwnFeedUnreadableError when the entry could not be read.
  */
@@ -155,7 +156,7 @@ async function readEntry(
   if (read.kind === 'chunk') {
     return read.chunk.payload;
   }
-  if (read.kind === 'answer' && read.answer.kind === NOT_FOUND) {
+  if (read.kind === 'answer' && isAbsent(read.answer)) {
     return null;
   }
   throw new OwnFeedUnreadableError(`the feed entry at index ${index}`);

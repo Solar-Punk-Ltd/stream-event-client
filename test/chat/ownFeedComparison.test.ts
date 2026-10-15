@@ -104,6 +104,27 @@ describe("comparing a sender's own feed with the chat", () => {
     expect(ids(comparison.chatOnOwnStamp)).toEqual([idOf('n3'), idOf('n2'), idOf('n0')]);
   });
 
+  it('passes over a slot a Bee 2.6 cluster answers 500 for, which is how it says a slot was never written', async () => {
+    const [a, b, c] = ['a', 'b', 'c'].map((label) => message(label));
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a!, b!, c!], { missingSlots: [1] });
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a!, null, c!]);
+    const clusterAbsent: SwarmAnswer = { kind: 'unavailable', cause: { kind: 'status', status: 500 } };
+    const reads: ChatReads = {
+      ...feeds.reads,
+      readChunk: async (address, options) => {
+        const answer = await feeds.reads.readChunk(address, options);
+        return answer.kind === 'not-found' ? clusterAbsent : answer;
+      },
+    };
+
+    const comparison = await compare(feeds, reads);
+
+    expect(ids(comparison.chatOnOwnStamp)).toEqual([idOf('c'), idOf('a')]);
+    expect(ids(comparison.own ?? [])).toEqual([idOf('c'), idOf('a')]);
+    expect(comparison.missingFromOwnFeed).toEqual([]);
+  });
+
   it('says a sender keeps no own feed, and lacks a copy of every message', async () => {
     const feeds = servedFeeds();
     feeds.chat(SERVER_KEY, CHAT_TOPIC, [message('a'), message('b')]);
