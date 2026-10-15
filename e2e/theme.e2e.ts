@@ -39,7 +39,7 @@ async function openNameMenu(page: Page) {
 }
 
 async function joinAsGuest(page: Page) {
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
   await page.getByRole('dialog').getByRole('textbox', { name: 'Your name', exact: true }).fill(SMOKE_USER);
   await page.getByRole('dialog').getByRole('button', { name: 'Chat as guest', exact: true }).click();
   await page.keyboard.press('Escape');
@@ -114,7 +114,7 @@ test("a logged-in viewer switches the look, keeps the deployment's words, and ke
   await page.getByRole('dialog').getByRole('button', { name: 'Leave', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Leave', exact: true }).click();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
+  await expect(page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true })).toBeVisible();
   expect((await wornTheme(page)).theme, 'the pick survives a guest leaving').toBe('web3privacy');
 });
 

@@ -7,6 +7,7 @@ import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { Dialog } from '@/shared/components/Dialog/Dialog';
 import { GuestBadgeIcon } from '@/shared/components/Icons/GuestBadgeIcon';
 import { SwarmIdBadgeIcon } from '@/shared/components/Icons/SwarmIdBadgeIcon';
+import { MY_SWARM } from '@/shared/mySwarmPanel';
 import type { SwarmClient } from '@/swarm/client';
 import type { SourceType } from '@/swarm/sources';
 
@@ -73,13 +74,13 @@ export function Connect() {
   const title = (() => {
     switch (shown.kind) {
       case 'menu':
-        return 'Connect';
+        return MY_SWARM;
       case 'add':
         return 'Add source';
       case 'add-source':
         return ADD_VIEWS[shown.type].title;
       case 'source':
-        return shownSource?.name ?? 'Connect';
+        return shownSource?.name ?? MY_SWARM;
       case 'leave':
         return 'Leave the chat as a guest?';
     }
@@ -114,7 +115,7 @@ export function Connect() {
             {swarmIdSession ? <SwarmIdBadgeIcon /> : <GuestBadgeIcon />}
           </>
         ) : (
-          'Connect'
+          MY_SWARM
         )}
       </button>
 
@@ -122,7 +123,7 @@ export function Connect() {
         <Dialog
           title={title}
           onClose={closeConnect}
-          closeLabel="Close Connect"
+          closeLabel={`Close ${MY_SWARM}`}
           onBack={back}
           view={viewName}
           atSide={shown.kind === 'menu'}

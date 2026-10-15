@@ -64,7 +64,7 @@ describe('the failure bar', () => {
     expect(queryButton('Choose another source')).toBeNull();
   });
 
-  it('says which part cannot load from which source and why, and opens Connect to choose another', async () => {
+  it('says which part cannot load from which source and why, and opens My Swarm to choose another', async () => {
     failures = [{ feature: 'player', provider: 'event', forMs: 12_000, cause: { kind: 'no-answer' } }];
     await start();
 

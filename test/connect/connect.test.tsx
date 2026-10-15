@@ -64,7 +64,7 @@ function answering(input: RequestInfo | URL, init?: RequestInit): Response {
 async function openConnect(config = chatConfig()) {
   mounted = connectPage({ config });
   await settle();
-  click(button(/^(Connect|Ada)/));
+  click(button(/^(My Swarm|Ada)/));
   await settle();
 }
 
@@ -84,11 +84,11 @@ afterEach(() => {
 });
 
 describe("the header's connect button", () => {
-  it('says Connect while the viewer is not chatting, and on a site with no chat', async () => {
+  it('says My Swarm while the viewer is not chatting, and on a site with no chat', async () => {
     mounted = connectPage({ config: minimalConfig() });
     await settle();
 
-    expect(button('Connect').getAttribute('aria-haspopup')).toBe('dialog');
+    expect(button('My Swarm').getAttribute('aria-haspopup')).toBe('dialog');
   });
 
   it("shows the guest's name with its badge once chatting", async () => {
@@ -100,7 +100,7 @@ describe("the header's connect button", () => {
   });
 });
 
-describe('Connect', () => {
+describe('My Swarm', () => {
   it('holds the ID, Swarm access and Use for, in that order, and no chat stamp yet', async () => {
     await openConnect();
 
@@ -109,7 +109,7 @@ describe('Connect', () => {
       'Swarm access',
       'Use for',
     ]);
-    expect(dialog()?.querySelector('h2')?.textContent).toBe('Connect');
+    expect(dialog()?.querySelector('h2')?.textContent).toBe('My Swarm');
   });
 
   it('has no ID on a site with no chat', async () => {
@@ -135,16 +135,16 @@ describe('Connect', () => {
   it('closes on its close button and goes back to its menu the next time', async () => {
     await openConnect();
     click(button('Add source'));
-    click(button('Close Connect'));
+    click(button('Close My Swarm'));
     expect(dialog()).toBeNull();
 
-    click(button('Connect'));
-    expect(dialog()?.querySelector('h2')?.textContent).toBe('Connect');
+    click(button('My Swarm'));
+    expect(dialog()?.querySelector('h2')?.textContent).toBe('My Swarm');
   });
 });
 
-describe("Connect's views", () => {
-  it('go back one view on Escape, and only Escape on the menu closes Connect', async () => {
+describe("My Swarm's views", () => {
+  it('go back one view on Escape, and only Escape on the menu closes My Swarm', async () => {
     await openConnect();
     click(button('Add source'));
     click(button(/^Gateway/));
@@ -153,7 +153,7 @@ describe("Connect's views", () => {
     press(document.body, 'Escape');
     expect(dialog()?.querySelector('h2')?.textContent).toBe('Add source');
     press(document.body, 'Escape');
-    expect(dialog()?.querySelector('h2')?.textContent).toBe('Connect');
+    expect(dialog()?.querySelector('h2')?.textContent).toBe('My Swarm');
     press(document.body, 'Escape');
     expect(dialog()).toBeNull();
   });
@@ -218,7 +218,7 @@ describe('adding a source', () => {
     expect(seen.app!.sources.filter(({ url }) => url === GATEWAY)).toHaveLength(1);
   });
 
-  it("adds a gateway that passed, back on Connect's menu, without putting it in use", async () => {
+  it("adds a gateway that passed, back on My Swarm's menu, without putting it in use", async () => {
     await openConnect();
     click(button('Add source'));
     click(button(/^Gateway/));
@@ -235,7 +235,7 @@ describe('adding a source', () => {
       offered: false,
     });
     expect(seen.app!.parts.player).toBe('event');
-    expect(dialog()?.querySelector('h2')?.textContent).toBe('Connect');
+    expect(dialog()?.querySelector('h2')?.textContent).toBe('My Swarm');
   });
 
   it('stops at the first check that fails, says what to fix, and adds nothing', async () => {
@@ -387,6 +387,6 @@ describe('leaving the chat as a guest', () => {
     await settle();
 
     expect(seen.chatUser!.session).toBeNull();
-    expect(dialog()?.querySelector('h2')?.textContent).toBe('Connect');
+    expect(dialog()?.querySelector('h2')?.textContent).toBe('My Swarm');
   });
 });

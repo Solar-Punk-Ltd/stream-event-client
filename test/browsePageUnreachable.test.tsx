@@ -50,7 +50,7 @@ describe('the browse page when the stream list cannot be read', () => {
     const words = await alertFor(source);
 
     expect(words).toBe(
-      `Stream list cannot load from ${source.name}. Open Connect to check it, or pick another source.`,
+      `Stream list cannot load from ${source.name}. Open My Swarm to check it, or pick another source.`,
     );
   });
 });

@@ -465,7 +465,7 @@ describe('the weeb-3 provider', () => {
 
     expect(answer).toMatchObject({ kind: 'unavailable', cause: { kind: 'network' } });
     expect(String((answer as { cause: { error: unknown } }).cause.error)).toContain(
-      'The Swarm node in this browser lost its peers. Open Connect to start it again.',
+      'The Swarm node in this browser lost its peers. Open My Swarm to start it again.',
     );
     expect(log.urls).toEqual([]);
     expect(runtime.holds).toBe(0);

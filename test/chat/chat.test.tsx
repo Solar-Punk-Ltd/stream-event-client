@@ -179,7 +179,7 @@ function JoinWhereConnectOpens() {
   const { isOpen, open } = useConnect();
   return isOpen
     ? createElement(IdSection, { onLeave: () => {} })
-    : createElement('button', { type: 'button', onClick: open }, 'Connect');
+    : createElement('button', { type: 'button', onClick: open }, 'My Swarm');
 }
 
 function panel(topic = 'stream-one', chat: ChatConfig = CHAT): ReactNode {
@@ -373,7 +373,7 @@ describe('the chat on a watch page', () => {
   it('reads again, and shows the chat once it answers, after a sign-in while it could not be reached', async () => {
     await open();
     await emit(EVENTS.CRITICAL_ERROR, new Error('unreachable'));
-    click(button('Connect'));
+    click(button('My Swarm'));
     type(input('Your name'), 'Ada');
     click(button('Chat as guest'));
     await settle();

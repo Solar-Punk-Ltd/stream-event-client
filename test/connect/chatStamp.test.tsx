@@ -60,7 +60,7 @@ async function openConnect(batch: SwarmIdPostageBatch | null = BATCH, signedIn =
   if (signedIn) {
     await waitFor(() => seen.chatUser?.swarmIdSession);
   }
-  click(button(/^(Connect|Ida|Ada)/));
+  click(button(/^(My Swarm|Ida|Ada)/));
   await settle();
   await settle();
   return swarmId;
@@ -79,7 +79,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('the chat stamp in Connect', () => {
+describe('the chat stamp in My Swarm', () => {
   it('is not shown to a viewer who is not chatting', async () => {
     await openConnect(BATCH, false);
     expect(group()).toBeNull();

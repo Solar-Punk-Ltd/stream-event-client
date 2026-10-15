@@ -120,14 +120,14 @@ describe('a stamped single-owner chunk pushed through weeb-3', () => {
     expect(runtime.holds).toBe(0);
   });
 
-  it('fails at once as lost when the node lost its peers, saying to start it again in Connect, and pushes nothing', async () => {
+  it('fails at once as lost when the node lost its peers, saying to start it again in My Swarm, and pushes nothing', async () => {
     const { runtime, pushed } = runtimeWith(async () => 'Upload result: success', 'lost');
 
     const error = await pushStampedSocThroughWeeb3(CHUNK, { runtime }).catch((reason: unknown) => reason);
 
     expect(error).toMatchObject({
       reason: 'lost',
-      message: 'The Swarm node in this browser lost its peers. Open Connect to start it again.',
+      message: 'The Swarm node in this browser lost its peers. Open My Swarm to start it again.',
     });
     expect(pushed).toEqual([]);
     expect(runtime.holds).toBe(0);

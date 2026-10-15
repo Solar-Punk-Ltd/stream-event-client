@@ -38,12 +38,12 @@ async function header(asGuest: boolean): Promise<FakeSwarmId> {
   mounted = connectPage({ swarmId });
   await settle();
   await settle();
-  click(button(asGuest ? /^Ada/ : 'Connect'));
+  click(button(asGuest ? /^Ada/ : 'My Swarm'));
   return swarmId;
 }
 
 describe("Swarm ID's button wears the viewer's look", () => {
-  it("is the page's primary button in Connect, in the Swarm theme's colours and its own Geist, in the design's words", async () => {
+  it("is the page's primary button in My Swarm, in the Swarm theme's colours and its own Geist, in the design's words", async () => {
     const swarmId = await header(false);
 
     expect(swarmId.client().shownButton().config).toEqual({

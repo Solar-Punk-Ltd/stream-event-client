@@ -146,7 +146,7 @@ async function deployment(
   await page.goto(`/#/watch/video/${published.stream.owner}/${published.stream.topic}`);
   const chat = page.getByRole('region', { name: 'Chat', exact: true });
   await expect(
-    page.getByRole('banner').getByRole('button', { name: startsSignedIn ? ACCOUNT_NAME : 'Connect', exact: true }),
+    page.getByRole('banner').getByRole('button', { name: startsSignedIn ? ACCOUNT_NAME : 'My Swarm', exact: true }),
   ).toBeVisible({ timeout: 20_000 });
   if (startsSignedIn) {
     await expect(chat.getByRole('textbox', { name: 'Message', exact: true })).toBeVisible({ timeout: 20_000 });
@@ -161,7 +161,7 @@ async function payWithMyStamp(page: Page) {
   await expect(group.getByText('Event chat')).toBeVisible();
   await expect(group.getByText('30 days left')).toBeVisible();
   await expect(group.getByText(/25% used/)).toBeVisible();
-  await page.getByRole('button', { name: 'Close Connect', exact: true }).click();
+  await page.getByRole('button', { name: 'Close My Swarm', exact: true }).click();
 }
 
 /** Swarm ID's own button, inside its frame, in the part of the page that shows it. */
@@ -221,7 +221,7 @@ test('a stamp that ran out holds the message, and the viewer may let the gateway
     .getByRole('region', { name: 'Chat stamp' })
     .getByRole('radio', { name: /^My stamp/ })
     .check();
-  await page.getByRole('button', { name: 'Close Connect', exact: true }).click();
+  await page.getByRole('button', { name: 'Close My Swarm', exact: true }).click();
 
   await expect(chat.getByText('Your stamp ran out.')).toBeVisible();
   await chat.getByRole('textbox', { name: 'Message', exact: true }).fill('waiting for a stamp');
@@ -273,7 +273,7 @@ test("Sign in with Swarm ID is Swarm ID's own button, in the page's look, and it
     () => {},
     false,
   );
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
   const dialog = page.getByRole('dialog');
   const button = swarmIdButton(dialog, 'Sign in with Swarm ID');
   await expect(button).toBeVisible();
@@ -312,7 +312,7 @@ test("Swarm ID's button shows a placeholder of itself in its own place until its
     false,
   );
   swarmId.holdButtons();
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
   const dialog = page.getByRole('dialog');
   const placeholder = dialog.locator('.swarm-id-button-placeholder');
   const frame = dialog.locator('iframe[title="Swarm ID"]');
@@ -349,7 +349,7 @@ test("a guest's Show it's really you row holds Swarm ID's button beside its word
     () => {},
     false,
   );
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('textbox', { name: 'Your name', exact: true }).fill('Ada');
   await dialog.getByRole('button', { name: 'Chat as guest', exact: true }).click();

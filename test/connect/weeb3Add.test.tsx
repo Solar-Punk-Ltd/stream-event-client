@@ -102,7 +102,7 @@ afterEach(async () => {
 async function openWeeb3() {
   mounted = connectPage();
   await settle();
-  click(button('Connect'));
+  click(button('My Swarm'));
   click(button('Add source'));
   click(button(/^Weeb3/));
 }
@@ -130,7 +130,7 @@ describe('adding the node in this browser', () => {
     ]);
   });
 
-  it('adds it once every check passed, and keeps it running while Connect stays open', async () => {
+  it('adds it once every check passed, and keeps it running while My Swarm stays open', async () => {
     await openWeeb3();
     const node = await waitFor(() => fakeWeeb3.current!.nodes[0]);
     node.peers = 25;
@@ -142,7 +142,7 @@ describe('adding the node in this browser', () => {
     expect(sharedWeeb3Runtime().status().state).toBe('ready');
     expect(text()).toContain('Weeb3 · 25 of 200 peers · in this tab');
 
-    click(button('Close Connect'));
+    click(button('Close My Swarm'));
     await settle();
     await waitFor(() => (sharedWeeb3Runtime().status().state === 'stopped' ? true : null));
   });
@@ -156,7 +156,7 @@ describe('adding the node in this browser', () => {
     await settle();
 
     expect(seen.app!.sources.filter((source) => source.type === 'weeb-3')).toHaveLength(1);
-    click(button('Close Connect'));
+    click(button('Close My Swarm'));
     await waitFor(() => (sharedWeeb3Runtime().status().state === 'stopped' ? true : null));
   });
 
@@ -170,11 +170,11 @@ describe('adding the node in this browser', () => {
     expect(seen.app!.sources.some((source) => source.type === 'weeb-3')).toBe(false);
   });
 
-  it('asks before closing Connect stops the node it is adding, and keeps it on Keep adding', async () => {
+  it('asks before closing My Swarm stops the node it is adding, and keeps it on Keep adding', async () => {
     await openWeeb3();
     await waitFor(() => fakeWeeb3.current!.nodes[0]);
 
-    click(button('Close Connect'));
+    click(button('Close My Swarm'));
     await settle();
     expect(dialog()).not.toBeNull();
     expect(text()).toContain('Closing stops the node in this tab. Weeb3 is not added yet.');
@@ -185,7 +185,7 @@ describe('adding the node in this browser', () => {
     expect(text()).not.toContain('Closing stops the node');
     expect(sharedWeeb3Runtime().status().state).not.toBe('stopped');
 
-    click(button('Close Connect'));
+    click(button('Close My Swarm'));
     click(button('Stop and close'));
     await settle();
     expect(dialog()).toBeNull();
@@ -213,7 +213,7 @@ describe("an added node's settings", () => {
     saveAddedSources([{ id: 'added-1', type: 'weeb-3', name: 'Weeb3', url: '' }]);
     mounted = connectPage();
     await settle();
-    click(button('Connect'));
+    click(button('My Swarm'));
     click(button('Settings of Weeb3'));
     click(button('Test connection'));
     await waitFor(() => (sharedWeeb3Runtime().status().state === 'failed' ? true : null), 200);
@@ -230,7 +230,7 @@ describe("an added node's settings", () => {
     saveAddedSources([{ id: 'added-1', type: 'weeb-3', name: 'Weeb3', url: '' }]);
     mounted = connectPage();
     await settle();
-    click(button('Connect'));
+    click(button('My Swarm'));
     click(button('Settings of Weeb3'));
     click(button('Test connection'));
     const first = await waitFor(() => fakeWeeb3.current!.nodes[0], 200);
