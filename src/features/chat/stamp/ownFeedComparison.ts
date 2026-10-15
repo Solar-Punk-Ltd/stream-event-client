@@ -32,7 +32,7 @@ export interface OwnFeedComparison {
   readonly missingFromChat: readonly OwnFeedRecord[];
 }
 
-/** A feed's newest entry or one of its history files could not be read, which says nothing about the copies. */
+/** A feed's newest entry, one of its entries or a history file could not be read, which says nothing about the copies. */
 export class OwnFeedUnreadableError extends Error {
   constructor(what: string) {
     super(`${what} could not be read`);
@@ -111,15 +111,32 @@ async function inBatches<T>(indices: readonly number[], read: (index: number) =>
   return results;
 }
 
-/** The payload of an owner's feed entry at `index`, or null when it is not there or not the owner's. */
-async function readEntry(reads: ChatReads, owner: string, topic: Topic, index: number, window: ReadOptions) {
+/**
+ * The payload of an owner's feed entry at `index`, or null when the source answers that it is not there. Any other
+ * answer, and a chunk that is not the owner's, says nothing about whether the entry is there.
+ *
+ * @throws OwnFeedUnreadableError when the entry could not be read.
+ */
+async function readEntry(
+  reads: ChatReads,
+  owner: string,
+  topic: Topic,
+  index: number,
+  window: ReadOptions,
+): Promise<Uint8Array | null> {
   const read = await readOwnersChunk(
     reads,
     owner,
     makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))),
     window,
   );
-  return read.kind === 'chunk' ? read.chunk.payload : null;
+  if (read.kind === 'chunk') {
+    return read.chunk.payload;
+  }
+  if (read.kind === 'answer' && read.answer.kind === NOT_FOUND) {
+    return null;
+  }
+  throw new OwnFeedUnreadableError(`the feed entry at index ${index}`);
 }
 
 /**
@@ -280,7 +297,8 @@ function onePerSignature(records: readonly OwnFeedRecord[]): OwnFeedRecord[] {
  * chat message passes, so a matching signature means the very message the chat holds, which an id, chosen by the
  * sender, does not.
  *
- * @throws OwnFeedUnreadableError when a feed's newest entry or a history file of the chat could not be read.
+ * @throws OwnFeedUnreadableError when a feed's newest entry, one of its entries or a history file of the chat could not
+ *   be read.
  * @throws OwnFeedTooLargeError when the own feed names more entries than {@link ownFeedCap} allows.
  */
 export async function compareOwnFeed(options: CompareOwnFeedOptions): Promise<OwnFeedComparison> {

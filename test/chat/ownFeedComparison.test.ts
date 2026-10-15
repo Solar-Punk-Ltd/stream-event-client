@@ -1,6 +1,14 @@
-import { type ChatMessage, createChatMessage, MessageType, MessageVia } from '@solarpunkltd/swarm-chat-js';
+import { FeedIndex, Topic } from '@ethersphere/bee-js';
+import {
+  type ChatMessage,
+  createChatMessage,
+  MessageType,
+  MessageVia,
+  ownFeedTopic,
+} from '@solarpunkltd/swarm-chat-js';
 import { describe, expect, it } from 'vitest';
 
+import type { ChatReads } from '../../src/features/chat/chatParts';
 import {
   compareOwnFeed,
   isInOwnFeed,
@@ -10,7 +18,9 @@ import {
   OwnFeedTooLargeError,
   OwnFeedUnreadableError,
 } from '../../src/features/chat/stamp/ownFeedComparison';
+import { makeFeedIdentifier } from '../../src/shared/feedFollow';
 import type { SwarmAnswer } from '../../src/swarm/answers';
+import { singleOwnerChunkAddress } from '../../src/swarm/singleOwnerChunk';
 import { servedFeeds } from '../helpers/chatFeed';
 import { addressOf, GUEST_KEY, idOf, inThreadVerifier, SECOND_GUEST_KEY } from '../helpers/signedChat';
 
@@ -30,15 +40,17 @@ function message(label: string, key = GUEST_KEY): ChatMessage {
   }).message;
 }
 
-const compare = (feeds: ReturnType<typeof servedFeeds>) =>
+const compare = (feeds: ReturnType<typeof servedFeeds>, reads = feeds.reads) =>
   compareOwnFeed({
-    reads: () => feeds.reads,
+    reads: () => reads,
     verify: inThreadVerifier(),
     chatOwner: addressOf(SERVER_KEY),
     chatTopic: CHAT_TOPIC,
     sender: SENDER,
     timeoutMs: 1_000,
   });
+
+const unanswered: SwarmAnswer = { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: 1_000 } };
 
 const ids = (records: ReadonlyArray<{ message: ChatMessage }>) => records.map(({ message }) => message.id);
 
@@ -117,7 +129,6 @@ describe("comparing a sender's own feed with the chat", () => {
   it.each(['the own feed', 'the chat feed'])(
     'throws when %s cannot be looked up, which says nothing about the copies',
     async (which) => {
-      const unanswered: SwarmAnswer = { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: 1_000 } };
       const feeds = servedFeeds();
       const owner = feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [message('a')]);
       const chatOwner = feeds.chat(SERVER_KEY, CHAT_TOPIC, [message('a')]);
@@ -210,4 +221,28 @@ describe("comparing a sender's own feed with the chat", () => {
     await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedUnreadableError);
     expect(feeds.asked.filter((read) => read.startsWith('bytes'))).toHaveLength(MAX_HISTORY_FILES);
   });
+
+  it.each([
+    ['an own feed entry', ownFeedTopic(CHAT_TOPIC), GUEST_KEY],
+    ['a chat entry no history file holds', CHAT_TOPIC, SERVER_KEY],
+  ])(
+    'says the comparison could not be counted when %s fails to read, rather than counting it missing',
+    async (_what, topic, key) => {
+      const [a, b] = [message('a'), message('b')];
+      const feeds = servedFeeds();
+      feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b]);
+      feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a, b]);
+      const first = singleOwnerChunkAddress(
+        makeFeedIdentifier(Topic.fromString(topic), FeedIndex.fromBigInt(0n)),
+        addressOf(key),
+      );
+      const reads: ChatReads = {
+        ...feeds.reads,
+        readChunk: async (address, options) =>
+          address === first ? unanswered : feeds.reads.readChunk(address, options),
+      };
+
+      await expect(compare(feeds, reads)).rejects.toBeInstanceOf(OwnFeedUnreadableError);
+    },
+  );
 });
