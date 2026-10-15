@@ -94,7 +94,7 @@ function OwnFeedSyncOf({ chat }: { readonly chat: OwnFeedChat }) {
     );
   }
 
-  const { chat: inChat, missingFromOwnFeed } = count.comparison;
+  const { chatOnOwnStamp: inChat, missingFromOwnFeed } = count.comparison;
   const notCopied = sync.status === SYNC_FAILED ? sync.failed.length : sync.status === SYNCED ? 0 : null;
   const copied = inChat.length - (notCopied ?? missingFromOwnFeed.length);
   return (

@@ -2,6 +2,7 @@ import { FeedIndex, Topic } from '@ethersphere/bee-js';
 import {
   type ChatMessage,
   type HistoryLink,
+  MessageVia,
   ownFeedTopic,
   parseFeedEntry,
   parseHistoryFile,
@@ -22,11 +23,14 @@ export interface OwnFeedRecord {
 }
 
 export interface OwnFeedComparison {
-  /** The sender's messages in the whole chat feed, newest first. */
-  readonly chat: readonly OwnFeedRecord[];
+  /**
+   * The sender's messages in the whole chat feed that they paid for with their own stamp, newest first. A message the
+   * gateway paid for gets no copy, so it is neither counted nor missing.
+   */
+  readonly chatOnOwnStamp: readonly OwnFeedRecord[];
   /** The copies in the sender's own feed, newest first, or null when they keep no own feed. */
   readonly own: readonly OwnFeedRecord[] | null;
-  /** Their messages in the chat with no copy in their own feed, newest first. */
+  /** Their messages on their own stamp in the chat with no copy in their own feed, newest first. */
   readonly missingFromOwnFeed: readonly OwnFeedRecord[];
   /** Copies in their own feed of messages the chat does not hold, newest first. */
   readonly missingFromChat: readonly OwnFeedRecord[];
@@ -312,19 +316,18 @@ export async function compareOwnFeed(options: CompareOwnFeedOptions): Promise<Ow
   }
   const ownFeed = ownHead === null ? null : await readOwnFeed(options, ownHead.index, window);
 
-  const chat = onePerSignature(
-    [...wholeChat]
-      .filter(([, message]) => message.addr === sender)
-      .map(([index, message]) => ({ index, message }))
-      .sort(newestFirst),
-  );
+  const sent = [...wholeChat]
+    .filter(([, message]) => message.addr === sender)
+    .map(([index, message]) => ({ index, message }))
+    .sort(newestFirst);
+  const chatOnOwnStamp = onePerSignature(sent.filter(({ message }) => message.via === MessageVia.OWN_STAMP));
   const own = ownFeed === null ? null : onePerSignature([...ownFeed].sort(newestFirst));
-  const inChat = new Set(chat.map(({ message }) => message.sig));
+  const inChat = new Set(sent.map(({ message }) => message.sig));
   const copied = new Set((own ?? []).map(({ message }) => message.sig));
   return {
-    chat,
+    chatOnOwnStamp,
     own,
-    missingFromOwnFeed: chat.filter(({ message }) => !copied.has(message.sig)),
+    missingFromOwnFeed: chatOnOwnStamp.filter(({ message }) => !copied.has(message.sig)),
     missingFromChat: (own ?? []).filter(({ message }) => !inChat.has(message.sig)),
   };
 }

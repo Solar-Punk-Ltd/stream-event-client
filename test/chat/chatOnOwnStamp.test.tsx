@@ -520,6 +520,24 @@ describe('my own feed in My Swarm', () => {
     expect(queryButton('Sync')).toBeNull();
   });
 
+  it('counts only my messages on my own stamp, and syncs none the gateway paid for', async () => {
+    const [a, b] = await myMessages(['a', 'b']);
+    const key = await chatKeyFor(BOUND_SITE);
+    const free = createChatMessage(key, {
+      id: idOf('free'),
+      topic: CHAT_TOPIC,
+      type: MessageType.TEXT,
+      text: 'paid by the gateway',
+      name: 'Ida',
+      ts: 1_000,
+      via: MessageVia.GATEWAY,
+    }).message;
+    const box = await openMySwarm([a!, free, b!], [a!, b!]);
+
+    expect(box()?.textContent).toContain('Own feed: 2 of 2 messages');
+    expect(queryButton('Sync')).toBeNull();
+  });
+
   it('says nothing is missing and offers no sync when every message has its copy', async () => {
     const [a, b] = await myMessages(['a', 'b']);
     const box = await openMySwarm([a!, b!], [a!, b!]);

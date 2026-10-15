@@ -85,7 +85,7 @@ export function OwnFeedCheck({ sender, signature }: { readonly sender: string; r
               </span>
             </>
           )}
-          <span>Chat feed: {messagesText(count.comparison.chat.length)}</span>
+          <span>Chat feed: {messagesText(count.comparison.chatOnOwnStamp.length)} on their own stamp</span>
           {count.comparison.own !== null && (
             <>
               <MissingList label={MISSING_FROM_OWN_FEED} records={count.comparison.missingFromOwnFeed} />

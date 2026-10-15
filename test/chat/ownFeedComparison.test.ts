@@ -28,7 +28,7 @@ const CHAT_TOPIC = 'chat-stream-one';
 const SERVER_KEY = 'c3'.repeat(32);
 const SENDER = addressOf(GUEST_KEY);
 
-function message(label: string, key = GUEST_KEY): ChatMessage {
+function message(label: string, key = GUEST_KEY, via: MessageVia = MessageVia.OWN_STAMP): ChatMessage {
   return createChatMessage(key, {
     id: idOf(label),
     topic: CHAT_TOPIC,
@@ -36,7 +36,7 @@ function message(label: string, key = GUEST_KEY): ChatMessage {
     text: `text of ${label}`,
     name: 'Ada',
     ts: 1_000,
-    via: MessageVia.OWN_STAMP,
+    via,
   }).message;
 }
 
@@ -64,7 +64,7 @@ describe("comparing a sender's own feed with the chat", () => {
 
     const comparison = await compare(feeds);
 
-    expect(ids(comparison.chat), 'newest first, nobody else').toEqual([idOf('c'), idOf('b'), idOf('a')]);
+    expect(ids(comparison.chatOnOwnStamp), 'newest first, nobody else').toEqual([idOf('c'), idOf('b'), idOf('a')]);
     expect(ids(comparison.own ?? [])).toEqual([idOf('d'), idOf('c'), idOf('a')]);
     expect(ids(comparison.missingFromOwnFeed)).toEqual([idOf('b')]);
     expect(ids(comparison.missingFromChat)).toEqual([idOf('d')]);
@@ -80,7 +80,7 @@ describe("comparing a sender's own feed with the chat", () => {
 
     const comparison = await compare(feeds);
 
-    expect(comparison.chat).toHaveLength(9);
+    expect(comparison.chatOnOwnStamp).toHaveLength(9);
     expect(comparison.missingFromOwnFeed).toEqual([]);
     expect(feeds.asked.filter((read) => read.startsWith('bytes'))).toHaveLength(2);
   });
@@ -92,7 +92,7 @@ describe("comparing a sender's own feed with the chat", () => {
 
     const comparison = await compare(feeds);
 
-    expect(ids(comparison.chat)).toEqual([idOf('n3'), idOf('n2'), idOf('n0')]);
+    expect(ids(comparison.chatOnOwnStamp)).toEqual([idOf('n3'), idOf('n2'), idOf('n0')]);
   });
 
   it('says a sender keeps no own feed, and lacks a copy of every message', async () => {
@@ -192,7 +192,7 @@ describe("comparing a sender's own feed with the chat", () => {
       .filter((_, index) => index !== at)
       .map(idOf)
       .reverse();
-    expect(ids(comparison.chat)).toEqual(kept);
+    expect(ids(comparison.chatOnOwnStamp)).toEqual(kept);
     expect(ids(comparison.missingFromOwnFeed)).toEqual(kept);
   });
 
@@ -209,7 +209,7 @@ describe("comparing a sender's own feed with the chat", () => {
 
     const comparison = await compare(feeds);
 
-    expect(comparison.chat).toHaveLength(5);
+    expect(comparison.chatOnOwnStamp).toHaveLength(5);
     expect(feeds.asked.filter((read) => read.startsWith('bytes'))).toHaveLength(2);
   });
 
@@ -245,4 +245,18 @@ describe("comparing a sender's own feed with the chat", () => {
       await expect(compare(feeds, reads)).rejects.toBeInstanceOf(OwnFeedUnreadableError);
     },
   );
+
+  it("counts only the sender's messages on their own stamp, since a message the gateway paid for has no copy", async () => {
+    const [a, b] = [message('a'), message('b')];
+    const free = message('free', GUEST_KEY, MessageVia.GATEWAY);
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, free, b]);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a]);
+
+    const comparison = await compare(feeds);
+
+    expect(ids(comparison.chatOnOwnStamp)).toEqual([idOf('b'), idOf('a')]);
+    expect(ids(comparison.missingFromOwnFeed)).toEqual([idOf('b')]);
+    expect(comparison.missingFromChat).toEqual([]);
+  });
 });
