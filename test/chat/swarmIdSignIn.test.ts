@@ -9,6 +9,9 @@ import {
   frameRefusedWarning,
   NO_CHAT_KEY,
   SIGN_IN_INCOMPLETE,
+  STAMP_WINDOW_BLOCKED,
+  STAMP_WINDOW_FAILED,
+  STAMP_WINDOW_OPENED,
   SWARM_ID_BLOCKED,
   SWARM_ID_SIGNED_IN,
   SWARM_ID_SIGNED_OUT,
@@ -493,5 +496,53 @@ describe('the stamp Swarm ID gives this site', () => {
     expect(await signIn.getPostageBatch()).toBeUndefined();
     await expect(signIn.stampChunk(CHUNK)).rejects.toMatchObject({ code: 'not-authenticated' });
     expect(swarmId.client().stamped).toEqual([]);
+  });
+
+  it('opens the Swarm ID window again for a signed-in viewer, where the stamp is picked, and stays signed in', async () => {
+    const swarmId = await fakeSwarmId(SIGNED_IN);
+    const signIn = await started(swarmId);
+    await until(signIn, SWARM_ID_SIGNED_IN);
+
+    expect(await signIn.changeStamp()).toBe(STAMP_WINDOW_OPENED);
+    expect(swarmId.client().connectCalls).toBe(1);
+    expect(signIn.getState().status).toBe(SWARM_ID_SIGNED_IN);
+  });
+
+  it('says the browser blocked that window, and keeps the viewer signed in', async () => {
+    const swarmId = await fakeSwarmId(SIGNED_IN, (client) => {
+      client.nextWindow = 'blocked';
+    });
+    const signIn = await started(swarmId);
+    await until(signIn, SWARM_ID_SIGNED_IN);
+
+    expect(await signIn.changeStamp()).toBe(STAMP_WINDOW_BLOCKED);
+    expect(signIn.getState().status).toBe(SWARM_ID_SIGNED_IN);
+  });
+
+  it('opens no window to change the stamp while nobody is signed in', async () => {
+    const swarmId = await fakeSwarmId();
+    const signIn = await started(swarmId);
+
+    expect(await signIn.changeStamp()).toBe(STAMP_WINDOW_FAILED);
+    expect(swarmId.client().connectCalls).toBe(0);
+  });
+
+  it('tells its listeners of every report the frame makes, so a stamp picked in the window is read at once', async () => {
+    const swarmId = await fakeSwarmId(SIGNED_IN, (client) => {
+      client.postageBatch = BATCH;
+    });
+    const signIn = await started(swarmId);
+    await until(signIn, SWARM_ID_SIGNED_IN);
+    const read: unknown[] = [];
+    const unsubscribe = signIn.subscribeConnectionChange(() => void signIn.getPostageBatch().then((b) => read.push(b)));
+
+    swarmId.client().pickStamp({ ...BATCH, label: 'Another stamp' });
+    await settled();
+    unsubscribe();
+    swarmId.client().pickStamp(BATCH);
+    await settled();
+
+    expect(read).toEqual([{ ...BATCH, label: 'Another stamp' }]);
+    expect(signIn.getState().status).toBe(SWARM_ID_SIGNED_IN);
   });
 });

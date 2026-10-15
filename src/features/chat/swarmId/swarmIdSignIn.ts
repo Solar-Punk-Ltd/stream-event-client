@@ -28,6 +28,17 @@ export type SwarmIdState =
   /** The library could not start, as for a site the Swarm ID site does not serve, so there is no sign-in. */
   | { readonly status: typeof SWARM_ID_UNAVAILABLE };
 
+export const STAMP_WINDOW_OPENED = 'opened';
+export const STAMP_WINDOW_BLOCKED = 'blocked';
+export const STAMP_WINDOW_FAILED = 'failed';
+
+/** What became of the Swarm ID window opened to change this site's stamp. */
+export type StampWindowOutcome =
+  | typeof STAMP_WINDOW_OPENED
+  | typeof STAMP_WINDOW_BLOCKED
+  /** It did not open, or nobody is signed in to change a stamp for. */
+  | typeof STAMP_WINDOW_FAILED;
+
 export const WINDOW_FAILED = 'The Swarm ID window did not open. Try again.';
 export const SIGN_IN_INCOMPLETE = 'Swarm ID signed you in without confirming a chat address for this site.';
 export const NO_CHAT_KEY = 'Swarm ID did not give this site its chat key. Try again.';
@@ -72,6 +83,16 @@ export interface SwarmIdSignIn {
   /** Opens the Swarm ID window. Call it from a click and from nothing else, or the browser blocks the window. */
   signIn(): void;
   signOut(): Promise<void>;
+  /**
+   * Opens the Swarm ID window again for a signed-in viewer, where the person picks the stamp this site uses. Call it
+   * from a click only. A blocked window leaves the viewer signed in.
+   */
+  changeStamp(): Promise<StampWindowOutcome>;
+  /**
+   * Calls the listener on every report the frame makes once the library is ready. A stamp picked in the Swarm ID
+   * window reaches the site only this way, as the same session reported again.
+   */
+  subscribeConnectionChange(listener: () => void): () => void;
   /** The chat history moved to another source: its Bee API base URL, or null for one with none, which changes nothing. */
   useBeeApiUrl(url: string | null): void;
   /** The stamp Swarm ID gives this site, or undefined while nobody is signed in or it gives none. */
@@ -127,6 +148,7 @@ export function createSwarmIdSignIn({
   };
   let state: SwarmIdState = { status: SWARM_ID_STARTING };
   const listeners = new Set<() => void>();
+  const connectionListeners = new Set<() => void>();
   let client: SwarmIdClient | null = null;
   let isStarted = false;
   let isReady = false;
@@ -205,6 +227,9 @@ export function createSwarmIdSignIn({
   const onConnectionChange = (info: SwarmIdConnectionInfo) => {
     if (isReady) {
       apply(info);
+      for (const listener of [...connectionListeners]) {
+        listener();
+      }
     } else {
       reportedEarly = info;
     }
@@ -266,6 +291,21 @@ export function createSwarmIdSignIn({
       );
     },
 
+    changeStamp() {
+      if (!client || state.status !== SWARM_ID_SIGNED_IN) {
+        return Promise.resolve(STAMP_WINDOW_FAILED);
+      }
+      return client.connect().then(
+        () => STAMP_WINDOW_OPENED,
+        (error: unknown) => (isWindowBlocked(error) ? STAMP_WINDOW_BLOCKED : STAMP_WINDOW_FAILED),
+      );
+    },
+
+    subscribeConnectionChange(listener) {
+      connectionListeners.add(listener);
+      return () => connectionListeners.delete(listener);
+    },
+
     async signOut() {
       generation += 1;
       set(SIGNED_OUT);
@@ -297,6 +337,7 @@ export function createSwarmIdSignIn({
     stop() {
       isStopped = true;
       listeners.clear();
+      connectionListeners.clear();
       if (hasDocument) {
         document.removeEventListener(POLICY_VIOLATION, onPolicyViolation);
       }

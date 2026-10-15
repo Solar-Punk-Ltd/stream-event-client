@@ -131,6 +131,15 @@ class FakeSwarmIdClient implements SwarmIdClient {
     this.info = info;
     this.options.onConnectionChange(info);
   }
+
+  /**
+   * What the Swarm ID window does when the person, already signed in, picks another stamp for this site: the frame
+   * takes it at once and reports the same session again, which is all the library tells the site.
+   */
+  pickStamp(batch: SwarmIdPostageBatch | undefined): void {
+    this.postageBatch = batch;
+    this.handOver(this.info);
+  }
 }
 
 export interface FakeSwarmId {
