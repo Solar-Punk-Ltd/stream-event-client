@@ -331,11 +331,12 @@ function onePerSignature(records: readonly OwnFeedRecord[]): OwnFeedRecord[] {
 }
 
 /**
- * The sender's messages in the whole chat against the copies in their own feed. Both are read through the chat's
- * reader, the whole chat history and the whole own feed. A copy and a message are the same when their signatures are:
- * a message has one valid signature, over every field it says, and a copy is counted only once it passes the check a
- * chat message passes, so a matching signature means the very message the chat holds, which an id, chosen by the
- * sender, does not.
+ * The sender's messages on their own stamp in the whole chat against the copies in their own feed. Both are read
+ * through the chat's reader, the whole chat history and the own feed up to {@link ownFeedCap}. A copy and a message
+ * are the same when their signatures are: a message has one valid signature, over every field it says, and both sides
+ * are counted only once they pass the check a chat message passes, so a matching signature means the copy is the
+ * message the chat feed shows, which an id, chosen by the sender, would not. That the chat feed shows what the chat
+ * server published holds only as far as the server, which writes the feed, is trusted.
  *
  * @throws OwnFeedUnreadableError when a feed's newest entry, one of its entries or a history file of the chat could not
  *   be read.

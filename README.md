@@ -106,7 +106,8 @@ after the change.
 ## The chat
 
 One chat per stream, beside the video on a desktop and under it on a phone, where it folds away.
-Anyone can read it. Writing asks once for a display name, 1 to 20 characters, and there is no
+Anyone can read it. Writing asks once for a display name, 1 to 20 characters with no invisible formatting or control
+character such as a right-to-left override, and there is no
 password, wallet or account. A deployment that names a Swarm ID site in `swarmId.url` also offers
 signing in with Swarm ID, described [below](#signing-in-with-swarm-id). A viewer can send a message, react with an emoji, reply in a thread,
 load older messages, and retry a message that did not send. A message lights up under the pointer and shows its
@@ -123,7 +124,7 @@ reaction's picker beside a message.
   A message costs one stamped chunk, and one more for each resend while it has not been read back. A viewer who
   pays with their own stamp, [below](#who-pays-for-a-message), sends through their own Bee node or through Weeb3
   instead.
-- **The chat aggregator**, on swarm-chat-js 8, which listens on the shared address the key and topic above name, and
+- **The chat aggregator**, on swarm-chat-js 9, which listens on the shared address the key and topic above name, and
   appends each message to the stream's chat feed, `chat-<stream topic>` under `chat.feedOwner`.
   Opening a chat reads the newest history file the chat feed points to, then the entries after it. When the feed's
   newest entry is not found in time, as through Weeb3 where every entry not there costs a long wait, the library
@@ -172,16 +173,24 @@ who paid for the write (Event gateway or Own stamp). An address shows short, `0x
 full with a Copy button beside it, which reads Copied for three seconds after a copy, and a screen reader hears that the
 copy worked. A press on the check mark shows the signature the same way. For a message sent with its sender's own
 stamp, the details also compare the sender's own feed, `ownFeedTopic(chatTopic)` under their chat address, with the
-chat: **Own feed: N messages**, **Chat feed: N messages**, a tick and In their own feed when this message has its
-copy there or Not in their own feed when it has none, and, when the two differ, which messages are missing from
-their own feed and which from the chat feed, five of each at most, newest first. They say Counting… while they read,
-and No own feed when the sender keeps none. Both are read whole through the source picked for Chat history: the chat
-feed from its newest entry back through every history file, each entry no file holds read by its own index, and the
-own feed from its first entry to its newest. Each copy is read by its address and must be the sender's own
-single-owner chunk, and must pass the same check as every chat message and be the sender's and for this chat, or it
-is not counted. A copy and a chat message are the same message when their signatures are: a message has one valid
-signature, over every field it says, so a copy that passed the check with the same signature is the very message the
-chat holds. The comparison only reads (`src/features/chat/stamp/ownFeedComparison.ts`).
+chat: **Own feed: N messages**, **Chat feed: N messages on their own stamp**, a tick and In their own feed when this
+message has its copy there or Not in their own feed when it has none, and, when the two differ, which messages are
+missing from their own feed and which from the chat feed, five of each at most, newest first. Only the sender's
+messages on their own stamp count, since a message the gateway paid for never gets a copy. They say Counting… while
+they read, No own feed when the sender keeps none, Their own feed could not be counted with Try again when a read
+fails, and Their own feed is too large to count when it names more entries than the sender's messages in the chat
+and 25 more, or more than 1,000. Both are read through the source picked for Chat history: the chat feed from its
+newest entry back through its history files, each file older than the one before and 50 at most, and each entry no
+file holds read by its own index, 500 at most, then the own feed from its first entry to its newest. Past those
+limits the chat is not counted. An entry the source answers is not there counts as missing, and any other answer
+makes the count fail rather than call a message missing. Each copy is read by its address and must be the sender's
+own single-owner chunk, and every copy and every chat message must pass the same check as a message shown in the
+chat and be for this chat, the copies also the sender's, or it is not counted. A copy and a chat message are the same
+message when their signatures are: a message has one valid signature, over every field it says, so a copy with the
+same signature is the message the chat feed shows, as far as the chat server that writes the feed is trusted. One
+walk of the chat is shared by every details card and My stamp while a chat is on screen, a finished count is shown
+again for three minutes, at most 32 are kept, and closing the details stops their reads. The comparison only reads
+(`src/features/chat/stamp/ownFeedComparison.ts`, `src/features/chat/stamp/ownFeedCounter.ts`).
 
 ### Signing in with Swarm ID
 
@@ -279,12 +288,16 @@ name's own record names the wallet back, and it is already in its ENSIP-15 norma
 - **What a reader sees.** The verified name with a tick replaces the name the sender chose, on the message and at
   the head of its details. The details add an **ENS** row with the name, the name the sender chose and the short
   wallet address, which a press shows in full. A name with characters outside ASCII says "contains non-Latin
-  characters" there, because such a character can pass for a Latin letter of another name.
+  characters" there, because such a character can pass for a Latin letter of another name, and carries a small mark
+  with that label beside it on the message. A long name ends in an ellipsis on the message, whole under the pointer
+  and in the details. Every name is drawn isolated from the text around it, so its direction never moves the badge,
+  the time or the message.
 - **When there is no name.** A wallet with no name, a name that fails a check and a lookup that fails or runs out of
   time all show the message as before, under the name the sender chose, with no ENS row.
 - **When it looks.** After a message is drawn, never before it, so a slow endpoint holds nothing up. Messages of one
-  wallet share one lookup, and a name found is kept for the page's life. The library keeps its own answers too, a
-  name or no name for ten minutes and a failed read for 30 seconds.
+  wallet share one lookup, at most four lookups run at once, and a name found is kept for ten minutes, so a name
+  moved to another wallet shows within that. The library keeps its own answers too, a name or no name for ten
+  minutes and a failed read for 30 seconds.
 - **Without `ensRpcUrl`**, or without a chat, no name is ever looked up and no wallet is ever asked about.
 - **Whom the endpoint is trusted with.** It decides which name is shown beside a wallet, since nothing checks its
   answers against the chain, and it sees every wallet looked up, from each viewer's own address. A deployment names
@@ -368,12 +381,14 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   twice, but the message itself goes to the chat's inbox address, which Swarm ID stamps again in one slot, so only
   the copy takes new room on the stamp.
 - **Own feed in My Swarm.** While a chat on My stamp is on screen, the My stamp box says under the stamp how many of
-  the viewer's messages in that chat have their copy, as in Own feed: 45 of 47 messages, and 2 missing when some
-  have none, with a **Sync** button. It reads the whole chat history and the whole own feed, as the message details
-  do, and the viewer's messages are the ones signed by their chat address, which is the same on every device. Sync
-  writes the missing copies with the stamp, one after the other, each tried three times as above, and says
-  Syncing… 1 of 2 while it runs, then All 47 copied, or 1 could not be copied with Try again. It says Counting…
-  while it reads.
+  the viewer's messages on their own stamp in that chat have their copy, as in Own feed: 45 of 47 messages, and 2
+  missing when some have none, with a **Sync** button. It reads the chat and the own feed as the message details do,
+  within the same limits, and the viewer's messages are the ones signed by their chat address, which is the same on
+  every device. A message the gateway paid for is not counted and never copied. Sync writes the missing copies with
+  the stamp, one after the other, each tried three times as above, and says Syncing… 1 of 2 while it runs, then All
+  47 copied. It stops at the first copy that fails, since every later copy would try that one again first, and says
+  how many were not copied, that one and the rest, with Try again. Once a sync ends it counts again. It says
+  Counting… while it reads, and Your own feed is too large to count past the limits.
   **A known limit.** The next index is counted from one read of the feed's newest entry each time the chat starts,
   so a chat started again seconds after a send, before that entry can be read back, or another device writing the
   same feed at once, can write a copy at an index already used.
