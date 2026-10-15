@@ -177,6 +177,8 @@ void describe('proxy mode, the default', () => {
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('access-control-allow-origin'), null);
     assert.equal(response.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
     policyOf(response);
   });
 
@@ -214,6 +216,8 @@ void describe('proxy mode with SWARM_ID_URL', () => {
     assert.equal(font.status, 200);
     assert.equal(font.headers.get('access-control-allow-origin'), SWARM_ID);
     assert.equal(font.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+    assert.equal(font.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(font.headers.get('referrer-policy'), 'no-referrer');
     policyOf(font);
     const script = await get(`${base}/${await anAsset(base)}`, { headers: { Origin: SWARM_ID } });
     assert.equal(script.headers.get('access-control-allow-origin'), null);
