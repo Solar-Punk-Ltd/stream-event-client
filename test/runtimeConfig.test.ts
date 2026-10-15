@@ -7,6 +7,7 @@ import {
   CONFIG_URL,
   configProblemText,
   enabledChat,
+  ensRpcUrl,
   loadRuntimeConfig,
   parseRuntimeConfig,
   type RuntimeConfigResult,
@@ -232,6 +233,33 @@ describe('the Swarm ID setting', () => {
     expect(on.ok && swarmIdUrl(on.config)).toBe('https://id.example.com');
     expect(off.ok && swarmIdUrl(off.config)).toBeNull();
     expect(unset.ok && swarmIdUrl(unset.config)).toBeNull();
+  });
+});
+
+describe('the ENS endpoint setting', () => {
+  const ENDPOINT = 'https://ethereum-rpc.example.org';
+
+  it('accepts an http or https address, with a path, and no setting at all', () => {
+    for (const url of [ENDPOINT, 'https://ethereum-rpc.example.org/v1/mainnet', 'http://localhost:8545']) {
+      expect(parseRuntimeConfig({ ...VALID, chat: CHAT, ensRpcUrl: url }).ok).toBe(true);
+    }
+    expect(parseRuntimeConfig({ ...VALID, chat: CHAT }).ok).toBe(true);
+  });
+
+  it('refuses a path on this site, another scheme, an empty value and the example placeholder, naming the field', () => {
+    for (const url of ['/eth', 'wss://ethereum-rpc.example.org', 'ethereum-rpc.example.org', '', '<ENS endpoint>']) {
+      expect(problemOf(parseRuntimeConfig({ ...VALID, chat: CHAT, ensRpcUrl: url }))).toContain('ensRpcUrl');
+    }
+  });
+
+  it('looks names up only beside a chat that is on, since only chat messages show them', () => {
+    const on = parseRuntimeConfig({ ...VALID, chat: CHAT, ensRpcUrl: ENDPOINT });
+    const off = parseRuntimeConfig({ ...VALID, chat: { ...CHAT, enabled: false }, ensRpcUrl: ENDPOINT });
+    const unset = parseRuntimeConfig({ ...VALID, chat: CHAT });
+
+    expect(on.ok && ensRpcUrl(on.config)).toBe(ENDPOINT);
+    expect(off.ok && ensRpcUrl(off.config)).toBeNull();
+    expect(unset.ok && ensRpcUrl(unset.config)).toBeNull();
   });
 });
 
