@@ -9,18 +9,69 @@ export interface EnsNames {
 }
 
 /**
- * Names found are kept for the page's life, and lookups of one wallet that arrive together share one. A wallet with no
- * name is not kept here, because the library keeps that answer itself, a definite one for minutes and a failure for
- * seconds, so a later look gets a name that has since appeared or an endpoint that has come back.
+ * How long a found name is shown before it is looked up again, the Swarm ID library's own `ENS_NAME_CACHE_MS`. Named
+ * here rather than imported, since the library loads only once a name is first looked up.
  */
-export function createEnsNames(rpcUrl: string, resolve: ResolveEnsName = resolveEnsNameWithLibrary): EnsNames {
-  const found = new Map<string, string>();
+export const ENS_NAME_KEPT_MS = 10 * 60_000;
+
+/** The most names looked up at once, so a chat of many linked wallets does not flood the endpoint. */
+export const ENS_LOOKUPS_AT_ONCE = 4;
+
+interface FoundName {
+  readonly name: string;
+  readonly at: number;
+}
+
+/**
+ * Names found are kept for {@link ENS_NAME_KEPT_MS}, so a name moved to another wallet shows within that, and lookups
+ * of one wallet that arrive together share one. At most {@link ENS_LOOKUPS_AT_ONCE} lookups run at once, the rest
+ * waiting their turn. A wallet with no name is not kept here, because the library keeps that answer itself, a
+ * definite one for minutes and a failure for seconds, so a later look gets a name that has since appeared or an
+ * endpoint that has come back.
+ */
+export function createEnsNames(
+  rpcUrl: string,
+  resolve: ResolveEnsName = resolveEnsNameWithLibrary,
+  now: () => number = Date.now,
+): EnsNames {
+  const found = new Map<string, FoundName>();
   const pending = new Map<string, Promise<string | undefined>>();
+  const waiting: Array<() => void> = [];
+  let running = 0;
+
+  const freshName = (key: string) => {
+    const kept = found.get(key);
+    if (kept && now() - kept.at > ENS_NAME_KEPT_MS) {
+      found.delete(key);
+      return undefined;
+    }
+    return kept?.name;
+  };
+
+  async function inTurn(key: string): Promise<string | undefined> {
+    if (running < ENS_LOOKUPS_AT_ONCE) {
+      running += 1;
+    } else {
+      // The lookup that ends hands its place straight to this one, so no newcomer takes it in between.
+      await new Promise<void>((resume) => waiting.push(resume));
+    }
+    try {
+      return await resolve(key, rpcUrl);
+    } finally {
+      const next = waiting.shift();
+      if (next) {
+        next();
+      } else {
+        running -= 1;
+      }
+    }
+  }
+
   return {
-    known: (wallet) => found.get(wallet.toLowerCase()),
+    known: (wallet) => freshName(wallet.toLowerCase()),
     lookUp(wallet) {
       const key = wallet.toLowerCase();
-      const name = found.get(key);
+      const name = freshName(key);
       if (name !== undefined) {
         return Promise.resolve(name);
       }
@@ -28,12 +79,12 @@ export function createEnsNames(rpcUrl: string, resolve: ResolveEnsName = resolve
       if (asked) {
         return asked;
       }
-      const lookup = resolve(key, rpcUrl)
+      const lookup = inTurn(key)
         .catch(() => undefined)
         .then((answer) => {
           pending.delete(key);
           if (answer !== undefined) {
-            found.set(key, answer);
+            found.set(key, { name: answer, at: now() });
           }
           return answer;
         });
