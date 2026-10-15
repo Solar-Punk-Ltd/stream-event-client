@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   compareOwnFeed,
   isInOwnFeed,
+  MAX_HISTORY_FILES,
   MAX_OWN_FEED_ENTRIES,
   OWN_FEED_MARGIN,
   OwnFeedTooLargeError,
@@ -182,5 +183,31 @@ describe("comparing a sender's own feed with the chat", () => {
       .reverse();
     expect(ids(comparison.chat)).toEqual(kept);
     expect(ids(comparison.missingFromOwnFeed)).toEqual(kept);
+  });
+
+  it('stops following history files at one whose prev is not older than itself', async () => {
+    const messages = Array.from({ length: 5 }, (_, at) => message(`p${at}`));
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, messages, { filesThrough: [1, 3] });
+    const [oldest, newest] = [...feeds.files.keys()] as [string, string];
+    const looped = {
+      ...JSON.parse(new TextDecoder().decode(feeds.files.get(oldest))),
+      prev: { ref: newest, toSeq: 3 },
+    };
+    feeds.files.set(oldest, new TextEncoder().encode(JSON.stringify(looped)));
+
+    const comparison = await compare(feeds);
+
+    expect(comparison.chat).toHaveLength(5);
+    expect(feeds.asked.filter((read) => read.startsWith('bytes'))).toHaveLength(2);
+  });
+
+  it('says the chat could not be counted when its history runs past the files it reads', async () => {
+    const messages = Array.from({ length: MAX_HISTORY_FILES + 2 }, (_, at) => message(`h${at}`));
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, messages, { filesThrough: messages.map((_, at) => at) });
+
+    await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedUnreadableError);
+    expect(feeds.asked.filter((read) => read.startsWith('bytes'))).toHaveLength(MAX_HISTORY_FILES);
   });
 });

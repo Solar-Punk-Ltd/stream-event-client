@@ -135,5 +135,5 @@ export function servedFeeds() {
     heads.set(`${owner}/${topic.toHex()}`, content(encoder.encode('{}'), index));
   }
 
-  return { reads, asked, chat, ownFeed, ownFeedHeadAt, heads };
+  return { reads, asked, chat, ownFeed, ownFeedHeadAt, heads, files };
 }

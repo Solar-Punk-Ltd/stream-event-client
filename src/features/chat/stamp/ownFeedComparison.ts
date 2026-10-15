@@ -123,6 +123,35 @@ async function readEntry(reads: ChatReads, owner: string, topic: Topic, index: n
 }
 
 /**
+ * The most history files read for one chat. A file closes at 1,000 messages or 512 KB, so 50 files hold a chat of at
+ * least about 8,000 messages, past which the chat is not counted.
+ */
+export const MAX_HISTORY_FILES = 50;
+
+/** The feed indices `from` to `to`, both included, that one history file holds. */
+interface SeqRange {
+  readonly from: number;
+  readonly to: number;
+}
+
+/** The indices from 0 to `end`, `end` left out, that no range in `held` covers, in order. */
+function indicesOutside(held: readonly SeqRange[], end: number): number[] {
+  const indices: number[] = [];
+  const ranges = [...held].sort((a, b) => a.from - b.from);
+  let next = 0;
+  for (const { from, to } of ranges) {
+    for (let index = next; index < Math.min(from, end); index++) {
+      indices.push(index);
+    }
+    next = Math.max(next, to + 1);
+  }
+  for (let index = next; index < end; index++) {
+    indices.push(index);
+  }
+  return indices;
+}
+
+/**
  * Every message of the chat feed, by its index: the newest entry, every history file back to the first, and each entry
  * no history file holds, read by its own index. An entry or a row that fails the library's check, or the check a
  * message passes on this page, is left out.
@@ -138,14 +167,17 @@ async function readWholeChat(options: CompareOwnFeedOptions, window: ReadOptions
     return messages;
   }
 
-  const held = new Set<number>([head.index]);
+  const held: SeqRange[] = [];
   const entry = parseFeedEntry(head.payload, head.index, chatTopic);
   let link: HistoryLink | null = null;
   if (entry.ok) {
     messages.set(head.index, entry.value.msg);
     link = entry.value.history;
   }
-  while (link !== null) {
+  for (let filesRead = 0; link !== null; filesRead++) {
+    if (filesRead === MAX_HISTORY_FILES) {
+      throw new OwnFeedUnreadableError(`the chat's history past ${MAX_HISTORY_FILES} files`);
+    }
     const answer = await reads.readBytes(link.ref, window);
     if (answer.kind !== 'content') {
       throw new OwnFeedUnreadableError('a history file of the chat');
@@ -154,16 +186,16 @@ async function readWholeChat(options: CompareOwnFeedOptions, window: ReadOptions
     if (!file.ok) {
       break;
     }
-    for (let seq = file.value.fromSeq; seq <= file.value.toSeq; seq++) {
-      held.add(seq);
-    }
+    held.push({ from: file.value.fromSeq, to: file.value.toSeq });
     for (const row of file.value.rows) {
       messages.set(row.seq, row.msg);
     }
-    link = file.value.prev;
+    const { prev } = file.value;
+    // Each file links to an older one, so a link that does not go back would be followed for ever.
+    link = prev !== null && prev.toSeq < file.value.fromSeq ? prev : null;
   }
 
-  const unheld = Array.from({ length: head.index }, (_, index) => index).filter((index) => !held.has(index));
+  const unheld = indicesOutside(held, head.index);
   const payloads = await inBatches(unheld, (index) => readEntry(reads, owner, topic, index, window));
   unheld.forEach((index, at) => {
     const payload = payloads[at];
