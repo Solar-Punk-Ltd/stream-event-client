@@ -1,8 +1,10 @@
 # stream-event-client
 
 A lightweight web app for watching the Devcon 8 streams over [Swarm](https://www.ethswarm.org):
-browse the event's streams, watch one, choose and test where the video loads from (the event gateway,
-another gateway the site offers, or your own Bee node), and chat with the other people watching.
+browse the event's streams, watch one, choose and test where each part loads from (the event gateway,
+another gateway, your own Bee node, or Weeb3, a Swarm node that runs in the browser tab), and chat with the other
+people watching, as a guest with a display name or signed in with Swarm ID, with the event gateway paying for each
+message or, once signed in, a stamp of your own that Swarm ID holds.
 
 **What is built.** The stream list, the watch page with a player that reads only the quality it
 plays and finds the newest playlist from the ladder's time markers, Connect over a Swarm
@@ -116,7 +118,8 @@ reaction's picker beside a message.
 - **Two Bee endpoints for the chat.** `chat.readUrl` serves the chat's feed and history files.
   `chat.writeUrl` takes the messages and stamps every write, because the page holds no postage stamp.
   A message costs one stamped chunk, and one more for each resend while it has not been read back. A viewer who
-  pays with their own stamp, [below](#who-pays-for-a-message), writes through their own Bee node instead.
+  pays with their own stamp, [below](#who-pays-for-a-message), sends through their own Bee node or through Weeb3
+  instead.
 - **The chat aggregator**, on swarm-chat-js 8, which listens on the shared address the key and topic above name, and
   appends each message to the stream's chat feed, `chat-<stream topic>` under `chat.feedOwner`.
   Opening a chat reads the newest history file the chat feed points to, then the entries after it. The endpoint viewers write
@@ -148,7 +151,7 @@ panel counts them in its `data-refused-messages` attribute. A chat whose history
 format opens as an empty chat. The worker is the bundle's own file, so the page's policy allows it with
 `worker-src 'self'`. A worker that cannot start or fails is left, and the same check runs on the
 page's thread instead, for the messages it held and every later one. Nothing is shown unchecked and
-nothing is left waiting."
+nothing is left waiting.
 
 Above each message is its sender line: the name, the badge, the stamp for a message sent with the
 sender's own stamp, and the time it was published, in hours and minutes on the viewer's clock. There
@@ -265,9 +268,12 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   viewer may show the old stamp's figures. With no stamp given, Connect says so and offers Choose a stamp in Swarm
   ID, which opens the same window.
 - **Warnings above the message field.** At 80% used, or 3 days left, the field says how much is used and when it
-  runs out, and sending goes on. When the stamp ran out, is not usable yet, or Swarm ID gives this site none, the
+  runs out, offers Change stamp in Swarm ID, and sending goes on. When the stamp ran out or is not usable yet, the
   field says so, sending is held with what was typed kept, and two buttons offer Change stamp in Swarm ID and Let
-  the gateway pay.
+  the gateway pay. When Swarm ID gives this site no stamp the first button reads Choose a stamp in Swarm ID. When
+  the source picked for Chat history cannot send on the stamp, the field says why, sending is held, and the buttons
+  are Open Connect and Let the gateway pay. A Swarm ID window the browser blocked adds its own line under the
+  warning, with a button that opens it.
 - **Also write my own feed.** Off by default, and offered only with My stamp. With it on, every message is first
   copied into the sender's own feed, `ownFeedTopic(chatTopic)` from swarm-chat-js under the chat key's address,
   one entry per message at the next index, stamped by Swarm ID too, and only then sent, so a message that says
@@ -353,6 +359,8 @@ docker run -p 8080:80 \
 | `config.json`        | Mounted over the image's example at `/usr/share/nginx/html/config.json`. Without it the page shows the example's placeholders as a configuration problem                                                          |
 
 A setting that is missing or malformed stops the container at start, and its log says which one.
+`BEE_NODES` and `WEEB3`, which earlier images read, are no longer read, because the policy below now allows every
+kind of source on every deployment. A deployment may drop them, and setting them changes nothing.
 
 ### What the page may reach
 
@@ -624,10 +632,17 @@ once and is kept in the browser, and nothing switches a source by itself.
 What the browser keeps, in `localStorage`, every read and write guarded so a refusal leaves the
 deployment's defaults for that visit:
 
-| Key             | What it holds                                                                                                |
-| --------------- | ------------------------------------------------------------------------------------------------------------ |
-| `swarm-sources` | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3` |
-| `swarm-routing` | All features or per feature, the source picked, and each part's source                                       |
+| Key                                        | What it holds                                                                                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `swarm-sources`                            | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3`                                     |
+| `swarm-routing`                            | All features or per feature, the source picked, and each part's source                                                                           |
+| `viewer-theme`                             | The theme a viewer picked with the theme switcher, kept after a logout                                                                           |
+| `stream-event-client:chat-session`         | A guest's chat login: the display name, the chat key this browser made for them, and its address                                                 |
+| `stream-event-client:chat-stamp:<address>` | Per account, by its chat address on this site: whether the gateway or their own stamp pays, and whether each message also goes to their own feed |
+| `stream-event-client:qoe-panel.v1`         | Where the playback quality panel (`?qoe=1`) sits, its size, and whether it is open                                                               |
+
+The Swarm ID sign-in is not among these. The Swarm ID library keeps what it needs for it, which this list does not
+cover.
 
 ## The node in this browser (weeb-3)
 
@@ -734,9 +749,12 @@ the playlist's own URL and a URI with a scheme is the one case it leaves untouch
 `src/swarm/` is the one layer that reads Swarm, plain TypeScript with no React, and it imports nothing
 from `src/app` or `src/features`. The features and the app read only through it: a test fails on a line
 there that builds a Bee URL, calls fetch, or makes a Bee client of its own, and on an import of anything
-in `src/swarm` beyond the client's public surface, `client`, `answers`, `provider`, `settings` and
-`createSwarmClient` (`test/swarm/boundary.test.ts`). The chat's write and its single-owner chunk codec are
-the two named exceptions, each with its reason in the test.
+in `src/swarm` beyond the client's public surface, `client`, `answers`, `provider`, `settings`,
+`createSwarmClient`, `addressSpace`, `sources` and `routing` (`test/swarm/boundary.test.ts`). Seven imports past
+it are named exceptions, each with its reason in the test: the event chat write (`providers/bee-http/gsocWrite`)
+and the single-owner chunk codec (`singleOwnerChunk`) in `chatParts.ts`, the codec again in `ownersChunk.ts`, the
+own-stamp write to a Bee node (`providers/bee-http/stampedSocUpload`) in `ownStampWrite.ts`, the push through
+Weeb3 (`providers/weeb-3/weeb3Push`) in `ChatStamp.tsx`, and the errors of both, read in `stampProblems.ts`.
 
 - **Where each feature reads.** `AppProvider` makes one client at start from `config.json` and the
   viewer's saved sources, and makes it again when the viewer changes what a part reads from.
@@ -745,13 +763,15 @@ the two named exceptions, each with its reason in the test.
   the previews and pictures through `reader('previews')`, Connect checks a source through a
   client made for that source alone, and the chat reads through `reader('chat')`, on the source picked for the
   chat history.
-- **The chat.** swarm-chat-js 7.3.0 is handed a source and a write in place of its own Bee client
+- **The chat.** swarm-chat-js 8.0.0 is handed a source and a write in place of its own Bee client
   (`src/features/chat/chatParts.ts`). The source makes the library's own reads at the same URLs: the
   feed head, each slot and note as a single-owner chunk checked to be the chat owner's
   (`src/swarm/singleOwnerChunk.ts`), or through the node in this browser by its owner and identifier, and history
   files as bytes. A 404 and a 500 both mean a chunk is
-  not there, as the library rules. A message is written exactly as the library writes it, to
-  `chat.writeUrl`, because it costs a stamp the viewer does not hold.
+  not there, as the library rules. While the event pays, a message is written exactly as the library writes it,
+  to `chat.writeUrl`, whose gateway stamps it. On the viewer's own stamp, Swarm ID stamps it and the page sends it
+  through the source picked for Chat history, the viewer's Bee node or Weeb3, as
+  [Who pays for a message](#who-pays-for-a-message) says.
 
 - **A provider** is one way of reaching Swarm (`src/swarm/provider.ts`), holding only what the app reads:
   a feed's head, a feed entry by index, a single-owner chunk's payload by its owner and identifier (a
