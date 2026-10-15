@@ -146,9 +146,9 @@ describe('a chat paid for with my own stamp', () => {
     expect(chat.settings.infra).toMatchObject({ via: MessageVia.OWN_STAMP, writeUrl: NODE });
     const { bytes } = { bytes: new TextEncoder().encode(JSON.stringify(signedMessage('mine'))) };
     await chat.parts?.write?.(bytes);
+    await waitFor(() => (posted.length === 2 ? true : null));
 
-    expect(swarmId.client().stamped, 'the copy in my own feed, then the message').toHaveLength(2);
-    expect(posted).toHaveLength(2);
+    expect(swarmId.client().stamped, 'the message, then its copy in my own feed').toHaveLength(2);
     for (const chunk of posted) {
       expect(chunk.url.startsWith(`${NODE}/soc/`)).toBe(true);
       expect(chunk.stamp).toBe('e'.repeat(226));
@@ -165,9 +165,9 @@ describe('a chat paid for with my own stamp', () => {
     expect(chat.settings.infra).not.toHaveProperty('writeUrl');
     expect(seen.chatStamp?.warning, 'Weeb3 can send on my stamp, so nothing holds the message').toBeNull();
     await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(signedMessage('through weeb-3'))));
+    await waitFor(() => (weeb3Pushes.pushed.length === 2 ? true : null));
 
-    expect(swarmId.client().stamped, 'the copy in my own feed, then the message').toHaveLength(2);
-    expect(weeb3Pushes.pushed).toHaveLength(2);
+    expect(swarmId.client().stamped, 'the message, then its copy in my own feed').toHaveLength(2);
     expect(weeb3Pushes.pushed.map(({ stamp }) => stamp)).toEqual(['e'.repeat(226), 'e'.repeat(226)]);
     expect(posted).toEqual([]);
   });

@@ -7,11 +7,11 @@ import {
   ownFeedTopic,
   parseChatMessage,
 } from '@solarpunkltd/swarm-chat-js';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { type ChatReads } from '../../src/features/chat/chatParts';
+import { OWN_COPY_ATTEMPTS, OWN_COPY_RETRY_MS } from '../../src/features/chat/stamp/ownFeedCopies';
 import {
-  OWN_FEED_UNREADABLE,
   ownStampWrite,
   type OwnStampWriteOptions,
   type SendProblem,
@@ -40,10 +40,20 @@ function payloadOf(label: string): Uint8Array {
     name: 'Ada',
     ts: 1_000,
     via: MessageVia.OWN_STAMP,
-    own: true,
   });
   return bytes;
 }
+
+/** Lets the copy written beside a message finish, which the write does not wait for. */
+async function copiesSettle() {
+  for (let round = 0; round < 20; round++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const hexOf = (bytes: Uint8Array) => Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 
@@ -120,20 +130,21 @@ describe("a chat message sent on the viewer's own stamp", () => {
     const payload = payloadOf('first');
     await writer.write(payload);
 
-    expect(stamper.asked, 'the copy in the own feed, then the message').toHaveLength(2);
-    expect(stamper.asked[1]).toEqual({
+    expect(stamper.asked, 'the message, before any copy').toHaveLength(1);
+    expect(stamper.asked[0]).toEqual({
       kind: 'soc',
       identifier: inboxIdentifier,
       data: withSpan(payload),
       signer: { privateKey: GSOC_KEY },
     });
     const owner = addressOf(GSOC_KEY);
-    expect(bee.posted).toHaveLength(2);
-    expect(bee.posted[1]).toEqual({
+    expect(bee.posted[0]).toEqual({
       url: `${NODE}/soc/${owner}/${inboxIdentifier}?sig=${SIGNATURE}`,
       body: withSpan(payload),
       stamp: STAMP,
     });
+    await copiesSettle();
+    expect(stamper.asked, 'then the copy in the own feed').toHaveLength(2);
   });
 
   it('is refused with the reason when Swarm ID will not stamp it, and is not tried again until asked', async () => {
@@ -151,7 +162,8 @@ describe("a chat message sent on the viewer's own stamp", () => {
     stamper.refusal = null;
     writer.forgetRefusal(idOf('refused'));
     await writer.write(payload);
-    expect(stamper.asked, 'the copy asked again, then the message').toHaveLength(3);
+    await copiesSettle();
+    expect(stamper.asked, 'the message asked again, then its copy').toHaveLength(3);
     expect(bee.posted).toHaveLength(2);
   });
 
@@ -194,28 +206,32 @@ describe("a chat message sent on the viewer's own stamp", () => {
 describe("a copy in the sender's own feed", () => {
   const ownTopic = Topic.fromString(ownFeedTopic(CHAT_TOPIC));
   const slot = (index: number) => makeFeedIdentifier(ownTopic, FeedIndex.fromBigInt(BigInt(index))).toHex();
+  const UNANSWERED: SwarmAnswer = { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: 1_000 } };
 
-  it('is written first, at the next place of the own feed, signed by the chat key, as the message itself', async () => {
+  it('is written after the message, at the next place of the own feed, signed by the chat key, as the message itself', async () => {
     const head = headReads(NOT_FOUND);
     const { stamper, bee, writer } = setUp({
       ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
     });
     await writer.write(payloadOf('one'));
+    await copiesSettle();
     await writer.write(payloadOf('two'));
+    await copiesSettle();
 
     expect(head.asked, 'the own feed is looked up once').toEqual([`${addressOf(GUEST_KEY)}/${ownTopic.toHex()}`]);
     expect(stamper.asked.map(({ identifier, signer }) => [identifier, signer.privateKey])).toEqual([
+      [inboxIdentifier, GSOC_KEY],
       [slot(0), GUEST_KEY],
       [inboxIdentifier, GSOC_KEY],
       [slot(1), GUEST_KEY],
-      [inboxIdentifier, GSOC_KEY],
     ]);
 
-    const copy = bee.posted[0].body.subarray(8);
-    const sent = bee.posted[1].body.subarray(8);
+    const sent = bee.posted[0].body.subarray(8);
+    const copy = bee.posted[1].body.subarray(8);
     expect(hexOf(copy), 'the copy is the message exactly as it is sent').toBe(hexOf(sent));
     const check = parseChatMessage(sent, { origin: 'https://example.com' });
-    expect(check.ok && check.message).toMatchObject({ id: idOf('one'), own: true, via: MessageVia.OWN_STAMP });
+    expect(check.ok && check.message).toMatchObject({ id: idOf('one'), via: MessageVia.OWN_STAMP });
+    expect(check.ok && 'own' in check.message).toBe(false);
     expect(hexOf(sent)).toBe(hexOf(encodeChatMessage(check.ok ? check.message : ({} as never))));
   });
 
@@ -228,6 +244,7 @@ describe("a copy in the sender's own feed", () => {
     const reordered = new TextEncoder().encode(JSON.stringify(JSON.parse(new TextDecoder().decode(handed)), null, 1));
 
     await writer.write(reordered);
+    await copiesSettle();
 
     expect(bee.posted.map(({ body }) => hexOf(body.subarray(8)))).toEqual([hexOf(reordered), hexOf(reordered)]);
   });
@@ -246,19 +263,19 @@ describe("a copy in the sender's own feed", () => {
       name: 'Ida',
       ts: 1_000,
       via: MessageVia.OWN_STAMP,
-      own: true,
       idb: CHAT_BINDING,
     });
 
     await writer.write(bytes);
+    await copiesSettle();
 
+    expect(bee.posted).toHaveLength(2);
     for (const written of bee.posted) {
       const check = parseChatMessage(written.body.subarray(8), { origin: BOUND_SITE });
       expect(check.ok, check.ok ? '' : `${check.reason}: ${check.detail}`).toBe(true);
       if (check.ok) {
         expect(check.identity).not.toBeNull();
         expect(check.message.idb).toEqual(CHAT_BINDING);
-        expect(check.message.own).toBe(true);
       }
     }
   });
@@ -269,7 +286,8 @@ describe("a copy in the sender's own feed", () => {
       ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
     });
     await writer.write(payloadOf('later'));
-    expect(stamper.asked[0].identifier).toBe(slot(42));
+    await copiesSettle();
+    expect(stamper.asked[1].identifier).toBe(slot(42));
   });
 
   it('is written once for a message the chat sends again', async () => {
@@ -278,19 +296,70 @@ describe("a copy in the sender's own feed", () => {
       ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
     });
     await writer.write(payloadOf('again'));
+    await copiesSettle();
     await writer.write(payloadOf('again'));
-    expect(stamper.asked.map(({ identifier }) => identifier)).toEqual([slot(0), inboxIdentifier, inboxIdentifier]);
+    await copiesSettle();
+    expect(stamper.asked.map(({ identifier }) => identifier)).toEqual([inboxIdentifier, slot(0), inboxIdentifier]);
   });
 
-  it('holds the message back when the own feed cannot be read, so no message claims a copy it does not have', async () => {
-    const head = headReads({ kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: 1_000 } });
+  it('never holds the message back while the own feed is looked up', async () => {
+    const reader = { readFeedHead: () => new Promise<SwarmAnswer>(() => {}) } as unknown as ChatReads;
     const { stamper, bee, problems, writer } = setUp({
+      ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: () => reader, readTimeoutMs: 1_000 },
+    });
+    await writer.write(payloadOf('not waiting'));
+    expect(stamper.asked.map(({ identifier }) => identifier)).toEqual([inboxIdentifier]);
+    expect(bee.posted).toHaveLength(1);
+    expect(problems).toEqual([]);
+  });
+
+  it('sends the message when the own feed cannot be read, and tries the copy three times, a few seconds apart', async () => {
+    vi.useFakeTimers();
+    const head = headReads(UNANSWERED);
+    const { stamper, problems, writer } = setUp({
       ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
     });
-    await expect(writer.write(payloadOf('no-feed'))).rejects.toThrow(OWN_FEED_UNREADABLE);
-    expect(problems[0].problem).toEqual({ text: OWN_FEED_UNREADABLE, final: false });
-    expect(stamper.asked).toEqual([]);
-    expect(bee.posted).toEqual([]);
+    await writer.write(payloadOf('no-feed'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(head.asked).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(OWN_COPY_RETRY_MS);
+    expect(head.asked).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(10 * OWN_COPY_RETRY_MS);
+
+    expect(head.asked).toHaveLength(OWN_COPY_ATTEMPTS);
+    expect(stamper.asked.map(({ identifier }) => identifier)).toEqual([inboxIdentifier]);
+    expect(problems, 'the message went out, so nothing is wrong with it').toEqual([]);
+  });
+
+  it('never fails the message when the copy is refused, and writes it again at the same place', async () => {
+    vi.useFakeTimers();
+    const copyAnswers = [503, 503, 201];
+    const posted: string[] = [];
+    const fetcher: typeof fetch = async (input) => {
+      const url = String(input);
+      posted.push(url);
+      const isCopy = url.includes(slot(0));
+      return new Response('{}', { status: isCopy ? (copyAnswers.shift() ?? 201) : 201 });
+    };
+    const { problems, writer } = setUp({ fetcher });
+
+    await writer.write(payloadOf('kept'));
+    await vi.advanceTimersByTimeAsync(10 * OWN_COPY_RETRY_MS);
+
+    expect(problems).toEqual([]);
+    expect(posted.filter((url) => url.includes(slot(0)))).toHaveLength(OWN_COPY_ATTEMPTS);
+    expect(posted.filter((url) => url.includes(inboxIdentifier))).toHaveLength(1);
+  });
+
+  it('writes a copy the viewer asks for at the next place, with the stamp', async () => {
+    const head = headReads({ kind: 'content', bytes: new Uint8Array([1]), feedIndex: 6, serverTimeMs: null });
+    const { stamper, bee, writer } = setUp({
+      ownFeed: { chatKey: GUEST_KEY, chatTopic: CHAT_TOPIC, reads: head.reads, readTimeoutMs: 1_000 },
+    });
+
+    expect(await writer.copy(idOf('missing'), payloadOf('missing'))).toBe('copied');
+    expect(stamper.asked.map(({ identifier }) => identifier)).toEqual([slot(7)]);
+    expect(bee.posted[0].stamp).toBe(STAMP);
   });
 });
 
@@ -310,12 +379,13 @@ describe("a chat message on the viewer's own stamp through the node in this brow
     const payload = payloadOf('through weeb-3');
 
     await writer.write(payload);
+    await copiesSettle();
 
-    expect(stamper.asked, 'the copy in the own feed, then the message').toHaveLength(2);
+    expect(stamper.asked, 'the message, then its copy in the own feed').toHaveLength(2);
     expect(bee.posted).toEqual([]);
     expect(weeb3.pushed).toHaveLength(2);
-    expect(weeb3.pushed[1]).toMatchObject({ identifier: inboxIdentifier, signature: SIGNATURE, stamp: STAMP });
-    expect(weeb3.pushed[1].data).toEqual(withSpan(payload));
+    expect(weeb3.pushed[0]).toMatchObject({ identifier: inboxIdentifier, signature: SIGNATURE, stamp: STAMP });
+    expect(weeb3.pushed[0].data).toEqual(withSpan(payload));
   });
 
   it('fails at once when the push ran past its deadline, and the chat resending it asks neither Swarm ID nor the node again', async () => {
@@ -342,7 +412,7 @@ describe("a chat message on the viewer's own stamp through the node in this brow
     ]);
   });
 
-  it('pushes the own feed copy through the node too, before the message', async () => {
+  it('pushes the own feed copy through the node too, after the message', async () => {
     const weeb3 = pushing();
     const { reads } = headReads(NOT_FOUND);
     const { writer } = setUp({
@@ -352,8 +422,9 @@ describe("a chat message on the viewer's own stamp through the node in this brow
     });
 
     await writer.write(payloadOf('copied'));
+    await copiesSettle();
 
     const copyIdentifier = makeFeedIdentifier(Topic.fromString(ownFeedTopic(CHAT_TOPIC)), FeedIndex.fromBigInt(0n));
-    expect(weeb3.pushed.map(({ identifier }) => identifier)).toEqual([copyIdentifier.toHex(), inboxIdentifier]);
+    expect(weeb3.pushed.map(({ identifier }) => identifier)).toEqual([inboxIdentifier, copyIdentifier.toHex()]);
   });
 });

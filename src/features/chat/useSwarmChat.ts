@@ -17,6 +17,7 @@ import { type ChatReads, chatParts, type ChatPartsForPage } from './chatParts';
 import { draftProblem } from './draftCheck';
 import { groupReactions, type ReactionsByMessage } from './reactions';
 
+import { type CopyOutcome, NOT_COPIED } from './stamp/ownFeedCopies';
 import type { ChunkStamper, SendProblem, StampedPush } from './stamp/ownStampWrite';
 import { chatVerifier } from './verify/chatVerifier';
 
@@ -420,6 +421,13 @@ export function useSwarmChat(
 
   const restart = useCallback(() => setRestarts((count) => count + 1), []);
 
+  /** Writes a sent message's copy into the viewer's own feed, through the chat's write as it is now. */
+  const copyToOwnFeed = useCallback(
+    (messageId: string, payload: Uint8Array): Promise<CopyOutcome> =>
+      partsRef.current?.copyToOwnFeed?.(messageId, payload) ?? Promise.resolve(NOT_COPIED),
+    [],
+  );
+
   return {
     status,
     feedStatus,
@@ -437,6 +445,7 @@ export function useSwarmChat(
     fetchOlderMessages,
     retrySendMessage,
     restart,
+    copyToOwnFeed,
     /** Messages the chat delivered that failed their check, never shown. */
     refusedCount,
   };
