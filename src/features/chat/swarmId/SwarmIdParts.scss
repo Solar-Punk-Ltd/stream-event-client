@@ -1,3 +1,5 @@
+@use '@/design/visually-hidden';
+
 .swarm-id-offer {
   display: grid;
   justify-items: start;
@@ -24,15 +26,12 @@
   }
 }
 
-// The page is dark and Swarm ID's frame names no colour scheme, and a browser paints an opaque backdrop behind a frame
-// whose scheme differs from its element's, which would show behind the secondary button's see-through fill.
-.swarm-id-button-frame {
+// The button's place, which the frame and, until the frame shows its button, the placeholder both fill.
+.swarm-id-button-slot {
+  position: relative;
   display: block;
-  color-scheme: normal;
   width: 100%;
   height: var(--size-touch-target);
-  border-radius: var(--radius-md);
-  overflow: hidden;
 
   &.compact {
     height: var(--size-swarm-id-button-compact);
@@ -45,6 +44,50 @@
   &[hidden] {
     display: none;
   }
+}
+
+// The page is dark and Swarm ID's frame names no colour scheme, and a browser paints an opaque backdrop behind a frame
+// whose scheme differs from its element's, which would show behind the secondary button's see-through fill.
+.swarm-id-button-frame {
+  position: absolute;
+  inset: 0;
+  display: block;
+  color-scheme: normal;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+// The page's own button of the same variant, drawn over the loading frame and sized to it. It is a picture of the
+// button, so it takes no pointer and no focus.
+.button.swarm-id-button-placeholder {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+  padding: 0 var(--spacing-sm);
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  cursor: default;
+
+  .compact > & {
+    font-size: var(--font-size-sm);
+  }
+
+  // The page's spinner at the label's size, an arc in the label's colour, which shows on either fill.
+  .spinner {
+    flex: none;
+    width: 1em;
+    height: 1em;
+    border-width: 2px;
+    border-color: transparent;
+    border-top-color: currentColor;
+    border-right-color: currentColor;
+  }
+}
+
+// The placeholder shows the wait, so the words are for a screen reader, and the layout does not move when they go.
+.swarm-id-status {
+  @include visually-hidden.visually-hidden;
 }
 
 .swarm-id-problem {

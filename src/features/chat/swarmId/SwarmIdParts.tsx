@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useThemeChoice } from '@/app/ThemeChoiceProvider';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { GuestBadgeIcon } from '@/shared/components/Icons/GuestBadgeIcon';
 import { SwarmIdBadgeIcon } from '@/shared/components/Icons/SwarmIdBadgeIcon';
 
@@ -50,6 +51,8 @@ export function SwarmIdButton({
   const mounted = useRef<SwarmIdMountedButton | null>(null);
   const [windowState, setWindowState] = useState<SwarmIdWindowState | null>(null);
   const [isRefused, setIsRefused] = useState(false);
+  /** Whether the mounted frame said it shows its button, until which the placeholder stands over it. */
+  const [isShown, setIsShown] = useState(false);
   /** Raised by Try again, which mounts a new button in place of one Swarm ID refused or that never answered. */
   const [attempt, setAttempt] = useState(0);
   const isStarting = swarmId?.status === SWARM_ID_STARTING;
@@ -74,16 +77,24 @@ export function SwarmIdButton({
     mounted.current = button;
     handed.current = JSON.stringify(options);
     let isCurrent = true;
-    button.ready.catch(() => {
-      if (isCurrent) {
-        setIsRefused(true);
-      }
-    });
+    button.ready.then(
+      () => {
+        if (isCurrent) {
+          setIsShown(true);
+        }
+      },
+      () => {
+        if (isCurrent) {
+          setIsRefused(true);
+        }
+      },
+    );
     return () => {
       isCurrent = false;
       mounted.current = null;
       button.unmount();
       setIsRefused(false);
+      setIsShown(false);
     };
   }, [canMount, mountSwarmIdButton, attempt]);
 
@@ -97,18 +108,23 @@ export function SwarmIdButton({
   }, [action, text, variant, size, look]);
 
   const isUnavailable = swarmId?.status === SWARM_ID_UNAVAILABLE;
-  // The container stays while the hints show, so the button's place does not jump while Swarm ID starts, and a refused
-  // frame is taken away by its own unmount rather than with a container React removed under it.
+  const isWaiting = !isShown && !isRefused && !isUnavailable;
+  // The slot stays while the hints show, so the button's place does not jump while Swarm ID starts, and a refused
+  // frame is taken away by its own unmount rather than with a container React removed under it. Until the frame
+  // shows its button, a placeholder in the page's own look of that button stands over it.
   return (
     <span className="swarm-id-button">
-      <span
-        ref={container}
-        className={`swarm-id-button-frame ${size}`}
-        hidden={isUnavailable || isRefused}
-        aria-hidden={canMount ? undefined : true}
-      />
-      {isStarting && (
-        <span className="swarm-id-hint" role="status">
+      <span className={`swarm-id-button-slot ${size}`} hidden={isUnavailable || isRefused}>
+        <span ref={container} className="swarm-id-button-frame" aria-hidden={canMount ? undefined : true} />
+        {isWaiting && (
+          <span className={`button ${variant} swarm-id-button-placeholder`} aria-hidden="true">
+            <Spinner />
+            {text}
+          </span>
+        )}
+      </span>
+      {isWaiting && (
+        <span className="swarm-id-status" role="status">
           {STARTING_TEXT}
         </span>
       )}

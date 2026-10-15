@@ -129,6 +129,9 @@ export class FakeSwarmIdClient implements SwarmIdClient {
   buttonFails = false;
   /** A button frame that never answers. */
   buttonHangs = false;
+  /** A button frame that shows only once the test calls {@link FakeSwarmIdClient.showButtons}, as a slow one does. */
+  buttonWaits = false;
+  private readonly waitingButtons: Array<() => void> = [];
   isInitialized = false;
   initializeFails = false;
   /** A frame that never answers, so the viewer stays starting. */
@@ -185,14 +188,23 @@ export class FakeSwarmIdClient implements SwarmIdClient {
     if (!this.isInitialized) {
       throw Object.assign(new Error('SwarmIdClient not initialized'), { code: 'invalid-state' });
     }
-    const ready = this.buttonHangs
-      ? new Promise<void>(() => {})
-      : this.buttonFails
-        ? Promise.reject(Object.assign(new Error('This site is not on the allow list'), { code: 'init-failed' }))
-        : Promise.resolve();
+    const ready = this.buttonWaits
+      ? new Promise<void>((resolve) => this.waitingButtons.push(resolve))
+      : this.buttonHangs
+        ? new Promise<void>(() => {})
+        : this.buttonFails
+          ? Promise.reject(Object.assign(new Error('This site is not on the allow list'), { code: 'init-failed' }))
+          : Promise.resolve();
     const button = new FakeSwarmIdButton(container, options, this, ready);
     this.buttons.push(button);
     return button;
+  }
+
+  /** Every waiting button frame answers, and shows. */
+  showButtons(): void {
+    for (const show of this.waitingButtons.splice(0)) {
+      show();
+    }
   }
 
   /** The click inside Swarm ID's frame, which opens its window or is blocked by the browser. */

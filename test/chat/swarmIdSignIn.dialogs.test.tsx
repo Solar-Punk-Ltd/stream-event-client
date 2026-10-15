@@ -87,7 +87,7 @@ describe('signing in with Swarm ID from Connect', () => {
     expect(dialog()?.querySelector('[role="status"]')?.textContent, 'said to a screen reader too').toBe(
       'Connecting to Swarm ID',
     );
-    expect(dialog()?.querySelector('.swarm-id-button-frame')?.hasAttribute('hidden'), "the button's place, kept").toBe(
+    expect(dialog()?.querySelector('.swarm-id-button-slot')?.hasAttribute('hidden'), "the button's place, kept").toBe(
       false,
     );
     expect(queryButton('Sign in with Swarm ID')).toBeNull();
@@ -342,7 +342,7 @@ describe('a Swarm ID button frame that does not show', () => {
       await settle();
 
       expect(
-        dialog()?.querySelector('.swarm-id-button-frame')?.hasAttribute('hidden'),
+        dialog()?.querySelector('.swarm-id-button-slot')?.hasAttribute('hidden'),
         'the refused frame is out of sight',
       ).toBe(true);
       expect(dialog()?.textContent).toContain('Swarm ID cannot be reached right now.');
@@ -352,6 +352,94 @@ describe('a Swarm ID button frame that does not show', () => {
       type(input('Your name'), 'Ada');
       click(button('Chat as guest'));
       expect(restoreUserSession()?.username).toBe('Ada');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe("the Swarm ID button's placeholder", () => {
+  const placeholder = () => dialog()?.querySelector<HTMLElement>('.swarm-id-button-placeholder') ?? null;
+  const waiting = (client: FakeSwarmIdClient) => {
+    client.buttonWaits = true;
+  };
+
+  it("stands in the button's place, in its look and label with a loader, while Swarm ID starts", async () => {
+    await header(
+      await fakeSwarmId({}, (client) => {
+        client.initializeHangs = true;
+      }),
+    );
+    click(button('Connect'));
+
+    const shown = placeholder();
+    expect(shown?.textContent).toBe('Sign in with Swarm ID');
+    expect(shown?.classList.contains('button'), "the page's own button look").toBe(true);
+    expect(shown?.classList.contains('primary')).toBe(true);
+    expect(shown?.querySelector('.spinner'), 'a loader inside').toBeTruthy();
+    expect(dialog()?.querySelector('[role="status"]')?.textContent).toBe('Connecting to Swarm ID');
+  });
+
+  it('is neither focusable nor clickable, and is no button to a screen reader', async () => {
+    await header(await fakeSwarmId({}, waiting));
+    click(button('Connect'));
+
+    const shown = placeholder();
+    expect(shown?.tagName).not.toBe('BUTTON');
+    expect(shown?.getAttribute('aria-hidden')).toBe('true');
+    expect(shown?.hasAttribute('tabindex')).toBe(false);
+    expect(shown?.closest('button')).toBeNull();
+  });
+
+  it('stays over the loading frame until the frame is ready, then goes, leaving the frame in the same place', async () => {
+    const swarmId = await fakeSwarmId({}, waiting);
+    await header(swarmId);
+    click(button('Connect'));
+
+    expect(placeholder(), 'the frame is mounted but not ready yet').toBeTruthy();
+    expect(swarmId.client().shownButton().container.closest('.swarm-id-button-slot')).toBe(
+      placeholder()?.closest('.swarm-id-button-slot'),
+    );
+    expect(dialog()?.querySelector('[role="status"]')?.textContent).toBe('Connecting to Swarm ID');
+
+    swarmId.client().showButtons();
+    await settle();
+
+    expect(placeholder()).toBeNull();
+    expect(dialog()?.textContent).not.toContain('Connecting to Swarm ID');
+  });
+
+  it("wears the secondary look and the compact size where the page's own button was secondary", async () => {
+    persistUserSession(nicknameLogin('Ada'));
+    await header(await fakeSwarmId({}, waiting));
+    click(button(/^Ada/));
+
+    const shown = placeholder();
+    expect(shown?.classList.contains('secondary')).toBe(true);
+    expect(shown?.classList.contains('primary')).toBe(false);
+    expect(shown?.closest('.swarm-id-button-slot')?.classList.contains('compact')).toBe(true);
+  });
+
+  it('goes when Swarm ID refuses the button, and comes back while Try again mounts a new one', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const swarmId = await fakeSwarmId({}, (client) => {
+        client.buttonFails = true;
+      });
+      await header(swarmId);
+      click(button('Connect'));
+      await settle();
+      expect(placeholder()).toBeNull();
+
+      swarmId.client().buttonFails = false;
+      swarmId.client().buttonWaits = true;
+      click(button('Try again'));
+      await settle();
+      expect(placeholder()?.textContent).toBe('Sign in with Swarm ID');
+
+      swarmId.client().showButtons();
+      await settle();
+      expect(placeholder()).toBeNull();
     } finally {
       warn.mockRestore();
     }

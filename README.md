@@ -226,7 +226,10 @@ stamps them, unless the person picks their own stamp, as the next section says.
   plain http elsewhere hands it none.
 - **The button is mounted once for as long as it is shown.** Closing Connect takes it away and leaves the session as
   it is.
-  Before Swarm ID has started, its place is kept empty and says "Connecting to Swarm ID". When Swarm ID refuses the
+  Until Swarm ID's frame shows its button, a placeholder stands in its place: the page's own button of the same look
+  and size, with its label and a small loader, which takes no click and no focus, and a screen reader hears
+  "Connecting to Swarm ID". The frame then shows the button in the same place, so nothing moves. A Try again shows
+  the placeholder again until the new button is ready. When Swarm ID refuses the
   button, or it does not answer within the library's 30 seconds, its place says "Swarm ID cannot be reached right
   now." with Try again, which takes that button away and mounts a new one, and the console warns once as for a Swarm
   ID that does not start. A viewer already signed in stays so. The button's label is also its accessible name.
