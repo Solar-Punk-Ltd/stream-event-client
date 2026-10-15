@@ -1,6 +1,8 @@
 import { PrivateKey } from '@ethersphere/bee-js';
 import { type ChatBinding, checkChatBinding, MAX_NAME_CHARACTERS } from '@solarpunkltd/swarm-chat-js/message';
 
+import { shortAddress } from '@/shared/components/Address/addressText';
+
 import { type Session, sessionFromKey } from '../auth/login';
 import type { VerifyScope } from '../verify/verdicts';
 
@@ -21,8 +23,6 @@ function toChatBinding({ message, signature }: SwarmIdChatBinding): ChatBinding 
   return { msg: message, sig: signature.toLowerCase() };
 }
 
-const SHORT_ADDRESS_DIGITS = 4;
-
 /**
  * The account's name as a chat name: trimmed, and cut to the chat's limit counted in characters as a reader sees them.
  * An account with no name chats under its short address, so a sender line is never empty.
@@ -32,8 +32,7 @@ export function chatNameOf(identity: SwarmIdIdentity): string {
   if (name) {
     return name;
   }
-  const address = identity.address.replace(/^0x/, '');
-  return `0x${address.slice(0, SHORT_ADDRESS_DIGITS)}…${address.slice(-SHORT_ADDRESS_DIGITS)}`;
+  return shortAddress(identity.address);
 }
 
 type SwarmIdSessionResult = { ok: true; session: SwarmIdSession } | { ok: false; problem: string };
