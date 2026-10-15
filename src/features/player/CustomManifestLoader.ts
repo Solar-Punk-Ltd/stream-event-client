@@ -11,7 +11,7 @@ import Hls from 'hls.js';
 
 import { RequestJitter, StaggeredTask } from '@/shared/requestJitter';
 
-import { ManifestFetcher } from './ManifestManagement';
+import { ManifestFetcher, RungRefusedError } from './ManifestManagement';
 
 export const manifestFetcher = new ManifestFetcher();
 
@@ -46,6 +46,15 @@ export class CustomManifestLoader extends PlaylistLoader {
         callbacks.onSuccess({ url: context.url, data, code: 200 }, this.stats, context, null);
       })
       .catch((error) => {
+        // ⛔⛔ A refused rung's request is left unanswered. The refusal has already taken its level out,
+        // and hls.js renumbers the levels on a removal, so an error here names a level number that now
+        // belongs to another rung or to none. With none hls.js finds nothing to switch to, calls the
+        // error fatal, and the player restarts from the beginning: a recording viewer 2100 s in was sent
+        // back to 0 on 2026-10-15. hls.js gives a playlist request no abort to answer with, and drops
+        // this one itself at its next level request, which the move to another rung starts.
+        if (error instanceof RungRefusedError) {
+          return;
+        }
         callbacks.onError?.({ code: 0, text: error.message }, context, null, this.stats);
       });
   }
