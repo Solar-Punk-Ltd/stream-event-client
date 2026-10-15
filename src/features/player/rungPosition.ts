@@ -33,7 +33,7 @@ export function rungProgressBoundMs(segmentMs: number | null | undefined): numbe
  *
  * Stamps come from one anchor the whole ladder shares, but a rung that started late or held back its
  * opening segments carries stamps up to about ten seconds off its siblings' (read from the uploader's
- * code, not measured). Thirty seconds is three times that, so only a rung that has clearly stopped is
+ * code in streaming-monorepo, not measured). Thirty seconds is three times that, so only a rung that has clearly stopped is
  * refused here. Anything closer is let through, and if it then shows no new index the playing-rung rule
  * deals with it.
  */

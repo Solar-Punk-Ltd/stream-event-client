@@ -13,6 +13,9 @@ import { SwarmHlsPlayer } from '../src/features/player/SwarmHlsPlayer';
  * 2100 s into a 2142 s recording hit a fatal error and was sent back to 0. A recording has a fixed
  * timeline, so the rebuilt player resumes where the viewer was. A live broadcast rejoins at the live
  * edge as it always has, because its timeline is rebuilt from the newest playlist.
+ *
+ * hls.js is a stub here that records where each player is asked to start. The refusal that caused the
+ * 2026-10-15 restart is covered through the real hls.js in `rungDropKeepsPlaying.test.ts`.
  */
 
 type Handler = (event: string, data: unknown) => void;
