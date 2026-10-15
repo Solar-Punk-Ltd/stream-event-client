@@ -19,7 +19,7 @@
   justify-items: start;
   gap: var(--spacing-xs);
   width: min(100%, var(--size-swarm-id-button-width));
-  min-width: 0;
+  min-width: min-content;
 
   .swarm-id-row & {
     justify-items: end;
@@ -59,12 +59,10 @@
 
 // The page's own button of the same variant, drawn over the loading frame and sized to it. It is a picture of the
 // button, so it takes no pointer and no focus.
-.button.swarm-id-button-placeholder {
-  position: absolute;
-  inset: 0;
+.button.swarm-id-button-placeholder,
+.button.swarm-id-button-sizer {
   min-height: 0;
   padding: 0 var(--spacing-sm);
-  overflow: hidden;
   white-space: nowrap;
   pointer-events: none;
   cursor: default;
@@ -72,6 +70,12 @@
   .compact > & {
     font-size: var(--font-size-sm);
   }
+}
+
+.button.swarm-id-button-placeholder {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 
   // The page's spinner at the label's size, an arc in the label's colour, which shows on either fill.
   .spinner {
@@ -82,6 +86,19 @@
     border-color: transparent;
     border-top-color: currentColor;
     border-right-color: currentColor;
+  }
+}
+
+// The placeholder's width with its loader, kept in the slot's flow, so the slot is never narrower than its label.
+.button.swarm-id-button-sizer {
+  display: flex;
+  height: 0;
+  visibility: hidden;
+
+  &::before {
+    content: '';
+    flex: none;
+    width: 1em;
   }
 }
 

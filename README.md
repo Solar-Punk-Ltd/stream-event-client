@@ -231,7 +231,9 @@ stamps them, unless the person picks their own stamp, as the next section says.
   it is.
   Until Swarm ID's frame shows its button, a placeholder stands in its place: the page's own button of the same look
   and size, with its label and a small loader, which takes no click and no focus, and a screen reader hears
-  "Connecting to Swarm ID". The frame then shows the button in the same place, so nothing moves. A Try again shows
+  "Connecting to Swarm ID". The frame then shows the button in the same place, so nothing moves. That place is
+  never narrower than the label with its loader, so the smaller button beside other words, as in Show it's really
+  you, shows its whole label down to a 320 px wide screen. A Try again shows
   the placeholder again until the new button is ready. When Swarm ID refuses the
   button, or it does not answer within the library's 30 seconds, its place says "Swarm ID cannot be reached right
   now." with Try again, which takes that button away and mounts a new one, and the console warns once as for a Swarm

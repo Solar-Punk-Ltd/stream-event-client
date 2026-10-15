@@ -111,10 +111,14 @@ export function SwarmIdButton({
   const isWaiting = !isShown && !isRefused && !isUnavailable;
   // The slot stays while the hints show, so the button's place does not jump while Swarm ID starts, and a refused
   // frame is taken away by its own unmount rather than with a container React removed under it. Until the frame
-  // shows its button, a placeholder in the page's own look of that button stands over it.
+  // shows its button, a placeholder in the page's own look of that button stands over it. An unseen copy of the label
+  // keeps the slot at least as wide as the label, since the frame and the placeholder over it give the slot no width.
   return (
     <span className="swarm-id-button">
       <span className={`swarm-id-button-slot ${size}`} hidden={isUnavailable || isRefused}>
+        <span className={`button ${variant} swarm-id-button-sizer`} aria-hidden="true">
+          {text}
+        </span>
         <span ref={container} className="swarm-id-button-frame" aria-hidden={canMount ? undefined : true} />
         {isWaiting && (
           <span className={`button ${variant} swarm-id-button-placeholder`} aria-hidden="true">
