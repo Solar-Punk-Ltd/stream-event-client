@@ -13,7 +13,7 @@ import type { SwarmIdPostageBatch } from '../../src/features/chat/swarmId/swarmI
 import { chooseSource, defaultRouting } from '../../src/swarm/routing';
 import { CHAT, connectPage, seen } from '../helpers/connectPage';
 import { wearThemeCss } from '../helpers/themeCss';
-import { button, click, queryButton, settle, type Mounted, waitFor } from '../helpers/dom';
+import { button, click, nestedLiveRegions, queryButton, settle, type Mounted, waitFor } from '../helpers/dom';
 import { FakeSwarmChat } from '../helpers/fakeSwarmChat';
 import { ownFeed } from '../helpers/ownFeed';
 import { type FakeSwarmId, fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
@@ -304,6 +304,7 @@ describe('a chat paid for with my own stamp', () => {
     expect(chatRegion()?.textContent).toContain('90% of your stamp is used.');
     expect(chatRegion()?.textContent).toContain('It runs out in about 2 days.');
     expect(button('Change stamp in Swarm ID')).toBeTruthy();
+    expect(nestedLiveRegions(chatRegion()!), "Swarm ID's button says its own news, outside the warning's").toEqual([]);
     expect(seen.chatStamp?.warning?.blocksSending).toBe(false);
     expect(swarmId.client().shownButton().config, "the page's secondary button while sending goes on").toMatchObject({
       backgroundColor: 'rgba(250,250,250,0.1)',
@@ -323,6 +324,7 @@ describe('a chat paid for with my own stamp', () => {
       backgroundColor: '#f47a20',
     });
     expect(chatRegion()?.textContent).toContain('Your browser blocked the Swarm ID window.');
+    expect(nestedLiveRegions(chatRegion()!)).toEqual([]);
     expect(queryButton('Open Swarm ID')).toBeNull();
 
     swarmId.client().nextWindow = 'opens';

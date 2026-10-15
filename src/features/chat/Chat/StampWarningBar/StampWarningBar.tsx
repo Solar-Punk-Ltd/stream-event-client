@@ -20,8 +20,9 @@ export function StampWarningBar() {
     return null;
   }
   return (
-    <div className={warning.blocksSending ? 'stamp-warning out' : 'stamp-warning'} role="status">
-      <span>
+    <div className={warning.blocksSending ? 'stamp-warning out' : 'stamp-warning'}>
+      {/* Only the words are a live region, since Swarm ID's button among the actions says its own news. */}
+      <span role="status">
         <strong>{warning.title}</strong> {warning.detail}
       </span>
       <div className="stamp-warning-actions">
