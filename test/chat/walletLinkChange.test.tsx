@@ -144,4 +144,24 @@ describe('"Show my ENS name" changed in Swarm ID while the viewer is signed in',
     await settle();
     expect(await send('later')).not.toHaveProperty('wl');
   });
+
+  it('turned off and sent before the new chat starts: the message goes once, without the link', async () => {
+    const swarmId = await watchPage(LINK_SHARED);
+    const before = FakeSwarmChat.latest();
+    type(input('Message'), 'sent while the chat restarts');
+
+    swarmId.client().handOver(LINK_WITHHELD);
+    await act(async () => {});
+    expect(before.stop, 'the old chat stopped').toHaveBeenCalled();
+    expect(FakeSwarmChat.latest(), 'the new chat has not started yet').toBe(before);
+    press(input('Message'), 'Enter');
+    await settle();
+    await settle();
+
+    expect(sentMessages()).toHaveLength(1);
+    expect(before.sendMessage).not.toHaveBeenCalled();
+    expect(sentMessages()[0].text).toBe('sent while the chat restarts');
+    expect(sentMessages()[0]).not.toHaveProperty('wl');
+    expect(input('Message').value).toBe('');
+  });
 });
