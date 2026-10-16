@@ -232,7 +232,10 @@ stamps them, unless the person picks their own stamp, as the next section says.
   two belong to the same person. Every message then carries it beside the binding, so a reader can show the wallet's
   ENS name, as [ENS names](#ens-names) says. The page checks the link first, as every reader will, and leaves out
   one that does not name the signed-in account, so the person still chats and no reader refuses their messages.
-  Without the setting nothing of the wallet is sent.
+  Without the setting nothing of the wallet is sent. The page follows the newest session Swarm ID reports, so turning
+  the setting off or on while signed in reaches the very next message, one already typed among them. Swarm ID reports
+  the change at once to an open page, and on its next load to a page that was closed. Messages already sent keep the
+  link they carried.
 - **A guest can sign in later.** The menu of a guest says "Show it's really you" beside Sign in with
   Swarm ID. Signing in keeps the guest's name and key in this browser, and signing out chats as that
   guest again. Leave forgets the guest.

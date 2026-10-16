@@ -138,6 +138,9 @@ export class FakeSwarmIdClient implements SwarmIdClient {
   initializeHangs = false;
   /** The chat key the frame gives, per site, as the fork derives it. */
   chatKey: Uint8Array = new Uint8Array();
+  /** A frame slow to give the chat key, which answers only once the test calls {@link FakeSwarmIdClient.giveChatKeys}. */
+  chatKeyWaits = false;
+  private readonly waitingChatKeys: Array<() => void> = [];
   /** Every Bee address the viewer moved this site's content to after the client was built, in order. */
   readonly beeApiUrls: string[] = [];
   /** Refuses the next Bee address it is handed, as the frame does before it is ready, though it records the ask. */
@@ -240,7 +243,17 @@ export class FakeSwarmIdClient implements SwarmIdClient {
     if (!this.info.identity) {
       throw Object.assign(new Error('Not authenticated'), { code: 'not-authenticated' });
     }
+    if (this.chatKeyWaits) {
+      await new Promise<void>((resolve) => this.waitingChatKeys.push(resolve));
+    }
     return this.chatKey;
+  }
+
+  /** Every chat key the frame was asked for and has not given yet, given. */
+  giveChatKeys(): void {
+    for (const give of this.waitingChatKeys.splice(0)) {
+      give();
+    }
   }
 
   async setBeeApiUrl(url: string): Promise<void> {

@@ -104,3 +104,21 @@ export function swarmIdSession(
     },
   };
 }
+
+/**
+ * The signed-in session again, from a newer report of the same account with the same binding, so a change such as the
+ * wallet link turned off reaches the next message at once rather than after the frame answers for the chat key again.
+ * Null when the report is for another account or binding, which needs the chat key the frame gives it.
+ */
+export function reportedAgain(
+  session: SwarmIdSession,
+  identity: SwarmIdIdentity,
+  binding: SwarmIdChatBinding,
+  scope: VerifyScope,
+): SwarmIdSessionResult | null {
+  const { msg, sig } = toChatBinding(binding);
+  if (accountOf(identity) !== session.account || msg !== session.binding.msg || sig !== session.binding.sig) {
+    return null;
+  }
+  return swarmIdSession(identity, binding, new PrivateKey(session.privateKey).toUint8Array(), scope);
+}

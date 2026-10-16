@@ -10,7 +10,7 @@ import type {
   SwarmIdPostageBatch,
   SwarmIdStampedChunk,
 } from './swarmIdClient';
-import { type SwarmIdSession, swarmIdSession } from './swarmIdSession';
+import { reportedAgain, type SwarmIdSession, swarmIdSession } from './swarmIdSession';
 
 export const SWARM_ID_STARTING = 'starting';
 export const SWARM_ID_SIGNED_OUT = 'signed-out';
@@ -96,6 +96,12 @@ export interface SwarmIdSignIn {
 const NOT_AUTHENTICATED = 'not-authenticated';
 
 const SIGNED_OUT: SwarmIdState = { status: SWARM_ID_SIGNED_OUT, problem: null };
+
+function stateOf(result: ReturnType<typeof swarmIdSession>): SwarmIdState {
+  return result.ok
+    ? { status: SWARM_ID_SIGNED_IN, session: result.session }
+    : { status: SWARM_ID_SIGNED_OUT, problem: result.problem };
+}
 
 export function createSwarmIdSignIn({
   url,
@@ -187,6 +193,12 @@ export function createSwarmIdSignIn({
       set({ status: SWARM_ID_SIGNED_OUT, problem: SIGN_IN_INCOMPLETE });
       return;
     }
+    const again =
+      state.status === SWARM_ID_SIGNED_IN ? reportedAgain(state.session, identity, chatBinding, scope) : null;
+    if (again) {
+      set(stateOf(again));
+      return;
+    }
     client!.getChatKey().then(
       (chatKey) => {
         if (asked !== generation) {
@@ -200,11 +212,7 @@ export function createSwarmIdSignIn({
           set({ status: SWARM_ID_SIGNED_OUT, problem: NO_CHAT_KEY });
           return;
         }
-        set(
-          result.ok
-            ? { status: SWARM_ID_SIGNED_IN, session: result.session }
-            : { status: SWARM_ID_SIGNED_OUT, problem: result.problem },
-        );
+        set(stateOf(result));
       },
       () => {
         if (asked === generation) {
