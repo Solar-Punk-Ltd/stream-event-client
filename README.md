@@ -348,6 +348,9 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   through the sender that took the message. After the viewer changes who pays, the source, the sign-in or the own
   feed, or restarts the chat, that sender is gone, so Retry marks the message "Not sent. The way messages are sent
   changed, so write it again." and takes its Retry button away, never resending it through the new route.
+  A message sent in the moment such a change, or a new name or wallet link, restarts the chat waits for the new chat
+  and goes out once, with the name, wallet link and payer in force when it goes. When no chat starts within ten
+  seconds it is not sent, and the field keeps it with "The message could not be sent. Try again."
 - **A deadline on every push through Weeb3.** weeb-3 answers a stamp it will not take with silence, never an error,
   so each push has a minute (`WEEB3_PUSH_DEADLINE_MS`, measured pushes took 7 to 15 s). A push with no answer by then
   fails the message at once, "Weeb3 did not confirm it within a minute.", and the chat does not send it again by
