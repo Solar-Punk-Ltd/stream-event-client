@@ -33,7 +33,7 @@ vi.mock('../../src/features/chat/verify/chatVerifier', () => ({
 }));
 
 const ENDPOINT = 'https://ethereum-rpc.example.org';
-const VERIFIED_TICK = 'Verified ENS name';
+const ENS_CHECKED = 'ENS name checked';
 
 const CHAT: ChatConfig = {
   enabled: true,
@@ -151,13 +151,14 @@ afterEach(() => {
 });
 
 describe('a sender with a verified ENS name', () => {
-  it('is named by it, with a tick, in place of the name they chose', async () => {
+  it('is named by it in place of the name they chose, with the Swarm ID badge and no tick after it', async () => {
     await open(panel(ENDPOINT, { [LINK_WALLET]: 'ida.eth' }));
     await emit(EVENTS.MESSAGE_RECEIVED, await idaSays('hello'));
     await settle();
 
     expect(senderName()).toBe('ida.eth');
-    expect(senderLine().querySelector(`[aria-label="${VERIFIED_TICK}"]`)).not.toBeNull();
+    expect(senderLine().querySelector('.sender-badge .sender-badge-swarm-id')).not.toBeNull();
+    expect(senderLine().querySelectorAll('svg')).toHaveLength(1);
     expect(asked).toEqual([LINK_WALLET]);
   });
 
@@ -167,13 +168,25 @@ describe('a sender with a verified ENS name', () => {
     await settle();
     click(button('Swarm ID, show details'));
 
-    expect(details().querySelector('.message-details-title')?.textContent).toBe('ida.eth');
-    expect(details().querySelector(`.message-details-title [aria-label="${VERIFIED_TICK}"]`)).not.toBeNull();
+    const title = details().querySelector('.message-details-title');
+    expect(title?.textContent).toBe('ida.eth');
+    expect(title?.querySelector('.sender-badge-swarm-id')).not.toBeNull();
+    expect(title?.querySelectorAll('svg')).toHaveLength(1);
     const ens = detailRows().ENS;
     expect(ens).toContain('ida.eth');
     expect(ens).toContain('Chosen name Ida');
     expect(ens).toContain(shortAddress(LINK_WALLET));
     expect(ens).not.toContain('non-Latin');
+  });
+
+  it('carries the tick on the ENS row of the details, named for a screen reader', async () => {
+    await open(panel(ENDPOINT, { [LINK_WALLET]: 'ida.eth' }));
+    await emit(EVENTS.MESSAGE_RECEIVED, await idaSays('hello'));
+    await settle();
+    click(button('Swarm ID, show details'));
+
+    expect(details().querySelectorAll(`[aria-label="${ENS_CHECKED}"]`)).toHaveLength(1);
+    expect(details().querySelector(`.message-details-ens [aria-label="${ENS_CHECKED}"]`)).not.toBeNull();
   });
 
   it('says so in the details when the name has characters outside ASCII, which can pass for other letters', async () => {
@@ -234,8 +247,8 @@ describe('a sender with no name to show', () => {
     await settle();
 
     expect(senderName()).toBe('Ida');
-    expect(senderLine().querySelector(`[aria-label="${VERIFIED_TICK}"]`)).toBeNull();
     click(button('Swarm ID, show details'));
+    expect(details().querySelector(`[aria-label="${ENS_CHECKED}"]`)).toBeNull();
     expect(detailRows()).not.toHaveProperty('ENS');
     expect(details().querySelector('.message-details-title')?.textContent).toBe('Ida');
   });

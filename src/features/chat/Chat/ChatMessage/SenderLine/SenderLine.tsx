@@ -14,24 +14,6 @@ export function BadgeIcon({ badge }: { badge: SenderBadge }) {
   return badge.isSwarmId ? <SwarmIdBadgeIcon /> : <GuestBadgeIcon />;
 }
 
-const ENS_NAME_TICK_LABEL = 'Verified ENS name';
-
-/** The tick after a name that is the sender's ENS name, read both ways on chain, rather than one they chose. */
-export function EnsNameTick() {
-  return (
-    <svg
-      className="ens-name-tick"
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      role="img"
-      aria-label={ENS_NAME_TICK_LABEL}
-    >
-      <path d="M2.5 6.2 5 8.6l4.5-5" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 /** The short form of the details' note, for an ENS name with characters a reader may take for other letters. */
 function NonLatinNameMark() {
   return (
@@ -52,7 +34,7 @@ function NonLatinNameMark() {
 
 interface SenderLineProps {
   name: string;
-  /** Whether `name` is the sender's verified ENS name, which a tick then follows. */
+  /** Whether `name` is the sender's verified ENS name, cut with an ellipsis when long and marked when not plain ASCII. */
   isEnsName?: boolean;
   badge: SenderBadge;
   /** Whether the sender paid for the write with a stamp of their own. */
@@ -94,7 +76,6 @@ export function SenderLine({
       <bdi className={nameClasses} title={isEnsName ? name : undefined}>
         {name}
       </bdi>
-      {isEnsName && <EnsNameTick />}
       {isEnsName && hasNonAsciiCharacters(name) && <NonLatinNameMark />}
       <button
         type="button"

@@ -7,7 +7,7 @@ import { ShortAddress } from '@/shared/components/Address/ShortAddress';
 import { hasNonAsciiCharacters, NON_LATIN_NAME_NOTE } from '../../../ens/ensLookup';
 import { OWN_STAMP_TITLE, type SenderBadge } from '../senderBadge';
 import { OwnFeedCheck } from '../OwnFeedCheck/OwnFeedCheck';
-import { BadgeIcon, EnsNameTick } from '../SenderLine/SenderLine';
+import { BadgeIcon } from '../SenderLine/SenderLine';
 
 import './MessageDetails.scss';
 
@@ -17,6 +17,23 @@ const PUBLIC_ADDRESS_LABEL = 'public address';
 const SIGNATURE_LABEL = 'signature';
 const ACCOUNT_LABEL = 'Swarm ID account';
 const WALLET_LABEL = 'wallet address';
+const ENS_CHECKED_LABEL = 'ENS name checked';
+
+/** The wallet's reverse record names the name and the name's own record names the wallet back. */
+function EnsCheckedTick() {
+  return (
+    <svg
+      className="message-details-ens-tick"
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      role="img"
+      aria-label={ENS_CHECKED_LABEL}
+    >
+      <path d="M2.5 6.2 5 8.6l4.5-5" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 /**
  * The verified ENS name with what it stands in for, the name the sender chose and the wallet it was read for. A name
@@ -27,7 +44,10 @@ function EnsRow({ ensName, chosenName, wallet }: { ensName: string; chosenName: 
     <>
       <dt>ENS</dt>
       <dd className="message-details-ens">
-        <bdi>{ensName}</bdi>
+        <span className="message-details-ens-name">
+          <bdi>{ensName}</bdi>
+          <EnsCheckedTick />
+        </span>
         <span>
           <span className="message-details-ens-label">Chosen name</span> <bdi>{chosenName}</bdi>
         </span>
@@ -105,7 +125,6 @@ export function MessageDetails({
           <b>
             <bdi>{ensName ?? name}</bdi>
           </b>
-          {ensName !== undefined && <EnsNameTick />}
           <BadgeIcon badge={badge} />
         </span>
         <button type="button" className="message-details-close" aria-label="Close" onClick={onClose}>

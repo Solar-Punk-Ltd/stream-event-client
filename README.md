@@ -289,9 +289,10 @@ that wallet's ENS name up through `ensRpcUrl`, an Ethereum mainnet JSON-RPC endp
 Swarm ID library's `resolveVerifiedEnsName`. A name counts only when the wallet's reverse record names it and the
 name's own record names the wallet back, and it is already in its ENSIP-15 normalised form.
 
-- **What a reader sees.** The verified name with a tick replaces the name the sender chose, on the message and at
-  the head of its details. The details add an **ENS** row with the name, the name the sender chose and the short
-  wallet address, which a press shows in full. A name with characters outside ASCII says "contains non-Latin
+- **What a reader sees.** The verified name replaces the name the sender chose, on the message and at the head of its
+  details, with the Swarm ID badge as for any Swarm ID sender and no mark of its own. The details add an **ENS** row
+  with the name and a tick, which a screen reader reads as "ENS name checked", the name the sender chose and the
+  short wallet address, which a press shows in full. A name with characters outside ASCII says "contains non-Latin
   characters" there, because such a character can pass for a Latin letter of another name, and carries a small mark
   with that label beside it on the message. A long name ends in an ellipsis on the message, whole under the pointer
   and in the details. Every name is drawn isolated from the text around it, so its direction never moves the badge,

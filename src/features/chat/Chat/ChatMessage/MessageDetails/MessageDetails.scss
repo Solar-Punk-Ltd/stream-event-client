@@ -93,6 +93,16 @@
   gap: var(--spacing-2xs) var(--spacing-sm);
 }
 
+.message-details-ens-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2xs);
+}
+
+.message-details-ens-tick path {
+  stroke: var(--color-success);
+}
+
 .message-details-ens-label,
 .message-details-ens-note {
   color: var(--color-text-tertiary);
