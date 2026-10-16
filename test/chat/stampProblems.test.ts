@@ -31,6 +31,10 @@ describe('why Swarm ID did not stamp a message', () => {
     }
   });
 
+  it('names the next step when Swarm ID has given this site no stamp', () => {
+    expect(NO_SITE_STAMP).toBe('Swarm ID has given this site no stamp. Choose one in Swarm ID.');
+  });
+
   it('leaves the chat to resend what may pass a moment later', () => {
     for (const error of [
       refusal('upload-unavailable', 'app-stamp-rate'),

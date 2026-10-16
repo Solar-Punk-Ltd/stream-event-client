@@ -13,7 +13,7 @@ export interface SendProblem {
 
 export const NOT_SIGNED_IN = 'Sign in with Swarm ID to send on your stamp.';
 export const SIGNED_OUT = 'Swarm ID signed you out. Sign in again to send on your stamp.';
-export const NO_SITE_STAMP = 'Swarm ID has given this site no stamp.';
+export const NO_SITE_STAMP = 'Swarm ID has given this site no stamp. Choose one in Swarm ID.';
 export const SUBSIDISED = 'Swarm ID pays through a gateway for this site, so it has no stamp of yours to use.';
 export const STAMP_RAN_OUT = 'Your stamp ran out.';
 export const STAMP_NOT_USABLE = 'Your stamp is not usable yet.';

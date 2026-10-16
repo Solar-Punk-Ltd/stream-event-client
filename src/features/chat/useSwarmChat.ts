@@ -67,6 +67,8 @@ export interface OwnStampSetup {
   readonly refusal: () => string | null;
   /** Told after every message the viewer's node took. */
   readonly onSent?: () => void;
+  /** Told why a message on the viewer's stamp did not go out, every time it did not. */
+  readonly onProblem?: (problem: SendProblem) => void;
   /** Read at every write: how a stamped chunk goes out through the node in this browser, or null while it does not. */
   readonly push?: () => StampedPush | null;
 }
@@ -209,6 +211,7 @@ export function useSwarmChat(
         onProblem: (id, problem) => {
           if (!stopped) {
             setSendProblems((previous) => ({ ...previous, [id]: problem }));
+            ownStampRef.current?.onProblem?.(problem);
           }
         },
         onSent: () => ownStampRef.current?.onSent?.(),

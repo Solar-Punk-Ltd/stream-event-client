@@ -335,7 +335,11 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
 - **Nothing switches by itself.** A message Swarm ID will not stamp, or the node refuses, shows "Not sent." with
   the reason, and is never resent through the gateway. A refusal a resend cannot mend, such as a stamp that ran
   out, fails the message at once, and Retry tries it again on the same stamp. A node that did not answer, or a
-  busy Swarm ID, is resent by the chat on its own, on the same stamp and through the same node. When the source
+  busy Swarm ID, is resent by the chat on its own, on the same stamp and through the same node. When Swarm ID says
+  it has given this site no stamp, which since Swarm ID 0.10.0 is every site until the person picks one there, the
+  message reads "Not sent. Swarm ID has given this site no stamp. Choose one in Swarm ID." and the field above the
+  message box shows No stamp for this site with Choose a stamp in Swarm ID at once, even when the stamp read last
+  named one. When the source
   picked for Chat history changes to one that cannot send on the stamp, the choice stays, sending is held with
   the reason, and the viewer picks a Bee node or Weeb3 again or presses Let the gateway pay. Retry resends only
   through the sender that took the message. After the viewer changes who pays, the source, the sign-in or the own

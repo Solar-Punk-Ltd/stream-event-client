@@ -234,6 +234,35 @@ describe('a chat paid for with my own stamp', () => {
     expect(chat.retrySendMessage).toHaveBeenCalled();
   });
 
+  it('offers to choose a stamp in Swarm ID when it says it gave this site none, though a stamp was shown', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    const swarmId = await watchPage();
+    expect(queryButton('Choose a stamp in Swarm ID'), 'a stamp is shown, so nothing to choose yet').toBeNull();
+    swarmId.client().stampRefusal = Object.assign(new Error('no stamp'), {
+      code: 'upload-unavailable',
+      reason: 'no-stamp',
+    });
+    const mine = signedMessage('refused', {
+      key: seen.chatUser!.session!.privateKey,
+      name: seen.chatUser!.session!.username,
+      binding: seen.chatUser!.session!.binding,
+      via: MessageVia.OWN_STAMP,
+    });
+    const chat = FakeSwarmChat.latest();
+    await act(async () => chat.emitter.emit(EVENTS.MESSAGE_REQUEST_INITIATED, messageData(mine, -1)));
+    await act(async () => {
+      await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(mine))).catch(() => {});
+    });
+    await settle();
+
+    expect(chatRegion()?.textContent).toContain(
+      'Not sent. Swarm ID has given this site no stamp. Choose one in Swarm ID.',
+    );
+    expect(button('Choose a stamp in Swarm ID')).toBe(swarmId.client().shownButton().element);
+    expect(posted).toEqual([]);
+  });
+
   it('marks a failed message to be written again when its retry comes after the way messages are sent changed', async () => {
     chatOnMyBeeNode();
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
