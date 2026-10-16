@@ -178,6 +178,31 @@ export function useSwarmChat(
   const [sendProblems, setSendProblems] = useState<Record<string, ShownProblem>>({});
   /** The refused messages of the chat on screen, so one carried by several events is counted once. */
   const refusedRef = useRef(new Set<string>());
+  const [copySettledIds, setCopySettledIds] = useState<ReadonlySet<string>>(new Set());
+  const countedSendsRef = useRef(new Set<string>());
+  const sendSettledListeners = useRef(new Set<() => void>());
+
+  // A send has settled once the message is read back and its copy is written or given up, in either order.
+  useEffect(() => {
+    const settled = messages.filter(
+      (message) => message.received && copySettledIds.has(message.id) && !countedSendsRef.current.has(message.id),
+    );
+    for (const { id } of settled) {
+      countedSendsRef.current.add(id);
+    }
+    if (settled.length > 0) {
+      for (const listener of sendSettledListeners.current) {
+        listener();
+      }
+    }
+  }, [messages, copySettledIds]);
+
+  const onOwnSendSettled = useCallback((listener: () => void) => {
+    sendSettledListeners.current.add(listener);
+    return () => {
+      sendSettledListeners.current.delete(listener);
+    };
+  }, []);
 
   useEffect(() => {
     const current = JSON.parse(settingsKey) as ChatSettings;
@@ -215,6 +240,11 @@ export function useSwarmChat(
           }
         },
         onSent: () => ownStampRef.current?.onSent?.(),
+        onCopySettled: (id) => {
+          if (!stopped) {
+            setCopySettledIds((previous) => new Set(previous).add(id));
+          }
+        },
         push: () => ownStampRef.current?.push?.() ?? null,
       });
       partsRef.current = parts;
@@ -449,6 +479,7 @@ export function useSwarmChat(
     retrySendMessage,
     restart,
     copyToOwnFeed,
+    onOwnSendSettled,
     /** Messages the chat delivered that failed their check, never shown. */
     refusedCount,
   };

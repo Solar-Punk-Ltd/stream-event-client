@@ -672,6 +672,34 @@ describe('my own feed in My Swarm', () => {
     expect(chatHeadReads()).toBeGreaterThan(before);
   });
 
+  it('counts again after each message I send has been read back and its copy written, and not before', async () => {
+    const [a, b] = await myMessages(['a', 'b']);
+    let served: ReturnType<typeof servedFeeds> | null = null;
+    const box = await openMySwarm([a!], [a!], (feeds) => {
+      served = feeds;
+    });
+    expect(box()?.textContent).toContain('Own feed: 1 of 1 message');
+    const chatHeadReads = () =>
+      served!.asked.filter((read) => read.startsWith('head ') && read.endsWith(Topic.fromString(CHAT_TOPIC).toHex()))
+        .length;
+    const before = chatHeadReads();
+
+    const posts = posted.length;
+    await act(async () => FakeSwarmChat.latest().parts?.write?.(new TextEncoder().encode(JSON.stringify(b))));
+    await waitFor(() => (posted.length === posts + 2 ? true : null));
+    await settle();
+    expect(box()?.textContent, 'the copy is written, the message not yet read back').toContain(
+      'Own feed: 1 of 1 message',
+    );
+    expect(chatHeadReads()).toBe(before);
+
+    served!.chat(SERVER_KEY, CHAT_TOPIC, [a!, b!]);
+    served!.ownFeed(await chatKeyFor(BOUND_SITE), CHAT_TOPIC, [a!, b!]);
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(b!, 1)));
+
+    await waitFor(() => (box()?.textContent?.includes('Own feed: 2 of 2 messages') ? true : null));
+  });
+
   it('says how many could not be copied after three tries each, and tries them again when asked', async () => {
     const [a, b] = await myMessages(['a', 'b']);
     const box = await openMySwarm([a!, b!], [a!]);

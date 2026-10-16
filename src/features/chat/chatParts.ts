@@ -156,6 +156,8 @@ interface OwnStampParts {
   readonly refusal?: () => string | null;
   readonly onProblem?: (messageId: string, problem: SendProblem) => void;
   readonly onSent?: () => void;
+  /** Told once the copy beside a sent message was written or given up. */
+  readonly onCopySettled?: (messageId: string) => void;
   /** Read at every write: how a stamped chunk goes out through the node in this browser, or null while it does not. */
   readonly push?: () => StampedPush | null;
 }
@@ -209,6 +211,7 @@ export function chatParts(settings: ChatSettings, reads: () => ChatReads, ownSta
       },
       ...(ownStamp.onProblem ? { onProblem: ownStamp.onProblem } : {}),
       ...(ownStamp.onSent ? { onSent: ownStamp.onSent } : {}),
+      ...(ownStamp.onCopySettled ? { onCopySettled: ownStamp.onCopySettled } : {}),
       ...(ownStamp.push ? { push: ownStamp.push } : {}),
     });
     return { source, write, forgetRefusal, copyToOwnFeed: copy };

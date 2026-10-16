@@ -70,11 +70,15 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
     retrySendMessage,
     restart,
     copyToOwnFeed,
+    onOwnSendSettled,
     refusedCount,
   } = useSwarmChat(settings, ownAddress, reads, ownStamp);
   const ownFeedChat: OwnFeedChat | null = useMemo(
-    () => (ownStamp && ownAddress ? { source: ownFeedSource, sender: ownAddress, copy: copyToOwnFeed } : null),
-    [ownStamp, ownAddress, ownFeedSource, copyToOwnFeed],
+    () =>
+      ownStamp && ownAddress
+        ? { source: ownFeedSource, sender: ownAddress, onSendSettled: onOwnSendSettled, copy: copyToOwnFeed }
+        : null,
+    [ownStamp, ownAddress, ownFeedSource, onOwnSendSettled, copyToOwnFeed],
   );
   useShareOwnFeedChat(ownFeedChat);
 

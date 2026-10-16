@@ -9,6 +9,8 @@ export interface OwnFeedChat {
   /** The viewer's chat address, which owns their own feed. */
   readonly sender: string;
   /** Writes a sent message's copy into the viewer's own feed, through the chat's own write. */
+  /** Calls `listener` each time one of the viewer's own sends settles, its message read back and its copy written or given up. Returns how to stop. */
+  readonly onSendSettled: (listener: () => void) => () => void;
   readonly copy: (messageId: string, payload: Uint8Array) => Promise<CopyOutcome>;
 }
 

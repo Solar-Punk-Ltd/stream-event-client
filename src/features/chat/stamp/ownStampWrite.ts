@@ -56,6 +56,8 @@ export interface OwnStampWriteOptions {
   readonly onProblem?: (messageId: string, problem: SendProblem) => void;
   /** Told after every message the node took, so what is shown of the stamp can be read again. */
   readonly onSent?: () => void;
+  /** Told once the copy beside a sent message was written or given up. */
+  readonly onCopySettled?: (messageId: string) => void;
   readonly fetcher?: typeof fetch;
 }
 
@@ -102,7 +104,7 @@ function withSpan(payload: Uint8Array): Uint8Array<ArrayBuffer> {
  * the message.
  */
 export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
-  const { url, gsocKey, timeoutMs, ownFeed, onProblem, onSent, fetcher } = options;
+  const { url, gsocKey, timeoutMs, ownFeed, onProblem, onSent, onCopySettled, fetcher } = options;
   const inboxIdentifier = Identifier.fromString(options.gsocTopic).toHex();
   const refusals = new Map<string, SendProblem>();
   const copies = ownFeedCopiesOf(ownFeed, (chunk) => stampAndSend(chunk));
@@ -161,7 +163,7 @@ export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
         signer: { privateKey: gsocKey },
       });
       onSent?.();
-      void copies.copyBeside(message.id, payload);
+      void copies.copyBeside(message.id, payload).then(() => onCopySettled?.(message.id));
     } catch (error) {
       const problem = error instanceof SendRefusedError ? error.problem : stampRefusal(error);
       if (problem.final) {

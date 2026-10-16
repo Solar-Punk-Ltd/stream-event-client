@@ -41,7 +41,7 @@ export function OwnFeedSync() {
 }
 
 function OwnFeedSyncOf({ chat }: { readonly chat: OwnFeedChat }) {
-  const { count, recount } = useOwnFeedComparison(chat.source, chat.sender);
+  const { count, recount, refresh } = useOwnFeedComparison(chat.source, chat.sender);
   const [sync, setSync] = useState<SyncState>(IDLE);
   const isShown = useRef(true);
   useEffect(() => {
@@ -50,6 +50,8 @@ function OwnFeedSyncOf({ chat }: { readonly chat: OwnFeedChat }) {
       isShown.current = false;
     };
   }, []);
+
+  useEffect(() => chat.onSendSettled(refresh), [chat, refresh]);
 
   const copyAll = useCallback(
     async (records: readonly OwnFeedRecord[]) => {

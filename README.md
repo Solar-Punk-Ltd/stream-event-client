@@ -396,8 +396,9 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   every device. A message the gateway paid for is not counted and never copied. Sync writes the missing copies with
   the stamp, one after the other, each tried three times as above, and says Syncing… 1 of 2 while it runs, then All
   47 copied. It stops at the first copy that fails, since every later copy would try that one again first, and says
-  how many were not copied, that one and the rest, with Try again. Once a sync ends it counts again. It says
-  Counting… while it reads, and Your own feed is too large to count past the limits.
+  how many were not copied, that one and the rest, with Try again. Once a sync ends it counts again, and so it does
+  after each message the viewer sends, once it is read back and its copy written or given up, behind the count on
+  screen. It says Counting… while it first reads, and Your own feed is too large to count past the limits.
   **A known limit.** The next index is counted from one read of the feed's newest entry each time the chat starts,
   so a chat started again seconds after a send, before that entry can be read back, or another device writing the
   same feed at once, can write a copy at an index already used.

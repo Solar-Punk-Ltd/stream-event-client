@@ -51,7 +51,7 @@ function counterOf(source: OwnFeedSource): OwnFeedCounter {
 
 /**
  * The sender's messages in the whole chat against the copies in their own feed, read when shown, answered from a count
- * made a moment ago where there is one, and read anew on `recount`. Every read stops when it is hidden or recounted.
+ * made a moment ago where there is one, and read anew on `recount`, or on `refresh` without showing Counting…. Every read stops when it is hidden or recounted.
  * Reads only.
  */
 export function useOwnFeedComparison(source: OwnFeedSource | null, sender: string) {
@@ -59,7 +59,7 @@ export function useOwnFeedComparison(source: OwnFeedSource | null, sender: strin
   const reading = useRef<AbortController | null>(null);
 
   const start = useCallback(
-    (isFresh: boolean) => {
+    (isFresh: boolean, isQuiet = false) => {
       if (!source) {
         return;
       }
@@ -70,7 +70,9 @@ export function useOwnFeedComparison(source: OwnFeedSource | null, sender: strin
       if (isFresh) {
         counter.forget(sender);
       }
-      setCount({ status: COUNTING });
+      if (!isQuiet) {
+        setCount({ status: COUNTING });
+      }
       counter.count(sender, controller.signal).then(
         (comparison) => {
           if (!controller.signal.aborted) {
@@ -88,13 +90,15 @@ export function useOwnFeedComparison(source: OwnFeedSource | null, sender: strin
   );
 
   const recount = useCallback(() => start(true), [start]);
+  /** Counts anew behind the count on screen, which stays until the new one is made. */
+  const refresh = useCallback(() => start(true, true), [start]);
 
   useEffect(() => {
     start(false);
     return () => reading.current?.abort();
   }, [start]);
 
-  return { count, recount };
+  return { count, recount, refresh };
 }
 
 /** "1 message" or "N messages". */
