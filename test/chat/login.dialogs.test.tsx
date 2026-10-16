@@ -78,6 +78,22 @@ describe('joining the chat from My Swarm', () => {
       expect(restoreUserSession()).toBeNull();
     }
   });
+
+  it('says plainly that a name ending in .eth is kept for ENS names, and keeps the form', async () => {
+    await header();
+    click(button('My Swarm'));
+    for (const name of [
+      'vitalik.eth',
+      'Vitalik.ETH',
+      '\uff36\uff29\uff34\uff21\uff2c\uff29\uff2b\uff0e\uff25\uff34\uff28',
+    ]) {
+      type(input('Your name'), name);
+      click(button('Chat as guest'));
+      expect(dialog()?.textContent).toContain('Names ending in .eth are kept for ENS names.');
+      expect(input('Your name')).toBeTruthy();
+      expect(restoreUserSession()).toBeNull();
+    }
+  });
 });
 
 describe('a guest leaving', () => {

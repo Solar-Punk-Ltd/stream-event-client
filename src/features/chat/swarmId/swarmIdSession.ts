@@ -51,8 +51,8 @@ function walletLinkFor(identity: SwarmIdIdentity, account: string): WalletLink |
 
 /**
  * The account's name as a chat name: trimmed, and cut to the chat's limit counted in characters as a reader sees them.
- * An account with no name, or one with a character the chat refuses in a name, chats under its short address, so a
- * sender line is never empty and every message is one the chat accepts.
+ * An account with no name, or one the chat refuses as a name, such as one with a format character or one ending in
+ * .eth, chats under its short address, so a sender line is never empty and every message is one the chat accepts.
  */
 export function chatNameOf(identity: SwarmIdIdentity): string {
   const name = [...identity.name.trim()].slice(0, MAX_NAME_CHARACTERS).join('').trim();

@@ -27,6 +27,8 @@ export const DISPLAY_NAME_PROBLEM = `A display name is 1 to ${MAX_NAME_CHARACTER
 
 export const INVISIBLE_CHARACTERS_PROBLEM = 'A display name cannot hold invisible formatting or control characters.';
 
+export const ENS_NAME_PROBLEM = 'Names ending in .eth are kept for ENS names.';
+
 /** Counted in characters as a reader sees them, so an emoji is one and not the two code units it takes. */
 export function checkDisplayName(raw: string): DisplayNameCheck {
   const name = raw.trim();
@@ -35,6 +37,8 @@ export function checkDisplayName(raw: string): DisplayNameCheck {
       return { ok: false, problem: DISPLAY_NAME_PROBLEM };
     case 'invisible':
       return { ok: false, problem: INVISIBLE_CHARACTERS_PROBLEM };
+    case 'ens-like':
+      return { ok: false, problem: ENS_NAME_PROBLEM };
     default:
       return { ok: true, name };
   }

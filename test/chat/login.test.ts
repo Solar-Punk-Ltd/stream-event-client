@@ -2,7 +2,12 @@ import { PrivateKey } from '@ethersphere/bee-js';
 import { MAX_NAME_CHARACTERS } from '@solarpunkltd/swarm-chat-js';
 import { describe, expect, it, vi } from 'vitest';
 
-import { checkDisplayName, INVISIBLE_CHARACTERS_PROBLEM, nicknameLogin } from '../../src/features/chat/auth/login';
+import {
+  checkDisplayName,
+  ENS_NAME_PROBLEM,
+  INVISIBLE_CHARACTERS_PROBLEM,
+  nicknameLogin,
+} from '../../src/features/chat/auth/login';
 
 const HEX_KEY = /^[0-9a-f]{64}$/;
 const HEX_ADDRESS = /^[0-9a-f]{40}$/;
@@ -36,6 +41,25 @@ describe('the display name rule', () => {
     ['a word joiner', 'Ad\u2060a'],
   ])('refuses a name with %s, which draws nothing yet changes how the name reads', (_what, raw) => {
     expect(checkDisplayName(raw)).toEqual({ ok: false, problem: INVISIBLE_CHARACTERS_PROBLEM });
+  });
+
+  it.each([
+    ['vitalik.eth'],
+    ['Vitalik.ETH'],
+    ['  vitalik.eth  '],
+    ['\uff36\uff29\uff34\uff21\uff2c\uff29\uff2b\uff0e\uff25\uff34\uff28'],
+    ['vitalik\u3002eth'],
+  ])('refuses %s, since a name ending in .eth could pass for a verified ENS name', (raw) => {
+    expect(checkDisplayName(raw)).toEqual({ ok: false, problem: ENS_NAME_PROBLEM });
+  });
+
+  it('says plainly why a name ending in .eth is refused', () => {
+    expect(ENS_NAME_PROBLEM).toBe('Names ending in .eth are kept for ENS names.');
+  });
+
+  it('accepts a name that only mentions eth', () => {
+    expect(checkDisplayName('eth fan').ok).toBe(true);
+    expect(checkDisplayName('vitalik.ethereum').ok).toBe(true);
   });
 
   it('accepts names in any script', () => {

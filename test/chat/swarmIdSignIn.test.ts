@@ -346,6 +346,12 @@ describe("a Swarm ID account's chat name", () => {
     );
   });
 
+  it('is the short account address for an account whose name ends in .eth, which only a verified ENS name shows', () => {
+    const short = `0x${FORK_ACCOUNT.slice(2, 6)}…${FORK_ACCOUNT.slice(-4)}`;
+    expect(chatNameOf({ ...FORK_IDENTITY, name: 'vitalik.eth' })).toBe(short);
+    expect(chatNameOf({ ...FORK_IDENTITY, name: ' Vitalik.ETH ' })).toBe(short);
+  });
+
   it('keeps a name joined by a zero width joiner or non-joiner', () => {
     const family = '\u{1F468}\u200d\u{1F469}\u200d\u{1F467}';
     expect(chatNameOf({ ...FORK_IDENTITY, name: family })).toBe(family);

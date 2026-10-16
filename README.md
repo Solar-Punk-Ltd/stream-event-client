@@ -108,7 +108,9 @@ after the change.
 One chat per stream, beside the video on a desktop and under it on a phone, where it folds away.
 Anyone can read it. Writing asks once for a display name, 1 to 20 characters with no invisible formatting or control
 character such as a right-to-left override. The zero width joiner and non-joiner are allowed, since joined emoji
-and Persian or Indic names need them. There is no
+and Persian or Indic names need them. A name ending in .eth, in any case or with lookalike letters or dots such as the
+fullwidth ones, is refused with "Names ending in .eth are kept for ENS names.", since only a verified ENS name shows
+as one. There is no
 password, wallet or account. A deployment that names a Swarm ID site in `swarmId.url` also offers
 signing in with Swarm ID, described [below](#signing-in-with-swarm-id). A viewer can send a message, react with an emoji, reply in a thread,
 load older messages, and retry a message that did not send. A message lights up under the pointer and shows its
@@ -221,7 +223,7 @@ stamps them, unless the person picks their own stamp, as the next section says.
   and each has to allow the Swarm ID site's exact origin for GET itself, or Swarm ID cannot read this site's
   content through it.
 - **The chat name** is the account's name, trimmed and cut to the chat's 20 characters. An account
-  with no name chats under its short address. The header shows the chat name with its badge, the grey
+  with no name, or with one the chat refuses, such as one ending in .eth, chats under its short address. The header shows the chat name with its badge, the grey
   hexagon of a guest or the filled one of Swarm ID, as every message does. My Swarm shows the name once, says "Swarm ID",
   with the account's own name beside it only where it differs from the chat name, and Sign out. Under them are the
   public chat address and the Swarm ID account's address, each short and expandable as in a message's details.
