@@ -676,7 +676,7 @@ export class ManifestFetcher {
     if (reference === null) {
       return url;
     }
-    return this.segmentUrl()(reference) ?? url;
+    return this.swarm.urlFor(reference, 'segment') ?? url;
   }
 
   /** How segments are named now: by the provider the current reader reads from. */

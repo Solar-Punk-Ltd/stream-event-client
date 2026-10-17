@@ -1,8 +1,7 @@
 /**
  * How many segment URLs {@link SegmentNames} keeps. A three-hour recording of two-second segments on a
  * four-rung ladder names about 21,600, so this holds a whole long session with room to spare. The oldest
- * name goes first, and a URL whose name was dropped loads from where it was named, as before the switch
- * followed segments at all.
+ * name goes first, and a URL whose name was dropped loads from where it was named.
  */
 const SEGMENT_NAMES_KEPT = 50_000;
 
