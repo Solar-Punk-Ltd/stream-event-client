@@ -42,6 +42,20 @@ const targetSchema = z.strictObject({
       }),
     )
     .default([]),
+  /**
+   * The actor whose account a scenario makes with a wallet that owns a real ENS name, that wallet's address, and the
+   * name, which must resolve to the address and back. The wallet's key never comes from this file: live mode reads it
+   * from the environment.
+   */
+  ens: z
+    .strictObject({
+      actor: z.string().regex(/^[a-z]+$/, { message: 'must be an actor name such as alice' }),
+      address: z.string().regex(ETH_ADDRESS, { message: 'must be an Ethereum address' }),
+      name: z
+        .string()
+        .regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, { message: 'must be an ENS name such as alice.example.eth' }),
+    })
+    .optional(),
 });
 
 export type Target = z.output<typeof targetSchema>;

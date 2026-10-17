@@ -35,6 +35,16 @@ describe('parseTarget', () => {
     expect(() => parseTarget({ ...good, stamp: 'ab' })).toThrow();
   });
 
+  it('takes an optional ens field naming the actor, its wallet address and its name', () => {
+    const { ens: _placeholder, ...good } = JSON.parse(readFileSync(EXAMPLE_TARGET, 'utf8')) as Record<string, unknown>;
+    const ens = { actor: 'alice', address: '0x0000000000000000000000000000000000000001', name: 'alice.example.eth' };
+    expect(parseTarget({ ...good, ens }).ens).toEqual(ens);
+    expect(parseTarget(good).ens).toBeUndefined();
+    expect(() => parseTarget({ ...good, ens: { ...ens, address: 'not an address' } })).toThrow(/ens.address/);
+    expect(() => parseTarget({ ...good, ens: { ...ens, name: 'no-dot' } })).toThrow(/ens.name/);
+    expect(() => parseTarget({ ...good, ens: { ...ens, key: '0x01' } })).toThrow();
+  });
+
   it('takes outside origins the deployment reads on its own, each a plain origin with why it is read', () => {
     const good = JSON.parse(readFileSync(EXAMPLE_TARGET, 'utf8')) as Record<string, unknown>;
     const reads = { origin: 'https://swarm.example.net', why: "Swarm ID's own Swarm gateway" };
