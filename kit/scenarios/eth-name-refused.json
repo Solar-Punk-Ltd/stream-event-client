@@ -12,7 +12,7 @@
     "expect name-refused bob",
     "bob guest \"vitalik．eth\"",
     "expect name-refused bob",
-    "bob guest \"vitalik {run}\"",
+    "bob guest \"kit bob {run}\"",
     "expect joined bob",
     "bob send \"a guest, not an ENS name {run}\"",
     "expect sender bob \"a guest, not an ENS name {run}\" name=chosen:bob badge=guest stamp=gateway",
