@@ -10,7 +10,18 @@
 }
 
 .chat-message-name {
+  // A name is the sender's to choose, so its direction never reaches the badge, the time or the message beside it.
+  unicode-bidi: isolate;
   font-weight: var(--font-weight-semibold);
+
+  &.ens-name {
+    display: inline-block;
+    max-width: 14em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
 
   &.guest {
     font-weight: var(--font-weight-medium);
@@ -38,4 +49,13 @@
   background: transparent;
   line-height: 0;
   cursor: pointer;
+}
+
+.ens-name-note {
+  flex: none;
+
+  circle,
+  path {
+    stroke: var(--color-text-secondary);
+  }
 }

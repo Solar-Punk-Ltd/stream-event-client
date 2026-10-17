@@ -7,6 +7,7 @@ import {
   type ChatSettings,
   EVENTS,
   FeedStatus,
+  HeadLookupTimeoutError,
   type MessageData,
   MessageType,
   SwarmChat,
@@ -16,6 +17,7 @@ import { type ChatReads, chatParts, type ChatPartsForPage } from './chatParts';
 import { draftProblem } from './draftCheck';
 import { groupReactions, type ReactionsByMessage } from './reactions';
 
+import { type CopyOutcome, NOT_COPIED } from './stamp/ownFeedCopies';
 import type { ChunkStamper, SendProblem, StampedPush } from './stamp/ownStampWrite';
 import { chatVerifier } from './verify/chatVerifier';
 
@@ -65,6 +67,8 @@ export interface OwnStampSetup {
   readonly refusal: () => string | null;
   /** Told after every message the viewer's node took. */
   readonly onSent?: () => void;
+  /** Told why a message on the viewer's stamp did not go out, every time it did not. */
+  readonly onProblem?: (problem: SendProblem) => void;
   /** Read at every write: how a stamped chunk goes out through the node in this browser, or null while it does not. */
   readonly push?: () => StampedPush | null;
 }
@@ -131,6 +135,25 @@ export function mergeMessage(
 const START_DELAY_MS = 0;
 
 /**
+ * How long a message sent while no chat is ready waits for the next one. A change of name, wallet link or who pays
+ * stops the chat and starts the next a timer turn later, so the wait is that turn in practice.
+ */
+const CHAT_WAIT_MS = 10_000;
+
+/** What a started chat was built for: the settings and restart it answers, and which chat it shows. */
+interface ChatBuild {
+  readonly key: string;
+  readonly chatKey: string;
+}
+
+/** A send that found no chat for the settings now in force, told of every chat that starts until one takes it. */
+type ChatWaiter = (chat: SwarmChat, build: ChatBuild) => void;
+
+function chatBuildKey(settingsKey: string, restarts: number): string {
+  return `${restarts}:${settingsKey}`;
+}
+
+/**
  * One chat for the settings given, stopped when they change and when the component goes away. The
  * settings are compared by value, so a caller may build a new object on every render.
  *
@@ -148,8 +171,8 @@ export function useSwarmChat(
   ownStamp: OwnStampSetup | null = null,
 ) {
   const settingsKey = JSON.stringify(settings);
-  // Who pays, where a message goes and whether it keeps a copy change how it is sent, not which chat is shown.
-  const { via: _via, writeUrl: _writeUrl, own: _own, ...where } = settings.infra;
+  // Who pays and where a message goes change how it is sent, not which chat is shown.
+  const { via: _via, writeUrl: _writeUrl, ...where } = settings.infra;
   const chatKey = JSON.stringify(where);
   const ownStampRef = useRef(ownStamp);
   ownStampRef.current = ownStamp;
@@ -160,19 +183,57 @@ export function useSwarmChat(
   readsRef.current = reads;
 
   const [restarts, setRestarts] = useState(0);
+  /**
+   * The chat the latest render asked for. Between a change and its effect `chatRef` still holds the chat built for the
+   * settings before it, which must not send for the new ones.
+   */
+  const wantedBuildRef = useRef(chatBuildKey(settingsKey, restarts));
+  wantedBuildRef.current = chatBuildKey(settingsKey, restarts);
+  const chatBuildRef = useRef<ChatBuild | null>(null);
+  const chatWaitersRef = useRef(new Set<ChatWaiter>());
   const [messages, setMessages] = useState<VisibleMessage[]>([]);
   const [status, setStatus] = useState<ChatStatus>(CHAT_LOADING);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
   const [feedStatus, setFeedStatus] = useState<FeedStatus | null>(null);
+  /**
+   * The newest entry was not found in time while the chat opened, so the library opened it as empty and reads on from
+   * its first entry. Its history is unknown rather than empty until that read answers.
+   */
+  const [isFindingNewest, setIsFindingNewest] = useState(false);
   const [refusedCount, setRefusedCount] = useState(0);
   const [sendProblems, setSendProblems] = useState<Record<string, ShownProblem>>({});
   /** The refused messages of the chat on screen, so one carried by several events is counted once. */
   const refusedRef = useRef(new Set<string>());
+  const [copySettledIds, setCopySettledIds] = useState<ReadonlySet<string>>(new Set());
+  const countedSendsRef = useRef(new Set<string>());
+  const sendSettledListeners = useRef(new Set<() => void>());
+
+  // A send has settled once the message is read back and its copy is written or given up, in either order.
+  useEffect(() => {
+    const settled = messages.filter(
+      (message) => message.received && copySettledIds.has(message.id) && !countedSendsRef.current.has(message.id),
+    );
+    for (const { id } of settled) {
+      countedSendsRef.current.add(id);
+    }
+    if (settled.length > 0) {
+      for (const listener of sendSettledListeners.current) {
+        listener();
+      }
+    }
+  }, [messages, copySettledIds]);
+
+  const onOwnSendSettled = useCallback((listener: () => void) => {
+    sendSettledListeners.current.add(listener);
+    return () => {
+      sendSettledListeners.current.delete(listener);
+    };
+  }, []);
 
   useEffect(() => {
     const current = JSON.parse(settingsKey) as ChatSettings;
-    const { via: _currentVia, writeUrl: _currentWriteUrl, own: _currentOwn, ...currentWhere } = current.infra;
+    const { via: _currentVia, writeUrl: _currentWriteUrl, ...currentWhere } = current.infra;
     const currentChatKey = JSON.stringify(currentWhere);
     if (shownChatKeyRef.current !== currentChatKey) {
       shownChatKeyRef.current = currentChatKey;
@@ -183,6 +244,7 @@ export function useSwarmChat(
       setStatus(CHAT_LOADING);
       setHasOlder(false);
       setIsLoadingOlder(false);
+      setIsFindingNewest(false);
     } else {
       // A chat started again, for a new name or on request, has not failed yet.
       setStatus((previous) => (previous === CHAT_UNREACHABLE ? CHAT_LOADING : previous));
@@ -201,15 +263,26 @@ export function useSwarmChat(
         onProblem: (id, problem) => {
           if (!stopped) {
             setSendProblems((previous) => ({ ...previous, [id]: problem }));
+            ownStampRef.current?.onProblem?.(problem);
           }
         },
         onSent: () => ownStampRef.current?.onSent?.(),
+        onCopySettled: (id) => {
+          if (!stopped) {
+            setCopySettledIds((previous) => new Set(previous).add(id));
+          }
+        },
         push: () => ownStampRef.current?.push?.() ?? null,
       });
       partsRef.current = parts;
       const started = new SwarmChat(current, { source: parts.source, write: parts.write });
       chat = started;
       chatRef.current = started;
+      const build: ChatBuild = { key: chatBuildKey(settingsKey, restarts), chatKey: currentChatKey };
+      chatBuildRef.current = build;
+      for (const waiter of [...chatWaitersRef.current]) {
+        waiter(started, build);
+      }
 
       const { on, off } = started.getEmitter();
       const listen = <E extends ChatEvent>(event: E, listener: (data: ChatEventPayloads[E]) => void) => {
@@ -257,6 +330,9 @@ export function useSwarmChat(
         if (stopped) {
           return;
         }
+        if (loading) {
+          setIsFindingNewest(false);
+        }
         if (!loading) {
           setHasOlder(started.hasPreviousMessages());
         }
@@ -276,8 +352,17 @@ export function useSwarmChat(
         }
       });
       listen(EVENTS.STATUS, (next) => {
-        if (!stopped) {
-          setFeedStatus(next);
+        if (stopped) {
+          return;
+        }
+        setFeedStatus(next);
+        if (next !== FeedStatus.RECONNECTING) {
+          setIsFindingNewest(false);
+        }
+      });
+      listen(EVENTS.ERROR, (error) => {
+        if (!stopped && error instanceof HeadLookupTimeoutError) {
+          setIsFindingNewest(true);
         }
       });
       listen(EVENTS.CRITICAL_ERROR, () => {
@@ -302,6 +387,7 @@ export function useSwarmChat(
       if (chat) {
         if (chatRef.current === chat) {
           chatRef.current = null;
+          chatBuildRef.current = null;
         }
         void chat.stop();
       }
@@ -347,9 +433,47 @@ export function useSwarmChat(
     [grouped.replies],
   );
 
-  const send = useCallback(async (text: string, type: MessageType, targetMessageId?: string) => {
-    await chatRef.current?.sendMessage(text, type, targetMessageId);
+  /**
+   * The chat for the settings now in force. While none is running, as between a change of name, wallet link or who
+   * pays and the restart it causes, the next chat for them, so a message is sent with the profile in force when it
+   * goes. Rejects when none starts in time, or when the next chat to start shows another stream.
+   */
+  const chatForSending = useCallback((): Promise<SwarmChat> => {
+    const ready = chatRef.current;
+    const readyBuild = chatBuildRef.current;
+    if (ready && readyBuild?.key === wantedBuildRef.current) {
+      return Promise.resolve(ready);
+    }
+    const sentIn = shownChatKeyRef.current;
+    return new Promise((resolve, reject) => {
+      const waiters = chatWaitersRef.current;
+      const settle = (outcome: () => void) => {
+        clearTimeout(timer);
+        waiters.delete(waiter);
+        outcome();
+      };
+      const waiter: ChatWaiter = (chat, build) => {
+        if (build.chatKey !== sentIn) {
+          settle(() => reject(new Error('The chat changed to another stream before the message could be sent.')));
+        } else if (build.key === wantedBuildRef.current) {
+          settle(() => resolve(chat));
+        }
+      };
+      const timer = setTimeout(
+        () => settle(() => reject(new Error('No chat started in time to send the message.'))),
+        CHAT_WAIT_MS,
+      );
+      waiters.add(waiter);
+    });
   }, []);
+
+  const send = useCallback(
+    async (text: string, type: MessageType, targetMessageId?: string) => {
+      const chat = await chatForSending();
+      await chat.sendMessage(text, type, targetMessageId);
+    },
+    [chatForSending],
+  );
 
   const sendMessage = useCallback((text: string) => send(text, MessageType.TEXT), [send]);
   const sendReaction = useCallback(
@@ -401,9 +525,17 @@ export function useSwarmChat(
 
   const restart = useCallback(() => setRestarts((count) => count + 1), []);
 
+  /** Writes a sent message's copy into the viewer's own feed, through the chat's write as it is now. */
+  const copyToOwnFeed = useCallback(
+    (messageId: string, payload: Uint8Array): Promise<CopyOutcome> =>
+      partsRef.current?.copyToOwnFeed?.(messageId, payload) ?? Promise.resolve(NOT_COPIED),
+    [],
+  );
+
   return {
     status,
     feedStatus,
+    isFindingNewest,
     isLoadingOlder,
     hasOlder,
     messages: grouped.text,
@@ -417,6 +549,8 @@ export function useSwarmChat(
     fetchOlderMessages,
     retrySendMessage,
     restart,
+    copyToOwnFeed,
+    onOwnSendSettled,
     /** Messages the chat delivered that failed their check, never shown. */
     refusedCount,
   };

@@ -115,7 +115,7 @@ describe("a source's own player", () => {
 
     nodeStatus = { state: 'lost', peers: 0, healthyPeers: 200 };
     await wait(500);
-    expect(line()).toBe('Lost its peers. Open Connect to start it again.');
+    expect(line()).toBe('Lost its peers. Open My Swarm to start it again.');
   });
 
   it('keeps its line beside the video rather than over it', async () => {

@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { useThemeChoice } from '@/app/ThemeChoiceProvider';
+import { ShortAddress } from '@/shared/components/Address/ShortAddress';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { GuestBadgeIcon } from '@/shared/components/Icons/GuestBadgeIcon';
 import { SwarmIdBadgeIcon } from '@/shared/components/Icons/SwarmIdBadgeIcon';
 
@@ -21,7 +23,13 @@ import './SwarmIdParts.scss';
 const SIGN_IN_LABEL = 'Sign in with Swarm ID';
 const UNAVAILABLE_TEXT = 'Swarm ID cannot be reached right now.';
 const STARTING_TEXT = 'Connecting to Swarm ID';
+const SLOW_TEXT = 'Swarm ID is taking longer than usual.';
+/** How long the button may wait for Swarm ID before the page says, in words anyone sees, that it is slow. */
+const SLOW_AFTER_MS = 30_000;
 const WINDOW_BLOCKED = 'blocked';
+const SWARM_ID_NAME = 'Swarm ID';
+const PUBLIC_ADDRESS_LABEL = 'public address';
+const ACCOUNT_LABEL = 'Swarm ID account';
 
 interface SwarmIdButtonProps {
   readonly action: SwarmIdButtonAction;
@@ -50,8 +58,11 @@ export function SwarmIdButton({
   const mounted = useRef<SwarmIdMountedButton | null>(null);
   const [windowState, setWindowState] = useState<SwarmIdWindowState | null>(null);
   const [isRefused, setIsRefused] = useState(false);
+  /** Whether the mounted frame said it shows its button, until which the placeholder stands over it. */
+  const [isShown, setIsShown] = useState(false);
   /** Raised by Try again, which mounts a new button in place of one Swarm ID refused or that never answered. */
   const [attempt, setAttempt] = useState(0);
+  const startingId = useId();
   const isStarting = swarmId?.status === SWARM_ID_STARTING;
   const canMount = swarmId !== null && !isStarting && swarmId.status !== SWARM_ID_UNAVAILABLE;
 
@@ -74,16 +85,24 @@ export function SwarmIdButton({
     mounted.current = button;
     handed.current = JSON.stringify(options);
     let isCurrent = true;
-    button.ready.catch(() => {
-      if (isCurrent) {
-        setIsRefused(true);
-      }
-    });
+    button.ready.then(
+      () => {
+        if (isCurrent) {
+          setIsShown(true);
+        }
+      },
+      () => {
+        if (isCurrent) {
+          setIsRefused(true);
+        }
+      },
+    );
     return () => {
       isCurrent = false;
       mounted.current = null;
       button.unmount();
       setIsRefused(false);
+      setIsShown(false);
     };
   }, [canMount, mountSwarmIdButton, attempt]);
 
@@ -97,21 +116,46 @@ export function SwarmIdButton({
   }, [action, text, variant, size, look]);
 
   const isUnavailable = swarmId?.status === SWARM_ID_UNAVAILABLE;
-  // The container stays while the hints show, so the button's place does not jump while Swarm ID starts, and a refused
-  // frame is taken away by its own unmount rather than with a container React removed under it.
+  const isWaiting = !isShown && !isRefused && !isUnavailable;
+  const [isSlow, setIsSlow] = useState(false);
+
+  useEffect(() => {
+    if (!isWaiting) {
+      return;
+    }
+    const timer = setTimeout(() => setIsSlow(true), SLOW_AFTER_MS);
+    return () => {
+      clearTimeout(timer);
+      setIsSlow(false);
+    };
+  }, [isWaiting]);
+
+  // The slot stays while the hints show, so the button's place does not jump while Swarm ID starts, and a refused
+  // frame is taken away by its own unmount rather than with a container React removed under it. Until the frame
+  // shows its button, a placeholder in the page's own look of that button stands over it. An unseen copy of the label
+  // keeps the slot at least as wide as the label, since the frame and the placeholder over it give the slot no width.
   return (
     <span className="swarm-id-button">
-      <span
-        ref={container}
-        className={`swarm-id-button-frame ${size}`}
-        hidden={isUnavailable || isRefused}
-        aria-hidden={canMount ? undefined : true}
-      />
-      {isStarting && (
-        <span className="swarm-id-hint" role="status">
-          {STARTING_TEXT}
+      <span className={`swarm-id-button-slot ${size}`} hidden={isUnavailable || isRefused}>
+        <span className={`button ${variant} swarm-id-button-sizer`} aria-hidden="true">
+          {text}
         </span>
-      )}
+        <span ref={container} className="swarm-id-button-frame" aria-hidden={canMount ? undefined : true} />
+        {isWaiting && (
+          <span className={`button ${variant} swarm-id-button-placeholder`} role="img" aria-labelledby={startingId}>
+            <Spinner />
+            {text}
+          </span>
+        )}
+      </span>
+      <span className={isSlow ? 'swarm-id-status slow' : 'swarm-id-status'} role="status">
+        {isWaiting && (
+          <span id={startingId} className="swarm-id-spoken">
+            {STARTING_TEXT}
+          </span>
+        )}
+        {isSlow && <span className="swarm-id-hint">{SLOW_TEXT}</span>}
+      </span>
       {(isUnavailable || isRefused) && <span className="swarm-id-hint">{UNAVAILABLE_TEXT}</span>}
       {isRefused && (
         <Button
@@ -184,18 +228,31 @@ export function SwarmIdOffer() {
 export function SwarmIdYou({ onLeave }: { onLeave: () => void }) {
   const { swarmId, swarmIdSession, guestSession, signOutOfSwarmId } = useChatUser();
   if (swarmIdSession) {
+    const { username, accountName, address, account } = swarmIdSession;
     return (
       <div className="swarm-id-you">
         <div className="swarm-id-row">
           <span className="swarm-id-who">
-            <b className="swarm-id-name linked">{swarmIdSession.username}</b>
+            <b className="swarm-id-name linked">{username}</b>
             <SwarmIdBadgeIcon />
-            <span className="swarm-id-muted">Swarm ID · {swarmIdSession.accountName}</span>
+            <span className="swarm-id-muted">
+              {accountName && accountName !== username ? `${SWARM_ID_NAME} · ${accountName}` : SWARM_ID_NAME}
+            </span>
           </span>
           <Button variant={ButtonVariant.SECONDARY} className="swarm-id-small" onClick={signOutOfSwarmId}>
             Sign out
           </Button>
         </div>
+        <dl className="swarm-id-addresses">
+          <dt>Public address</dt>
+          <dd>
+            <ShortAddress value={address} label={PUBLIC_ADDRESS_LABEL} />
+          </dd>
+          <dt>Swarm ID account</dt>
+          <dd>
+            <ShortAddress value={account} label={ACCOUNT_LABEL} />
+          </dd>
+        </dl>
       </div>
     );
   }

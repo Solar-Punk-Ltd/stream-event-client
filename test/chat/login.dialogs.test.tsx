@@ -27,28 +27,28 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-describe('joining the chat from Connect', () => {
+describe('joining the chat from My Swarm', () => {
   it('offers to chat as a guest with just a name', async () => {
     await header();
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     expect(dialog()?.getAttribute('aria-modal')).toBe('true');
     expect(dialog()?.textContent).toContain('Chat as a guest with just a name.');
     expect(input('Your name')).toBeTruthy();
   });
 
-  it('closes Connect on Escape without joining', async () => {
+  it('closes My Swarm on Escape without joining', async () => {
     await header();
-    click(button('Connect'));
+    click(button('My Swarm'));
     press(document.body, 'Escape');
 
     expect(dialog()).toBeNull();
     expect(restoreUserSession()).toBeNull();
   });
 
-  it('chats under the trimmed name, keeps it for the next visit, and shows it in the header and in Connect', async () => {
+  it('chats under the trimmed name, keeps it for the next visit, and shows it in the header and in My Swarm', async () => {
     await header();
-    click(button('Connect'));
+    click(button('My Swarm'));
     type(input('Your name'), '  Ada  ');
     click(button('Chat as guest'));
     await settle();
@@ -61,7 +61,7 @@ describe('joining the chat from Connect', () => {
 
   it('chats on Enter', async () => {
     await header();
-    click(button('Connect'));
+    click(button('My Swarm'));
     type(input('Your name'), 'Ada');
     press(input('Your name'), 'Enter');
 
@@ -70,11 +70,27 @@ describe('joining the chat from Connect', () => {
 
   it('says what a name must be, and keeps the form, for an empty or too long name', async () => {
     await header();
-    click(button('Connect'));
+    click(button('My Swarm'));
     for (const name of ['', '   ', 'x'.repeat(21)]) {
       type(input('Your name'), name);
       click(button('Chat as guest'));
       expect(dialog()?.textContent).toContain('1 to 20 characters');
+      expect(restoreUserSession()).toBeNull();
+    }
+  });
+
+  it('says plainly that a name ending in .eth is kept for ENS names, and keeps the form', async () => {
+    await header();
+    click(button('My Swarm'));
+    for (const name of [
+      'vitalik.eth',
+      'Vitalik.ETH',
+      '\uff36\uff29\uff34\uff21\uff2c\uff29\uff2b\uff0e\uff25\uff34\uff28',
+    ]) {
+      type(input('Your name'), name);
+      click(button('Chat as guest'));
+      expect(dialog()?.textContent).toContain('Names ending in .eth are kept for ENS names.');
+      expect(input('Your name')).toBeTruthy();
       expect(restoreUserSession()).toBeNull();
     }
   });
@@ -93,7 +109,7 @@ describe('a guest leaving', () => {
     click(button('Cancel'));
 
     expect(restoreUserSession()?.username).toBe('Ada');
-    expect(dialog()?.querySelector('h2')?.textContent).toBe('Connect');
+    expect(dialog()?.querySelector('h2')?.textContent).toBe('My Swarm');
   });
 
   it('leaves once confirmed, forgetting the name', async () => {
@@ -109,10 +125,10 @@ describe('a guest leaving', () => {
 });
 
 describe('a site with no chat', () => {
-  it('offers no way into the chat in Connect', async () => {
+  it('offers no way into the chat in My Swarm', async () => {
     mounted = connectPage({ config: minimalConfig() });
     await settle();
-    click(button('Connect'));
+    click(button('My Swarm'));
 
     expect(text()).not.toContain('Chat as a guest');
   });

@@ -31,6 +31,10 @@ describe('why Swarm ID did not stamp a message', () => {
     }
   });
 
+  it('names the next step when Swarm ID has given this site no stamp', () => {
+    expect(NO_SITE_STAMP).toBe('Swarm ID has given this site no stamp. Choose one in Swarm ID.');
+  });
+
   it('leaves the chat to resend what may pass a moment later', () => {
     for (const error of [
       refusal('upload-unavailable', 'app-stamp-rate'),
@@ -80,9 +84,9 @@ describe('why the node in this browser did not push a message', () => {
     });
   });
 
-  it('fails at once while the node lost its peers, saying to start it again in Connect, which no resend does', () => {
+  it('fails at once while the node lost its peers, saying to start it again in My Swarm, which no resend does', () => {
     expect(weeb3PushProblem(new Weeb3PushError('lost', null))).toEqual({
-      text: 'The Swarm node in this browser lost its peers. Open Connect to start it again.',
+      text: 'The Swarm node in this browser lost its peers. Open My Swarm to start it again.',
       final: true,
     });
   });

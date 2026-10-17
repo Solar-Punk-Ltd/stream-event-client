@@ -1,7 +1,10 @@
 import { PrivateKey } from '@ethersphere/bee-js';
-import type { ChatBinding } from '@solarpunkltd/swarm-chat-js';
-
-export const DISPLAY_NAME_MAX_LENGTH = 20;
+import {
+  type ChatBinding,
+  displayNameProblem,
+  MAX_NAME_CHARACTERS,
+  type WalletLink,
+} from '@solarpunkltd/swarm-chat-js/message';
 
 const KEY_LENGTH_BYTES = 32;
 
@@ -14,19 +17,31 @@ export interface Session {
   address: string;
   /** A Swarm ID account's statement that `address` is its chat address on this site. Absent for a guest. */
   binding?: ChatBinding;
+  /** The Swarm ID account's wallet link, present only while it shares one and it names the binding's account. */
+  walletLink?: WalletLink;
 }
 
 export type DisplayNameCheck = { ok: true; name: string } | { ok: false; problem: string };
 
-export const DISPLAY_NAME_PROBLEM = `A display name is 1 to ${DISPLAY_NAME_MAX_LENGTH} characters.`;
+export const DISPLAY_NAME_PROBLEM = `A display name is 1 to ${MAX_NAME_CHARACTERS} characters.`;
+
+export const INVISIBLE_CHARACTERS_PROBLEM = 'A display name cannot hold invisible formatting or control characters.';
+
+export const ENS_NAME_PROBLEM = 'Names ending in .eth are kept for ENS names.';
 
 /** Counted in characters as a reader sees them, so an emoji is one and not the two code units it takes. */
 export function checkDisplayName(raw: string): DisplayNameCheck {
   const name = raw.trim();
-  const length = [...name].length;
-  return length >= 1 && length <= DISPLAY_NAME_MAX_LENGTH
-    ? { ok: true, name }
-    : { ok: false, problem: DISPLAY_NAME_PROBLEM };
+  switch (displayNameProblem(name)) {
+    case 'length':
+      return { ok: false, problem: DISPLAY_NAME_PROBLEM };
+    case 'invisible':
+      return { ok: false, problem: INVISIBLE_CHARACTERS_PROBLEM };
+    case 'ens-like':
+      return { ok: false, problem: ENS_NAME_PROBLEM };
+    default:
+      return { ok: true, name };
+  }
 }
 
 export type RandomBytes = (length: number) => Uint8Array;

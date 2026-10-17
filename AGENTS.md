@@ -12,7 +12,7 @@ built.
 ## Scope
 
 - In: the stream list, the watch page and its player, and the Swarm design.
-- In: the Connect panel. There a viewer signs in with Swarm ID or chats as a guest with a display
+- In: the My Swarm panel. There a viewer signs in with Swarm ID or chats as a guest with a display
   name, and lists the sources they read from: gateways, a Bee node of their own, and Weeb3, a Swarm
   node that runs in the browser tab. Under Use for they pick which source each part is read from.
 - In: a chat per stream, and the choice of who pays for a message, the event gateway or the viewer's

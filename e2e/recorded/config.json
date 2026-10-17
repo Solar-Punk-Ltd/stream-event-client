@@ -1,7 +1,7 @@
 {
   "gatewayUrl": "/bee",
   "catalog": {
-    "owner": "59278999a008d96514f705f75e565580f26d8b9e",
+    "owner": "ccae33a1c8a5b8408967e0c2f5960377cf6ba213",
     "topic": "recorded-catalog"
   },
   "chat": {
@@ -10,7 +10,7 @@
     "writeUrl": "http://127.0.0.1:4173/bee",
     "gsocResourceId": "1111111111111111111111111111111111111111111111111111111111111111",
     "gsocTopic": "stream-event-client-recording",
-    "feedOwner": "bd8ec65da5020274ffe216aaef6741b5b03418e4",
+    "feedOwner": "166fd0cc5b3e5d7c1b2bd52186874986e0ffcfd2",
     "pollIntervalMs": 1000
   }
 }

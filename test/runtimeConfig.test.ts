@@ -7,6 +7,7 @@ import {
   CONFIG_URL,
   configProblemText,
   enabledChat,
+  ensRpcUrl,
   loadRuntimeConfig,
   parseRuntimeConfig,
   type RuntimeConfigResult,
@@ -232,6 +233,53 @@ describe('the Swarm ID setting', () => {
     expect(on.ok && swarmIdUrl(on.config)).toBe('https://id.example.com');
     expect(off.ok && swarmIdUrl(off.config)).toBeNull();
     expect(unset.ok && swarmIdUrl(unset.config)).toBeNull();
+  });
+});
+
+describe('the ENS endpoint setting', () => {
+  const ENDPOINT = 'https://ethereum-rpc.example.org';
+
+  it('accepts an https address, with a path, http on a local development host, and no setting at all', () => {
+    for (const url of [
+      ENDPOINT,
+      'https://ethereum-rpc.example.org/v1/mainnet',
+      'https://ethereum-rpc.example.org:8443',
+      'http://localhost:8545',
+      'http://127.0.0.1:8545',
+      'http://[::1]:8545',
+      'http://node.localhost:8545',
+    ]) {
+      expect(parseRuntimeConfig({ ...VALID, chat: CHAT, ensRpcUrl: url }).ok).toBe(true);
+    }
+    expect(parseRuntimeConfig({ ...VALID, chat: CHAT }).ok).toBe(true);
+  });
+
+  it('refuses a path on this site, another scheme, plain http elsewhere, a malformed address, an empty value and the example placeholder, naming the field', () => {
+    for (const url of [
+      '/eth',
+      'wss://ethereum-rpc.example.org',
+      'ethereum-rpc.example.org',
+      '',
+      '<ENS endpoint>',
+      'http://ethereum-rpc.example.org',
+      'http://192.0.2.10:8545',
+      'http://localhost.example.org',
+      'https://ethereum rpc.example.org',
+      'https://user:secret@ethereum-rpc.example.org',
+      'https://',
+    ]) {
+      expect(problemOf(parseRuntimeConfig({ ...VALID, chat: CHAT, ensRpcUrl: url }))).toContain('ensRpcUrl');
+    }
+  });
+
+  it('looks names up only beside a chat that is on, since only chat messages show them', () => {
+    const on = parseRuntimeConfig({ ...VALID, chat: CHAT, ensRpcUrl: ENDPOINT });
+    const off = parseRuntimeConfig({ ...VALID, chat: { ...CHAT, enabled: false }, ensRpcUrl: ENDPOINT });
+    const unset = parseRuntimeConfig({ ...VALID, chat: CHAT });
+
+    expect(on.ok && ensRpcUrl(on.config)).toBe(ENDPOINT);
+    expect(off.ok && ensRpcUrl(off.config)).toBeNull();
+    expect(unset.ok && ensRpcUrl(unset.config)).toBeNull();
   });
 });
 

@@ -1,16 +1,27 @@
 import { PrivateKey } from '@ethersphere/bee-js';
-import { type ChatBinding, checkChatBinding, MAX_NAME_CHARACTERS } from '@solarpunkltd/swarm-chat-js/message';
+import {
+  type ChatBinding,
+  checkChatBinding,
+  checkWalletLink,
+  displayNameProblem,
+  MAX_NAME_CHARACTERS,
+  type WalletLink,
+} from '@solarpunkltd/swarm-chat-js/message';
+
+import { shortAddress } from '@/shared/components/Address/addressText';
 
 import { type Session, sessionFromKey } from '../auth/login';
 import type { VerifyScope } from '../verify/verdicts';
 
-import type { SwarmIdChatBinding, SwarmIdIdentity } from './swarmIdClient';
+import type { SwarmIdChatBinding, SwarmIdIdentity, SwarmIdWalletLink } from './swarmIdClient';
 
 /** A viewer signed in with Swarm ID: the chat key the ID gave this site, and the binding that names its address. */
 export interface SwarmIdSession extends Session {
   binding: ChatBinding;
-  /** The Swarm ID account's own name, shown beside the chat name. */
+  /** The Swarm ID account's own name, shown beside the chat name where the two differ. */
   accountName: string;
+  /** The Swarm ID account that signed the binding, `0x` and 40 lowercase hex characters. */
+  account: string;
 }
 
 /**
@@ -21,19 +32,34 @@ function toChatBinding({ message, signature }: SwarmIdChatBinding): ChatBinding 
   return { msg: message, sig: signature.toLowerCase() };
 }
 
-const SHORT_ADDRESS_DIGITS = 4;
+/** The chat library spells the wallet link `{ msg, wsig, asig }`, and reads its signatures in lower case only. */
+function toChatWalletLink({ message, walletSignature, accountSignature }: SwarmIdWalletLink): WalletLink {
+  return { msg: message, wsig: walletSignature.toLowerCase(), asig: accountSignature.toLowerCase() };
+}
+
+/**
+ * The wallet link to send, checked as every reader will check it, for the account the binding names. A link that
+ * fails is left out rather than sent, since every reader would refuse each message that carried it.
+ */
+function walletLinkFor(identity: SwarmIdIdentity, account: string): WalletLink | null {
+  if (!identity.walletLink) {
+    return null;
+  }
+  const link = toChatWalletLink(identity.walletLink);
+  return checkWalletLink(link, account).ok ? link : null;
+}
 
 /**
  * The account's name as a chat name: trimmed, and cut to the chat's limit counted in characters as a reader sees them.
- * An account with no name chats under its short address, so a sender line is never empty.
+ * An account with no name, or one the chat refuses as a name, such as one with a format character or one ending in
+ * .eth, chats under its short address, so a sender line is never empty and every message is one the chat accepts.
  */
 export function chatNameOf(identity: SwarmIdIdentity): string {
   const name = [...identity.name.trim()].slice(0, MAX_NAME_CHARACTERS).join('').trim();
-  if (name) {
+  if (name && displayNameProblem(name) === null) {
     return name;
   }
-  const address = identity.address.replace(/^0x/, '');
-  return `0x${address.slice(0, SHORT_ADDRESS_DIGITS)}…${address.slice(-SHORT_ADDRESS_DIGITS)}`;
+  return shortAddress(identity.address);
 }
 
 type SwarmIdSessionResult = { ok: true; session: SwarmIdSession } | { ok: false; problem: string };
@@ -66,5 +92,33 @@ export function swarmIdSession(
   if (check.identity.account !== accountOf(identity)) {
     return { ok: false, problem: ACCOUNT_MISMATCH };
   }
-  return { ok: true, session: { ...session, binding: chatBinding, accountName: identity.name.trim() } };
+  const walletLink = walletLinkFor(identity, check.identity.account);
+  return {
+    ok: true,
+    session: {
+      ...session,
+      binding: chatBinding,
+      ...(walletLink ? { walletLink } : {}),
+      accountName: identity.name.trim(),
+      account: check.identity.account,
+    },
+  };
+}
+
+/**
+ * The signed-in session again, from a newer report of the same account with the same binding, so a change such as the
+ * wallet link turned off reaches the next message at once rather than after the frame answers for the chat key again.
+ * Null when the report is for another account or binding, which needs the chat key the frame gives it.
+ */
+export function reportedAgain(
+  session: SwarmIdSession,
+  identity: SwarmIdIdentity,
+  binding: SwarmIdChatBinding,
+  scope: VerifyScope,
+): SwarmIdSessionResult | null {
+  const { msg, sig } = toChatBinding(binding);
+  if (accountOf(identity) !== session.account || msg !== session.binding.msg || sig !== session.binding.sig) {
+    return null;
+  }
+  return swarmIdSession(identity, binding, new PrivateKey(session.privateKey).toUint8Array(), scope);
 }

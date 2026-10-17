@@ -10,8 +10,10 @@ import type { OwnStampSetup } from '../useSwarmChat';
 
 import { type ChatSending, GATEWAY_SENDING } from './chatSending';
 import { type ChatStampChoice, GATEWAY_PAYS, loadChatStampChoice, saveChatStampChoice } from './chatStampChoice';
+import { OwnFeedChatProvider } from './OwnFeedChat';
 import { type OwnStampRoute, ownStampRoute } from './ownStampRoute';
 import { type SiteStamp, siteStampOf, stampWarning, type StampWarning } from './siteStamp';
+import { NO_SITE_STAMP, type SendProblem } from './stampProblems';
 
 export const SITE_STAMP_READING = 'reading';
 export const SITE_STAMP_NONE = 'none';
@@ -33,7 +35,6 @@ interface ChatStampValue {
   /** Who pays, as the viewer picked. Always the gateway for a viewer who is not signed in with Swarm ID. */
   readonly choice: ChatStampChoice;
   readonly choosePayWith: (payWith: MessageVia) => void;
-  readonly chooseOwnFeed: (ownFeed: boolean) => void;
   /** Where a message on the viewer's own stamp goes out, or why the chat's source cannot send one. */
   readonly route: OwnStampRoute;
   readonly siteStamp: SiteStampRead;
@@ -49,7 +50,6 @@ const GATEWAY_ONLY: ChatStampValue = {
   canUseOwnStamp: false,
   choice: GATEWAY_PAYS,
   choosePayWith: () => {},
-  chooseOwnFeed: () => {},
   route: { ok: false, reason: '', hint: '' },
   siteStamp: { status: SITE_STAMP_NONE },
   warning: null,
@@ -103,8 +103,7 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
     },
     [accountId],
   );
-  const choosePayWith = useCallback((payWith: MessageVia) => pick({ ...choice, payWith }), [pick, choice]);
-  const chooseOwnFeed = useCallback((ownFeed: boolean) => pick({ ...choice, ownFeed }), [pick, choice]);
+  const choosePayWith = useCallback((payWith: MessageVia) => pick({ payWith }), [pick]);
 
   const chatSource = sources.find(({ id }) => id === parts.chat) ?? null;
   const route: OwnStampRoute = useMemo(
@@ -186,6 +185,20 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
     }
   }, [readSiteStamp]);
 
+  /**
+   * Since Swarm ID 0.10.0 a site has no stamp until the person picks one, and the session read last may still name
+   * one. A refusal to stamp for want of a stamp is the newer word, so the bar shows no stamp and offers Choose a stamp
+   * in Swarm ID at once, and the next stamp Swarm ID reports is read whatever its id.
+   */
+  const noteSendProblem = useCallback((problem: SendProblem) => {
+    if (problem.text !== NO_SITE_STAMP) {
+      return;
+    }
+    readGeneration.current += 1;
+    shownStampId.current = null;
+    setSiteStamp({ status: SITE_STAMP_NONE });
+  }, []);
+
   const warning: StampWarning | null = useMemo(() => {
     if (!ownStampPays) {
       return null;
@@ -218,10 +231,9 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
         ? {
             via: MessageVia.OWN_STAMP,
             url: route.ok && route.through === 'bee-node' ? route.url : null,
-            ownFeed: choice.ownFeed,
           }
         : GATEWAY_SENDING,
-    [ownStampPays, route, choice.ownFeed],
+    [ownStampPays, route],
   );
 
   const ownStamp: OwnStampSetup | null = useMemo(
@@ -234,13 +246,14 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
               return current?.blocksSending ? current.title : null;
             },
             onSent: readAfterSend,
+            onProblem: noteSendProblem,
             push: () => {
               const current = routeRef.current;
               return current.ok && current.through === 'weeb-3' ? pushStampedSocThroughWeeb3 : null;
             },
           }
         : null,
-    [ownStampPays, readAfterSend],
+    [ownStampPays, readAfterSend, noteSendProblem],
   );
 
   const value = useMemo(
@@ -248,15 +261,18 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
       canUseOwnStamp,
       choice,
       choosePayWith,
-      chooseOwnFeed,
       route,
       siteStamp,
       warning,
       sending,
       ownStamp,
     }),
-    [canUseOwnStamp, choice, choosePayWith, chooseOwnFeed, route, siteStamp, warning, sending, ownStamp],
+    [canUseOwnStamp, choice, choosePayWith, route, siteStamp, warning, sending, ownStamp],
   );
 
-  return <ChatStampContext.Provider value={value}>{children}</ChatStampContext.Provider>;
+  return (
+    <ChatStampContext.Provider value={value}>
+      <OwnFeedChatProvider>{children}</OwnFeedChatProvider>
+    </ChatStampContext.Provider>
+  );
 }

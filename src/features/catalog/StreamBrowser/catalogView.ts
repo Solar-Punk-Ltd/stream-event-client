@@ -9,6 +9,7 @@
  * Pure, so the rule is tested without rendering the page.
  */
 import { failureTitle } from '@/features/connect/connectWords';
+import { OPEN_MY_SWARM } from '@/shared/mySwarmPanel';
 
 type CatalogView =
   /** Streams to show. Stale ones count, which is the point of the ordering below. */
@@ -71,6 +72,6 @@ export function catalogViewMessage(view: Exclude<CatalogView, 'streams'>, source
     return CATALOG_VIEW_MESSAGE[view];
   }
   return sourceName === null
-    ? 'The stream list cannot load. Open Connect to pick a source.'
-    : `${failureTitle('stream-list', sourceName)} Open Connect to check it, or pick another source.`;
+    ? `The stream list cannot load. ${OPEN_MY_SWARM} to pick a source.`
+    : `${failureTitle('stream-list', sourceName)} ${OPEN_MY_SWARM} to check it, or pick another source.`;
 }

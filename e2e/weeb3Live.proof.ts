@@ -78,7 +78,7 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
   });
   await page.goto('/');
 
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
   const connect = page.getByRole('dialog');
   const useFor = connect.getByRole('region', { name: 'Use for' });
   const addedAtMs = Date.now();
@@ -88,7 +88,7 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
   await expect(status, 'the node reaches ready with peers').toHaveText(/\d+ of 200 peers/, { timeout: 90_000 });
   report.readyMs = since(addedAtMs);
   report.readyLine = await status.textContent();
-  await connect.getByRole('button', { name: 'Close Connect', exact: true }).click();
+  await connect.getByRole('button', { name: 'Close My Swarm', exact: true }).click();
 
   const openedAtMs = Date.now();
   await page.goto(`/#/watch/video/${STREAM.owner}/${STREAM.topic}`);
@@ -147,11 +147,11 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
 
   // Whether freeing the page's node ends the shared worker's: the video moves off weeb-3, which frees the node, and a
   // fresh handle on the same shared worker, never started, asks how many peers the worker still has.
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
   await useFor.getByLabel('Video', { exact: true }).selectOption({ label: 'Event gateway' });
   await expect(status, 'the node is stopped once nothing holds it').toContainText('Not started', { timeout: 10_000 });
   report.rowAfterFree = await status.textContent();
-  await connect.getByRole('button', { name: 'Close Connect', exact: true }).click();
+  await connect.getByRole('button', { name: 'Close My Swarm', exact: true }).click();
   const peersAfterFree: Record<string, number | string> = {};
   for (const afterMs of [2_000, 15_000]) {
     await page.waitForTimeout(afterMs - (afterMs === 2_000 ? 0 : 2_000));

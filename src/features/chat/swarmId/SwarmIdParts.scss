@@ -1,3 +1,5 @@
+@use '@/design/visually-hidden';
+
 .swarm-id-offer {
   display: grid;
   justify-items: start;
@@ -17,22 +19,19 @@
   justify-items: start;
   gap: var(--spacing-xs);
   width: min(100%, var(--size-swarm-id-button-width));
-  min-width: 0;
+  min-width: min-content;
 
   .swarm-id-row & {
     justify-items: end;
   }
 }
 
-// The page is dark and Swarm ID's frame names no colour scheme, and a browser paints an opaque backdrop behind a frame
-// whose scheme differs from its element's, which would show behind the secondary button's see-through fill.
-.swarm-id-button-frame {
+// The button's place, which the frame and, until the frame shows its button, the placeholder both fill.
+.swarm-id-button-slot {
+  position: relative;
   display: block;
-  color-scheme: normal;
   width: 100%;
   height: var(--size-touch-target);
-  border-radius: var(--radius-md);
-  overflow: hidden;
 
   &.compact {
     height: var(--size-swarm-id-button-compact);
@@ -45,6 +44,70 @@
   &[hidden] {
     display: none;
   }
+}
+
+// The page is dark and Swarm ID's frame names no colour scheme, and a browser paints an opaque backdrop behind a frame
+// whose scheme differs from its element's, which would show behind the secondary button's see-through fill.
+.swarm-id-button-frame {
+  position: absolute;
+  inset: 0;
+  display: block;
+  color-scheme: normal;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+// The page's own button of the same variant, drawn over the loading frame and sized to it. It is a picture of the
+// button, so it takes no pointer and no focus.
+.button.swarm-id-button-placeholder,
+.button.swarm-id-button-sizer {
+  min-height: 0;
+  padding: 0 var(--spacing-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  cursor: default;
+
+  .compact > & {
+    font-size: var(--font-size-sm);
+  }
+}
+
+.button.swarm-id-button-placeholder {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+
+  // The page's spinner at the label's size, an arc in the label's colour, which shows on either fill.
+  .spinner {
+    flex: none;
+    width: 1em;
+    height: 1em;
+    border-width: 2px;
+    border-color: transparent;
+    border-top-color: currentColor;
+    border-right-color: currentColor;
+  }
+}
+
+// The placeholder's width with its loader, kept in the slot's flow, so the slot is never narrower than its label.
+.button.swarm-id-button-sizer {
+  display: flex;
+  height: 0;
+  visibility: hidden;
+
+  &::before {
+    content: '';
+    flex: none;
+    width: 1em;
+  }
+}
+
+// The placeholder shows the wait, so the words naming it are for a screen reader, and the layout does not move when
+// they go. The live region stays mounted between them, since a region added together with its words is often not read,
+// and is seen only while it says the wait runs long.
+.swarm-id-status:not(.slow),
+.swarm-id-spoken {
+  @include visually-hidden.visually-hidden;
 }
 
 .swarm-id-problem {
@@ -71,6 +134,25 @@
 .swarm-id-you {
   display: grid;
   gap: var(--spacing-sm);
+  width: 100%;
+}
+
+// The signed-in viewer's two addresses, laid out as a message's details lay out theirs, across the panel.
+.swarm-id-addresses {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--spacing-2xs) var(--spacing-sm);
+  margin: 0;
+  font-size: var(--font-size-sm);
+
+  dt {
+    color: var(--color-text-tertiary);
+  }
+
+  dd {
+    margin: 0;
+    min-width: 0;
+  }
 }
 
 .swarm-id-row {

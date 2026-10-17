@@ -7,7 +7,7 @@ people watching, as a guest with a display name or signed in with Swarm ID, with
 message or, once signed in, a stamp of your own that Swarm ID holds.
 
 **What is built.** The stream list, the watch page with a player that reads only the quality it
-plays and finds the newest playlist from the ladder's time markers, Connect over a Swarm
+plays and finds the newest playlist from the ladder's time markers, My Swarm over a Swarm
 client made of providers, and a chat beside each stream, in the Swarm Brand v3.0 look.
 
 It is built from the viewer of
@@ -41,23 +41,24 @@ The repository's `public/config.json` is an example with placeholders. The page 
 a value still in `<angle brackets>`, so the example can never pass for a real deployment. Real values
 live with the deployment, never in this repository.
 
-| Field           | What it is                                                                                                                                                         |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `gatewayUrl`    | The event gateway: a path on this site such as `/bee`, which the site proxies to Bee, or an http or https address of a Bee node. Set this or `providers`, not both |
-| `providers`     | Optional in place of `gatewayUrl`. The gateways offered and the default, below                                                                                     |
-| `catalog.owner` | The Ethereum address that owns the stream list feed                                                                                                                |
-| `catalog.topic` | The stream list feed's topic, as text                                                                                                                              |
-| `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                                                   |
-| `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused                                               |
-| `themeSwitcher` | Optional. Whether a viewer logged in to the chat may switch the colours and typefaces between the build's themes, `true` by default                                |
-| `swarmId.url`   | Optional. The Swarm ID site a viewer may sign in to the chat with, an origin such as `https://id.example.com`. Without it, or without a chat, there is no sign-in  |
+| Field           | What it is                                                                                                                                                                                                                                                            |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gatewayUrl`    | The event gateway: a path on this site such as `/bee`, which the site proxies to Bee, or an http or https address of a Bee node. Set this or `providers`, not both                                                                                                    |
+| `providers`     | Optional in place of `gatewayUrl`. The gateways offered and the default, below                                                                                                                                                                                        |
+| `catalog.owner` | The Ethereum address that owns the stream list feed                                                                                                                                                                                                                   |
+| `catalog.topic` | The stream list feed's topic, as text                                                                                                                                                                                                                                 |
+| `chat`          | Optional. The chat's settings, below. Without it, or with `enabled` false, there is no chat anywhere on the page                                                                                                                                                      |
+| `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused                                                                                                                                                  |
+| `themeSwitcher` | Optional. Whether a viewer logged in to the chat may switch the colours and typefaces between the build's themes, `true` by default                                                                                                                                   |
+| `swarmId.url`   | Optional. The Swarm ID site a viewer may sign in to the chat with, an origin such as `https://id.example.com`. Without it, or without a chat, there is no sign-in                                                                                                     |
+| `ensRpcUrl`     | Optional. An Ethereum mainnet JSON-RPC endpoint, an https address, or http on `localhost`, `127.0.0.1`, `[::1]` or a `.localhost` name, that the page reads senders' ENS names through ([ENS names](#ens-names)). Without it, or without a chat, no name is looked up |
 
 A theme has two halves. Its look, the colours and typefaces, is in `src/design/themes/`. Its content, the
 logo, the hero, the footer links and the tab's title and icon, is in `src/design/themes.ts`. The deployment's
 `theme` decides both. Every theme defines the same variables, so a page that wears another theme's look leaves
 nothing unset, and the tokens test fails on a theme that misses one or on a text colour below 4.5:1.
 
-**The theme switcher.** A viewer in the chat finds a Theme group under their ID in Connect, one
+**The theme switcher.** A viewer in the chat finds a Theme group under their ID in My Swarm, one
 option per theme with a swatch of its page colour, accent and heading typeface. The arrow keys move the pick
 within the group, and Tab reaches it at the checked option. A pick changes only the look.
 The logo, the words and the tab stay the deployment's, so a Devcon page in the web3privacy look still says
@@ -105,10 +106,16 @@ after the change.
 ## The chat
 
 One chat per stream, beside the video on a desktop and under it on a phone, where it folds away.
-Anyone can read it. Writing asks once for a display name, 1 to 20 characters, and there is no
+Anyone can read it. Writing asks once for a display name, 1 to 20 characters with no invisible formatting or control
+character such as a right-to-left override. The zero width joiner and non-joiner are allowed, since joined emoji
+and Persian or Indic names need them. A name ending in .eth, in any case or with lookalike letters or dots such as the
+fullwidth ones, is refused with "Names ending in .eth are kept for ENS names.", since only a verified ENS name shows
+as one. There is no
 password, wallet or account. A deployment that names a Swarm ID site in `swarmId.url` also offers
 signing in with Swarm ID, described [below](#signing-in-with-swarm-id). A viewer can send a message, react with an emoji, reply in a thread,
-load older messages, and retry a message that did not send. The chat and its library are a file of
+load older messages, and retry a message that did not send. A message lights up under the pointer and shows its
+reaction and reply buttons there, as focus inside it does, and on a touch screen a tap shows them. The emoji bar's
+last button opens every emoji above the field, with its close button above the picker. The chat and its library are a file of
 the bundle of their own, fetched as the watch page opens, beside the video rather than after it, and
 the emoji picker is fetched the first time one is drawn: the emoji bar above the message field, or a
 reaction's picker beside a message.
@@ -120,9 +127,12 @@ reaction's picker beside a message.
   A message costs one stamped chunk, and one more for each resend while it has not been read back. A viewer who
   pays with their own stamp, [below](#who-pays-for-a-message), sends through their own Bee node or through Weeb3
   instead.
-- **The chat aggregator**, on swarm-chat-js 8, which listens on the shared address the key and topic above name, and
+- **The chat aggregator**, on swarm-chat-js 9, which listens on the shared address the key and topic above name, and
   appends each message to the stream's chat feed, `chat-<stream topic>` under `chat.feedOwner`.
-  Opening a chat reads the newest history file the chat feed points to, then the entries after it. The endpoint viewers write
+  Opening a chat reads the newest history file the chat feed points to, then the entries after it. When the feed's
+  newest entry is not found in time, as through Weeb3 where every entry not there costs a long wait, the library
+  opens the chat empty and reads on from its first entry, and the chat says "Loading the chat…" until that read
+  answers. "No messages yet." shows only once it found nothing. The endpoint viewers write
   through must be a different Bee node from the one the aggregator listens on, because Bee hands a
   message on to a listener only when it arrives from another node.
 
@@ -138,8 +148,8 @@ that two messages came from the same browser, and anyone may choose any name. So
 opens the details, where the sender's full public address tells apart two people who chose the same name.
 
 Nothing of a Swarm ID sign-in is kept there. What a Swarm ID account picked for paying, the gateway or its own
-stamp, and whether it keeps an own feed, sits under `stream-event-client:chat-stamp:<its chat address>`, one entry
-per account, so another account signing in on the same browser starts with the gateway paying.
+stamp, sits under `stream-event-client:chat-stamp:<its chat address>`, one entry per account, so another account
+signing in on the same browser starts with the gateway paying.
 
 **What the chat checks, and the badges.** Every message is signed by its sender's chat key. The page
 checks each one, live, from history and the viewer's own while it is still sending, in a Web Worker
@@ -160,19 +170,36 @@ is a guest, told apart only by the key their browser keeps. A filled hexagon wit
 after a name in the accent colour is a Swarm ID account, which signed a statement that this chat address
 on this site is its own. A stamp after the badge says the sender paid for the write with a stamp of
 their own. Every message this page sends says who paid, the event gateway or the viewer's own stamp. The badge, and the stamp where
-there is one, open the message's details: the name, the identity, the public chat address, that the signature
-matches the text, for a Swarm ID the link Swarm ID confirmed for this site and the account's address,
-and who paid for the write. For a message that says its sender keeps a copy in their own feed (`own: true`), the
-details also list **Their own copies**: the sender's own feed, `ownFeedTopic(chatTopic)` under their chat
-address, read through the source picked for Chat history, newest first, ten at a time with Load more. Each entry
-is read by its address and must be the sender's own single-owner chunk, and each copy passes the same check as
-every chat message and must be the sender's and for this chat, or it is not shown. The list only reads, and the
-section counts the entries it did not show in its `data-hidden-copies` attribute.
+there is one, open the message's details, across the chat column: the name with its badge, the identity (Guest or Swarm ID), the
+public chat address, a check mark for a signature that matches the text, for a Swarm ID the account's address, and
+who paid for the write (Event gateway or Own stamp). An address shows short, `0x0d7f…ab12`, and a press shows it in
+full with a Copy button beside it, which reads Copied for three seconds after a copy, and a screen reader hears that the
+copy worked. A press on the check mark shows the signature the same way. For a message sent with its sender's own
+stamp, the details also compare the sender's own feed, `ownFeedTopic(chatTopic)` under their chat address, with the
+chat: **Own feed: N messages**, **Chat feed: N messages on their own stamp**, a tick and In their own feed when this
+message has its copy there or Not in their own feed when it has none, and, when the two differ, which messages are
+missing from their own feed and which from the chat feed, five of each at most, newest first. Only the sender's
+messages on their own stamp count, since a message the gateway paid for never gets a copy. They say Counting… while
+they read, No own feed when the sender keeps none, Their own feed could not be counted with Try again when a read
+fails, and Their own feed is too large to count when it names more entries than the sender's messages in the chat
+and 25 more, or more than 1,000. Both are read through the source picked for Chat history: the chat feed from its
+newest entry back through its history files, each file older than the one before and 50 at most, and each entry no
+file holds read by its own index, 500 at most, then the own feed from its first entry to its newest. Past those
+limits the chat is not counted. An entry the source answers is not there counts as missing, by the rule the chat
+reads its slots with, so a 404 or the 500 a Bee 2.6 cluster gives a slot never written, and any other answer
+makes the count fail rather than call a message missing. Each copy is read by its address and must be the sender's
+own single-owner chunk, and every copy and every chat message must pass the same check as a message shown in the
+chat and be for this chat, the copies also the sender's, or it is not counted. A copy and a chat message are the same
+message when their signatures are: a message has one valid signature, over every field it says, so a copy with the
+same signature is the message the chat feed shows, as far as the chat server that writes the feed is trusted. One
+walk of the chat is shared by every details card and My stamp while a chat is on screen, a finished count is shown
+again for three minutes, at most 32 are kept, and closing the details stops their reads. The comparison only reads
+(`src/features/chat/stamp/ownFeedComparison.ts`, `src/features/chat/stamp/ownFeedCounter.ts`).
 
 ### Signing in with Swarm ID
 
-Connect offers two ways in. **Chat as guest** takes a name, as above. **Sign in with Swarm ID**
-is Swarm ID's own button, a small frame of the Swarm ID site in Connect, and its click opens the Swarm ID window,
+My Swarm offers two ways in. **Chat as guest** takes a name, as above. **Sign in with Swarm ID**
+is Swarm ID's own button, a small frame of the Swarm ID site in My Swarm, and its click opens the Swarm ID window,
 which the Swarm ID site draws, not this page. The person picks an account
 there, or makes one. The ID then gives this site its chat key for that account and a chat binding, the
 account's signed statement that the key's address on this site is its own. Every message is signed
@@ -196,9 +223,19 @@ stamps them, unless the person picks their own stamp, as the next section says.
   and each has to allow the Swarm ID site's exact origin for GET itself, or Swarm ID cannot read this site's
   content through it.
 - **The chat name** is the account's name, trimmed and cut to the chat's 20 characters. An account
-  with no name chats under its short address. The header shows the chat name with its badge, the grey
-  hexagon of a guest or the filled one of Swarm ID, as every message does. Connect says "Swarm ID" and the account's name
-  beside it, with Sign out.
+  with no name, or with one the chat refuses, such as one ending in .eth, chats under its short address. The header shows the chat name with its badge, the grey
+  hexagon of a guest or the filled one of Swarm ID, as every message does. My Swarm shows the name once, says "Swarm ID",
+  with the account's own name beside it only where it differs from the chat name, and Sign out. Under them are the
+  public chat address and the Swarm ID account's address, each short and expandable as in a message's details.
+- **The wallet link, for an ENS name.** While the person has "Show my ENS name on sites" on in Swarm ID, the ID
+  also shares a wallet link: a statement signed by the account's wallet and countersigned by the account that the
+  two belong to the same person. Every message then carries it beside the binding, so a reader can show the wallet's
+  ENS name, as [ENS names](#ens-names) says. The page checks the link first, as every reader will, and leaves out
+  one that does not name the signed-in account, so the person still chats and no reader refuses their messages.
+  Without the setting nothing of the wallet is sent. The page follows the newest session Swarm ID reports, so turning
+  the setting off or on while signed in reaches the very next message, one already typed among them. Swarm ID reports
+  the change at once to an open page, and on its next load to a page that was closed. Messages already sent keep the
+  link they carried.
 - **A guest can sign in later.** The menu of a guest says "Show it's really you" beside Sign in with
   Swarm ID. Signing in keeps the guest's name and key in this browser, and signing out chats as that
   guest again. Leave forgets the guest.
@@ -212,7 +249,7 @@ stamps them, unless the person picks their own stamp, as the next section says.
   it. A window the page opened from a button of its own would end on Swarm ID's "Connected" with this site still
   signed out, so the page has no button of its own for it and never opens the window. The library's `mountButton`
   shows the button, in a container the page sizes, and the page hands it the label in the design's words and the look
-  of the page's own button it replaced, read from the theme the page wears: the primary button in Connect's sign-in
+  of the page's own button it replaced, read from the theme the page wears: the primary button in My Swarm's sign-in
   and in the warning above the message field while sending is held, and the secondary one beside a guest's name, in
   the stamp group and in a warning that lets sending go on. That is the button's fill and label colours, corner radius,
   typeface, size and weight. A viewer's theme switch changes the button in place.
@@ -224,9 +261,16 @@ stamps them, unless the person picks their own stamp, as the next section says.
   as one served by something other than the image, gets the frame's fallback typeface and a line in the frame's
   console. Swarm ID takes a font file only over https, or over plain http on this machine, so a page served over
   plain http elsewhere hands it none.
-- **The button is mounted once for as long as it is shown.** Closing Connect takes it away and leaves the session as
+- **The button is mounted once for as long as it is shown.** Closing My Swarm takes it away and leaves the session as
   it is.
-  Before Swarm ID has started, its place is kept empty and says "Connecting to Swarm ID". When Swarm ID refuses the
+  Until Swarm ID's frame shows its button, a placeholder stands in its place: the page's own button of the same look
+  and size, with its label and a small loader, which takes no click and no focus. To a screen reader it is a picture
+  named "Connecting to Swarm ID", and a status that stays in place says the same. The frame then shows the button
+  in the same place, so nothing moves. When the wait passes 30 seconds, a line under it says "Swarm ID is taking
+  longer than usual." in that same status. That place is
+  never narrower than the label with its loader, so the smaller button beside other words, as in Show it's really
+  you, shows its whole label down to a 320 px wide screen. A Try again shows
+  the placeholder again until the new button is ready. When Swarm ID refuses the
   button, or it does not answer within the library's 30 seconds, its place says "Swarm ID cannot be reached right
   now." with Try again, which takes that button away and mounts a new one, and the console warns once as for a Swarm
   ID that does not start. A viewer already signed in stays so. The button's label is also its accessible name.
@@ -236,12 +280,40 @@ stamps them, unless the person picks their own stamp, as the next section says.
 - **A binding the chat would refuse** is refused at sign-in rather than at every message: one made for
   another site, naming another address than the key's, or signed by another account than the one the
   frame says is signed in, leaves the person signed out with the reason.
-- **When the Swarm ID site cannot be used**, as for a site it does not serve, Connect says it
+- **When the Swarm ID site cannot be used**, as for a site it does not serve, My Swarm says it
   cannot be reached and guests chat as before.
+
+### ENS names
+
+A Swarm ID sender who has "Show my ENS name on sites" on carries a wallet link in every message, as
+[above](#signing-in-with-swarm-id) says. The page's check in the Web Worker verifies both of its signatures and that
+it names the account the binding names, and only then does the message say which wallet it is. The page then looks
+that wallet's ENS name up through `ensRpcUrl`, an Ethereum mainnet JSON-RPC endpoint the deployment names, with the
+Swarm ID library's `resolveVerifiedEnsName`. A name counts only when the wallet's reverse record names it and the
+name's own record names the wallet back, and it is already in its ENSIP-15 normalised form.
+
+- **What a reader sees.** The verified name replaces the name the sender chose, on the message and at the head of its
+  details, with the Swarm ID badge as for any Swarm ID sender and no mark of its own. The details add an **ENS** row
+  with the name and a tick, which a screen reader reads as "ENS name checked", the name the sender chose and the
+  short wallet address, which a press shows in full. A name with characters outside ASCII says "contains non-Latin
+  characters" there, because such a character can pass for a Latin letter of another name, and carries a small mark
+  with that label beside it on the message. A long name ends in an ellipsis on the message, whole under the pointer
+  and in the details. Every name is drawn isolated from the text around it, so its direction never moves the badge,
+  the time or the message.
+- **When there is no name.** A wallet with no name, a name that fails a check and a lookup that fails or runs out of
+  time all show the message as before, under the name the sender chose, with no ENS row.
+- **When it looks.** After a message is drawn, never before it, so a slow endpoint holds nothing up. Messages of one
+  wallet share one lookup, at most four lookups run at once, and a name found is kept for ten minutes, so a name
+  moved to another wallet shows within that. The library keeps its own answers too, a name or no name for ten
+  minutes and a failed read for 30 seconds.
+- **Without `ensRpcUrl`**, or without a chat, no name is ever looked up and no wallet is ever asked about.
+- **Whom the endpoint is trusted with.** It decides which name is shown beside a wallet, since nothing checks its
+  answers against the chain, and it sees every wallet looked up, from each viewer's own address. A deployment names
+  an endpoint it trusts with both.
 
 ### Who pays for a message
 
-Connect has a **Chat stamp** group, between ID and Swarm access, once the viewer is chatting. Every message on
+My Swarm has a **Chat stamp** group, between ID and Swarm access, once the viewer is chatting. Every message on
 Swarm needs a postage stamp, and the group offers two ways to pay.
 
 - **Gateway pays**, the default for everyone, as before: the message goes to `chat.writeUrl`, which stamps it. That
@@ -258,19 +330,27 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
 - **Which source can send it.** Only a Bee node of the viewer's own and Weeb3, the node in this browser, send a chunk
   under a stamp they are handed, so My stamp needs one of them picked for Chat history. The event gateway's chat path
   stamps every write with the gateway's own batch, a `/bee` path on the site passes reads alone, and the page cannot
-  tell what any other gateway does with a stamp, so with a gateway picked My stamp says why it cannot be used, and
-  names the fix. The Bee node must allow this site's origin
+  tell what any other gateway does with a stamp. So while My stamp cannot be picked, its line says what it needs,
+  "Needs Weeb3 or your own Bee node for Chat history.", with a Swarm ID sign-in named first for a viewer who is not
+  signed in. The warning above the message field still says why the gateway picked cannot send. The Bee node must allow this site's origin
   (`cors-allowed-origins`) for the write as for its reads, and needs the stamp's chain to check it, so a light
   node or a full one, not an ultra-light one.
 - **Nothing switches by itself.** A message Swarm ID will not stamp, or the node refuses, shows "Not sent." with
   the reason, and is never resent through the gateway. A refusal a resend cannot mend, such as a stamp that ran
   out, fails the message at once, and Retry tries it again on the same stamp. A node that did not answer, or a
-  busy Swarm ID, is resent by the chat on its own, on the same stamp and through the same node. When the source
+  busy Swarm ID, is resent by the chat on its own, on the same stamp and through the same node. When Swarm ID says
+  it has given this site no stamp, which since Swarm ID 0.10.0 is every site until the person picks one there, the
+  message reads "Not sent. Swarm ID has given this site no stamp. Choose one in Swarm ID." and the field above the
+  message box shows No stamp for this site with Choose a stamp in Swarm ID at once, even when the stamp read last
+  named one. When the source
   picked for Chat history changes to one that cannot send on the stamp, the choice stays, sending is held with
   the reason, and the viewer picks a Bee node or Weeb3 again or presses Let the gateway pay. Retry resends only
   through the sender that took the message. After the viewer changes who pays, the source, the sign-in or the own
   feed, or restarts the chat, that sender is gone, so Retry marks the message "Not sent. The way messages are sent
   changed, so write it again." and takes its Retry button away, never resending it through the new route.
+  A message sent in the moment such a change, or a new name or wallet link, restarts the chat waits for the new chat
+  and goes out once, with the name, wallet link and payer in force when it goes. When no chat starts within ten
+  seconds it is not sent, and the field keeps it with "The message could not be sent. Try again."
 - **A deadline on every push through Weeb3.** weeb-3 answers a stamp it will not take with silence, never an error,
   so each push has a minute (`WEEB3_PUSH_DEADLINE_MS`, measured pushes took 7 to 15 s). A push with no answer by then
   fails the message at once, "Weeb3 did not confirm it within a minute.", and the chat does not send it again by
@@ -279,41 +359,55 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   Swarm ID that is not exactly 113 bytes never reaches weeb-3: the message fails at once, "Swarm ID gave a stamp of
   the wrong size." Anything else that fails on the way, such as a chunk that could not be built, fails the message
   at once as "Weeb3 could not push it", with what went wrong. The own-feed copy goes through Weeb3 the same way,
-  before the message. **A known limit:** the deadline does not cancel the push, since weeb-3 offers no way to. A
+  after the message. **A known limit:** the deadline does not cancel the push, since weeb-3 offers no way to. A
   valid push slower than a minute is reported as refused, the node is let go, and weeb-3 may still deliver the
   message later, when the chat reads it back.
-- **The stamp's figures.** With My stamp picked, Connect shows the site's stamp: its name, how full it is, its days
+- **The stamp's figures.** With My stamp picked, My Swarm shows the site's stamp: its name, how full it is, its days
   left, and **Change stamp in Swarm ID**, Swarm ID's button again, whose click opens the Swarm ID sign-in window
   while the viewer stays signed in (the button's `change-stamp` action). The window shows the person's stamps, the person picks one for this site,
   and Swarm ID hands it to the open page at once and reports the session again (`onConnectionChange`) with the id
   of the stamp the site now uses (`postageBatchId`). When that id changed, the viewer reads the new stamp's figures
   with `getPostageBatch` straight away, with no reload, and a report naming the same stamp reads nothing. A browser
   that blocks that window gets the same line as a blocked sign-in, under the button. The figures are also
-  read when the person signs in, when Connect opens, when the page comes back into focus, and after messages sent, at
+  read when the person signs in, when My Swarm opens, when the page comes back into focus, and after messages sent, at
   most every 15 seconds. **A known limit:** a stamp changed directly on Swarm ID's own Apps screen, rather than
   through this button, reaches an open viewer on another domain only at its next sign-in with Swarm ID, so until
   then the viewer may show the old stamp's figures. A report with no stamp id means Swarm ID gives this site no
   stamp, and the page shows that at once without reading. Every sign-in starts that way until the person confirms a
-  stamp with Go to app in the Swarm ID window, so Connect says "Swarm ID has given this site no stamp yet. Choose
+  stamp with Go to app in the Swarm ID window, so My Swarm says "Swarm ID has given this site no stamp yet. Choose
   one and confirm it in the Swarm ID window." and the same button reads Choose a stamp in Swarm ID until it has one.
 - **Warnings above the message field.** At 80% used, or 3 days left, the field says how much is used and when it
   runs out, offers Change stamp in Swarm ID, Swarm ID's button, and sending goes on. When the stamp ran out or is not
   usable yet, the field says so, sending is held with what was typed kept, and two buttons offer Change stamp in Swarm
   ID and Let the gateway pay. When Swarm ID gives this site no stamp the first button reads Choose a stamp in Swarm ID. When
   the source picked for Chat history cannot send on the stamp, the field says why, sending is held, and the buttons
-  are Open Connect and Let the gateway pay. A Swarm ID window the browser blocked adds its own line under Swarm ID's
+  are Open My Swarm and Let the gateway pay. A Swarm ID window the browser blocked adds its own line under Swarm ID's
   button there.
-- **Also write my own feed.** Off by default, and offered only with My stamp. With it on, every message is first
-  copied into the sender's own feed, `ownFeedTopic(chatTopic)` from swarm-chat-js under the chat key's address,
-  one entry per message at the next index, stamped by Swarm ID too, and only then sent, so a message that says
-  `own: true` always has its copy. The chat is started with `infra.own` on, so swarm-chat-js signs each message
-  once with `own: true`, and the copy, the message and every resend of it are those same bytes. The feed's newest
-  index is read once, through the chat history's source, and counted on from there. When it cannot be read, the
-  message waits with the reason rather than going out without its copy. Each message then costs two stamped chunks.
-  **Two known limits.** The next index is counted from one read of the feed's newest entry each time the chat
-  starts, so a chat started again seconds after a send, before that entry can be read back, can write the next
-  copy at an index already used. And a copy is written before its message, so a message that then fails and is
-  never retried leaves a copy that no chat message matches.
+- **The copy in the viewer's own feed.** Always on with My stamp, with no setting to turn it off, and the My stamp
+  box says so. Once the viewer's node took a message, a copy of it goes into the sender's own feed,
+  `ownFeedTopic(chatTopic)` from swarm-chat-js under the chat key's address, one entry per message at the next index,
+  stamped by Swarm ID too. The message goes out at once and never waits on its copy, and nothing in the message says
+  whether there is one: anyone compares the own feed with the chat instead. A copy is the message's bytes exactly as
+  they were sent. The feed's newest index is read once, through the chat history's source, and counted on from there.
+  A copy whose lookup or write fails is tried three times in all, three seconds apart, and then left, and a copy
+  that fails never fails its message. A copy given an index keeps it until it is written there, since its write may
+  have landed although it reported a failure, so the next copy first writes it there again and the feed never holds
+  two different copies at one index, or a gap (`src/features/chat/stamp/ownFeedCopies.ts`). Each message is stamped
+  twice, but the message itself goes to the chat's inbox address, which Swarm ID stamps again in one slot, so only
+  the copy takes new room on the stamp.
+- **Own feed in My Swarm.** While a chat on My stamp is on screen, the My stamp box says under the stamp how many of
+  the viewer's messages on their own stamp in that chat have their copy, as in Own feed: 45 of 47 messages, and 2
+  missing when some have none, with a **Sync** button. It reads the chat and the own feed as the message details do,
+  within the same limits, and the viewer's messages are the ones signed by their chat address, which is the same on
+  every device. A message the gateway paid for is not counted and never copied. Sync writes the missing copies with
+  the stamp, one after the other, each tried three times as above, and says Syncing… 1 of 2 while it runs, then All
+  47 copied. It stops at the first copy that fails, since every later copy would try that one again first, and says
+  how many were not copied, that one and the rest, with Try again. Once a sync ends it counts again, and so it does
+  after each message the viewer sends, once it is read back and its copy written or given up, behind the count on
+  screen. It says Counting… while it first reads, and Your own feed is too large to count past the limits.
+  **A known limit.** The next index is counted from one read of the feed's newest entry each time the chat starts,
+  so a chat started again seconds after a send, before that entry can be read back, or another device writing the
+  same feed at once, can write a copy at an index already used.
 
 **How the page talks to Swarm ID.** The library, `@solarpunkltd/swarm-id` from the Solar Punk fork, is a file
 of the bundle of its own, fetched when the page starts on a deployment that offers Swarm ID, because
@@ -351,7 +445,7 @@ it, or run the image below, which does both.
 
 The other scripts: `pnpm test` (vitest), `pnpm lint` (oxlint), `pnpm typecheck`, `pnpm format` and
 `pnpm format:check` (oxfmt). `pnpm e2e` builds the app and runs the browser journeys in Playwright:
-a replayed recording, the theme switcher on that recording, Connect, the weeb-3 journeys, chat messages on the
+a replayed recording, the theme switcher on that recording, My Swarm, the weeb-3 journeys, chat messages on the
 viewer's own stamp against a fake Swarm ID site on that recording, through a Bee node and through a fake Weeb3, signing
 in and changing the stamp through that site's button frame, and real hls.js against a fake gateway publishing a live stream in four
 qualities, each answer held back 650 ms. The first run downloads the Chromium build Playwright pins.
@@ -403,6 +497,8 @@ The policy is the same on every deployment, because the page decides which sourc
 - **A Bee node on the viewer's own machine**, at `localhost` or `127.0.0.1`, any port, over plain http,
   in `connect-src` and `img-src`. A policy cannot name `[::1]`, so that address is refused where it is
   typed, with what to type instead.
+- **The ENS endpoint**, `ensRpcUrl` in `config.json`, at an https address, under the same `https:` in
+  `connect-src`, so the image needs no setting for it. One at plain http is reached only on the viewer's own machine.
 - **The node in this browser, weeb-3.** `'wasm-unsafe-eval'` in `script-src`, so the page and its
   workers may compile the WebAssembly module, and `wss:` in `connect-src`, so the node can reach its
   peers. That is every secure websocket host, on purpose. The package's mainnet bootnodes are all
@@ -564,7 +660,7 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   time the same segment keeps failing, and rejoins a live stream at the live edge. While another quality is left, a segment that failed to load is tried there instead and
   nothing is marked. The playback quality panel counts each skipped segment once, under Segments
   Skipped, and not as a fatal error or a reconnect attempt.
-- **Where the video loads from.** Connect, the button in the header, is described below.
+- **Where the video loads from.** My Swarm, the button in the header, is described below.
 - **Diagnosing playback.** `?qoe=1` on a watch page shows the playback quality panel, ported from
   Nandor Komlodi's panel in the streaming monorepo's client. Its round button toggles it, and so does
   `Q` when you are not typing in a field. The panel lives in the browser window, not in the player:
@@ -586,24 +682,24 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   header names the viewer's build, the same label Copy diagnostics names. `?level=720p` pins one
   quality, which tells a bad quality apart from a bad switch.
 
-## Connect
+## My Swarm
 
-The button at the right of the header opens Connect (`src/features/connect/Connect.tsx`), a panel at the side of
-the window on a wider screen. The button says Connect, or the viewer's chat name with its badge once they chat.
-Connect holds who the viewer is in the chat, every source they can read Swarm through, and what each source is
+The button at the right of the header opens My Swarm (`src/features/connect/Connect.tsx`), a panel at the side of
+the window on a wider screen. The button says My Swarm, or the viewer's chat name with its badge once they chat.
+My Swarm holds who the viewer is in the chat, every source they can read Swarm through, and what each source is
 used for. Adding a source and a source's settings open in its place, with a back arrow. Escape goes back one view
-the same way, and only Escape on the menu closes Connect. Each new view takes focus to its first field where it has
-one, as the address of a gateway or a Bee node, and to its title otherwise. Closing Connect while Weeb3 is being
+the same way, and only Escape on the menu closes My Swarm. Each new view takes focus to its first field where it has
+one, as the address of a gateway or a Bee node, and to its title otherwise. Closing My Swarm while Weeb3 is being
 added asks first, since closing stops that node, with Keep adding and Stop and close. Every change applies at
 once and is kept in the browser, and nothing switches a source by itself.
 
 - **ID.** On a site with chat. Not chatting: a guest name with Chat as guest, and Sign in with Swarm ID where the
   deployment offers it, as [The chat](#the-chat) describes. Chatting: the name with its badge and Leave for a guest,
   or the Swarm ID account with Sign out, and the theme switcher where the deployment allows it. Leave asks first,
-  since it forgets the name. The chat's own join button opens Connect too.
+  since it forgets the name. The chat's own join button opens My Swarm too.
 - **Swarm access.** One list of every source: the gateways `config.json` offers, marked Offered, then the ones the
   viewer added. Each row has a status dot, the name, its kind and address, how long its last light check took, and a
-  Settings button. While Connect is open each source gets that light check about every 10 s, the stream list's
+  Settings button. While My Swarm is open each source gets that light check about every 10 s, the stream list's
   first entry for a gateway and Bee's `/health`, `/readiness` and `/peers` for a Bee node, and nothing is checked
   while it is closed. Add source sits under the list.
 - **Use for.** All features reads the video, the stream list, the previews and the chat history from the one source
@@ -659,7 +755,7 @@ once and is kept in the browser, and nothing switches a source by itself.
   The player's own retries ask the same source again.
 - **A source that fails.** When a part's reads, or the segments and pictures loaded for it, have had no answer it can use for 10 s, a bar under the header says
   so, such as "Video cannot load from Event gateway." and "No answer for more than 10 s.", with a Choose another source button
-  that opens Connect. One bar per failing part, gone at the part's next answer, or 30 s after it stopped reading. A not
+  that opens My Swarm. One bar per failing part, gone at the part's next answer, or 30 s after it stopped reading. A not
   found is an answer, so a chat slot not written yet never shows one. The watch page names the video's source above
   the player, such as "via Event gateway".
 - **Copy diagnostics.** The last checks of that source, who answered each part in the last minute, the build and the
@@ -669,14 +765,14 @@ once and is kept in the browser, and nothing switches a source by itself.
 What the browser keeps, in `localStorage`, every read and write guarded so a refusal leaves the
 deployment's defaults for that visit:
 
-| Key                                        | What it holds                                                                                                                                    |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `swarm-sources`                            | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3`                                     |
-| `swarm-routing`                            | All features or per feature, the source picked, and each part's source                                                                           |
-| `viewer-theme`                             | The theme a viewer picked with the theme switcher, kept after a logout                                                                           |
-| `stream-event-client:chat-session`         | A guest's chat login: the display name, the chat key this browser made for them, and its address                                                 |
-| `stream-event-client:chat-stamp:<address>` | Per account, by its chat address on this site: whether the gateway or their own stamp pays, and whether each message also goes to their own feed |
-| `stream-event-client:qoe-panel.v1`         | Where the playback quality panel (`?qoe=1`) sits, its size, and whether it is open                                                               |
+| Key                                        | What it holds                                                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `swarm-sources`                            | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3` |
+| `swarm-routing`                            | All features or per feature, the source picked, and each part's source                                       |
+| `viewer-theme`                             | The theme a viewer picked with the theme switcher, kept after a logout                                       |
+| `stream-event-client:chat-session`         | A guest's chat login: the display name, the chat key this browser made for them, and its address             |
+| `stream-event-client:chat-stamp:<address>` | Per account, by its chat address on this site: whether the gateway or their own stamp pays                   |
+| `stream-event-client:qoe-panel.v1`         | Where the playback quality panel (`?qoe=1`) sits, its size, and whether it is open                           |
 
 The Swarm ID sign-in is not among these. The Swarm ID library keeps what it needs for it, which this list does not
 cover.
@@ -693,14 +789,14 @@ controls the page, and counts as failed when it is not ready after 30 s.
   shared worker and WebAssembly module, to `/weeb-3/` (`scripts/weeb3-files.mjs`). The bundle carries no copy of
   the module of its own.
 - **When it runs.** The node runs while something holds it: every part while weeb-3 is that part's source, the watch
-  page's player while it shows, Connect from adding it until Connect closes, or a source's settings while it is checked
-  there, and every read through it while that read runs. A read made while the node is starting waits for it to be
+  page's player while it shows, My Swarm from adding it until My Swarm closes, or a source's settings while it is
+  checked there, and every read through it while that read runs. A read made while the node is starting waits for it to be
   ready, and one made while it is stopped starts it first, so a part never gets an early answer from a node that is
   not there yet. A node that fails to start answers the read as unavailable. Listing a saved one starts
   nothing. When the last of them lets go, as when every part moves to another source or the source is removed, the
   node is stopped and freed.
 - **Getting ready.** The page downloads the 2.2 MB WebAssembly module itself, reading it as it streams, so the
-  row in Connect and the watch page can show how much has arrived against the length the server names. A
+  row in My Swarm and the watch page can show how much has arrived against the length the server names. A
   download that has not finished after 60 s, or whose package fails to load, is stopped and the node counts as
   failed. It hands the bytes to the package, then reports starting, then connecting with its peers counted against 200,
   weeb-3's own connection target (`CONNECTION_BUILDUP_LIMIT` in its `src/accounting.rs`, which its project README
@@ -708,10 +804,10 @@ controls the page, and counts as failed when it is not ready after 30 s.
   the video does not wait for the rest, and the count keeps building up after that.
 - **A node that lost its peers.** Once ready, the node's peers are read every half second. When every read for
   20 s finds no peers or throws, as after a phone locked the tab, the node is lost
-  (`WEEB3_LOST_AFTER_MS`). A shorter dip, such as a network handover, leaves it ready. Connect's row says "Lost
-  its peers", its settings say Test connection starts it again, and the line on the watch page adds "Open Connect to
+  (`WEEB3_LOST_AFTER_MS`). A shorter dip, such as a network handover, leaves it ready. My Swarm's row says "Lost
+  its peers", its settings say Test connection starts it again, and the line on the watch page adds "Open My Swarm to
   start it again." While it is lost, every read through it is unavailable at once, and a message pushed through it
-  fails at once with "The Swarm node in this browser lost its peers. Open Connect to start it again." Nothing starts
+  fails at once with "The Swarm node in this browser lost its peers. Open My Swarm to start it again." Nothing starts
   it again by itself and nothing switches to another source: Test connection in its settings, or Test again while
   adding it, starts a new node in its place, which is ready again at its first peer.
 - **The video, in weeb-3's own player.** With weeb-3 as the video's source the watch page plays the stream with
@@ -727,7 +823,7 @@ controls the page, and counts as failed when it is not ready after 30 s.
   None of its reads is handed to another source whatever it answers. Every read through it gets weeb-3's
   own 30 s budget rather than the client's 10 s, so a missing chunk, which weeb-3 gives up on after about 17 s, ends
   as not found rather than cut short. A stream list that cannot be read names its source on the browse page, as
-  every source's does: "Stream list cannot load from Weeb3. Open Connect to check it, or pick another source."
+  every source's does: "Stream list cannot load from Weeb3. Open My Swarm to check it, or pick another source."
 - **Reads.** weeb-3 reads through its service worker's routes: `/weeb-3/chunks/` for a chunk, a feed entry or a
   single-owner chunk, `/weeb-3/bytes/` for bytes, and segment URLs on its caching route `/weeb-3/hls/bytes/`. weeb-3
   puts a chunk's 8-byte span before bytes and before a single-owner chunk's payload, which Bee leaves out, so it is
@@ -805,7 +901,7 @@ Weeb3 (`providers/weeb-3/weeb3Push`) in `ChatStamp.tsx`, and the errors of both,
   viewer's saved sources, and makes it again when the viewer changes what a part reads from.
   Components get it from the app
   context. The player reads through `reader('player')`, the stream list through `reader('stream-list')`,
-  the previews and pictures through `reader('previews')`, Connect checks a source through a
+  the previews and pictures through `reader('previews')`, My Swarm checks a source through a
   client made for that source alone, and the chat reads through `reader('chat')`, on the source picked for the
   chat history.
 - **The chat.** swarm-chat-js 8.1.0 is handed a source and a write in place of its own Bee client
@@ -885,7 +981,7 @@ src/
   features/
     catalog/    the stream list: feed reader, schema, polling, previews
     player/     the Swarm HLS player, its loaders and overlays, the watch page
-    connect/    Connect, the panel the header opens: the ID, the sources, Use for, and the failure bar
+    connect/    My Swarm, the panel the header opens: the ID, the sources, Use for, and the failure bar
     gateway/    a source's checks, its light status, the address rules and the diagnostics
     chat/       the chat panel, the display-name login, the chat library's lifecycle
   swarm/        the Swarm client, its providers and their answers, and the settings it is made from

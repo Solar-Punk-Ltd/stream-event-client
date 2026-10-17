@@ -1,3 +1,5 @@
+import { OPEN_MY_SWARM } from '@/shared/mySwarmPanel';
+
 import type { DownloadProgress, ProviderState } from '../../provider';
 import { loadWeeb3Package } from './weeb3Module';
 import type { Weeb3Node, Weeb3Package } from './weeb3Package';
@@ -32,7 +34,7 @@ export const WEEB3_LOST_AFTER_MS = 20_000;
 const LOST_AFTER_CHECKS = Math.ceil(WEEB3_LOST_AFTER_MS / WEEB3_PEER_POLL_MS);
 
 /** What a read, a push or the page says while the node is lost, which only starting it again in Connect mends. */
-export const WEEB3_LOST_PEERS = 'The Swarm node in this browser lost its peers. Open Connect to start it again.';
+export const WEEB3_LOST_PEERS = `The Swarm node in this browser lost its peers. ${OPEN_MY_SWARM} to start it again.`;
 
 /** How long the 2.2 MB module may take to download, a slow connection's worth, before the start fails. */
 export const WEEB3_DOWNLOAD_DEADLINE_MS = 60_000;

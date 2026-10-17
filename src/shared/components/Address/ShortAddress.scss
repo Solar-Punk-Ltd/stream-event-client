@@ -1,0 +1,61 @@
+@use '@/design/touch';
+@use '@/design/visually-hidden';
+
+.short-address {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2xs) var(--spacing-xs);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.short-address-toggle {
+  @include touch.touch-target;
+
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-family: var(--font-family-mono);
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--color-text-tertiary);
+  }
+}
+
+// The full value wraps anywhere, and stays selectable for copying by hand when the clipboard is refused.
+.short-address-value {
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.short-address-copy {
+  @include touch.touch-target;
+
+  position: relative;
+  padding: 0 var(--spacing-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--color-border);
+    color: var(--color-text);
+  }
+}
+
+.short-address-status {
+  @include visually-hidden.visually-hidden;
+}

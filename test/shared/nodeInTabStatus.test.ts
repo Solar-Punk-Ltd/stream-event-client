@@ -23,10 +23,10 @@ describe('the node in this browser, in words', () => {
     expect(weeb3StatusWords({ state: 'failed', peers: 0, healthyPeers: HEALTHY })).toBe('Failed to start');
   });
 
-  it('names a node that lost its peers, and outside Connect says to start it again there', () => {
+  it('names a node that lost its peers, and outside My Swarm says to start it again there', () => {
     const lost: ProviderStatus = { state: 'lost', peers: 0, healthyPeers: HEALTHY };
     expect(weeb3StatusWords(lost)).toBe('Lost its peers');
-    expect(weeb3StatusLine(lost)).toBe('Lost its peers. Open Connect to start it again.');
+    expect(weeb3StatusLine(lost)).toBe('Lost its peers. Open My Swarm to start it again.');
     expect(weeb3StatusLine(ready(5))).toBe('5 of 200 peers');
   });
 

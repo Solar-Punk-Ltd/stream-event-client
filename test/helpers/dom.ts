@@ -109,3 +109,10 @@ export async function waitFor<T>(check: () => T | null | undefined, attempts = 5
   }
   throw new Error('what was waited for never arrived');
 }
+
+const LIVE_REGION = '[role="status"], [role="alert"], [role="log"], [aria-live]';
+
+/** Live regions that sit inside another, which a screen reader may read twice or not at all. */
+export function nestedLiveRegions(root: ParentNode = document): Element[] {
+  return [...root.querySelectorAll(LIVE_REGION)].filter((region) => region.parentElement?.closest(LIVE_REGION));
+}

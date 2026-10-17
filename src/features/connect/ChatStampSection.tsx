@@ -14,7 +14,9 @@ import { daysLeftText, SITE_STAMP_RAN_OUT, type SiteStamp } from '@/features/cha
 import { ButtonVariant } from '@/shared/components/Button/Button';
 import { OwnStampIcon } from '@/shared/components/Icons/OwnStampIcon';
 
-const SIGN_IN_FIRST = 'Sign in with Swarm ID first.';
+import { OWN_FEED_COPY, OWN_STAMP_NEEDS_SIGN_IN, OWN_STAMP_NEEDS_SOURCE } from './connectWords';
+import { OwnFeedSync } from './OwnFeedSync';
+
 const CHANGE_STAMP = 'Change stamp in Swarm ID';
 const CHOOSE_STAMP = 'Choose a stamp in Swarm ID';
 const UNNAMED_STAMP = 'Stamp for this site';
@@ -35,10 +37,10 @@ export function ChatStampSection() {
   const ownStampPays = choice.payWith === MessageVia.OWN_STAMP;
   const canPickOwnStamp = canUseOwnStamp && (route.ok || ownStampPays);
   const ownStampLine = !canUseOwnStamp
-    ? SIGN_IN_FIRST
+    ? OWN_STAMP_NEEDS_SIGN_IN
     : route.ok
       ? `The stamp Swarm ID gives this site. Your messages go out through ${SENDS_THROUGH[route.through]}, without the event's gateway deciding.`
-      : `${route.reason} ${route.hint}`;
+      : OWN_STAMP_NEEDS_SOURCE;
 
   return (
     <section className="connect-group" aria-label="Chat stamp">
@@ -72,11 +74,12 @@ export function ChatStampSection() {
 }
 
 function SiteStampBox() {
-  const { siteStamp, canUseOwnStamp, choice, chooseOwnFeed } = useChatStamp();
+  const { siteStamp, canUseOwnStamp } = useChatStamp();
   return (
     <>
       <div className="connect-box connect-site-stamp">
         {siteStamp.status === SITE_STAMP_READ && <StampFigures stamp={siteStamp.stamp} />}
+        <OwnFeedSync />
         {siteStamp.status === SITE_STAMP_READING && <p className="connect-hint">Reading your stamp from Swarm ID…</p>}
         {siteStamp.status === SITE_STAMP_UNREADABLE && (
           <p className="connect-hint">Swarm ID did not say how your stamp stands. It is read again shortly.</p>
@@ -97,17 +100,8 @@ function SiteStampBox() {
             />
           </div>
         )}
+        <p className="connect-hint">{OWN_FEED_COPY}</p>
       </div>
-      <label className="connect-choice">
-        <input type="checkbox" checked={choice.ownFeed} onChange={(event) => chooseOwnFeed(event.target.checked)} />
-        <span>
-          Also write my own feed
-          <small>
-            Every message you send is also saved to a feed only you can write. Anyone can compare it with the chat, so
-            your messages stay checkable even if the chat leaves one out. Uses about twice the stamp.
-          </small>
-        </span>
-      </label>
     </>
   );
 }

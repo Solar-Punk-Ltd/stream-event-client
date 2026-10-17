@@ -44,8 +44,8 @@ async function screenshot(page: Page, name: string): Promise<void> {
 const connect = (page: Page) => page.getByRole('dialog');
 
 async function openConnect(page: Page) {
-  await page.getByRole('banner').getByRole('button', { name: 'Connect', exact: true }).click();
-  await expect(connect(page).getByRole('heading', { name: 'Connect', exact: true })).toBeVisible();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
+  await expect(connect(page).getByRole('heading', { name: 'My Swarm', exact: true })).toBeVisible();
 }
 
 /** Every check's line with its state, as a screen reader hears it. */
@@ -56,7 +56,7 @@ async function checkStates(page: Page): Promise<string[]> {
 }
 
 for (const theme of THEME_NAMES) {
-  test(`${theme}: Connect checks the event gateway from its settings, every check passing, and copies diagnostics`, async ({
+  test(`${theme}: My Swarm checks the event gateway from its settings, every check passing, and copies diagnostics`, async ({
     page,
     context,
   }) => {
@@ -94,7 +94,7 @@ for (const theme of THEME_NAMES) {
     const overflow = await connect(page)
       .locator('.dialog-body')
       .evaluate((element) => element.scrollWidth - element.clientWidth);
-    expect(overflow, 'Connect does not scroll sideways at phone width').toBeLessThanOrEqual(0);
+    expect(overflow, 'My Swarm does not scroll sideways at phone width').toBeLessThanOrEqual(0);
     expect(gateway.unknownPaths(), 'every request was one the fake gateway knows').toEqual([]);
   });
 }
@@ -151,7 +151,7 @@ test('a gateway the viewer adds passes its checks, is chosen for all features, a
     .getByRole('region', { name: 'Use for' })
     .getByLabel('All features', { exact: true })
     .selectOption({ label: 'Second gateway' });
-  await connect(page).getByRole('button', { name: 'Close Connect', exact: true }).click();
+  await connect(page).getByRole('button', { name: 'Close My Swarm', exact: true }).click();
 
   await page.goto(event.watchPath());
   await expect(page.getByText('via Second gateway')).toBeVisible({ timeout: 20_000 });
@@ -168,5 +168,5 @@ test('a gateway the viewer adds passes its checks, is chosen for all features, a
   console.log(`the failure bar showed ${Math.round((Date.now() - downAtMs) / 1000)} s after the gateway went down`);
 
   await bar.getByRole('button', { name: 'Choose another source', exact: true }).click();
-  await expect(connect(page).getByRole('heading', { name: 'Connect', exact: true })).toBeVisible();
+  await expect(connect(page).getByRole('heading', { name: 'My Swarm', exact: true })).toBeVisible();
 });

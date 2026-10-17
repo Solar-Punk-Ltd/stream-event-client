@@ -1,6 +1,6 @@
 {
   "stream": {
-    "owner": "59278999a008d96514f705f75e565580f26d8b9e",
+    "owner": "ccae33a1c8a5b8408967e0c2f5960377cf6ba213",
     "topic": "recorded-finished-stream",
     "title": "Recorded test pattern",
     "segments": 3
@@ -23,13 +23,13 @@
     ],
     "swarmId": {
       "text": "second message",
-      "account": "0x1a949b169cb0ec821acd9dd9b39871058c38ae38"
+      "account": "0x39c6b4ca25b2f88690a6fc8f2df9bea920f16e28"
     },
     "ownStamp": {
       "text": "third message"
     }
   },
   "bee": {
-    "version": "2.8.2"
+    "version": "2.8.3"
   }
 }

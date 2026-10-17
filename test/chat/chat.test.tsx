@@ -3,6 +3,8 @@ import {
   type ChatBinding,
   ChatMessageError,
   EVENTS,
+  FeedStatus,
+  HeadLookupTimeoutError,
   type MessageData,
   MessageType,
   MessageVia,
@@ -50,6 +52,7 @@ import {
   waitFor,
 } from '../helpers/dom';
 import { withThemeChoice } from '../helpers/themeChoice';
+import { shortAddress } from '../../src/shared/components/Address/addressText';
 
 vi.mock('@solarpunkltd/swarm-chat-js', async (importActual) => {
   const actual = await importActual<typeof import('@solarpunkltd/swarm-chat-js')>();
@@ -179,7 +182,7 @@ function JoinWhereConnectOpens() {
   const { isOpen, open } = useConnect();
   return isOpen
     ? createElement(IdSection, { onLeave: () => {} })
-    : createElement('button', { type: 'button', onClick: open }, 'Connect');
+    : createElement('button', { type: 'button', onClick: open }, 'My Swarm');
 }
 
 function panel(topic = 'stream-one', chat: ChatConfig = CHAT): ReactNode {
@@ -266,12 +269,56 @@ describe('the chat on a watch page', () => {
     mounted = mount(panel());
     await settle();
     await emit(EVENTS.LOADING_INIT, true);
-    await emit(EVENTS.ERROR, new Error('the head lookup timed out, opening from slot 0'));
+    await emit(EVENTS.ERROR, new Error('a slot of the history could not be read, opening again'));
     expect(text()).toContain('Loading the chat');
     expect(text()).not.toContain('The chat cannot be reached right now');
     await emit(EVENTS.LOADING_INIT, false);
     expect(text()).not.toContain('Loading the chat');
     expect(text()).toContain('No messages yet.');
+  });
+
+  describe('a history whose newest entry was not found in time, as through the node in this tab', () => {
+    async function openWithoutTheNewest() {
+      mounted = mount(panel());
+      await settle();
+      await emit(EVENTS.LOADING_INIT, true);
+      await emit(EVENTS.ERROR, new HeadLookupTimeoutError());
+      await emit(EVENTS.LOADING_INIT, false);
+    }
+
+    it('keeps loading rather than saying the chat is empty, while it still reads from the first entry', async () => {
+      await openWithoutTheNewest();
+      expect(text()).toContain('Loading the chat');
+      expect(text()).not.toContain('No messages yet.');
+    });
+
+    it('says the chat is empty once its first read from the first entry answered with nothing', async () => {
+      await openWithoutTheNewest();
+      await emit(EVENTS.STATUS, FeedStatus.LIVE);
+      expect(text()).not.toContain('Loading the chat');
+      expect(text()).toContain('No messages yet.');
+    });
+
+    it('keeps loading through a read that failed, which answered nothing about the chat', async () => {
+      await openWithoutTheNewest();
+      await emit(EVENTS.STATUS, FeedStatus.RECONNECTING);
+      expect(text()).not.toContain('No messages yet.');
+    });
+
+    it('shows a message found meanwhile', async () => {
+      await openWithoutTheNewest();
+      await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'found' }));
+      expect(messageTexts()).toEqual(['text of found']);
+      expect(text()).not.toContain('Loading the chat');
+    });
+
+    it('says the chat is empty at once on a later open whose newest entry answered', async () => {
+      await openWithoutTheNewest();
+      await emit(EVENTS.STATUS, FeedStatus.LIVE);
+      await emit(EVENTS.LOADING_INIT, true);
+      await emit(EVENTS.LOADING_INIT, false);
+      expect(text()).toContain('No messages yet.');
+    });
   });
 
   it('says it is loading until the chat has read its history', async () => {
@@ -373,7 +420,7 @@ describe('the chat on a watch page', () => {
   it('reads again, and shows the chat once it answers, after a sign-in while it could not be reached', async () => {
     await open();
     await emit(EVENTS.CRITICAL_ERROR, new Error('unreachable'));
-    click(button('Connect'));
+    click(button('My Swarm'));
     type(input('Your name'), 'Ada');
     click(button('Chat as guest'));
     await settle();
@@ -456,6 +503,7 @@ describe('what the chat checks', () => {
     expect(document.querySelector('.chat-message-name')?.textContent).toBe('Bea');
     expect(text()).not.toContain('Mallory');
     click(button('Guest, show details'));
+    click(button(shortAddress(honest.signedMessage.addr)));
     expect(text()).toContain(`0x${honest.signedMessage.addr}`);
     expect(text()).not.toContain('f'.repeat(40));
   });
@@ -573,15 +621,43 @@ describe('who sent a message', () => {
       [...card!.querySelectorAll('dt')].map((term) => [term.textContent, term.nextElementSibling?.textContent]),
     );
     expect(rows).toEqual({
-      Name: 'Ida',
-      Identity: 'Swarm ID, confirmed for this chat address',
-      'Public address': `0x${bound.address}`,
-      Signature: 'matches this text',
-      'ID link': 'confirmed by Swarm ID for this site',
-      'Swarm ID account': FORK_ACCOUNT,
-      Sent: 'by the event gateway',
+      Identity: 'Swarm ID',
+      'Public address': shortAddress(bound.address),
+      Signature: '',
+      'Swarm ID account': shortAddress(FORK_ACCOUNT),
+      Sent: 'Event gateway',
     });
+    expect(card!.querySelector('.message-details-title')?.textContent).toBe('Ida');
+    expect(card!.querySelector('.message-details-title svg.sender-badge-swarm-id')).not.toBeNull();
     expect(document.querySelector('.message-actions.visible')).toBeNull();
+  });
+
+  it('expands an address in the details to its full form, with a copy button beside it', async () => {
+    await open();
+    const bound = await swarmIdMessage('bound');
+    await emit(EVENTS.MESSAGE_RECEIVED, bound);
+    click(button('Swarm ID, show details'));
+
+    click(button(shortAddress(FORK_ACCOUNT)));
+    expect(details()!.textContent).toContain(FORK_ACCOUNT);
+    expect(queryButton('Copy the Swarm ID account')).not.toBeNull();
+    expect(queryButton('Copy the public address')).toBeNull();
+  });
+
+  it('shows the signature behind its check mark, short and then in full', async () => {
+    await open();
+    const signed = message({ id: 'signed' });
+    await emit(EVENTS.MESSAGE_RECEIVED, signed);
+    click(button('Guest, show details'));
+    const check = button('Signature checked, show it');
+    expect(check.getAttribute('aria-expanded')).toBe('false');
+    expect(details()!.textContent).not.toContain(shortAddress(signed.signedMessage.sig));
+
+    click(check);
+    expect(check.getAttribute('aria-expanded')).toBe('true');
+    click(button(shortAddress(signed.signedMessage.sig)));
+    expect(details()!.textContent).toContain(signed.signedMessage.sig);
+    expect(queryButton('Copy the signature')).not.toBeNull();
   });
 
   it('names the card it controls only while the card is open', async () => {
@@ -617,12 +693,10 @@ describe('who sent a message', () => {
     await emit(EVENTS.MESSAGE_RECEIVED, await swarmIdMessage('bound'));
     click(button('Swarm ID, show details'));
 
-    const confirmed = [...details()!.querySelectorAll('dd.message-details-ok')].map((line) => line.textContent);
-    expect(confirmed).toEqual(['matches this text', 'confirmed by Swarm ID for this site']);
-    expect(details()!.querySelectorAll('dd.message-details-ok svg.message-details-check')).toHaveLength(2);
+    expect(details()!.querySelectorAll('dd svg.message-details-check')).toHaveLength(1);
   });
 
-  it("opens a guest's details with no ID link and no account, and closes them again", async () => {
+  it("opens a guest's details with no Swarm ID account, and closes them again", async () => {
     await open();
     const guest = message({ id: 'guest', username: 'Bea' });
     await emit(EVENTS.MESSAGE_RECEIVED, guest);
@@ -630,9 +704,9 @@ describe('who sent a message', () => {
 
     const card = details()!;
     const terms = [...card.querySelectorAll('dt')].map((term) => term.textContent);
-    expect(terms).toEqual(['Name', 'Identity', 'Public address', 'Signature', 'Sent']);
-    expect(card.textContent).toContain('Guest, a key this browser keeps');
-    expect(card.textContent).toContain(`0x${guest.address}`);
+    expect(terms).toEqual(['Identity', 'Public address', 'Signature', 'Sent']);
+    expect(card.querySelector('dt + dd')?.textContent).toBe('Guest');
+    expect(card.textContent).toContain(shortAddress(guest.address));
 
     click(button('Close'));
     expect(details()).toBeNull();
@@ -646,7 +720,7 @@ describe('who sent a message', () => {
     expect(stamp.closest('.chat-message-sender')).toBe(sender());
     expect(stamp.getAttribute('title')).toBe('Own stamp');
     click(stamp);
-    expect(details()?.textContent).toContain('with their own stamp');
+    expect(details()?.textContent).toContain('Own stamp');
     expect(document.querySelector('.message-actions.visible')).toBeNull();
 
     click(button('Guest, show details'));

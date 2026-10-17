@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import { MessageVia } from '@solarpunkltd/swarm-chat-js';
 
+import { useEnsName } from '../../ens/EnsNames';
 import type { ReactionSummary } from '../../reactions';
 import type { VisibleMessage } from '../../useSwarmChat';
 
@@ -95,8 +96,8 @@ function useDetailsCard(onHeightChange?: () => void) {
 }
 
 /**
- * One message as the design draws it: the sender line above a bubble, the viewer's own on the right. A
- * click on the message shows what can be done with it, and the next click folds that away.
+ * One message as the design draws it: the sender line above a bubble, the viewer's own on the right. The pointer over
+ * the message or focus inside it shows what can be done with it, and so does a click, which the next click folds away.
  */
 export function ChatMessage({
   message,
@@ -119,11 +120,13 @@ export function ChatMessage({
   const details = useDetailsCard(onHeightChange);
   const detailsId = useId();
   const badge = senderBadge(message.identity);
+  const ensName = useEnsName(message.identity?.wallet);
   const ownStamp = message.signedMessage.via === MessageVia.OWN_STAMP;
 
   const classes = [
     'chat-message',
     ownMessage && 'own-message',
+    canAct && 'can-act',
     error && 'chat-message-error',
     isSending && 'not-received',
   ]
@@ -134,7 +137,8 @@ export function ChatMessage({
     <li className={classes} onClick={() => canAct && setAreActionsShown((shown) => !shown)}>
       <div className="chat-message-text">
         <SenderLine
-          name={message.username}
+          name={ensName ?? message.username}
+          isEnsName={ensName !== undefined}
           badge={badge}
           ownStamp={ownStamp}
           timestamp={message.timestamp}
@@ -148,11 +152,12 @@ export function ChatMessage({
           <MessageDetails
             id={detailsId}
             name={message.username}
+            ensName={ensName}
             address={message.address}
+            signature={message.signedMessage.sig}
             badge={badge}
             identity={message.identity}
             ownStamp={ownStamp}
-            hasOwnCopy={message.signedMessage.own}
             onClose={details.close}
           />
         )}

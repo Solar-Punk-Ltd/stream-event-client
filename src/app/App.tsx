@@ -2,8 +2,9 @@ import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router';
 
-import { loadRuntimeConfig, selectedTheme, swarmIdUrl } from '@/config/runtimeConfig';
+import { ensRpcUrl, loadRuntimeConfig, selectedTheme, swarmIdUrl } from '@/config/runtimeConfig';
 import { applyLook, applyThemeContent } from '@/design';
+import { EnsNamesProvider } from '@/features/chat/ens/EnsNames';
 import { ChatStampProvider } from '@/features/chat/stamp/ChatStamp';
 import { ConnectProvider } from '@/features/connect/ConnectContext';
 
@@ -38,9 +39,11 @@ void loadRuntimeConfig().then((result) => {
             <AppChatUserProvider swarmIdUrl={swarmIdUrl(result.config)} appName={document.title}>
               <ConnectProvider>
                 <ChatStampProvider>
-                  <HashRouter>
-                    <BaseRouter />
-                  </HashRouter>
+                  <EnsNamesProvider rpcUrl={ensRpcUrl(result.config)}>
+                    <HashRouter>
+                      <BaseRouter />
+                    </HashRouter>
+                  </EnsNamesProvider>
                 </ChatStampProvider>
               </ConnectProvider>
             </AppChatUserProvider>

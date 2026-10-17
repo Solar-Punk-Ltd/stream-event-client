@@ -174,6 +174,7 @@ describe('signing in with Swarm ID', () => {
       address: addressOf(key),
       binding: { msg: FORK_BINDING.message, sig: FORK_BINDING.signature },
       accountName: 'Ida',
+      account: FORK_ACCOUNT,
     });
   });
 
@@ -337,6 +338,24 @@ describe("a Swarm ID account's chat name", () => {
     expect(chatNameOf({ ...FORK_IDENTITY, name: '  Ida  ' })).toBe('Ida');
     expect(chatNameOf({ ...FORK_IDENTITY, name: 'Ida from the very back row' })).toBe('Ida from the very ba');
     expect([...chatNameOf({ ...FORK_IDENTITY, name: '🐝'.repeat(30) })]).toHaveLength(20);
+  });
+
+  it('is the short account address for an account whose name has a format or control character', () => {
+    expect(chatNameOf({ ...FORK_IDENTITY, name: 'evil\u202egnp.exe' })).toBe(
+      `0x${FORK_ACCOUNT.slice(2, 6)}…${FORK_ACCOUNT.slice(-4)}`,
+    );
+  });
+
+  it('is the short account address for an account whose name ends in .eth, which only a verified ENS name shows', () => {
+    const short = `0x${FORK_ACCOUNT.slice(2, 6)}…${FORK_ACCOUNT.slice(-4)}`;
+    expect(chatNameOf({ ...FORK_IDENTITY, name: 'vitalik.eth' })).toBe(short);
+    expect(chatNameOf({ ...FORK_IDENTITY, name: ' Vitalik.ETH ' })).toBe(short);
+  });
+
+  it('keeps a name joined by a zero width joiner or non-joiner', () => {
+    const family = '\u{1F468}\u200d\u{1F469}\u200d\u{1F467}';
+    expect(chatNameOf({ ...FORK_IDENTITY, name: family })).toBe(family);
+    expect(chatNameOf({ ...FORK_IDENTITY, name: 'می\u200cخواهم' })).toBe('می\u200cخواهم');
   });
 
   it('is the short account address for an account with no name', () => {

@@ -1,6 +1,14 @@
 // @vitest-environment jsdom
 // @vitest-environment-options {"url":"https://example.com/"}
-import { createChatMessage, encodeChatMessage, EVENTS, MessageType, MessageVia } from '@solarpunkltd/swarm-chat-js';
+import { FeedIndex, Topic } from '@ethersphere/bee-js';
+import {
+  type ChatMessage,
+  createChatMessage,
+  EVENTS,
+  MessageType,
+  MessageVia,
+  ownFeedTopic,
+} from '@solarpunkltd/swarm-chat-js';
 import { act, createElement } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,14 +16,16 @@ import { saveAddedSources, saveRouting } from '../../src/app/sourceStorage';
 import { Chat } from '../../src/features/chat/Chat/Chat';
 import type { ChatReads } from '../../src/features/chat/chatParts';
 import { saveChatStampChoice } from '../../src/features/chat/stamp/chatStampChoice';
+import { OWN_COPY_RETRY_MS } from '../../src/features/chat/stamp/ownFeedCopies';
 import { STAMP_RAN_OUT } from '../../src/features/chat/stamp/stampProblems';
 import type { SwarmIdPostageBatch } from '../../src/features/chat/swarmId/swarmIdClient';
+import { makeFeedIdentifier } from '../../src/shared/feedFollow';
 import { chooseSource, defaultRouting } from '../../src/swarm/routing';
 import { CHAT, connectPage, seen } from '../helpers/connectPage';
 import { wearThemeCss } from '../helpers/themeCss';
-import { button, click, queryButton, settle, type Mounted, waitFor } from '../helpers/dom';
+import { button, click, nestedLiveRegions, queryButton, settle, type Mounted, waitFor } from '../helpers/dom';
 import { FakeSwarmChat } from '../helpers/fakeSwarmChat';
-import { ownFeed } from '../helpers/ownFeed';
+import { servedFeeds } from '../helpers/chatFeed';
 import { type FakeSwarmId, fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
 import {
   addressOf,
@@ -88,13 +98,13 @@ function chatOnMyBeeNode() {
   saveRouting(chooseSource(defaultRouting('event'), 'added-1'));
 }
 
-async function watchPage(batch: SwarmIdPostageBatch = BATCH): Promise<FakeSwarmId> {
+async function watchPage(batch: SwarmIdPostageBatch = BATCH, chat: typeof CHAT = CHAT): Promise<FakeSwarmId> {
   const swarmId = await fakeSwarmId(SIGNED_IN, (client) => {
     client.postageBatch = batch;
   });
   mounted = connectPage({
     swarmId,
-    children: [createElement(Chat, { key: 'chat', chat: CHAT, topic: 'stream-one', reads: () => reads })],
+    children: [createElement(Chat, { key: 'chat', chat, topic: 'stream-one', reads: () => reads })],
   });
   await settle();
   await waitFor(() => seen.chatUser?.swarmIdSession);
@@ -124,6 +134,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   mounted?.unmount();
   mounted = null;
   globalThis.fetch = realFetch;
@@ -139,23 +150,25 @@ describe('a chat paid for with my own stamp', () => {
 
   it("writes each message through the viewer's Bee node, stamped by Swarm ID, and says so in every message", async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     const swarmId = await watchPage();
 
     const chat = FakeSwarmChat.latest();
     expect(chat.settings.infra).toMatchObject({ via: MessageVia.OWN_STAMP, writeUrl: NODE });
     const { bytes } = { bytes: new TextEncoder().encode(JSON.stringify(signedMessage('mine'))) };
     await chat.parts?.write?.(bytes);
+    await waitFor(() => (posted.length === 2 ? true : null));
 
-    expect(swarmId.client().stamped).toHaveLength(1);
-    expect(posted).toHaveLength(1);
-    expect(posted[0].url.startsWith(`${NODE}/soc/`)).toBe(true);
-    expect(posted[0].stamp).toBe('e'.repeat(226));
+    expect(swarmId.client().stamped, 'the message, then its copy in my own feed').toHaveLength(2);
+    for (const chunk of posted) {
+      expect(chunk.url.startsWith(`${NODE}/soc/`)).toBe(true);
+      expect(chunk.stamp).toBe('e'.repeat(226));
+    }
   });
 
   it('pushes each message through Weeb3 when it reads the chat, stamped by Swarm ID, and posts it to no node', async () => {
     chatOnWeeb3();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     const swarmId = await watchPage();
 
     const chat = FakeSwarmChat.latest();
@@ -163,10 +176,10 @@ describe('a chat paid for with my own stamp', () => {
     expect(chat.settings.infra).not.toHaveProperty('writeUrl');
     expect(seen.chatStamp?.warning, 'Weeb3 can send on my stamp, so nothing holds the message').toBeNull();
     await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(signedMessage('through weeb-3'))));
+    await waitFor(() => (weeb3Pushes.pushed.length === 2 ? true : null));
 
-    expect(swarmId.client().stamped).toHaveLength(1);
-    expect(weeb3Pushes.pushed).toHaveLength(1);
-    expect(weeb3Pushes.pushed[0].stamp).toBe('e'.repeat(226));
+    expect(swarmId.client().stamped, 'the message, then its copy in my own feed').toHaveLength(2);
+    expect(weeb3Pushes.pushed.map(({ stamp }) => stamp)).toEqual(['e'.repeat(226), 'e'.repeat(226)]);
     expect(posted).toEqual([]);
   });
 
@@ -184,25 +197,19 @@ describe('a chat paid for with my own stamp', () => {
     expect(chatRegion()?.textContent).toContain(shown.text);
   });
 
-  it('starts the chat signing every message as keeping a copy once the own feed is on, and keeps the messages on screen', async () => {
+  it('asks the chat to sign no own field on my stamp, whose copy is read from my own feed instead', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
     await watchPage();
-    expect(FakeSwarmChat.latest().settings.infra.own).toBeFalsy();
-    const shown = signedMessage('before copies');
-    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(shown, 0)));
-    await waitFor(() => (chatRegion()?.textContent?.includes(shown.text) ? true : null));
-
-    await act(async () => seen.chatStamp?.chooseOwnFeed(true));
+    await act(async () => seen.chatStamp?.choosePayWith(MessageVia.OWN_STAMP));
     await settle();
 
-    expect(FakeSwarmChat.latest().settings.infra).toMatchObject({ via: MessageVia.OWN_STAMP, own: true });
-    expect(chatRegion()?.textContent).toContain(shown.text);
+    expect(FakeSwarmChat.latest().settings.infra.via).toBe(MessageVia.OWN_STAMP);
+    expect(FakeSwarmChat.latest().settings.infra).not.toHaveProperty('own');
   });
 
   it('shows a message Swarm ID would not stamp as not sent, with the reason, and sends it nowhere else', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     const swarmId = await watchPage();
     swarmId.client().stampRefusal = Object.assign(new Error('expired'), {
       code: 'upload-unavailable',
@@ -227,9 +234,38 @@ describe('a chat paid for with my own stamp', () => {
     expect(chat.retrySendMessage).toHaveBeenCalled();
   });
 
+  it('offers to choose a stamp in Swarm ID when it says it gave this site none, though a stamp was shown', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    const swarmId = await watchPage();
+    expect(queryButton('Choose a stamp in Swarm ID'), 'a stamp is shown, so nothing to choose yet').toBeNull();
+    swarmId.client().stampRefusal = Object.assign(new Error('no stamp'), {
+      code: 'upload-unavailable',
+      reason: 'no-stamp',
+    });
+    const mine = signedMessage('refused', {
+      key: seen.chatUser!.session!.privateKey,
+      name: seen.chatUser!.session!.username,
+      binding: seen.chatUser!.session!.binding,
+      via: MessageVia.OWN_STAMP,
+    });
+    const chat = FakeSwarmChat.latest();
+    await act(async () => chat.emitter.emit(EVENTS.MESSAGE_REQUEST_INITIATED, messageData(mine, -1)));
+    await act(async () => {
+      await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(mine))).catch(() => {});
+    });
+    await settle();
+
+    expect(chatRegion()?.textContent).toContain(
+      'Not sent. Swarm ID has given this site no stamp. Choose one in Swarm ID.',
+    );
+    expect(button('Choose a stamp in Swarm ID')).toBe(swarmId.client().shownButton().element);
+    expect(posted).toEqual([]);
+  });
+
   it('marks a failed message to be written again when its retry comes after the way messages are sent changed', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     const swarmId = await watchPage();
     swarmId.client().stampRefusal = Object.assign(new Error('expired'), {
       code: 'upload-unavailable',
@@ -264,7 +300,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it('warns above the message field when the stamp ran out, holds the message, and lets the viewer pick the gateway', async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     await watchPage({ ...BATCH, utilization: 1 });
 
     expect(chatRegion()?.textContent).toContain('Your stamp ran out.');
@@ -278,7 +314,7 @@ describe('a chat paid for with my own stamp', () => {
   });
 
   it('warns when the chat source cannot send on my stamp, and never sends through the gateway in its place', async () => {
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     await watchPage();
 
     const chat = FakeSwarmChat.latest();
@@ -298,12 +334,13 @@ describe('a chat paid for with my own stamp', () => {
   it('warns while the stamp runs low, and still sends', async () => {
     wearThemeCss();
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     const swarmId = await watchPage({ ...BATCH, utilization: 0.9, batchTTL: 2 * DAY_S });
 
     expect(chatRegion()?.textContent).toContain('90% of your stamp is used.');
     expect(chatRegion()?.textContent).toContain('It runs out in about 2 days.');
     expect(button('Change stamp in Swarm ID')).toBeTruthy();
+    expect(nestedLiveRegions(chatRegion()!), "Swarm ID's button says its own news, outside the warning's").toEqual([]);
     expect(seen.chatStamp?.warning?.blocksSending).toBe(false);
     expect(swarmId.client().shownButton().config, "the page's secondary button while sending goes on").toMatchObject({
       backgroundColor: 'rgba(250,250,250,0.1)',
@@ -312,7 +349,7 @@ describe('a chat paid for with my own stamp', () => {
 
   it("opens the Swarm ID window from Swarm ID's button in the warning, says when it was blocked, and lifts the hold once a stamp is picked there", async () => {
     chatOnMyBeeNode();
-    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP, ownFeed: false });
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     wearThemeCss();
     const swarmId = await watchPage({ ...BATCH, utilization: 1 });
     swarmId.client().nextWindow = 'blocked';
@@ -323,6 +360,7 @@ describe('a chat paid for with my own stamp', () => {
       backgroundColor: '#f47a20',
     });
     expect(chatRegion()?.textContent).toContain('Your browser blocked the Swarm ID window.');
+    expect(nestedLiveRegions(chatRegion()!)).toEqual([]);
     expect(queryButton('Open Swarm ID')).toBeNull();
 
     swarmId.client().nextWindow = 'opens';
@@ -339,66 +377,345 @@ describe('a chat paid for with my own stamp', () => {
   });
 });
 
-describe("a sender's own copies in the message details", () => {
+describe("a sender's own feed in the message details", () => {
   const SENDER_KEY = 'a1'.repeat(32);
-  const copyOf = (index: number, text = `copy ${index}`) =>
+  const SERVER_KEY = 'c3'.repeat(32);
+  const CHAT_TOPIC = 'chat-stream-one';
+  const ON_THIS_SERVER = { ...CHAT, feedOwner: `0x${addressOf(SERVER_KEY)}` };
+  const mine = (label: string) =>
     createChatMessage(SENDER_KEY, {
-      id: idOf(`own-${index}`),
-      topic: 'chat-stream-one',
+      id: idOf(label),
+      topic: CHAT_TOPIC,
       type: MessageType.TEXT,
-      text,
+      text: `text of ${label}`,
       name: 'Bea',
-      ts: 1_000 + index,
+      ts: 1_000,
       via: MessageVia.OWN_STAMP,
-      own: true,
     }).message;
 
-  async function openDetailsOf(count: number, tamperedAt: number | null = null) {
-    const copies = Array.from({ length: count }, (_, index) =>
-      index === tamperedAt ? { ...copyOf(index), text: 'changed after signing' } : copyOf(index),
-    );
-    reads = ownFeed(
-      SENDER_KEY,
-      'chat-stream-one',
-      copies.map((copy) => encodeChatMessage(copy)),
-    ).reads;
-    await watchPage();
-    const newest = copyOf(count - 1);
-    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(newest, 0)));
-    await waitFor(() => (chatRegion()?.textContent?.includes(newest.text) ? true : null));
+  /** Opens the details of `shown`, in a chat holding `chatMessages` and an own feed holding `copies`, or none. */
+  async function openDetails(
+    shown: ChatMessage,
+    chatMessages: ChatMessage[],
+    copies: ChatMessage[] | null,
+    arrange: (feeds: ReturnType<typeof servedFeeds>) => void = () => {},
+  ) {
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, chatMessages, { filesThrough: chatMessages.length > 2 ? [1] : [] });
+    if (copies) {
+      feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, copies);
+    }
+    arrange(feeds);
+    reads = feeds.reads;
+    await watchPage(BATCH, ON_THIS_SERVER);
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(shown, 0)));
+    await waitFor(() => (chatRegion()?.textContent?.includes(shown.text) ? true : null));
     click(button('Sent with their own stamp, show details'));
-    await waitFor(() => document.querySelector('[aria-label="Their own copies"] li'));
-    await settle();
-    return document.querySelector<HTMLElement>('[aria-label="Their own copies"]')!;
+    const section = () => document.querySelector<HTMLElement>('[aria-label="Own feed"]');
+    expect(section()?.textContent).toContain('Counting…');
+    await waitFor(() => (section()?.textContent?.includes('Counting…') ? null : true));
+    return section()!;
   }
 
-  const listed = (section: HTMLElement) =>
-    [...section.querySelectorAll('li .own-copy-text')].map((item) => item.textContent);
+  it('says how many messages each feed holds and that this one is in the own feed', async () => {
+    const [a, b] = [mine('a'), mine('b')];
+    const section = await openDetails(b, [a, b], [a, b]);
 
-  it("lists the copies in the sender's own feed, newest first, ten at a time, and loads more", async () => {
-    const section = await openDetailsOf(12);
-
-    expect(listed(section)).toEqual(Array.from({ length: 10 }, (_, at) => `copy ${11 - at}`));
-    click(button('Load more'));
-    await waitFor(() => (listed(section).length === 12 ? true : null));
-    expect(listed(section).slice(10)).toEqual(['copy 1', 'copy 0']);
-    expect(queryButton('Load more')).toBeNull();
+    expect(section.textContent).toContain('Own feed: 2 messages');
+    expect(section.textContent).toContain('Chat feed: 2 messages');
+    expect(section.textContent).toContain('In their own feed');
+    expect(section.querySelector('.own-feed-missing')).toBeNull();
   });
 
-  it('hides a copy that fails its check', async () => {
-    const section = await openDetailsOf(3, 1);
-    expect(listed(section)).toEqual(['copy 2', 'copy 0']);
-    expect(section.textContent).not.toContain('changed after signing');
+  it('names the messages missing on each side, newest first, when the feeds differ', async () => {
+    const [a, b, c, d] = ['a', 'b', 'c', 'd'].map(mine) as [ChatMessage, ChatMessage, ChatMessage, ChatMessage];
+    const section = await openDetails(c, [a, b, c], [a, d]);
+
+    expect(section.textContent).toContain('Own feed: 2 messages');
+    expect(section.textContent).toContain('Chat feed: 3 messages');
+    expect(section.textContent).toContain('Not in their own feed');
+    const missing = (label: string) =>
+      [...section.querySelectorAll(`[aria-label="${label}"] li`)].map((item) => item.textContent);
+    expect(missing('Missing from their own feed')).toEqual([c.text, b.text]);
+    expect(missing('Missing from the chat feed')).toEqual([d.text]);
   });
 
-  it('is not offered for a message that says it keeps no copy', async () => {
-    await watchPage();
-    const plain = signedMessage('no-copy', { key: SENDER_KEY, via: MessageVia.OWN_STAMP });
-    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(plain, 0)));
-    await waitFor(() => (chatRegion()?.textContent?.includes(plain.text) ? true : null));
+  it('says the own feed is too large to count when it names far more entries than the sender sent', async () => {
+    const a = mine('a');
+    const section = await openDetails(a, [a], [a], (feeds) =>
+      feeds.ownFeedHeadAt(SENDER_KEY, CHAT_TOPIC, Number.MAX_SAFE_INTEGER),
+    );
+
+    expect(section.textContent).toContain('Their own feed is too large to count.');
+  });
+
+  it('stops reading the chat and the own feed when the details close', async () => {
+    const a = mine('a');
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a]);
+    feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, [a]);
+    const comparedTopics = [CHAT_TOPIC, ownFeedTopic(CHAT_TOPIC)].map((topic) => Topic.fromString(topic).toHex());
+    const signals: AbortSignal[] = [];
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    reads = {
+      ...feeds.reads,
+      readFeedHead: async (owner, topic, options) => {
+        if (comparedTopics.includes(topic.toHex()) && options?.signal) {
+          signals.push(options.signal);
+        }
+        await held;
+        return feeds.reads.readFeedHead(owner, topic);
+      },
+    };
+    await watchPage(BATCH, ON_THIS_SERVER);
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(a, 0)));
+    await waitFor(() => (chatRegion()?.textContent?.includes(a.text) ? true : null));
     click(button('Sent with their own stamp, show details'));
+    await waitFor(() => (signals.length === 2 ? true : null));
+
+    click(button('Close'));
+
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
+    release();
+  });
+
+  it('says plainly when the sender keeps no own feed', async () => {
+    const a = mine('a');
+    const section = await openDetails(a, [a], null);
+
+    expect(section.textContent).toContain('No own feed');
+    expect(section.textContent).toContain('Chat feed: 1 message');
+  });
+});
+
+describe('my own feed in My Swarm', () => {
+  const SERVER_KEY = 'c3'.repeat(32);
+  const CHAT_TOPIC = 'chat-stream-one';
+  const ON_THIS_SERVER = { ...CHAT, feedOwner: `0x${addressOf(SERVER_KEY)}` };
+  const ownTopic = Topic.fromString(ownFeedTopic(CHAT_TOPIC));
+  const ownSlot = (index: number) => makeFeedIdentifier(ownTopic, FeedIndex.fromBigInt(BigInt(index))).toHex();
+
+  /** My messages, signed by the chat key the fake Swarm ID gives this site. */
+  async function myMessages(labels: string[]): Promise<ChatMessage[]> {
+    const key = await chatKeyFor(BOUND_SITE);
+    return labels.map(
+      (label) =>
+        createChatMessage(key, {
+          id: idOf(label),
+          topic: CHAT_TOPIC,
+          type: MessageType.TEXT,
+          text: `text of ${label}`,
+          name: 'Ida',
+          ts: 1_000,
+          via: MessageVia.OWN_STAMP,
+        }).message,
+    );
+  }
+
+  /** The watch page on my own stamp, a chat holding `chatMessages`, and my own feed holding `copies`, in My Swarm. */
+  async function openMySwarm(
+    chatMessages: ChatMessage[],
+    copies: ChatMessage[],
+    arrange: (feeds: ReturnType<typeof servedFeeds>, myKey: string) => void = () => {},
+  ) {
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, chatMessages);
+    feeds.ownFeed(await chatKeyFor(BOUND_SITE), CHAT_TOPIC, copies);
+    arrange(feeds, await chatKeyFor(BOUND_SITE));
+    reads = feeds.reads;
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    await watchPage(BATCH, ON_THIS_SERVER);
+    click(button(/^(My Swarm|Ida|Ada)/));
     await settle();
-    expect(document.querySelector('[aria-label="Details for this message"]')).not.toBeNull();
-    expect(document.querySelector('[aria-label="Their own copies"]')).toBeNull();
+    const box = () => document.querySelector<HTMLElement>('[aria-label="Own feed in this chat"]');
+    await waitFor(() => (box() && !box()?.textContent?.includes('Counting…') ? true : null));
+    return box;
+  }
+
+  it('says Counting… while it reads the chat and my own feed', async () => {
+    const [a] = await myMessages(['a']);
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a!]);
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    reads = {
+      ...feeds.reads,
+      readFeedHead: async (...asked) => {
+        await held;
+        return feeds.reads.readFeedHead(...asked);
+      },
+    };
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    await watchPage(BATCH, ON_THIS_SERVER);
+    click(button(/^(My Swarm|Ida|Ada)/));
+    await settle();
+    const box = () => document.querySelector<HTMLElement>('[aria-label="Own feed in this chat"]');
+    expect(box()?.textContent).toBe('Counting…');
+
+    release();
+    await waitFor(() => (box()?.textContent?.includes('Own feed: 0 of 1 message') ? true : null));
+  });
+
+  it('counts my messages in the whole chat against my own feed, and says how many are missing', async () => {
+    const [a, b, c] = await myMessages(['a', 'b', 'c']);
+    const box = await openMySwarm([a!, b!, c!], [a!]);
+
+    expect(box()?.textContent).toContain('Own feed: 1 of 3 messages');
+    expect(box()?.textContent).toContain('2 missing');
+    expect(button('Sync')).toBeTruthy();
+  });
+
+  it('says my own feed is too large to count, and offers no sync, when it names far more entries than I sent', async () => {
+    const [a] = await myMessages(['a']);
+    const box = await openMySwarm([a!], [a!], (feeds, myKey) =>
+      feeds.ownFeedHeadAt(myKey, CHAT_TOPIC, Number.MAX_SAFE_INTEGER),
+    );
+
+    expect(box()?.textContent).toContain('Your own feed is too large to count.');
+    expect(queryButton('Sync')).toBeNull();
+  });
+
+  it('counts only my messages on my own stamp, and syncs none the gateway paid for', async () => {
+    const [a, b] = await myMessages(['a', 'b']);
+    const key = await chatKeyFor(BOUND_SITE);
+    const free = createChatMessage(key, {
+      id: idOf('free'),
+      topic: CHAT_TOPIC,
+      type: MessageType.TEXT,
+      text: 'paid by the gateway',
+      name: 'Ida',
+      ts: 1_000,
+      via: MessageVia.GATEWAY,
+    }).message;
+    const box = await openMySwarm([a!, free, b!], [a!, b!]);
+
+    expect(box()?.textContent).toContain('Own feed: 2 of 2 messages');
+    expect(queryButton('Sync')).toBeNull();
+  });
+
+  it('says nothing is missing and offers no sync when every message has its copy', async () => {
+    const [a, b] = await myMessages(['a', 'b']);
+    const box = await openMySwarm([a!, b!], [a!, b!]);
+
+    expect(box()?.textContent).toContain('Own feed: 2 of 2 messages');
+    expect(box()?.textContent).not.toContain('missing');
+    expect(queryButton('Sync')).toBeNull();
+  });
+
+  it('writes the missing copies with my stamp, one after the other, and says when all are copied', async () => {
+    const [a, b, c] = await myMessages(['a', 'b', 'c']);
+    const box = await openMySwarm([a!, b!, c!], [a!]);
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const answer = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      await held;
+      return answer(input, init);
+    }) as typeof fetch;
+
+    click(button('Sync'));
+    await waitFor(() => (box()?.textContent?.includes('Syncing… 1 of 2') ? true : null));
+    release();
+    await waitFor(() => (box()?.textContent?.includes('All 3 copied') ? true : null));
+
+    const copies = posted.filter(({ url }) => url.includes(ownSlot(1)) || url.includes(ownSlot(2)));
+    expect(copies).toHaveLength(2);
+    expect(copies.every(({ stamp }) => stamp === 'e'.repeat(226))).toBe(true);
+  });
+
+  it('stops a sync at the first copy that fails, and says the rest were not copied either', async () => {
+    const [a, b, c] = await myMessages(['a', 'b', 'c']);
+    const box = await openMySwarm([a!, b!, c!], [a!]);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const refusing = globalThis.fetch;
+    let copyWrites = 0;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        copyWrites += 1;
+        return new Response('', { status: 503 });
+      }
+      return refusing(input, init);
+    }) as typeof fetch;
+
+    click(button('Sync'));
+    await act(async () => vi.advanceTimersByTimeAsync(3 * OWN_COPY_RETRY_MS));
+    await waitFor(() => (box()?.textContent?.includes('2 could not be copied') ? true : null));
+
+    expect(copyWrites, "the first copy's three tries, and none for the second").toBe(3);
+    globalThis.fetch = refusing;
+    vi.useRealTimers();
+  });
+
+  it('counts the chat and my own feed again once a sync has finished', async () => {
+    const [a, b] = await myMessages(['a', 'b']);
+    let served: ReturnType<typeof servedFeeds> | null = null;
+    const box = await openMySwarm([a!, b!], [a!], (feeds) => {
+      served = feeds;
+    });
+    const chatHeadReads = () =>
+      served!.asked.filter((read) => read.startsWith('head ') && read.endsWith(Topic.fromString(CHAT_TOPIC).toHex()))
+        .length;
+    const before = chatHeadReads();
+
+    click(button('Sync'));
+    await waitFor(() => (box()?.textContent?.includes('All 2 copied') ? true : null));
+
+    expect(chatHeadReads()).toBeGreaterThan(before);
+  });
+
+  it('counts again after each message I send has been read back and its copy written, and not before', async () => {
+    const [a, b] = await myMessages(['a', 'b']);
+    let served: ReturnType<typeof servedFeeds> | null = null;
+    const box = await openMySwarm([a!], [a!], (feeds) => {
+      served = feeds;
+    });
+    expect(box()?.textContent).toContain('Own feed: 1 of 1 message');
+    const chatHeadReads = () =>
+      served!.asked.filter((read) => read.startsWith('head ') && read.endsWith(Topic.fromString(CHAT_TOPIC).toHex()))
+        .length;
+    const before = chatHeadReads();
+
+    const posts = posted.length;
+    await act(async () => FakeSwarmChat.latest().parts?.write?.(new TextEncoder().encode(JSON.stringify(b))));
+    await waitFor(() => (posted.length === posts + 2 ? true : null));
+    await settle();
+    expect(box()?.textContent, 'the copy is written, the message not yet read back').toContain(
+      'Own feed: 1 of 1 message',
+    );
+    expect(chatHeadReads()).toBe(before);
+
+    served!.chat(SERVER_KEY, CHAT_TOPIC, [a!, b!]);
+    served!.ownFeed(await chatKeyFor(BOUND_SITE), CHAT_TOPIC, [a!, b!]);
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(b!, 1)));
+
+    await waitFor(() => (box()?.textContent?.includes('Own feed: 2 of 2 messages') ? true : null));
+  });
+
+  it('says how many could not be copied after three tries each, and tries them again when asked', async () => {
+    const [a, b] = await myMessages(['a', 'b']);
+    const box = await openMySwarm([a!, b!], [a!]);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const refusing = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === 'POST' ? new Response('', { status: 503 }) : refusing(input, init)) as typeof fetch;
+
+    click(button('Sync'));
+    await act(async () => vi.advanceTimersByTimeAsync(3 * OWN_COPY_RETRY_MS));
+    await waitFor(() => (box()?.textContent?.includes('1 could not be copied') ? true : null));
+
+    globalThis.fetch = refusing;
+    click(button('Try again'));
+    await act(async () => vi.advanceTimersByTimeAsync(OWN_COPY_RETRY_MS));
+    await waitFor(() => (box()?.textContent?.includes('All 2 copied') ? true : null));
+    vi.useRealTimers();
   });
 });

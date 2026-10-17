@@ -19,6 +19,7 @@ import { MAX_CHUNK_PAYLOAD } from '@/swarm/singleOwnerChunk';
 
 import { readOwnersChunk } from './ownersChunk';
 
+import type { CopyOutcome } from './stamp/ownFeedCopies';
 import { type ChunkStamper, ownStampWrite, type SendProblem, type StampedPush } from './stamp/ownStampWrite';
 
 /** What the chat reads Swarm through, which the client routes to the event's chat read address. */
@@ -37,7 +38,7 @@ const ABSENT_ON_A_CLUSTER = 500;
  * cluster answers for a slot never written, as bee-js's `isRetrievable` counts it. Neither ever means
  * the chat has ended, and one that is wrong about "not there" is asked again on the next poll.
  */
-function isAbsent(answer: SwarmAnswer): boolean {
+export function isAbsent(answer: SwarmAnswer): boolean {
   return (
     answer.kind === 'not-found' ||
     (answer.kind === 'unavailable' && answer.cause.kind === 'status' && answer.cause.status === ABSENT_ON_A_CLUSTER)
@@ -155,6 +156,8 @@ interface OwnStampParts {
   readonly refusal?: () => string | null;
   readonly onProblem?: (messageId: string, problem: SendProblem) => void;
   readonly onSent?: () => void;
+  /** Told once the copy beside a sent message was written or given up. */
+  readonly onCopySettled?: (messageId: string) => void;
   /** Read at every write: how a stamped chunk goes out through the node in this browser, or null while it does not. */
   readonly push?: () => StampedPush | null;
 }
@@ -162,6 +165,8 @@ interface OwnStampParts {
 /** The library's parts, and the way to let a message refused on the viewer's stamp be tried again. */
 export interface ChatPartsForPage extends Pick<ChatParts, 'source' | 'write'> {
   forgetRefusal(messageId: string): void;
+  /** Writes a sent message's copy into the viewer's own feed, or null while the gateway pays and no copy is kept. */
+  readonly copyToOwnFeed: ((messageId: string, payload: Uint8Array) => Promise<CopyOutcome>) | null;
 }
 
 const NOTHING_REFUSED = () => {};
@@ -170,8 +175,8 @@ const NOTHING_REFUSED = () => {};
  * The two parts swarm-chat-js takes in place of reaching Bee itself: its reads, through the Swarm client's chat
  * reader, and its one write. While the event pays, a message goes to the event's chat write address, which stamps it,
  * through the library's own write, unchanged. On the viewer's own stamp it is stamped by Swarm ID and goes to their Bee
- * node at `writeUrl`, or through the node in this browser where the chat reads from it, and never anywhere else. With
- * neither it is refused.
+ * node at `writeUrl`, or through the node in this browser where the chat reads from it, and never anywhere else, and
+ * its copy goes into the sender's own feed beside it. With neither it is refused.
  *
  * @param reads The client's chat reader as it is now, see {@link ChatSourceOptions.reads}.
  * @throws When the settings say the viewer's own stamp and nothing can stamp.
@@ -191,26 +196,25 @@ export function chatParts(settings: ChatSettings, reads: () => ChatReads, ownSta
     if (!ownStamp) {
       throw new Error("a chat on the viewer's own stamp needs Swarm ID to stamp");
     }
-    const { write, forgetRefusal } = ownStampWrite({
+    const { write, forgetRefusal, copy } = ownStampWrite({
       stamper: ownStamp.stamper,
       url: infra.writeUrl ?? null,
       ...(ownStamp.refusal ? { refusal: ownStamp.refusal } : {}),
       gsocKey: bareHex(infra.gsocResourceId),
       gsocTopic: infra.gsocTopic,
       timeoutMs: writeMs,
-      ownFeed: infra.own
-        ? {
-            chatKey: settings.user.privateKey,
-            chatTopic: infra.chatTopic,
-            reads,
-            readTimeoutMs: infra.feedReadTimeout ?? FEED_READ_MS,
-          }
-        : null,
+      ownFeed: {
+        chatKey: settings.user.privateKey,
+        chatTopic: infra.chatTopic,
+        reads,
+        readTimeoutMs: infra.feedReadTimeout ?? FEED_READ_MS,
+      },
       ...(ownStamp.onProblem ? { onProblem: ownStamp.onProblem } : {}),
       ...(ownStamp.onSent ? { onSent: ownStamp.onSent } : {}),
+      ...(ownStamp.onCopySettled ? { onCopySettled: ownStamp.onCopySettled } : {}),
       ...(ownStamp.push ? { push: ownStamp.push } : {}),
     });
-    return { source, write, forgetRefusal };
+    return { source, write, forgetRefusal, copyToOwnFeed: copy };
   }
   return {
     source,
@@ -222,5 +226,6 @@ export function chatParts(settings: ChatSettings, reads: () => ChatReads, ownSta
       stamp: infra.stamp,
     }),
     forgetRefusal: NOTHING_REFUSED,
+    copyToOwnFeed: null,
   };
 }

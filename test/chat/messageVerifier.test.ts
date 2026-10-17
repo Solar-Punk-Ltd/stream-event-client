@@ -58,7 +58,7 @@ describe('checking a chat message off the main thread', () => {
   });
 
   it('refuses a message of the version before, whatever else it says', async () => {
-    const { via: _via, own: _own, ...rest } = signedMessage('old');
+    const { via: _via, ...rest } = signedMessage('old');
     const previous = { ...rest, v: 7 };
     expect(await inThreadVerifier().verify(previous)).toMatchObject({ ok: false, reason: 'shape' });
   });

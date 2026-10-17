@@ -129,12 +129,18 @@ export class FakeSwarmIdClient implements SwarmIdClient {
   buttonFails = false;
   /** A button frame that never answers. */
   buttonHangs = false;
+  /** A button frame that shows only once the test calls {@link FakeSwarmIdClient.showButtons}, as a slow one does. */
+  buttonWaits = false;
+  private readonly waitingButtons: Array<() => void> = [];
   isInitialized = false;
   initializeFails = false;
   /** A frame that never answers, so the viewer stays starting. */
   initializeHangs = false;
   /** The chat key the frame gives, per site, as the fork derives it. */
   chatKey: Uint8Array = new Uint8Array();
+  /** A frame slow to give the chat key, which answers only once the test calls {@link FakeSwarmIdClient.giveChatKeys}. */
+  chatKeyWaits = false;
+  private readonly waitingChatKeys: Array<() => void> = [];
   /** Every Bee address the viewer moved this site's content to after the client was built, in order. */
   readonly beeApiUrls: string[] = [];
   /** Refuses the next Bee address it is handed, as the frame does before it is ready, though it records the ask. */
@@ -185,14 +191,23 @@ export class FakeSwarmIdClient implements SwarmIdClient {
     if (!this.isInitialized) {
       throw Object.assign(new Error('SwarmIdClient not initialized'), { code: 'invalid-state' });
     }
-    const ready = this.buttonHangs
-      ? new Promise<void>(() => {})
-      : this.buttonFails
-        ? Promise.reject(Object.assign(new Error('This site is not on the allow list'), { code: 'init-failed' }))
-        : Promise.resolve();
+    const ready = this.buttonWaits
+      ? new Promise<void>((resolve) => this.waitingButtons.push(resolve))
+      : this.buttonHangs
+        ? new Promise<void>(() => {})
+        : this.buttonFails
+          ? Promise.reject(Object.assign(new Error('This site is not on the allow list'), { code: 'init-failed' }))
+          : Promise.resolve();
     const button = new FakeSwarmIdButton(container, options, this, ready);
     this.buttons.push(button);
     return button;
+  }
+
+  /** Every waiting button frame answers, and shows. */
+  showButtons(): void {
+    for (const show of this.waitingButtons.splice(0)) {
+      show();
+    }
   }
 
   /** The click inside Swarm ID's frame, which opens its window or is blocked by the browser. */
@@ -228,7 +243,17 @@ export class FakeSwarmIdClient implements SwarmIdClient {
     if (!this.info.identity) {
       throw Object.assign(new Error('Not authenticated'), { code: 'not-authenticated' });
     }
+    if (this.chatKeyWaits) {
+      await new Promise<void>((resolve) => this.waitingChatKeys.push(resolve));
+    }
     return this.chatKey;
+  }
+
+  /** Every chat key the frame was asked for and has not given yet, given. */
+  giveChatKeys(): void {
+    for (const give of this.waitingChatKeys.splice(0)) {
+      give();
+    }
   }
 
   async setBeeApiUrl(url: string): Promise<void> {
