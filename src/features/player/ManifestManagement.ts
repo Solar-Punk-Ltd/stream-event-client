@@ -677,8 +677,8 @@ export class ManifestFetcher {
         playheadMs: (group) => (group === null ? null : (this.playheads.get(group)?.() ?? null)),
         followClock: clock,
         finder: this.markers,
-        headMarkers: (rung, clock) =>
-          rungHeadMarkers(this.reads, rung, clock, () => gatewayClock.offsetMs(), this.markerReads),
+        headMarkers: (rung, rungClock) =>
+          rungHeadMarkers(this.reads, rung, rungClock, () => gatewayClock.offsetMs(), this.markerReads),
       },
     );
   }

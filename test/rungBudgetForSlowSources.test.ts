@@ -160,7 +160,7 @@ describe('a level request on a source whose misses take six to ten seconds', () 
   });
 });
 
-describe('a level request on a gateway whose misses answer within a second and a half', () => {
+describe('a level request on a gateway whose misses answer within 1.6 s', () => {
   it('fails a rung the gateway does not hold at the same 20 s as before', async () => {
     const rig = makeRig(FAST_HIT_MS, FAST_MISS_MS, { rungPublished: false });
 
