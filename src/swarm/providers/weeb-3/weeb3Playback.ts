@@ -115,7 +115,8 @@ export function stoppableHls<T extends HlsClass>(Hls: T): T {
 
 /**
  * Stops every weeb-3 player playing into this video, and any weeb-3 makes for it later, so it loads no more segments
- * once the viewer has left it.
+ * once the viewer has left it. The video is emptied as well, because a browser that plays HLS itself, as Safari does
+ * without Media Source Extensions, gets no hls.js player from weeb-3 and keeps downloading the source it was given.
  */
 export function stopOwnPlayback(media: HTMLMediaElement): void {
   stoppedMedia.add(media);
@@ -124,6 +125,9 @@ export function stopOwnPlayback(media: HTMLMediaElement): void {
   for (const player of players ?? []) {
     player.stop();
   }
+  media.pause();
+  media.removeAttribute('src');
+  media.load();
 }
 
 /** Lets weeb-3 play into a video it was stopped on, when the page attaches a stream to it again. */

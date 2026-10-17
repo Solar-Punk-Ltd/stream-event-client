@@ -87,7 +87,10 @@ function nodeMaking(players: FakeHls[], slow: boolean): Weeb3Node {
 }
 
 function ownPlayerOn(players: FakeHls[], slow = false): () => Promise<OwnPlayer> {
-  const node = nodeMaking(players, slow);
+  return ownPlayerWith(nodeMaking(players, slow));
+}
+
+function ownPlayerWith(node: Weeb3Node): () => Promise<OwnPlayer> {
   const runtime: Weeb3RuntimeView = {
     status: () => ({ state: 'ready', peers: 5 }),
     acquire: async () => node,
@@ -174,6 +177,24 @@ describe("weeb-3's own player, once let go", () => {
 
     expect(players[0].loading).toBe(false);
     expect(players[1].loading).toBe(true);
+  });
+
+  it('empties the video, which stops a stream the browser plays natively without hls.js', async () => {
+    const video = document.createElement('video');
+    const calls: string[] = [];
+    video.pause = () => void calls.push('pause');
+    video.load = () => void calls.push('load');
+    const node = nodeMaking([], false);
+    node.attachStream = async (media) => {
+      media.src = '/weeb-3/feeds/an-owner/a-topic';
+    };
+    const player = await ownPlayerWith(node)();
+    await player.attach(video, OWNER, 'one', 'beginning');
+
+    player.detach();
+
+    expect(video.hasAttribute('src')).toBe(false);
+    expect(calls).toEqual(['pause', 'load']);
   });
 
   it('stops a player weeb-3 makes after the viewer has already left', async () => {

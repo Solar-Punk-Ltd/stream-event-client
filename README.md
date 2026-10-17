@@ -827,7 +827,10 @@ controls the page, and counts as failed when it is not ready after 30 s.
   the video it plays into. When the watch page stops showing weeb-3's player, because the video moves to another
   source, the viewer leaves the page or picks another stream, the player for that video is stopped and destroyed, and
   nothing weeb-3 calls on it afterwards loads again, nor does a new player weeb-3 makes for that video, until the page
-  plays a stream into it again. That copy is a small chunk of its own, loaded only by weeb-3's chunk, so the first
+  plays a stream into it again. The video itself is then paused and emptied, which stops the download in a browser
+  that plays HLS natively, as Safari does without Media Source Extensions, where weeb-3 uses no hls.js and there is
+  no player to stop. So both cases are covered: an hls.js player is stopped and destroyed, and a native one stops
+  with its emptied video. The stoppable copy of hls.js is a small chunk of its own, loaded only by weeb-3's chunk, so the first
   page load still carries none of weeb-3. The dev server's dependency bundler leaves the package out, so the dev
   server makes the same switch.
 - **No switching.** A part that reads from weeb-3 reads from it alone, as every part reads from its own source alone.
