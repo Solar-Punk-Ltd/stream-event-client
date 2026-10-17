@@ -158,8 +158,8 @@ export const THEME_CONTENT: Record<ThemeName, ThemeContent> = {
   swarm: {
     logoUrl: swarmLogoUrl,
     logoAlt: 'Swarm',
-    heroTitle: 'Devcon 8 streams',
-    heroSubtitle: 'Live talks and recordings from Devcon 8, stored and delivered over the Swarm network.',
+    heroTitle: 'Stream over Swarm',
+    heroSubtitle: 'Live streams and recordings from the Swarm community, stored and delivered over the Swarm network.',
     footer: SWARM_FOOTER,
   },
   web3privacy: {
