@@ -365,15 +365,20 @@ class CheckRun {
   /**
    * The stream list's newest entry, the one the browse page shows. The node in this browser finds a head only by a
    * search that costs a few 17 s misses, so where the page already read the list it reads that entry by its index,
-   * one read of the same body the page reads, and searches for the head only when the page has none.
+   * one read of the same body the page reads. It searches for the head when the page has none, and when that entry is
+   * not on the node yet, as right after a gateway that is ahead of it served a new list.
    */
-  private readStreamListAnswer(): Promise<SwarmAnswer> {
+  private async readStreamListAnswer(): Promise<SwarmAnswer> {
     const { owner, topic } = this.context.catalog;
     const reader = this.context.client.reader('stream-list');
     const slot = this.context.streamListSlot ?? null;
-    return this.target.type === 'weeb-3' && slot !== null
-      ? reader.readFeedEntry(owner, Topic.fromString(topic), Number(slot), this.window)
-      : reader.readFeedHead(owner, Topic.fromString(topic), this.window);
+    if (this.target.type === 'weeb-3' && slot !== null) {
+      const entry = await reader.readFeedEntry(owner, Topic.fromString(topic), Number(slot), this.window);
+      if (entry.kind !== 'not-found') {
+        return entry;
+      }
+    }
+    return reader.readFeedHead(owner, Topic.fromString(topic), this.window);
   }
 
   /** The streams this source's stream list names, or why it could not be read. */

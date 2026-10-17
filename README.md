@@ -740,13 +740,13 @@ once and is kept in the browser, and nothing switches a source by itself.
   | Connected to 20 peers                            | Weeb3        | Its peer count, waited for up to a minute                                                                                |
   | Reads a chunk                                    | every kind   | The root chunk of a segment of this event's video, read the way the chat history reads its slots, through its chat route |
   | Reads bytes                                      | every kind   | The same segment's bytes, read the way the player reads it                                                               |
-  | Reads this event's stream list                   | every kind   | The stream list feed's head, which it must parse as a stream list. Weeb3 reads the entry the page shows, by its index    |
+  | Reads this event's stream list                   | every kind   | The stream list feed's head, parsed as a stream list. Weeb3 reads the page's newest entry by index, else the head        |
 
   The segment comes from the stream list the page shows, a live stream first, else the newest with video, and its
   playlist is found as the player finds it. A stream's picture stands in where no stream has video yet. Weeb3's head
   search costs a few 17 s misses, so its stream list check reads the newest entry the page already read by that
-  entry's index, one read of the same body the browse page reads, and searches for the head only when the page has
-  not read the list.
+  entry's index, one read of the same body the browse page reads. It searches for the head when the page has not
+  read the list, and when that entry is not on the node yet, as right after a gateway ahead of it served a new list.
 
 - **A source's settings.** Its name and address, Test connection, which runs the same checks again, and the last
   light check's time until then. A source the event offers says "Offered by this event. It cannot be changed or

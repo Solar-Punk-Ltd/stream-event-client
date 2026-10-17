@@ -60,6 +60,8 @@ class Answering implements SwarmProvider {
   /** Every read of the stream list's feed, in order: `head`, or `entry` and its index. */
   readonly streamListReads: string[] = [];
   answers: Partial<Record<Read, SwarmAnswer>> = {};
+  /** What a read of one of the stream list's entries answers, where the test says, every other read untouched. */
+  streamListEntry: SwarmAnswer | null = null;
   found: ProbeResult = { kind: 'ok', elapsedMs: 3, version: '2.8.2' };
   current: ProviderStatus = { state: 'ready' };
 
@@ -69,6 +71,10 @@ class Answering implements SwarmProvider {
   };
   readFeedEntry = async (owner: string, _topic: unknown, index: number, options?: ReadOptions) => {
     this.noteStreamListRead(owner, `entry ${index}`);
+    if (owner === OWNER && this.streamListEntry !== null) {
+      this.asked.push('feed-entry');
+      return this.streamListEntry;
+    }
     return this.read('feed-entry', owner, options);
   };
   readSoc = async (owner: string, _identifier: string, options?: ReadOptions) => this.read('soc', owner, options);
@@ -316,6 +322,16 @@ describe('the checks before the node in this browser is added', () => {
 
     expect(results.at(-1)).toMatchObject({ step: 'feed', state: 'passed' });
     expect(source.streamListReads).toEqual(['entry 41']);
+  });
+
+  it("search the stream list's head when the entry the page shows is not on the node yet, never reading entry 0", async () => {
+    const { source, context, target } = world('weeb-3', '');
+    source.current = { state: 'ready', peers: 25 };
+    source.streamListEntry = { kind: 'not-found', serverTimeMs: null };
+    const results = await runSourceChecks(target, { ...context, streamListSlot: 42n });
+
+    expect(results.at(-1)).toMatchObject({ step: 'feed', state: 'passed' });
+    expect(source.streamListReads).toEqual(['entry 42', 'head']);
   });
 
   it("search the stream list's head, as the page does, when the page has not read the list", async () => {
