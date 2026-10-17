@@ -7,7 +7,7 @@ import { expect, type Locator, type Page, type Route } from '@playwright/test';
 import { claimServiceWorkerControl, FAKE_WEEB3, serveFakeWeeb3 } from '../../e2e/fakeWeeb3.ts';
 import type { Actor } from './actors.ts';
 import { localStack } from './deployment.ts';
-import { bakedName, ENS_ACTORS, type EnsActor } from './ens.ts';
+import { ensNameFor } from './liveEns.ts';
 import { CHAT_TIMEOUT_MS, expand, type Run, type Verb } from './run.ts';
 import type { Step } from './scenario.ts';
 import { banner, chatRegion, chatStampGroup, closeConnect, openConnect, viewerPage } from './viewerPages.ts';
@@ -29,10 +29,13 @@ function messageText(run: Run, step: Step, at = 1): string {
   return text;
 }
 
-/** The name a scenario means by `ens:<actor>`, `chosen:<actor>` or a name written out. */
+/**
+ * The name a scenario means by `ens:<actor>`, the actor's ENS name, which is the baked one locally and the target's live,
+ * `chosen:<actor>` or a name written out.
+ */
 function expectedName(run: Run, written: string): string {
   const [kind, who] = written.split(':');
-  if (kind === 'ens' && ENS_ACTORS.includes(who as EnsActor)) return bakedName(who as EnsActor);
+  if (kind === 'ens' && who) return ensNameFor(run, who);
   if (kind === 'chosen') {
     const name = run.actor(who).chatName;
     if (!name) throw new Error(`${who} has no chat name yet`);
@@ -248,7 +251,7 @@ export const CHAT_CHECKS: Record<string, Verb> = {
   /**
    * `expect details <actor> "text" [identity=swarm-id|guest] [sent=own|gateway] [ens=<who>|none] [own-feed=N]
    * [chat-feed=N] [in-own-feed=yes|no]`: what the message's details card says. ens names the actor whose baked name
-   * must show with the ENS checked tick and the sender's chosen name, or none for no ENS row.
+   * must show with the ENS checked tick, the baked name locally and the target's live, and the sender's chosen name, or none for no ENS row.
    */
   async details(run, step) {
     const card = await openDetails(await viewerPage(run, run.actor(step.args[1])), messageText(run, step, 2));

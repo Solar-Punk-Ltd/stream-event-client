@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createRequire } from 'node:module';
 
 import installBrowser from '../../e2e/installBrowser.ts';
-import { type Actor, startActor } from './actors.ts';
+import { type Actor, startActor, type WalletSetup } from './actors.ts';
 import { addressesFor } from './addresses.ts';
 import { healthStatus, json } from './bee.ts';
 import { launchForProfile } from './browser.ts';
@@ -23,6 +23,7 @@ import { composeEnv, readState } from './state.ts';
 import type { AfterClose, Run } from './run.ts';
 import type { LiveDeployment } from './target.ts';
 import { CHECKS, VERBS } from './verbs.ts';
+import type { TestWallet } from './wallet.ts';
 
 interface StepResult {
   line: string;
@@ -65,12 +66,29 @@ export interface ModeSetup {
   local: LocalStack | null;
   live: LiveDeployment | null;
   guard: Guard;
+  /** Where the kit's wallet is offered to Swarm ID's pages, null for no wallet at all. */
+  wallet: WalletSetup | null;
+  /** The wallet that owns the target's ENS name, live only. */
+  ensWallet: TestWallet | null;
   header: Record<string, unknown>;
+  /**
+   * Reads the finished run's evidence once the browsers closed: findings to add to the verdict, and problems that fail
+   * the run. `texts` is what the verdict will hold, so a reading can search it too.
+   */
+  afterBrowsers?(actorDirs: string[], passed: boolean, texts: Record<string, string>): AfterBrowsers;
   /** Taken before the browser starts. */
   before(): Promise<void>;
   /** Taken once the browsers closed and every check after them ran. */
   after(): Promise<void>;
 }
+
+export interface AfterBrowsers {
+  findings: Record<string, unknown>;
+  problems: string[];
+}
+
+/** Where a problem the finished run's evidence shows is judged. */
+const IN_THE_EVIDENCE = 'the evidence, once the browsers closed';
 
 /** Runs one scenario against the stack that is up, writes its whole evidence, and says how it ended. */
 export async function runScenario(name: string, runId = newRunId()): Promise<ScenarioResult> {
@@ -104,6 +122,8 @@ export async function runScenario(name: string, runId = newRunId()): Promise<Sce
     local,
     live: null,
     guard: LOCAL_GUARD,
+    wallet: { swarmId: addresses.swarmId, rpc: addresses.ethereum },
+    ensWallet: null,
     header: {
       commits: { viewer: commitOf(REPO_DIR), swarmId: lock.swarmId.commit, chatServer: lock.chatServer.commit },
       lock,
@@ -177,7 +197,12 @@ export async function execute(
     };
     writeJson(join(dir, 'header.json'), header);
 
-    const environment = { viewer: mode.addresses.viewer, guard: mode.guard, local: mode.local?.addresses ?? null };
+    const environment = {
+      viewer: mode.addresses.viewer,
+      guard: mode.guard,
+      local: mode.local?.addresses ?? null,
+      wallet: mode.wallet,
+    };
     for (const [actorName, settings] of Object.entries(scenario.actors)) {
       actors.set(
         actorName,
@@ -190,6 +215,7 @@ export async function execute(
       deployment: mode.deployment,
       local: mode.local,
       live: mode.live,
+      ensWallet: mode.ensWallet,
       actor: (actorName) => {
         const actor = actors.get(actorName);
         if (!actor) throw new Error(`no actor ${actorName}`);
@@ -270,6 +296,25 @@ export async function execute(
         ms: 0,
         error: error instanceof Error ? error.message : String(error),
       });
+    }
+  }
+
+  if (mode.afterBrowsers) {
+    const actorsDir = join(dir, 'actors');
+    const actorDirs = existsSync(actorsDir) ? readdirSync(actorsDir).map((name) => join(actorsDir, name)) : [];
+    const texts = { 'the verdict': JSON.stringify({ results, findings, crashed }) };
+    try {
+      const read = mode.afterBrowsers(actorDirs, !failed, texts);
+      Object.assign(findings, read.findings);
+      if (read.problems.length) {
+        failed = true;
+        failedAt ??= IN_THE_EVIDENCE;
+        results.push({ line: IN_THE_EVIDENCE, ok: false, ms: 0, error: read.problems.join('; ') });
+      }
+    } catch (error) {
+      failed = true;
+      failedAt ??= IN_THE_EVIDENCE;
+      results.push({ line: IN_THE_EVIDENCE, ok: false, ms: 0, error: `could not be read: ${String(error)}` });
     }
   }
 

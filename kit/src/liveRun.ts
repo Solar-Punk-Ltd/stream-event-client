@@ -1,29 +1,48 @@
 /**
- * Live mode: the scenarios that run as they are against a real deployment, group A of the live mode plan. A run reads
+ * Live mode: the scenarios that run against a real deployment, groups A and B of the live mode plan. A run reads
  * the viewer's public config, passes the live gate, and runs the scenario's steps with the browser guard letting
  * through only what the target and the config name. Nothing of the local stack is read or started, apart from the
  * hostile site, which is served from this machine.
  */
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
 import { type EvilSite, serveEvilSite } from './evilSite.ts';
 import { writeJson } from './evidence.ts';
 import { liveGuard } from './guard.ts';
 import { judgeLiveGate, namedAddresses, readLiveGate } from './liveGate.ts';
+import {
+  ensActorsOf,
+  evidenceLeaks,
+  judgeEnsGate,
+  readEnsGate,
+  readEnsKey,
+  serverErrorsAt,
+  swarmIdServerErrorFinding,
+} from './liveEns.ts';
 import { readLock } from './lock.ts';
 import { LIVE_EVIDENCE_DIR, REPO_DIR } from './paths.ts';
 import type { PreflightCheck } from './preflight.ts';
-import { execute, loadScenario, newRunId, STOPPED_OUTSIDE_A_STEP } from './runner.ts';
+import { type AfterBrowsers, execute, loadScenario, newRunId, STOPPED_OUTSIDE_A_STEP } from './runner.ts';
 import { type ScenarioResult, suiteStatus } from './scenario.ts';
 import { commitOf } from './stack.ts';
 import { LIVE_EVIL_ORIGIN, type LiveDeployment, liveDeployment, readTarget, type Target } from './target.ts';
 
 /**
- * The scenarios that run live as they are: no wallet, no drive, nothing on the deployment beyond guest messages the
- * gateway pays for and Swarm ID accounts on its real site.
+ * The scenarios that run live. Group A needs no wallet and no drive, nothing on the deployment beyond guest messages
+ * the gateway pays for and Swarm ID accounts on its real site. Group B signs besides with the wallet that owns the
+ * target's ENS name, its key routed in through the environment, and spends nothing more.
  */
-export const LIVE_SCENARIOS = ['partitioned-storage', 'popup-blocked', 'eth-name-refused', 'evil-unlisted'] as const;
+export const LIVE_SCENARIOS = [
+  'partitioned-storage',
+  'popup-blocked',
+  'eth-name-refused',
+  'evil-unlisted',
+  'ens-both-ways',
+  'ens-off-while-signed-in',
+  'rpc-down',
+  'rpc-lying',
+] as const;
 
 const REFUSED_BY_GATE = 'the live gate';
 /** How long the viewer's config may take to answer. */
@@ -49,7 +68,17 @@ async function readConfig(viewer: string): Promise<{ status: number | null; conf
   }
 }
 
-/** Runs one group A scenario against the deployment `target` names, with its evidence under the live folder. */
+/** The run's own evidence files written before the browsers closed, by name, for the key search. */
+function evidenceFiles(dir: string): Record<string, string> {
+  const files: Record<string, string> = {};
+  for (const name of ['header.json', 'preflight.json']) {
+    const path = join(dir, name);
+    if (existsSync(path)) files[name] = readFileSync(path, 'utf8');
+  }
+  return files;
+}
+
+/** Runs one live scenario against the deployment `target` names, with its evidence under the live folder. */
 export async function runLiveScenario(name: string, target: Target, runId = newRunId()): Promise<ScenarioResult> {
   if (!(LIVE_SCENARIOS as readonly string[]).includes(name)) {
     console.error(`kit: ${name} does not run live, the live scenarios are ${LIVE_SCENARIOS.join(', ')}`);
@@ -68,6 +97,7 @@ export async function runLiveScenario(name: string, target: Target, runId = newR
       refusedBy: REFUSED_BY_GATE,
       gate,
     });
+    for (const check of gate.filter((one) => !one.ok)) console.error(`kit: ${check.name}: ${check.detail}`);
     console.error(`kit: the live gate refused ${scenario.name}, see ${join(dir, 'preflight.json')}`);
     return { ok: false, failedAt: REFUSED_BY_GATE, ...(scenario.known ? { known: scenario.known } : {}) };
   };
@@ -89,11 +119,49 @@ export async function runLiveScenario(name: string, target: Target, runId = newR
 
   begin = Date.now();
   const gate = judgeLiveGate(await readLiveGate(live));
+  const ensActors = ensActorsOf(scenario);
+  const ensKey = ensActors.length ? readEnsKey(process.env) : null;
+  if (ensKey) gate.push(...judgeEnsGate(await readEnsGate(live.ensRpc, ensKey, target.ens, ensActors)));
   timings.gateMs = Date.now() - begin;
   writeJson(join(dir, 'preflight.json'), gate);
   if (gate.some((check) => !check.ok)) return refuse(gate);
 
   const needsEvil = scenario.steps.some((step) => step.verb === 'evil');
+  const ensWallet = ensKey?.state === 'read' ? ensKey.wallet : null;
+  /**
+   * The ENS wallet's key is the one live secret the kit holds, so the run fails when any of its evidence holds it, and
+   * a failed run whose Swarm ID files were answered with server errors says so.
+   */
+  const afterBrowsers = (actorDirs: string[], passed: boolean, texts: Record<string, string>): AfterBrowsers => {
+    const byActor = Object.fromEntries(
+      actorDirs
+        .filter((actorDir) => existsSync(join(actorDir, 'network.har')))
+        .map((actorDir) => [
+          basename(actorDir),
+          serverErrorsAt(readFileSync(join(actorDir, 'network.har'), 'utf8'), live.swarmId),
+        ]),
+    );
+    const finding = swarmIdServerErrorFinding(passed, byActor);
+    const leaks = ensWallet
+      ? evidenceLeaks(actorDirs, { 'the ENS wallet key': ensWallet.key }, { ...texts, ...evidenceFiles(dir) })
+      : [];
+    return {
+      findings: {
+        ...(finding ? { 'swarm id server errors': finding } : {}),
+        ...(ensWallet
+          ? {
+              'ens wallet key searched in': [
+                'every actor’s network, console and traces',
+                'the verdict',
+                'header.json',
+                'preflight.json',
+              ],
+            }
+          : {}),
+      },
+      problems: leaks.length ? [`the evidence holds ${leaks.join(', ')}`] : [],
+    };
+  };
   let evil: EvilSite | null = null;
   const lock = readLock();
   return execute(scenario, runId, dir, {
@@ -102,14 +170,23 @@ export async function runLiveScenario(name: string, target: Target, runId = newR
     local: null,
     live,
     guard: liveGuard([...namedAddresses(live), LIVE_EVIL_ORIGIN]),
+    wallet: ensWallet ? { swarmId: live.swarmId, rpc: live.ensRpc } : null,
+    ensWallet,
     header: {
-      target: { name: target.name, viewer: target.viewer, stream: target.stream, alsoAllowed: target.alsoAllowed },
+      target: {
+        name: target.name,
+        viewer: target.viewer,
+        stream: target.stream,
+        alsoAllowed: target.alsoAllowed,
+        ...(target.ens ? { ens: target.ens } : {}),
+      },
       config: read.config,
       addresses: live.addresses.all(),
       commits: { kit: commitOf(REPO_DIR) },
       libraries: lock.libraries,
       timings,
     },
+    afterBrowsers,
     async before() {
       if (!needsEvil) return;
       begin = Date.now();

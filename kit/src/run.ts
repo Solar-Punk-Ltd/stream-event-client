@@ -3,6 +3,7 @@ import type { Sent } from './chatFeed.ts';
 import type { Deployment, LocalStack, SiteAddresses } from './deployment.ts';
 import type { Step } from './scenario.ts';
 import type { LiveDeployment } from './target.ts';
+import type { TestWallet } from './wallet.ts';
 
 /** What one scenario run holds while its steps run. A verb reads it and adds to it. */
 export interface Run {
@@ -13,6 +14,11 @@ export interface Run {
   local: LocalStack | null;
   /** The real deployment, null in local mode. */
   live: LiveDeployment | null;
+  /**
+   * The wallet that owns the target's ENS name, live only, its key read from the environment. Null locally, where the
+   * snapshot's baked wallets stand in for it. Its key is a secret no evidence may hold.
+   */
+  ensWallet: TestWallet | null;
   actor(name: string): Actor;
   actors: Actor[];
   sent: Sent[];

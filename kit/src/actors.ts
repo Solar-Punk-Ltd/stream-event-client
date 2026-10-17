@@ -66,19 +66,24 @@ function recordConsole(context: BrowserContext, file: string): void {
 const PREPARED = '__flowKitPrepared';
 
 /**
- * Puts the kit's settings into every document of Swarm ID's origin before its own scripts run: the local Bee node and
- * chain as the person's network settings, in the frames' partitioned storage as well as Swarm ID's own, and the test
- * wallet in its top-level pages. Swarm ID's sign-in window opens from its button frame, and that window's first
+ * Puts the kit's settings into every document of Swarm ID's origin before its own scripts run: locally, the local Bee
+ * node and chain as the person's network settings, in the frames' partitioned storage as well as Swarm ID's own, and in
+ * both modes the test wallet in its top-level pages. Swarm ID's sign-in window opens from its button frame, and that window's first
  * document can run before the context's init scripts reach it (then neither the wallet nor the settings are there,
  * and the window reads the public gateway), so such a window gets the settings and is loaded once more,
  * which the init scripts do reach. Loading it again keeps its address, which carries the sign-in request. The
  * document is never rewritten on its way in: a fulfilled document loses its address space, and Chrome then refuses
  * its requests to loopback.
  */
-async function prepareSwarmIdDocuments(context: BrowserContext, addresses: Addresses, walletScript: string) {
-  const settings = JSON.stringify({ beeNodeUrl: `${addresses.queen}/`, gnosisRpcUrl: addresses.chain });
-  const script = `if (location.origin === ${JSON.stringify(addresses.swarmId)}) {
-    localStorage.setItem('swarm-id-network-settings', ${JSON.stringify(settings)});
+async function prepareSwarmIdDocuments(
+  context: BrowserContext,
+  swarmId: string,
+  local: Addresses | null,
+  walletScript: string,
+) {
+  const settings = local && JSON.stringify({ beeNodeUrl: `${local.queen}/`, gnosisRpcUrl: local.chain });
+  const script = `if (location.origin === ${JSON.stringify(swarmId)}) {
+    ${settings ? `localStorage.setItem('swarm-id-network-settings', ${JSON.stringify(settings)});` : ''}
     window.${PREPARED} = true;
   }
   ${walletScript}`;
@@ -87,7 +92,7 @@ async function prepareSwarmIdDocuments(context: BrowserContext, addresses: Addre
     void page
       .waitForLoadState('domcontentloaded')
       .then(async () => {
-        if (new URL(page.url()).origin !== addresses.swarmId) return;
+        if (new URL(page.url()).origin !== swarmId) return;
         if (await page.evaluate((marker) => marker in window, PREPARED)) return;
         await page.evaluate(script);
         await page.reload();
@@ -97,14 +102,25 @@ async function prepareSwarmIdDocuments(context: BrowserContext, addresses: Addre
 }
 
 /**
- * Where an actor's browser is pointed: the viewer, the guard that decides what it may reach, and the local stack's
- * addresses, or null against a real deployment. Against one, nothing of the local network is put into Swarm ID's pages
- * and no test wallet is offered, so Swarm ID runs with its own settings, as a visitor's does.
+ * Where the kit's wallet is offered: Swarm ID's origin, whose top-level pages get it, and the Ethereum endpoint it
+ * sends every call but a signature to.
+ */
+export interface WalletSetup {
+  swarmId: string;
+  rpc: string;
+}
+
+/**
+ * Where an actor's browser is pointed: the viewer, the guard that decides what it may reach, the local stack's
+ * addresses, or null against a real deployment, and where the kit's wallet is offered, or null for none. Against a
+ * real deployment nothing of the local network is put into Swarm ID's pages, so Swarm ID runs with its own settings, as
+ * a visitor's does, and a wallet is offered only to a scenario that signs with one.
  */
 export interface ActorEnvironment {
   viewer: string;
   guard: Guard;
   local: Addresses | null;
+  wallet: WalletSetup | null;
 }
 
 export async function startActor(
@@ -114,7 +130,7 @@ export async function startActor(
   environment: ActorEnvironment,
   dir: string,
 ): Promise<Actor> {
-  const { viewer, guard, local } = environment;
+  const { viewer, guard, local, wallet: walletAt } = environment;
   if (!local && settings.chatSource === 'bee') {
     throw new Error(`${name} reads the chat from the viewer's own Bee node, which live mode has none of`);
   }
@@ -127,9 +143,9 @@ export async function startActor(
   recordConsole(context, join(dir, 'console.log'));
   const blocked: string[] = [];
   let wallet: TestWallet | null = null;
-  if (local) {
-    const walletScript = await exposeWallet(context, local.swarmId, local.ethereum, () => wallet);
-    await prepareSwarmIdDocuments(context, local, walletScript);
+  if (walletAt) {
+    const walletScript = await exposeWallet(context, walletAt.swarmId, walletAt.rpc, () => wallet);
+    await prepareSwarmIdDocuments(context, walletAt.swarmId, local, walletScript);
   }
   // A request to an address the run does not name is something under test reaching out, and the run that let it
   // through would depend on a network the kit does not control.

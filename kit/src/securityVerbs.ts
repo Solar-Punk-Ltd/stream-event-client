@@ -228,7 +228,7 @@ export const SECURITY_VERBS: Record<string, Verb> = {
   async rpc(run, step) {
     const actor = run.actor(step.actor!);
     const mode = step.args[0];
-    const ethereum = new URL(localStack(run, 'rpc').addresses.ethereum).origin;
+    const ethereum = new URL(run.live ? run.live.ensRpc : localStack(run, 'rpc').addresses.ethereum).origin;
     const onEthereum = (url: URL) => url.origin === ethereum;
     const counted = `${actor.name} rpc answered`;
     run.findings[counted] = 0;

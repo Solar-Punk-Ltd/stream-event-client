@@ -58,9 +58,19 @@ async function fund(run: Run, address: Hex): Promise<void> {
   if (body.error) throw new Error(`funding the wallet failed: ${body.error.message}`);
 }
 
-/** Which wallet an actor's wallet account uses: the one the ENS snapshot named for them, or a new one. */
-function walletFor(actor: Actor, named: boolean) {
+/**
+ * Which wallet an actor's wallet account uses: a new one, or with a name the wallet that owns the actor's ENS name,
+ * which is the one the snapshot baked locally and the target's, its key read from the environment, live.
+ */
+function walletFor(run: Run, actor: Actor, named: boolean) {
   if (!named) return testWallet(`0x${randomBytes(32).toString('hex')}`);
+  if (run.live) {
+    const owner = run.live.target.ens?.actor;
+    if (!run.ensWallet || owner !== actor.name) {
+      throw new Error(`live mode has the ENS wallet for ${owner ?? 'nobody'}, not ${actor.name}`);
+    }
+    return run.ensWallet;
+  }
   if (!ENS_ACTORS.includes(actor.name as EnsActor)) {
     throw new Error(`the ENS snapshot names wallets for ${ENS_ACTORS.join(' and ')} only, not ${actor.name}`);
   }
@@ -149,7 +159,7 @@ export const ACCOUNT_VERBS: Record<string, Verb> = {
   /**
    * `create-account password|passkey|wallet [--ens-name]`. A password or wallet account is made on Swarm ID's own
    * site. A wallet account signs with a wallet made for the run, funded on the local chain, or with `--ens-name` the
-   * wallet the ENS snapshot named for this actor. A passkey account is made in Swarm ID's sign-in window opened from
+   * wallet the ENS snapshot named for this actor, which live is the target's ENS wallet and is never funded. A passkey account is made in Swarm ID's sign-in window opened from
    * the viewer, since a virtual authenticator's passkey lives in the tab that made it, so the actor ends signed in.
    */
   async 'create-account'(run, step) {
@@ -176,8 +186,9 @@ export const ACCOUNT_VERBS: Record<string, Verb> = {
       await completeCreateFlow(page, actor.password, actor);
       run.secrets.set(`${actor.name} password`, actor.password);
     } else if (method === 'wallet') {
-      actor.wallet = walletFor(actor, step.options['ens-name'] === 'true');
-      await fund(run, actor.wallet.address);
+      actor.wallet = walletFor(run, actor, step.options['ens-name'] === 'true');
+      // Live, the wallet only signs, so it is never funded: nothing of a real chain is the kit's to pay with.
+      if (!run.live) await fund(run, actor.wallet.address);
       run.secrets.set(`${actor.name} wallet key`, actor.wallet.key);
       await toAccessStep(page, actor);
       await confirmAccessWithWallet(page);
