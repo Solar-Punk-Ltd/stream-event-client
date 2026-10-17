@@ -752,7 +752,8 @@ once and is kept in the browser, and nothing switches a source by itself.
   and the weeb-3 build, and its Test connection starts a node that failed once more. Copy diagnostics is there for
   every source.
 - **No fallback.** A part reads from the source picked for it and from nothing else, whatever that source answers.
-  The player's own retries ask the same source again.
+  The player's own retries ask the same source again. A switch under Use for takes effect at once, so the video's next
+  segment comes from the new source, in a recording as in a live stream.
 - **A source that fails.** When a part's reads, or the segments and pictures loaded for it, have had no answer it can use for 10 s, a bar under the header says
   so, such as "Video cannot load from Event gateway." and "No answer for more than 10 s.", with a Choose another source button
   that opens My Swarm. One bar per failing part, gone at the part's next answer, or 30 s after it stopped reading. A not
@@ -870,7 +871,13 @@ so the player brings its own loaders:
   reported to the client (`reportUrlLoad`): a segment hls.js loads or fails for the video, and a preview
   segment or a picture for the previews, so a source that serves feeds and fails every segment shows the
   failure bar. A failed one is asked again of the same source by hls.js. `fetchSegmentBytes` is the one place segment
-  bytes are fetched, where a provider without URLs can plug in.
+  bytes are fetched, where a provider without URLs can plug in. It loads a segment from the source the video reads from
+  at that moment. A recording's playlist is read only once, so hls.js keeps the URLs it was first given, and the
+  loader names each segment the player named again by the current source before it goes out
+  (`ManifestFetcher.segmentUrlNow`). A viewer who switches Video to another gateway or to their own Bee node while
+  watching a recording therefore gets the next segment from the new source, and its load counts against that source.
+  A URL the player did not name goes out as given: a preview's segment, and a recording published before
+  2026-08-13 whose manifest names its publisher's gateway.
 - **ManifestStateManager** merges each live playlist into a growing EVENT playlist, so segments stay
   playable longer than the publisher's sliding window.
 - **LadderFeedPoller** follows the feed of the quality hls.js plays, plus the one being switched to
@@ -933,7 +940,7 @@ Weeb3 (`providers/weeb-3/weeb3Push`) in `ChatStamp.tsx`, and the errors of both,
   through its own provider and through nothing else. A read that fails answers as it failed, and the
   feature's own retry, such as the player's backoff, asks the same provider again. URLs come from the
   feature's own provider, and a playlist the player already holds names its segments again at a switch of
-  node. Every read is counted by feature, kind, provider and answer, and `activity()` gives the last
+  node, on its next reload for a live stream and as each segment is loaded for a recording. Every read is counted by feature, kind, provider and answer, and `activity()` gives the last
   minute's answers per feature, which the diagnostics carry. The server time of the player's and the
   stream list's answers keeps the gateway clock, and the chat's, read from the chat's own host, does not.
 - **The contract** (`test/swarm/providerContract.ts`) is the suite every provider kind must pass, run
