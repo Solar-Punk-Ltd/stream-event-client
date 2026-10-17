@@ -377,6 +377,43 @@ describe('a gateway whose front door refuses the /soc route', () => {
     ]);
   });
 
+  it.each([
+    ['an empty body', ''],
+    ['JSON of another shape than Bee errors in', '{"error":"not found"}'],
+  ])('takes a 404 on /soc with %s as the route refused', async (_, body) => {
+    const log: AskedLog = { urls: [] };
+    const payload = new TextEncoder().encode(PLAYLIST_TEXT);
+    const gateway = publicGateway(
+      {
+        [ENTRY_PATH]: () => new Response(body, { status: 404 }),
+        [`chunks/${ENTRY_ADDRESS}`]: servedBytes(signedChunk(payload)),
+      },
+      log,
+    );
+
+    expect(textOf(await gateway.readSoc(ENTRY_OWNER, ENTRY_ID.toHex()))).toBe(PLAYLIST_TEXT);
+    expect(log.urls).toEqual([`${PUBLIC_GATEWAY}/${ENTRY_PATH}`, `${PUBLIC_GATEWAY}/chunks/${ENTRY_ADDRESS}`]);
+  });
+
+  it('reads at /soc again once a source that refused it serves it, after its chunk address is refused too', async () => {
+    const log: AskedLog = { urls: [] };
+    const payload = new TextEncoder().encode(PLAYLIST_TEXT);
+    const served: Record<string, () => Response> = { [`chunks/${ENTRY_ADDRESS}`]: servedBytes(signedChunk(payload)) };
+    const gateway = publicGateway(served, log);
+
+    expect(textOf(await gateway.readSoc(ENTRY_OWNER, ENTRY_ID.toHex()))).toBe(PLAYLIST_TEXT);
+    served[`chunks/${ENTRY_ADDRESS}`] = refusedRoute;
+    served[ENTRY_PATH] = servedBytes(payload);
+    expect((await gateway.readSoc(ENTRY_OWNER, ENTRY_ID.toHex())).kind).toBe('unavailable');
+    expect(textOf(await gateway.readSoc(ENTRY_OWNER, ENTRY_ID.toHex()))).toBe(PLAYLIST_TEXT);
+    expect(log.urls).toEqual([
+      `${PUBLIC_GATEWAY}/${ENTRY_PATH}`,
+      `${PUBLIC_GATEWAY}/chunks/${ENTRY_ADDRESS}`,
+      `${PUBLIC_GATEWAY}/chunks/${ENTRY_ADDRESS}`,
+      `${PUBLIC_GATEWAY}/${ENTRY_PATH}`,
+    ]);
+  });
+
   it('answers not found for an entry nobody wrote, read by its chunk address', async () => {
     expect(await publicGateway({}).readFeedEntry(ENTRY_OWNER, ENTRY_TOPIC, 5)).toEqual(NOT_FOUND_ANSWER);
   });
