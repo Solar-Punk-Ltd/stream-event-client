@@ -8,7 +8,7 @@ import { FEED_STATE_LIVE, FEED_STATE_RECONNECTING } from '../src/features/player
 import { ManifestStateManager } from '../src/features/player/ManifestManagement';
 import { buildSwarmUri } from '../src/features/player/playlist';
 import type { SwarmAnswer } from '../src/swarm/answers';
-import type { SwarmReader, UrlLoadOutcome } from '../src/swarm/client';
+import type { SwarmReader } from '../src/swarm/client';
 
 const TOPIC = 'a-topic-being-watched';
 const FRAGMENT_URL = 'http://127.0.0.1:1633/bytes/0123456789abcdef';
@@ -325,25 +325,23 @@ describe('CustomFragmentLoader following the source the player reads from now', 
     '#EXT-X-ENDLIST',
   ].join('\n');
 
-  /** A reader that names segments the way a Bee node's HTTP API does, and logs the loads reported to it. */
-  function gatewayReader(base: string) {
-    const reported: UrlLoadOutcome[] = [];
+  /** A reader that names segments the way a Bee node's HTTP API does. */
+  function gatewayReader(base: string): SwarmReader {
     const recording: SwarmAnswer = {
       kind: 'content',
       bytes: new TextEncoder().encode(RECORDING),
       feedIndex: 0,
       serverTimeMs: null,
     };
-    const reader: SwarmReader = {
+    return {
       readFeedHead: async () => recording,
       readFeedEntry: async () => recording,
       readSoc: async () => ({ kind: 'not-found', serverTimeMs: null }),
       readChunk: async () => ({ kind: 'not-found', serverTimeMs: null }),
       readBytes: async () => ({ kind: 'not-found', serverTimeMs: null }),
       urlFor: (reference) => `${base}/bytes/${reference}`,
-      reportUrlLoad: (outcome) => reported.push(outcome),
+      reportUrlLoad: () => {},
     };
-    return { reader, reported };
   }
 
   const OLD = gatewayReader('https://old-gateway.example.com');
@@ -372,42 +370,47 @@ describe('CustomFragmentLoader following the source the player reads from now', 
 
   beforeEach(() => {
     manifestFetcher.feedHealth.clear();
-    OLD.reported.length = 0;
-    NEW.reported.length = 0;
     runStaggerInline();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     ManifestStateManager.getInstance().clear(hexTopic);
-    manifestFetcher.useSwarm(gatewayReader('https://nowhere.example.com').reader);
+    manifestFetcher.useSwarm(gatewayReader('https://nowhere.example.com'));
     manifestFetcher.feedHealth.clear();
   });
 
   it('loads a segment named under the old gateway from the one switched to', async () => {
-    const named = await segmentNamedUnder(OLD.reader);
+    const named = await segmentNamedUnder(OLD);
     assert.equal(named, `https://old-gateway.example.com/bytes/${SEGMENT_REF}`);
 
-    manifestFetcher.useSwarm(NEW.reader);
+    manifestFetcher.useSwarm(NEW);
 
     assert.equal(transportedUrl(named), `https://new-gateway.example.com/bytes/${SEGMENT_REF}`);
   });
 
   // The control. Without it the test above passes on a loader that renames before any switch.
   it('loads it from the gateway that named it while nothing was switched', async () => {
-    const named = await segmentNamedUnder(OLD.reader);
+    const named = await segmentNamedUnder(OLD);
 
     assert.equal(transportedUrl(named), named);
   });
 
-  it('counts the load against the gateway switched to', async () => {
-    await segmentNamedUnder(OLD.reader);
-    manifestFetcher.useSwarm(NEW.reader);
+  // hls.js asks again with the fragment's own URL, which is still the one the old gateway named.
+  it('sends a retry of that segment to the gateway switched to as well', async () => {
+    const named = await segmentNamedUnder(OLD);
+    manifestFetcher.useSwarm(NEW);
+    const reachedTransport = vi.spyOn(transport, 'load').mockImplementation(() => {});
+    const loader = new CustomFragmentLoader({} as HlsConfig);
+    const fromHls = { onSuccess: vi.fn(), onError: vi.fn(), onTimeout: vi.fn() };
 
-    manifestFetcher.reportSegmentLoad({ loaded: true });
+    loader.load({ url: named } as FragmentLoaderContext, {} as LoaderConfiguration, fromHls as never);
+    loader.load({ url: named } as FragmentLoaderContext, {} as LoaderConfiguration, fromHls as never);
 
-    assert.deepEqual(NEW.reported, [{ loaded: true }]);
-    assert.deepEqual(OLD.reported, []);
+    assert.deepEqual(
+      reachedTransport.mock.calls.map((call) => call[0].url),
+      [`https://new-gateway.example.com/bytes/${SEGMENT_REF}`, `https://new-gateway.example.com/bytes/${SEGMENT_REF}`],
+    );
   });
 
   /**
@@ -415,8 +418,8 @@ describe('CustomFragmentLoader following the source the player reads from now', 
    * card's preview names its own through the previews' source. Neither is the player's to rename.
    */
   it('passes a segment URL the player did not name through unchanged', async () => {
-    await segmentNamedUnder(OLD.reader);
-    manifestFetcher.useSwarm(NEW.reader);
+    await segmentNamedUnder(OLD);
+    manifestFetcher.useSwarm(NEW);
     const notNamedHere = `https://publisher-gateway.example.com/bytes/${SEGMENT_REF}`;
 
     assert.equal(transportedUrl(notNamedHere), notNamedHere);
