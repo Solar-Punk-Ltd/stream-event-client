@@ -462,6 +462,15 @@ describe('a gateway whose front door refuses the /soc route', () => {
     });
   });
 
+  it('says what failed when the bytes served cannot be checked at all, such as too few for a chunk', async () => {
+    const gateway = publicGateway({ [`chunks/${ENTRY_ADDRESS}`]: servedBytes(new Uint8Array(40)) });
+    const answer = await gateway.readSoc(ENTRY_OWNER, ENTRY_ID.toHex());
+
+    expect(answer.kind === 'unavailable' && answer.cause.kind === 'network' && String(answer.cause.error)).toMatch(
+      /could not be checked as .*, since a single-owner chunk is at least 105 bytes/,
+    );
+  });
+
   it('is a fault when both routes are refused, and asks /soc first again on the next read', async () => {
     const log: AskedLog = { urls: [] };
     const gateway = publicGateway({ [`chunks/${ENTRY_ADDRESS}`]: refusedRoute }, log);

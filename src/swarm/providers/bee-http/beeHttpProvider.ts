@@ -12,7 +12,12 @@ import {
   type UrlUse,
 } from '../../provider';
 import { boundedRequest } from '../../boundedRequest';
-import { parseSingleOwnerChunk, singleOwnerChunkAddress, socBodyOf } from '../../singleOwnerChunk';
+import {
+  parseSingleOwnerChunk,
+  type SingleOwnerChunk,
+  singleOwnerChunkAddress,
+  socBodyOf,
+} from '../../singleOwnerChunk';
 import { jsonOf, notReadyReasonOf, versionOf } from './beeNodeState';
 
 /** Bee answers this with `{"status":"ok",...}` in every version this viewer has targeted. */
@@ -132,12 +137,14 @@ export class BeeHttpProvider implements SwarmProvider {
     if (answer.kind !== 'content') {
       return answer;
     }
+    let chunk: SingleOwnerChunk;
     try {
-      const chunk = parseSingleOwnerChunk(answer.bytes, address);
-      return await socBodyOf(chunk, answer, (root) => this.readBytes(root, options), servedWrong);
+      chunk = parseSingleOwnerChunk(answer.bytes, address);
     } catch (error) {
-      return servedWrong(`at ${address} that is not ${owner}'s: ${String(error)}`);
+      const why = error instanceof Error ? error.message : String(error);
+      return servedWrong(`that could not be checked as ${owner}'s, since ${why}`);
     }
+    return socBodyOf(chunk, answer, (root) => this.readBytes(root, options), servedWrong);
   }
 
   /**
