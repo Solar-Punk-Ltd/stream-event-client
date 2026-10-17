@@ -239,8 +239,10 @@ Live mode runs scenarios against a real deployment instead of the local stack: i
 site, its gateway and its chat. Nothing of the local stack is started or read, and `kit up`, `kit run` and `kit test`
 are unchanged.
 
-The scenarios that run live are the ones that need no wallet and no drive: `partitioned-storage`, `popup-blocked`,
-`eth-name-refused` and `evil-unlisted`. `kit live test` runs those four, and `kit live run` refuses any other. A verb
+The scenarios that run live are the ones that need no drive. Four need no wallet either: `partitioned-storage`,
+`popup-blocked`, `eth-name-refused` and `evil-unlisted`. Four sign with a wallet that owns a real ENS name:
+`ens-both-ways`, `ens-off-while-signed-in`, `rpc-down` and `rpc-lying`. `kit live test` runs those eight, and
+`kit live run` refuses any other. A verb
 that needs the local stack, such as buying a drive or writing raw to the chat's inbox, fails at once with a line saying
 so, before it does anything.
 
@@ -258,6 +260,7 @@ it. `targets/example.json` shows its shape with placeholders:
 | `viewer`      | the viewer's origin, with no path                                                                 |
 | `stream`      | the published stream to open: `mediaType`, `owner`, `topic` and `title`                           |
 | `alsoAllowed` | optional, outside origins a part of the deployment reads on its own, each with `origin` and `why` |
+| `ens`         | optional, the ENS wallet's `actor`, its `address` and its `name`, which the ENS scenarios need    |
 
 Everything else is read from the viewer's public `config.json` at the start of each run: the gateway, the chat's read
 and write addresses, the chat inbox key, the feed owner, the Swarm ID site and the ENS endpoint. An address given as a
@@ -269,6 +272,23 @@ needs a single `gatewayUrl`, an enabled chat, a Swarm ID site and an ENS endpoin
 visitor's browser runs it, reads its accounts through its own default Swarm gateway, so a live run of a scenario that
 makes an account needs that gateway named here.
 
+### The ENS wallet
+
+The ENS scenarios make the actor `ens.actor` names a Swarm ID account secured with a wallet that owns a real ENS name,
+with its reverse record set. The wallet's key never sits in a file: the kit reads it from the environment variable
+`KIT_ENS_KEY`, a 0x-prefixed 32-byte hex key, which the operator routes in from a secret store when starting the run.
+The key signs in the kit's own process, and the pages only ever see its signatures. The wallet is never funded and
+never sends a transaction, since Swarm ID's wallet account and its "Show my ENS name on sites" only ask it to sign.
+
+Every run of the same wallet opens the same Swarm ID account, so a scenario sets the ENS setting itself, on or off, in
+its own steps rather than relying on what an earlier run left. Each run starts from a fresh browser, and an account
+with no drive publishes nothing a later run could read.
+
+A check that names the ENS name, such as `name=ens:alice` or `details ... ens=alice`, expects the name the target's
+`ens.name` gives live, and the baked snapshot's name locally. `rpc down` and `rpc lie` stop or alter the calls to the
+config's ENS endpoint live, as they do the local chain's endpoint locally, and the lie lets every call but the reverse
+lookup through to the real endpoint.
+
 ### The live gate
 
 Before every live scenario a gate refuses to start, and exits 1, when the viewer or its `config.json` does not answer,
@@ -278,6 +298,11 @@ feed as Bee does. A feed with no message yet answers Bee's 404, which still says
 refuses an address for not being local. It refuses any address the run would use that the target and the config do
 not name, and holds the hostile site, the one part served from this machine, to a local address.
 
+Before an ENS scenario the gate also refuses to start when `KIT_ENS_KEY` is not set or is not a key, saying how a run
+gets it, when the target has no `ens` or names an actor the scenario does not give the wallet, when the key's wallet is
+not the target's `ens.address`, or when the target's name does not resolve to that address and back on the config's
+ENS endpoint. The key itself is never part of what the gate writes or prints.
+
 ### The browser guard, live
 
 The guard works as it does locally, with a different list. An actor's routing lets through exactly the origins the
@@ -286,8 +311,10 @@ only those hosts and the local names. A local address the run does not name is s
 is known to make, in `src/addresses.ts`, are stopped and recorded as they are locally, and any other stopped request
 fails its step. `expect outside-blocked` keeps working, since its outside address is never one a target names.
 
-Swarm ID's pages get nothing from the kit in live mode: no network settings and no test wallet. They run with the
-site's own settings, as a visitor's do.
+Swarm ID's pages get no network settings from the kit in live mode, and run with the site's own settings, as a
+visitor's do. Only an ENS scenario offers them a wallet, the ENS wallet, the way a browser extension would. Its sign-in
+window gets that wallet in the document it opened with, and is not loaded a second time, so it asks for Swarm ID's files
+once.
 
 ### What a live check reads
 
@@ -311,6 +338,13 @@ Every live run writes `test-results/kit-live/<run id>/<scenario>/`: `config.json
 used, the kit's commit, the libraries, the machine and how long reading the config, the gate and starting the hostile
 site took, then `verdict.json` and `actors/` as locally. A live run takes no Bee metrics, no chat server health and no
 container logs, since none of those are the kit's to read on a real deployment. Timings are recorded, never asserted.
+
+Two readings of the evidence are made once the browsers closed. An ENS run searches every actor's recorded network,
+console and traces, its `header.json`, its `preflight.json` and its verdict for the ENS wallet's key, and fails when any
+holds it, naming where and never the key. And a run whose Swarm ID site answered its own files with 500 or above
+records `swarm id server errors` in its verdict, with the count for each actor. On a failed run that finding also names
+the likely cause: bzz.link answers Swarm ID's files with 500 under parallel load, a known limit of that address. The run
+is still failed, and the kit never retries around it.
 
 ## In a CI job
 
