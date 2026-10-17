@@ -881,6 +881,21 @@ so the player brings its own loaders:
   `src/features/player/following/`, the polling study's choice. The player assumes no segment length:
   the follower and the searches take it from the `#EXTINF` values of the playlist they stand on, and a
   join from a time marker takes the `segmentMs` the marker names, which is the stage's `HLS_FRAGMENT`. The study's simulator and the strategies it was compared with are in `test/feedModel/`.
+- **A quality's first playlist** is waited for 20 s, the poller's 15 s search and 5 s more, and then
+  that quality is failed so hls.js tries another, because a gateway that does not hold a quality never
+  answers for it.
+- **A slow source.** The `ManifestFetcher` times how long the source it reads from takes to answer that
+  a slot is not there, over the latest 16 such answers (`src/features/player/sourceMissCost.ts`). When
+  the middle one of them is over 3 s the source is slow. A freshly started light Bee node with no
+  blockchain took 6 to 10 s, where a full node takes 1.3 to 1.6 s. On a slow source a search round is
+  taken to last one and a half of those answers. A read is given two rounds instead of the usual 10 s,
+  and a quality's first playlist is waited for eight rounds and 5 s more instead of 20 s, both capped,
+  at 30 s and at about two minutes. The player keeps reading from the source picked for it and never
+  switches to another, and it makes no read more often than before. Until the first picture it says
+  "This Swarm source answers slowly, so the video takes longer to start". On a source that is not slow
+  nothing changes. On such a node the video can still stall after it starts: measured on 2026-10-18,
+  a segment took 2 to 5 s to load and hls.js gave one up at its own 10 s, and each switch of quality
+  costs another search of about a minute.
 
 Feed URIs use a `swarm://<owner>/<topic>` scheme, because hls.js resolves every playlist URI against
 the playlist's own URL and a URI with a scheme is the one case it leaves untouched.
