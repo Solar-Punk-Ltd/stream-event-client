@@ -4,6 +4,22 @@ import { DEFAULT_READ_TIMEOUT_MS } from '@/swarm/provider';
 const MISSES_KEPT = 16;
 
 /**
+ * How many misses a source must have answered before their median judges it. The first misses after a
+ * source is picked pay for its connection, its name lookup and its cold cache, and the median of one or
+ * two is a single miss, so one slow start would otherwise mark a fast gateway slow, say so to the viewer
+ * and have it wait two minutes for a quality it does not hold.
+ */
+const MISSES_FOR_A_MEDIAN = 5;
+
+/**
+ * Before {@link MISSES_FOR_A_MEDIAN}, a source is slow only when at least this many misses were all
+ * slow. Without it the light node could not be judged in time: when its first quality's 20 s ran out it
+ * had answered two misses, its two time marker reads, each over 5.6 s (2026-10-18), and the level was
+ * failed before a fifth arrived.
+ */
+const MISSES_ALL_SLOW_EARLY = 2;
+
+/**
  * A typical miss slower than this makes a source slow. Full Bee nodes answered a miss in 1.3 to 1.6 s
  * and a freshly started light node in a median of 6 to 7 s (2026-10-17 and 18), so the line sits well
  * clear of both.
@@ -58,13 +74,27 @@ export class SourceMissCost {
     return sorted[Math.floor(sorted.length / 2)];
   }
 
+  /**
+   * The miss this source is judged by, or null while too few have been answered to judge it. Early on
+   * that is the fastest of misses that were all slow, so a single fast one keeps the source fast.
+   */
+  private judgedTypicalMs(): number | null {
+    if (this.misses.length >= MISSES_FOR_A_MEDIAN) {
+      return this.typicalMs();
+    }
+    if (this.misses.length >= MISSES_ALL_SLOW_EARLY && this.misses.every((missMs) => missMs > SLOW_SOURCE_MISS_MS)) {
+      return Math.min(...this.misses);
+    }
+    return null;
+  }
+
   isSlow(): boolean {
     return this.roundMs() !== null;
   }
 
   /** How long a round of a search takes on this source when it is slow, or null when it is not. */
   roundMs(): number | null {
-    const typicalMs = this.typicalMs();
+    const typicalMs = this.judgedTypicalMs();
     return typicalMs === null || typicalMs <= SLOW_SOURCE_MISS_MS
       ? null
       : Math.min(LONGEST_ROUND_MS, ROUND_PER_TYPICAL_MISS * typicalMs);

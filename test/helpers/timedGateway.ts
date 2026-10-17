@@ -79,9 +79,17 @@ export class TimedGateway {
     private readonly time: VirtualTime,
     readonly owner: string,
     private readonly roundTripMs: number,
-    /** How long a read of something not there takes to answer, which a light Bee node spends searching the network. */
-    private readonly missRoundTripMs: number = roundTripMs,
+    /**
+     * How long a read of something not there takes to answer, which a light Bee node spends searching
+     * the network. Given, it also delays a read of an address this gateway does not know, a slot past
+     * the ones worked out ahead, which otherwise fails at once.
+     */
+    private readonly slowMissMs?: number,
   ) {}
+
+  private get missRoundTripMs(): number {
+    return this.slowMissMs ?? this.roundTripMs;
+  }
 
   addFeed(topic: Topic, name: string, shape: TimedFeedShape): void {
     const hex = topic.toString();
@@ -218,7 +226,12 @@ export class TimedGateway {
       }
     }
     if (period === null || this.markers === null) {
-      return Promise.reject(new ManifestFetchError(path, 404));
+      if (this.slowMissMs === undefined) {
+        return Promise.reject(new ManifestFetchError(path, 404));
+      }
+      return new Promise((_, reject) =>
+        this.time.at(askedAtMs + this.missRoundTripMs, () => reject(new ManifestFetchError(path, 404))),
+      );
     }
     const marker = this.markerAt(period, askedAtMs);
     this.markerReads.push({ period, atMs: askedAtMs, found: marker !== null });
