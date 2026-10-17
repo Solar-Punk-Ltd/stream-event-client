@@ -740,10 +740,13 @@ once and is kept in the browser, and nothing switches a source by itself.
   | Connected to 20 peers                            | Weeb3        | Its peer count, waited for up to a minute                                                                                |
   | Reads a chunk                                    | every kind   | The root chunk of a segment of this event's video, read the way the chat history reads its slots, through its chat route |
   | Reads bytes                                      | every kind   | The same segment's bytes, read the way the player reads it                                                               |
-  | Reads this event's stream list                   | every kind   | The stream list feed's head, which it must parse as a stream list. Weeb3, with a slow head search, reads its first entry |
+  | Reads this event's stream list                   | every kind   | The stream list feed's head, which it must parse as a stream list. Weeb3 reads the entry the page shows, by its index    |
 
   The segment comes from the stream list the page shows, a live stream first, else the newest with video, and its
-  playlist is found as the player finds it. A stream's picture stands in where no stream has video yet.
+  playlist is found as the player finds it. A stream's picture stands in where no stream has video yet. Weeb3's head
+  search costs a few 17 s misses, so its stream list check reads the newest entry the page already read by that
+  entry's index, one read of the same body the browse page reads, and searches for the head only when the page has
+  not read the list.
 
 - **A source's settings.** Its name and address, Test connection, which runs the same checks again, and the last
   light check's time until then. A source the event offers says "Offered by this event. It cannot be changed or
@@ -831,7 +834,11 @@ controls the page, and counts as failed when it is not ready after 30 s.
   of more than a few dozen streams, wraps the root of a tree of chunks, and weeb-3 answers it with the root's own
   payload, the addresses of the chunks below it, where Bee joins the body. So when the span says the body is longer
   than the payload, the body is read whole from `/weeb-3/bytes/` at the root's address, and a body that is not the
-  length the span names answers unavailable. A feed's head, which weeb-3 has no lookup for, is found by reading the feed's entries by index, eight at
+  length the span names answers unavailable. A body uploaded with erasure coding keeps its redundancy level in the
+  top byte of its root's span, as 0x80 plus the level, so a span whose top byte is above 0x80 names the length in its
+  lower 7 bytes (`src/swarm/chunkSpan.ts`, as Bee's own `redundancy.DecodeSpan` reads it). The root's address is
+  still made over the span as stored. Read whole, such a span names a body of about 9.3e18 bytes, which no joined
+  body matches. The chat's slots, read through Weeb3 or through a gateway, take their length the same way. A feed's head, which weeb-3 has no lookup for, is found by reading the feed's entries by index, eight at
   a time: entry 0 and every power of four less one, then wider steps past the newest entry found until one misses,
   then even cuts of the gap until the newest entry and the missing one above it touch. A miss costs weeb-3 about
   17 s, so a head read takes a few of those, about a minute for a feed of a few hundred entries, and the answer it

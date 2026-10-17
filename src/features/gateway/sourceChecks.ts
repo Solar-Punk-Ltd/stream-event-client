@@ -56,6 +56,11 @@ export interface SourceCheckContext {
    * the bytes are read from these, so a source that cannot read the list itself is still told what else it reads.
    */
   readonly knownStreams: readonly Stream[];
+  /**
+   * The stream list feed's entry {@link knownStreams} were read from, its newest when the page read it, or null when
+   * the page has not read one. The node in this browser reads that entry by its index rather than search for the head.
+   */
+  readonly streamListSlot?: bigint | null;
   readonly signal?: AbortSignal;
   /** What to add to the viewer's clock to read the gateway's, for a ladder's time marker. */
   readonly clockOffsetMs?: number;
@@ -357,12 +362,17 @@ class CheckRun {
     return streams.find((candidate) => candidate.thumbnail?.trim())?.thumbnail?.trim() ?? failure;
   }
 
-  /** The node in this browser finds a head only by a search that costs a few 17 s misses, so its list is read by its first entry. */
+  /**
+   * The stream list's newest entry, the one the browse page shows. The node in this browser finds a head only by a
+   * search that costs a few 17 s misses, so where the page already read the list it reads that entry by its index,
+   * one read of the same body the page reads, and searches for the head only when the page has none.
+   */
   private readStreamListAnswer(): Promise<SwarmAnswer> {
     const { owner, topic } = this.context.catalog;
     const reader = this.context.client.reader('stream-list');
-    return this.target.type === 'weeb-3'
-      ? reader.readFeedEntry(owner, Topic.fromString(topic), 0, this.window)
+    const slot = this.context.streamListSlot ?? null;
+    return this.target.type === 'weeb-3' && slot !== null
+      ? reader.readFeedEntry(owner, Topic.fromString(topic), Number(slot), this.window)
       : reader.readFeedHead(owner, Topic.fromString(topic), this.window);
   }
 
