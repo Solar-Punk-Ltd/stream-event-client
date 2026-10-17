@@ -1,8 +1,8 @@
-import { FeedIndex, type Topic } from '@ethersphere/bee-js';
+import { FeedIndex, Identifier, type Topic } from '@ethersphere/bee-js';
 
 import { makeFeedIdentifier, nextFeedRequest } from '@/shared/feedFollow';
 import { type SwarmAnswer, UNSUPPORTED } from '../../answers';
-import { ABSENT, type AbsentStatuses, httpRead, isSuccess } from '../../httpRead';
+import { ABSENT, type AbsentStatuses, httpRead, httpReadRoute, isSuccess, ROUTE_REFUSED } from '../../httpRead';
 import {
   PROBE_TIMEOUT_MS,
   type ProbeResult,
@@ -12,6 +12,7 @@ import {
   type UrlUse,
 } from '../../provider';
 import { boundedRequest } from '../../boundedRequest';
+import { parseSingleOwnerChunk, singleOwnerChunkAddress, socBodyOf } from '../../singleOwnerChunk';
 import { jsonOf, notReadyReasonOf, versionOf } from './beeNodeState';
 
 /** Bee answers this with `{"status":"ok",...}` in every version this viewer has targeted. */
@@ -27,6 +28,14 @@ const CHUNK_NOT_RETRIEVED = 500;
 const ABSENT_CHUNK: AbsentStatuses = new Set([...ABSENT, CHUNK_NOT_RETRIEVED]);
 
 const READY: ProviderStatus = { state: 'ready' };
+
+/** What a source refusing both routes to a single-owner chunk answers, the 404 its front door gave. */
+const NEITHER_ROUTE: SwarmAnswer = { kind: 'unavailable', cause: { kind: 'status', status: 404 } };
+
+const servedWrong = (why: string): SwarmAnswer => ({
+  kind: 'unavailable',
+  cause: { kind: 'network', error: new Error(`the gateway served a single-owner chunk ${why}`) },
+});
 
 export interface BeeHttpProviderOptions {
   /** A Bee API base: an http or https address, or a path on this site such as `/bee` that the site proxies to Bee. */
@@ -62,6 +71,7 @@ export class BeeHttpProvider implements SwarmProvider {
   private readonly baseUrl: string;
   private readonly fetcher: typeof fetch;
   private readonly pageOrigin: string;
+  private socRouteRefused = false;
 
   constructor(options: BeeHttpProviderOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
@@ -86,8 +96,48 @@ export class BeeHttpProvider implements SwarmProvider {
     return this.readSoc(owner, makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))).toString(), options);
   }
 
-  readSoc(owner: string, identifier: string, options?: ReadOptions): Promise<SwarmAnswer> {
-    return this.read(`soc/${owner}/${identifier}`, options);
+  /**
+   * A single-owner chunk's body, from `/soc`, or by its chunk address where this source refuses that route. Public
+   * gateways answer `/soc` with a plain `Not Found` from their front door, and serve the same chunk at `/chunks`. A
+   * refusal is remembered, so later reads go to the chunk address first, and forgotten when that route is refused
+   * too, so a source that stopped refusing `/soc` is read there again.
+   */
+  async readSoc(owner: string, identifier: string, options?: ReadOptions): Promise<SwarmAnswer> {
+    if (!this.socRouteRefused) {
+      const answer = await httpReadRoute(`${this.baseUrl}/soc/${owner}/${identifier}`, this.readOptions(options));
+      if (answer.kind !== ROUTE_REFUSED.kind) {
+        return answer;
+      }
+      this.socRouteRefused = true;
+    }
+    return this.readSocByAddress(owner, identifier, options);
+  }
+
+  /**
+   * The chunk is checked to be the owner's before its body is given, because the route serves whatever is stored at
+   * an address: the signature must recover an owner who, with the identifier, makes the address asked.
+   */
+  private async readSocByAddress(owner: string, identifier: string, options?: ReadOptions): Promise<SwarmAnswer> {
+    let address: string;
+    try {
+      address = singleOwnerChunkAddress(new Identifier(identifier), owner);
+    } catch {
+      return UNSUPPORTED;
+    }
+    const answer = await httpReadRoute(`${this.baseUrl}/chunks/${address}`, this.readOptions(options, ABSENT_CHUNK));
+    if (answer.kind === ROUTE_REFUSED.kind) {
+      this.socRouteRefused = false;
+      return NEITHER_ROUTE;
+    }
+    if (answer.kind !== 'content') {
+      return answer;
+    }
+    try {
+      const chunk = parseSingleOwnerChunk(answer.bytes, address);
+      return await socBodyOf(chunk, answer, (root) => this.readBytes(root, options), servedWrong);
+    } catch (error) {
+      return servedWrong(`at ${address} that is not ${owner}'s: ${String(error)}`);
+    }
   }
 
   /**
@@ -169,7 +219,11 @@ export class BeeHttpProvider implements SwarmProvider {
 
   async stop(): Promise<void> {}
 
-  private read(path: string, options: ReadOptions = {}, absent?: AbsentStatuses): Promise<SwarmAnswer> {
-    return httpRead(`${this.baseUrl}/${path}`, { ...options, fetcher: this.fetcher, absent });
+  private read(path: string, options?: ReadOptions, absent?: AbsentStatuses): Promise<SwarmAnswer> {
+    return httpRead(`${this.baseUrl}/${path}`, this.readOptions(options, absent));
+  }
+
+  private readOptions(options: ReadOptions = {}, absent?: AbsentStatuses) {
+    return { ...options, fetcher: this.fetcher, absent };
   }
 }

@@ -740,10 +740,12 @@ once and is kept in the browser, and nothing switches a source by itself.
   | Connected to 20 peers                            | Weeb3        | Its peer count, waited for up to a minute                                                                                |
   | Reads a chunk                                    | every kind   | The root chunk of a segment of this event's video, read the way the chat history reads its slots, through its chat route |
   | Reads bytes                                      | every kind   | The same segment's bytes, read the way the player reads it                                                               |
-  | Reads this event's stream list                   | every kind   | The stream list feed's head, parsed as a stream list. Weeb3 reads the page's newest entry by index, else the head        |
+  | Reads this event's stream list                   | every kind   | The feed's head, parsed as a stream list, then its entry by index, as the player reads a playlist. Weeb3 below           |
 
   The segment comes from the stream list the page shows, a live stream first, else the newest with video, and its
-  playlist is found as the player finds it. A stream's picture stands in where no stream has video yet. Weeb3's head
+  playlist is found as the player finds it. A stream's picture stands in where no stream has video yet. A gateway or
+  a Bee node then reads the entry its stream list head names by that index, the read the player opens every playlist
+  with, so one that serves feed heads and no feed entry, by `/soc` or by chunk address, fails there. Weeb3's head
   search costs a few 17 s misses, so its stream list check reads the newest entry the page already read by that
   entry's index, one read of the same body the browse page reads. It searches for the head when the page has not
   read the list, and when that entry is not on the node yet, as right after a gateway ahead of it served a new list.
@@ -927,7 +929,14 @@ Weeb3 (`providers/weeb-3/weeb3Push`) in `ChatStamp.tsx`, and the errors of both,
   feed entry is one, and so is a ladder's time marker), a chunk, the bytes a reference names, and a URL
   for what the browser or hls.js loads itself. It also has its status, a probe, and start and stop
   for a node in the tab. `src/swarm/providers/bee-http/` is Bee's HTTP API, asking the paths the app has
-  always asked.
+  always asked. Public gateways such as `api.gateway.ethswarm.org` and `bzz.limo` refuse `/soc` at their front
+  door, with a plain-text `Not Found` where Bee answers every 404 as JSON, and serve the same chunk at
+  `/chunks/<address>`. So a 404 on `/soc` that is not Bee's JSON makes the provider read that single-owner chunk by
+  its address, and every later one there first. It checks the chunk is the owner's, its signature recovering the
+  owner who with the identifier makes the address asked, and joins a body longer than one chunk from `/bytes` at
+  the root it wraps, as `/soc` does. Bee's own JSON 404 stays not found and asks nothing more, so a gateway that
+  serves `/soc`, the event gateway among them, pays no extra request for a slot not written yet. When the chunk
+  address is refused as well, the read is unavailable with that 404, and the next one asks `/soc` again.
 - **Every read answers and never throws** (`src/swarm/answers.ts`): the content, with the feed index
   and the server time where the answer carries them, not found, rate limited with the wait asked for,
   unsupported, unavailable with its cause (a timeout, a status or no answer at all), or aborted. Every

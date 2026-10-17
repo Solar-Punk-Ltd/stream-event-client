@@ -6,6 +6,7 @@ import type { ChatSettings } from '@solarpunkltd/swarm-chat-js';
 
 import { chatSettings } from '../../src/features/chat/chatSettings';
 import { parseRuntimeConfig } from '../../src/config/runtimeConfig';
+import { beeNotFound } from './beeNotFound';
 
 /**
  * A Bee node that answers from the recording the browser smoke test replays, `e2e/recorded/viewer.har`,
@@ -115,14 +116,6 @@ export function recordedDateMs(url: string): number {
   return Date.parse(date);
 }
 
-/** Bee's own answer for something it does not hold, the shape the ladder journeys' fake answers too. */
-function notFound(): Response {
-  return new Response(JSON.stringify({ code: 404, message: 'Not Found' }), {
-    status: 404,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
-  });
-}
-
 function abortError(): Error {
   const error = new Error('The operation was aborted');
   error.name = 'AbortError';
@@ -141,7 +134,7 @@ export function recordedFetch(log: AskedLog = { urls: [] }): typeof fetch {
     log.urls.push(url);
     const answer = RECORDED.get(url);
     if (!answer) {
-      return notFound();
+      return beeNotFound();
     }
     return new Response(answer.body.slice(), { status: answer.status, headers: answer.headers });
   }) as typeof fetch;

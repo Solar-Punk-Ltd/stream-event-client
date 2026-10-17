@@ -26,6 +26,7 @@ import { MANIFEST_BACKOFF_JITTER_FRACTION, RequestJitter } from '../src/shared/r
 
 import { waitFor } from './helpers/waiting';
 import { segmentsUnder, swarmOverGlobalFetch } from './helpers/playerReader';
+import { beeNotFound } from './helpers/beeNotFound';
 
 /**
  * Neither staggers nor spreads, so every assertion in this file measures what it measured before the
@@ -154,9 +155,7 @@ describe('ManifestFetcher follow-up fetches (CON-29)', () => {
    * let one poll run to {@link MAX_SLOTS_PER_POLL} in tests about something else entirely.
    */
   function servedByPublisher(index: bigint): Response {
-    return index <= publishedThrough
-      ? new Response(manifestForIndex(index))
-      : new Response('not found', { status: 404 });
+    return index <= publishedThrough ? new Response(manifestForIndex(index)) : beeNotFound();
   }
 
   /** Answers every follow-up request, holding each one open until `gate` resolves. */
@@ -316,7 +315,7 @@ describe('ManifestFetcher follow-up fetches (CON-29)', () => {
   // broadcast for that viewer.
   it('keeps following the feed after a follow-up fetch fails, without reporting it', async () => {
     const failed = deferred<void>();
-    stubFetch(failed.promise, () => new Response('not found', { status: 404 }));
+    stubFetch(failed.promise, () => beeNotFound());
     const reported: unknown[] = [];
     console.error = (...args: unknown[]) => reported.push(args);
 
@@ -350,7 +349,7 @@ describe('ManifestFetcher follow-up fetches (CON-29)', () => {
    */
   async function pollUnservedSlot(): Promise<void> {
     const gate = deferred<void>();
-    stubFetch(gate.promise, () => new Response('not found', { status: 404 }));
+    stubFetch(gate.promise, () => beeNotFound());
     await fetcher.fetch(`${OWNER}/${TOPIC_NAME}`);
     gate.resolve();
     await fetcher.settled();
@@ -503,7 +502,7 @@ describe('keeping up with a publisher that writes faster than hls.js reloads', (
       assert.notEqual(index, undefined, `a slot outside the fixture was requested: ${String(input)}`);
       requested.push(index!);
       if (index! > publishedThrough) {
-        return new Response('not found', { status: 404 });
+        return beeNotFound();
       }
       const lines = [manifestForIndex(index!)];
       if (index === finalSlot) {
@@ -780,7 +779,7 @@ describe('ManifestFetcher against a gateway that stops answering', () => {
   /** Polls a feed whose gateway answers but has nothing in the slot, until the run is called stalled. */
   async function pollUntilStalled(): Promise<void> {
     console.error = () => {};
-    stubFetch(() => new Response('not found', { status: 404 }));
+    stubFetch(() => beeNotFound());
     await fetcher.fetch(`${OWNER}/${TOPIC_NAME}`);
     await fetcher.settled();
     clockMs += UNSERVED_SLOT_STALL_MS;
@@ -1030,7 +1029,7 @@ describe('ManifestFetcher against a gateway that stops answering', () => {
   // gets one of these on nearly every poll and has to keep asking at full cadence.
   it('does not hold anything off over a slot the publisher has not written yet', async () => {
     seedFollowupState();
-    stubFetch(() => new Response('not found', { status: 404 }));
+    stubFetch(() => beeNotFound());
 
     await fetcher.fetch(`${OWNER}/${TOPIC_NAME}`);
     await settle();
@@ -1128,9 +1127,7 @@ describe('following the feed costs one head lookup', () => {
           headers: { 'Swarm-Feed-Index': START_INDEX.toString(16) },
         });
       }
-      return index > publishedThrough
-        ? new Response('not found', { status: 404 })
-        : new Response(manifestForIndex(index));
+      return index > publishedThrough ? beeNotFound() : new Response(manifestForIndex(index));
     };
   });
 
@@ -1229,7 +1226,7 @@ describe('a refused slot that later slots are already behind', () => {
       assert.notEqual(index, undefined, `a slot outside the fixture was requested: ${String(input)}`);
       requested.push(index!);
       if (index! > publishedThrough || unretrievable.has(index!)) {
-        return new Response('not found', { status: 404 });
+        return beeNotFound();
       }
       const lines = ['#EXTM3U', '#EXT-X-TARGETDURATION:2'];
       const from = index! > WINDOW ? index! - WINDOW : 0n;
@@ -1485,7 +1482,7 @@ describe('the probe landing on the recording instead of the manifest that ended 
       assert.notEqual(index, undefined, `a slot outside the fixture was requested: ${String(input)}`);
       requested.push(index!);
       if (index! !== START_INDEX + 2n) {
-        return new Response('not found', { status: 404 });
+        return beeNotFound();
       }
       const lines = ['#EXTM3U', '#EXT-X-TARGETDURATION:2'];
       for (let seg = 0n; seg <= START_INDEX + 2n; seg++) {
@@ -1576,7 +1573,7 @@ describe('a single-rendition broadcast that comes back after it ended', () => {
       assert.notEqual(index, undefined, `a slot outside the fixture was requested: ${String(input)}`);
       requested.push(index!);
       const body = written.get(index!);
-      return body === undefined ? new Response('not found', { status: 404 }) : new Response(body);
+      return body === undefined ? beeNotFound() : new Response(body);
     };
   });
 
@@ -1868,7 +1865,7 @@ describe('ManifestFetcher keeping its requests off the instant every other viewe
     let requests = 0;
     globalThis.fetch = async () => {
       requests++;
-      return new Response('not found', { status: 404 });
+      return beeNotFound();
     };
 
     // Left pending: the stagger holds it until the test releases it.
@@ -1909,7 +1906,7 @@ describe('ManifestFetcher keeping its requests off the instant every other viewe
       ),
     );
     fetcher.useSwarm(swarmOverGlobalFetch(BEE_URL));
-    globalThis.fetch = async () => new Response('not found', { status: 404 });
+    globalThis.fetch = async () => beeNotFound();
 
     // Left pending: the question is how many walks three fetches in flight queue.
     void fetcher.fetch(`${OWNER}/${TOPIC_NAME}`);

@@ -240,6 +240,28 @@ describe('the checks before a gateway is added', () => {
     expect(results[5]).toMatchObject({ state: 'failed', failure: NOT_THE_STREAM_LIST });
   });
 
+  it("read the stream list's newest entry by the index its head names, as the player reads its playlists", async () => {
+    const { source, context, target } = world();
+    source.answers['feed-head'] = { ...text(LIST), feedIndex: 41 };
+    const results = await runSourceChecks(target, context);
+
+    expect(checksPassed(results)).toBe(true);
+    expect(source.streamListReads).toEqual(['entry 0', 'head', 'entry 41']);
+  });
+
+  it('fail a gateway that serves the feed head and no feed entry, which the player reads every playlist as', async () => {
+    const { source, context, target } = world();
+    const refused: SwarmAnswer = { kind: 'unavailable', cause: { kind: 'status', status: 404 } };
+    source.streamListEntry = refused;
+    const results = await runSourceChecks(target, context);
+
+    expect(results[5]).toMatchObject({
+      step: 'feed',
+      state: 'failed',
+      failure: readFailure("this event's stream list by its index", refused),
+    });
+  });
+
   it('say so when the event has nothing to read yet', async () => {
     const { source, context, target } = world();
     source.answers['feed-head'] = text('[]');
