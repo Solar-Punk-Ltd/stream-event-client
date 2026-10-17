@@ -10,7 +10,7 @@
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, extname, join, normalize } from 'node:path';
+import { dirname, extname, join, normalize, sep } from 'node:path';
 
 export const WEEB3_PACKAGE = '@lat-murmeldjur/weeb_3';
 
@@ -86,6 +86,20 @@ export function withServedWasmPath(code) {
     : null;
 }
 
+/** The module weeb-3's own `import("hls.js")` loads in this app, which says why. */
+export const WEEB3_HLS_MODULE = 'src/swarm/providers/weeb-3/weeb3Hls.ts';
+
+/**
+ * Where an import of `source` from `importer` goes instead: the app's stoppable hls.js when weeb-3's own code imports
+ * hls.js, and null for every other import, the app's own hls.js included.
+ */
+export function weeb3HlsRedirect(source, importer, packageFolder, root) {
+  if (source !== 'hls.js' || packageFolder === null || typeof importer !== 'string') {
+    return null;
+  }
+  return importer.split('?')[0].startsWith(packageFolder + sep) ? join(root, WEEB3_HLS_MODULE) : null;
+}
+
 /** Sends the service worker's scope header, and in the dev server, which has no build, the files themselves. */
 function middleware(packageFolder, servesFiles) {
   return (request, response, next) => {
@@ -115,8 +129,10 @@ function middleware(packageFolder, servesFiles) {
 }
 
 /**
- * The Vite plugins: the package's module rewritten before the bundler reads its asset URLs, then the
- * copy at build, and the files and header in the dev and preview servers.
+ * The Vite plugins: the package's module rewritten before the bundler reads its asset URLs, its hls.js
+ * pointed at the app's stoppable one, then the copy at build, and the files and header in the dev and
+ * preview servers. The dev server's dependency bundler would read the package past these, so the
+ * package is left out of it.
  */
 export function weeb3Files(root) {
   const packageFolder = weeb3PackageFolder(root);
@@ -128,6 +144,9 @@ export function weeb3Files(root) {
     transform(code, id) {
       return id.split('?')[0] === packageModule ? withServedWasmPath(code) : null;
     },
+    resolveId(source, importer) {
+      return weeb3HlsRedirect(source, importer, packageFolder, root);
+    },
   };
   return [
     rewrite,
@@ -135,6 +154,7 @@ export function weeb3Files(root) {
       name: 'weeb-3-files',
       config() {
         return {
+          optimizeDeps: { exclude: [WEEB3_PACKAGE] },
           define: {
             __WEEB3_WASM_BYTES__: JSON.stringify(wasmBytesOf(packageFolder)),
             __WEEB3_VERSION__: JSON.stringify(weeb3VersionOf(packageFolder)),

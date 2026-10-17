@@ -794,7 +794,8 @@ controls the page, and counts as failed when it is not ready after 30 s.
   ready, and one made while it is stopped starts it first, so a part never gets an early answer from a node that is
   not there yet. A node that fails to start answers the read as unavailable. Listing a saved one starts
   nothing. When the last of them lets go, as when every part moves to another source or the source is removed, the
-  node is stopped and freed.
+  node is stopped and freed. The watch page's player lets go of the node and also stops weeb-3's player for its video,
+  so a video the viewer has left loads nothing more through weeb-3.
 - **Getting ready.** The page downloads the 2.2 MB WebAssembly module itself, reading it as it streams, so the
   row in My Swarm and the watch page can show how much has arrived against the length the server names. A
   download that has not finished after 60 s, or whose package fails to load, is stopped and the node counts as
@@ -819,6 +820,19 @@ controls the page, and counts as failed when it is not ready after 30 s.
   so again if it loses its peers. The stream is attached once the node is ready. Nothing replaces weeb-3's player: one whose node fails, or that cannot attach, says "The Swarm node in this browser could not play this stream." and stays. weeb-3's limits
   are its own: it plays about 16 s behind live, does not leave a quality that stopped, does not notice a broadcast
   that returns, and plays one stream across the browser's tabs.
+- **Leaving weeb-3's player stops it.** weeb-3 names no way to stop its player, which is hls.js underneath and would
+  keep loading segments, up to three minutes ahead for a finished stream, for a video the viewer has left. So the
+  build hands weeb-3's own import of hls.js the app's copy with its player class made stoppable
+  (`src/swarm/providers/weeb-3/weeb3Hls.ts`, pointed at by `scripts/weeb3-files.mjs`), which records each player by
+  the video it plays into. When the watch page stops showing weeb-3's player, because the video moves to another
+  source, the viewer leaves the page or picks another stream, the player for that video is stopped and destroyed, and
+  nothing weeb-3 calls on it afterwards loads again, nor does a new player weeb-3 makes for that video, until the page
+  plays a stream into it again. The video itself is then paused and emptied, which stops the download in a browser
+  that plays HLS natively, as Safari does without Media Source Extensions, where weeb-3 uses no hls.js and there is
+  no player to stop. So both cases are covered: an hls.js player is stopped and destroyed, and a native one stops
+  with its emptied video. The stoppable copy of hls.js is a small chunk of its own, loaded only by weeb-3's chunk, so the first
+  page load still carries none of weeb-3. The dev server's dependency bundler leaves the package out, so the dev
+  server makes the same switch.
 - **No switching.** A part that reads from weeb-3 reads from it alone, as every part reads from its own source alone.
   None of its reads is handed to another source whatever it answers. Every read through it gets weeb-3's
   own 30 s budget rather than the client's 10 s, so a missing chunk, which weeb-3 gives up on after about 17 s, ends
@@ -846,7 +860,9 @@ controls the page, and counts as failed when it is not ready after 30 s.
   chunk can at most carry a message somebody signed, never one in another's name.
 - **Stopping, as far as it goes.** Stopping frees the page's handle on the node, and with 0.0.354001 that leaves the
   node in the package's shared worker running: a handle made after a stop still finds its peers. The package names
-  no way to stop that worker's node, so it lasts until the browser closes the worker with the tab.
+  no way to stop that worker's node, so it lasts until the browser closes the worker with the tab. Its player in the
+  page is another matter: the app stops that one itself when the viewer leaves it, as "Leaving weeb-3's player stops
+  it" above says.
 - **The live proof.** `pnpm proof:weeb3` builds the app and, on the public Swarm network, adds the node in a real
   browser, picks it for the video, waits for it to be ready, plays a finished stream from its beginning, checks that
   `/weeb-3/bytes/` carries exactly the 8-byte span `/weeb-3/hls/bytes/` leaves out, and asks the shared worker for
