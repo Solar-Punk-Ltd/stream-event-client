@@ -68,10 +68,10 @@ const PREPARED = '__flowKitPrepared';
 /**
  * Puts the kit's settings into every document of Swarm ID's origin before its own scripts run: locally, the local Bee
  * node and chain as the person's network settings, in the frames' partitioned storage as well as Swarm ID's own, and in
- * both modes the test wallet in its top-level pages. Swarm ID's sign-in window opens from its button frame, and that window's first
- * document can run before the context's init scripts reach it (then neither the wallet nor the settings are there,
- * and the window reads the public gateway), so such a window gets the settings and is loaded once more,
- * which the init scripts do reach. Loading it again keeps its address, which carries the sign-in request. The
+ * both modes the test wallet in its top-level pages. Swarm ID's sign-in window opens from its button frame, and that
+ * window's first document can run before the context's init scripts reach it (then neither the wallet nor the settings
+ * are there, and the window reads the public gateway), so such a window gets the script, and with settings is loaded
+ * once more, which the init scripts do reach. Loading it again keeps its address, which carries the sign-in request. The
  * document is never rewritten on its way in: a fulfilled document loses its address space, and Chrome then refuses
  * its requests to loopback.
  */
@@ -95,7 +95,10 @@ async function prepareSwarmIdDocuments(
         if (new URL(page.url()).origin !== swarmId) return;
         if (await page.evaluate((marker) => marker in window, PREPARED)) return;
         await page.evaluate(script);
-        await page.reload();
+        // Only settings need the window loaded again, since Swarm ID reads them as it starts. A wallet is asked for at
+        // its first use, so live, where there are no settings, the window is not loaded twice, which on a real Swarm ID
+        // site would ask for every one of its files twice in a burst.
+        if (settings) await page.reload();
       })
       .catch(() => undefined);
   });
