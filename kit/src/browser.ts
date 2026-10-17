@@ -1,27 +1,16 @@
 import { type Browser, chromium } from '@playwright/test';
 
+import { type Guard, LOCAL_GUARD, resolverRules } from './guard.ts';
 import type { BrowserProfile } from './scenario.ts';
-
-/**
- * Every name but the local ones resolves to nothing, so a request that gets past the kit's request routing, from a
- * service worker or a part Playwright does not route, still reaches no host off this machine. The IPv6 loopback
- * literal goes through these rules too and is excluded only by its bare spelling, `::1`: written `[::1]` it resolves to
- * nothing.
- */
-const LOCAL_NAMES_ONLY =
-  '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE *.localhost, EXCLUDE 127.0.0.1, EXCLUDE ::1';
 
 /**
  * Chromium's switches on every machine the kit runs on. `--no-sandbox` because a CI job may run as root
  * in a container, where Chrome will not start with its sandbox.
  */
-export const BASE_ARGS = [
-  '--disable-dev-shm-usage',
-  '--no-sandbox',
-  '--disable-setuid-sandbox',
-  '--disable-gpu',
-  LOCAL_NAMES_ONLY,
-];
+const MACHINE_ARGS = ['--disable-dev-shm-usage', '--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'];
+
+/** The local stack's switches, under which every name but the local ones resolves to nothing. */
+export const BASE_ARGS = [...MACHINE_ARGS, resolverRules(LOCAL_GUARD.hosts)];
 
 const PARTITIONING = 'ThirdPartyStoragePartitioning';
 
@@ -63,12 +52,16 @@ const POPUP_BLOCKED_ARGS = ['--block-new-web-contents'];
 /**
  * The browser for a scenario's profile. `partitioned` is the one every scenario but the popup one uses. `popup-blocked`
  * adds a real popup blocker, and removes Playwright's own switch that turns one off, so the window Swarm ID's button
- * opens is refused.
+ * opens is refused. The guard names the outside hosts the browser may resolve, none for the local stack.
  */
-export async function launchForProfile(profile: BrowserProfile): Promise<{ browser: Browser; args: string[] }> {
+export async function launchForProfile(
+  profile: BrowserProfile,
+  guard: Guard = LOCAL_GUARD,
+): Promise<{ browser: Browser; args: string[] }> {
   if (profile === 'plain') throw new Error('the kit needs storage partitioning, so there is no plain browser');
   const args = [
-    ...BASE_ARGS,
+    ...MACHINE_ARGS,
+    resolverRules(guard.hosts),
     ...(await partitioningArgs()),
     ...(profile === 'popup-blocked' ? POPUP_BLOCKED_ARGS : []),
   ];
