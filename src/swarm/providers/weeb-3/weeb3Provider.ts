@@ -7,6 +7,7 @@ import type { OwnPlayer, ProbeResult, ProviderStatus, ReadOptions, SwarmProvider
 import { MAX_CHUNK_PAYLOAD, singleOwnerChunkAddress } from '../../singleOwnerChunk';
 import { findNewestEntry } from './newestEntrySearch';
 import type { Weeb3Node } from './weeb3Package';
+import { allowOwnPlayback, stopOwnPlayback } from './weeb3Playback';
 import { WEEB3_HEALTHY_PEERS, WEEB3_LOST_PEERS, WEEB3_PATH, type Weeb3Runtime } from './weeb3Runtime';
 
 const SPAN_LENGTH = 8;
@@ -233,7 +234,8 @@ export class Weeb3Provider implements SwarmProvider {
   /**
    * weeb-3 plays a stream with its own player on the page's node. Loading it holds the node, starting it
    * if nothing has, and answers once the node is ready. The page shows no quality menu, so the player is
-   * set to choose its quality itself, as the app's own player does.
+   * set to choose its quality itself, as the app's own player does. Letting it go stops weeb-3's player for the video it
+   * attached, which weeb-3 would otherwise keep loading segments for.
    */
   readonly ownPlayer = async (): Promise<OwnPlayer> => {
     const { runtime } = this;
@@ -246,12 +248,19 @@ export class Weeb3Provider implements SwarmProvider {
       throw error;
     }
     let held = true;
+    let attached: HTMLVideoElement | null = null;
     return {
       attach: async (video, owner, topic, from) => {
+        attached = video;
+        allowOwnPlayback(video);
         await node.attachStream(video, owner, topic, from);
         chooseQualityItself(node, video);
       },
       detach: () => {
+        if (attached !== null) {
+          stopOwnPlayback(attached);
+          attached = null;
+        }
         if (held) {
           held = false;
           runtime.release();

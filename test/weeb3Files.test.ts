@@ -7,6 +7,8 @@ import {
   copyWeeb3Files,
   wasmBytesOf,
   WEEB3_FILES,
+  WEEB3_HLS_MODULE,
+  weeb3HlsRedirect,
   weeb3VersionOf,
   withServedWasmPath,
 } from '../scripts/weeb3-files.mjs';
@@ -71,6 +73,20 @@ describe("the build's copy of weeb-3's files", () => {
     expect(weeb3VersionOf(dir)).toBe('0.0.354001');
     expect(weeb3VersionOf(packageFolder())).toBeNull();
     expect(weeb3VersionOf(null)).toBeNull();
+  });
+
+  it("points weeb-3's own import of hls.js at the app's stoppable one, and no other import", () => {
+    const dir = packageFolder();
+    const loader = join(dir, 'snippets', 'weeb_3-0', 'static', 'hls_loader.js');
+    const target = join('/repo', WEEB3_HLS_MODULE);
+
+    expect(weeb3HlsRedirect('hls.js', loader, dir, '/repo')).toBe(target);
+    expect(weeb3HlsRedirect('hls.js', `${loader}?v=1`, dir, '/repo')).toBe(target);
+    expect(weeb3HlsRedirect('hls.js', '/repo/src/features/player/hlsPlayer.ts', dir, '/repo')).toBeNull();
+    expect(weeb3HlsRedirect('hls.js', `${dir}-other/index.js`, dir, '/repo')).toBeNull();
+    expect(weeb3HlsRedirect('./other.js', loader, dir, '/repo')).toBeNull();
+    expect(weeb3HlsRedirect('hls.js', undefined, dir, '/repo')).toBeNull();
+    expect(weeb3HlsRedirect('hls.js', loader, null, '/repo')).toBeNull();
   });
 
   it('copies nothing when the package is not installed, and answers so', () => {
