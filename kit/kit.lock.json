@@ -3,21 +3,14 @@
   "foundry": "v1.5.1",
   "swarmId": {
     "repo": "https://github.com/Solar-Punk-Ltd/solarpunk-id.git",
-    "commit": "41a62f8518eac8691f2cde08ce37635c1eb8b08b"
+    "commit": "facb47df3f8f5fb273a02962898a684f837f35a7"
   },
   "chatServer": {
     "repo": "https://github.com/Solar-Punk-Ltd/swarm-chat-aggregator-js.git",
-    "commit": "2c196bcca1a7e0cd42956a148682fe95e376d8e2"
+    "commit": "ec40b6bb6365ec825c521ef3d7b34d0ae146c09d"
   },
   "libraries": {
-    "@solarpunkltd/swarm-chat-js": {
-      "repo": "https://github.com/Solar-Punk-Ltd/swarm-chat-js.git",
-      "commit": "5f3b65f4f69e0781ff8780ee606402d2ec9363e7"
-    },
-    "@solarpunkltd/swarm-id": {
-      "repo": "https://github.com/Solar-Punk-Ltd/solarpunk-id.git",
-      "commit": "41a62f8518eac8691f2cde08ce37635c1eb8b08b",
-      "dir": "lib"
-    }
+    "@solarpunkltd/swarm-chat-js": { "npm": "9.0.0" },
+    "@solarpunkltd/swarm-id": { "npm": "0.10.0" }
   }
 }
