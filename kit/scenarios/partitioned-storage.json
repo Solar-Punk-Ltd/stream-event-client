@@ -1,0 +1,7 @@
+{
+  "name": "partitioned-storage",
+  "description": "Alice signs in to the viewer, and Swarm ID's frame in the viewer writes to storage kept apart from Swarm ID's own, as a browser does for two separate sites. The probe writes in the frame and shows a first-party Swarm ID page cannot read it. Expected: sign-in through the button frame works, the probe shows the frame's own storage.",
+  "profile": "partitioned",
+  "actors": { "alice": {} },
+  "steps": ["alice create-account password", "alice sign-in viewer", "expect frames-partitioned alice"]
+}

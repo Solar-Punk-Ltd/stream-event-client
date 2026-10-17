@@ -1,0 +1,9 @@
+{
+  "name": "evil-unlisted",
+  "description": "A hostile site embeds the strict Swarm ID build, whose allow list names the viewer but not it. Swarm ID must refuse it before any session, in its own words for a site its allow list does not serve, so its SwarmIdClient never initializes and getChatKey gives nothing. Expected: refused by the allow list, no key issued.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": {}
+  },
+  "steps": ["alice evil visit unlisted", "expect evil-refused alice"]
+}

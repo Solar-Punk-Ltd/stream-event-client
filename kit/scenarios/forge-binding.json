@@ -1,0 +1,9 @@
+{
+  "name": "forge-binding",
+  "description": "A hostile client writes a message whose Swarm ID chat binding names a site other than this chat's. A binding is for one site and proves nothing in another's chat, so the server must drop it as a binding failure. The server must receive every write, drop each exactly once for that reason, and the chat feed must hold none of their texts. Expected: a binding for another site is refused.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": {}
+  },
+  "steps": ["alice snapshot-drops", "alice evil forge binding", "expect server-dropped alice reasons=binding"]
+}

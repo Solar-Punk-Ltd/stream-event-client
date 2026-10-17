@@ -1,0 +1,25 @@
+{
+  "name": "ens-off-while-signed-in",
+  "description": "Alice turns on Show my ENS name on sites, signs in to the viewer, then turns it off in Swarm ID while still signed in and loads the viewer again at once. Swarm ID says sites stop receiving her wallet from then on. Her account has no drive, so it publishes nothing the reloaded frame could read, and the frame learns the change from the Swarm ID page that is open, which answers it when it joins the account's room. The viewer must hear that the link is gone, and the message she sends then must carry no wallet link in the chat and show her chosen name.",
+  "profile": "partitioned",
+  "accepted": {
+    "limit": "right after a reload Swarm ID's frame first reports the copy it saved, and corrects it a moment later, so a message sent inside that moment can still carry the wallet link"
+  },
+  "actors": {
+    "alice": {},
+    "bob": {}
+  },
+  "steps": [
+    "alice create-account wallet --ens-name",
+    "alice ens on",
+    "alice sign-in viewer",
+    "bob guest \"bob {run}\"",
+    "alice ens off",
+    "alice reload",
+    "expect ens-link alice off",
+    "alice send \"after turning it off {run}\"",
+    "expect no-wallet-link \"after turning it off {run}\"",
+    "expect sender bob \"after turning it off {run}\" name=chosen:alice badge=swarm-id ens=none",
+    "expect chat-feed"
+  ]
+}

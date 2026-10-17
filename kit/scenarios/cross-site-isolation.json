@@ -1,0 +1,18 @@
+{
+  "name": "cross-site-isolation",
+  "description": "One account signs in to both the viewer and a hostile site on another origin. The two sites' chat keys differ, since each is derived from the account over its own origin. The account then revokes the hostile site: the viewer stays signed in and keeps sending, while the hostile site's session is cut off. Expected: the two site keys differ, revoking evil leaves the viewer signed in.",
+  "profile": "partitioned",
+  "actors": { "alice": { "chatSource": "bee" } },
+  "steps": [
+    "alice create-account password",
+    "alice sign-in viewer",
+    "alice send \"before revoke {run}\"",
+    "alice evil visit allowed",
+    "alice evil sign-in",
+    "expect evil-site-key alice \"before revoke {run}\"",
+    "alice revoke evil",
+    "expect evil-cut-off alice",
+    "alice send \"after revoke {run}\"",
+    "expect sees alice \"after revoke {run}\""
+  ]
+}

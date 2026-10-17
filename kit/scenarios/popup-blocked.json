@@ -1,0 +1,7 @@
+{
+  "name": "popup-blocked",
+  "description": "Under a real popup blocker, Alice clicks the viewer's Swarm ID sign-in button and no window opens. The viewer says the window was blocked and keeps the button to press again, and leaves no half session behind. Expected: the blocked-window line and Try again, no half session.",
+  "profile": "popup-blocked",
+  "actors": { "alice": {} },
+  "steps": ["alice create-account password", "expect window-blocked alice"]
+}

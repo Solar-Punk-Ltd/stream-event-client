@@ -1,0 +1,19 @@
+# nginx's image writes this file at start with GATEWAY_UPSTREAM and GATEWAY_STAMP filled in. The chat library sends a
+# placeholder batch id on every write, and this replaces it with the gateway's own.
+server {
+  listen 8080;
+  client_max_body_size 1m;
+
+  location /soc/ {
+    limit_except GET POST OPTIONS { deny all; }
+    proxy_pass ${GATEWAY_UPSTREAM};
+    proxy_http_version 1.1;
+    proxy_set_header swarm-postage-batch-id ${GATEWAY_STAMP};
+  }
+
+  location / {
+    limit_except GET OPTIONS { deny all; }
+    proxy_pass ${GATEWAY_UPSTREAM};
+    proxy_http_version 1.1;
+  }
+}

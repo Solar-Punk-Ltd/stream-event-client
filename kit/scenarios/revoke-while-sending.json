@@ -1,0 +1,19 @@
+{
+  "name": "revoke-while-sending",
+  "description": "A hostile site is signed in to the person's account, and its authenticated calls to Swarm ID are answered. The account revokes it. Its session is cut off at once, over the account bus, so Swarm ID's authenticated calls are refused after the revoke, and after it reloads its restored session asks the account's published state, sees the revoke and stays refused. Expected: Swarm ID's authenticated calls are refused after the revoke, live and on reload.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": {}
+  },
+  "steps": [
+    "alice create-account password",
+    "alice sign-in viewer",
+    "alice evil visit allowed",
+    "alice evil sign-in",
+    "expect evil-authenticated alice",
+    "alice revoke evil",
+    "expect evil-cut-off alice",
+    "alice evil reload",
+    "expect evil-cut-off alice"
+  ]
+}

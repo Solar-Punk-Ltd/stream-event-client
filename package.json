@@ -11,13 +11,15 @@
     "lint": "oxlint --type-aware .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p e2e",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p e2e && tsc --noEmit -p kit",
     "test": "vitest run",
     "e2e": "pnpm build && playwright test -c e2e/playwright.config.ts",
     "e2e:record": "pnpm build && playwright test -c e2e/record.config.ts",
     "proof:weeb3": "pnpm build && playwright test -c e2e/weeb3-live.config.ts",
     "test:image": "node --test test/docker/image.docker.mjs",
-    "test:docker": "pnpm test:image && PLAYWRIGHT_INSTALL_DEPS=1 pnpm e2e:record"
+    "test:docker": "pnpm test:image && PLAYWRIGHT_INSTALL_DEPS=1 pnpm e2e:record",
+    "kit": "node --import ./kit/loader.mjs kit/src/cli.ts",
+    "test:kit": "PLAYWRIGHT_INSTALL_DEPS=1 node --import ./kit/loader.mjs kit/src/cli.ts test"
   },
   "dependencies": {
     "@ethersphere/bee-js": "13.1.0",
@@ -40,6 +42,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
+    "@snaha/bee-compose": "0.3.0",
     "@types/node": "24.13.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -51,6 +54,7 @@
     "oxlint-tsgolint": "7.0.2001",
     "sass": "1.104.1",
     "typescript": "7.0.2",
+    "viem": "2.55.13",
     "vite": "8.3.0",
     "vitest": "5.0.1"
   },

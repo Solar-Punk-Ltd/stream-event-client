@@ -1,0 +1,32 @@
+{
+  "name": "two-people-chat",
+  "description": "Alice signs in with a password account, reads the chat from her own Bee node and pays with her own drive. Bob signs in with an account secured with a wallet made for the run and lets the gateway pay. Each must see the other's message with the Swarm ID badge and the right stamp mark, and its details must say who paid. Alice then buys a second drive and changes the viewer's stamp to it in Swarm ID, sends on it, and Bob signs out. The chat feed must hold every message, each paid where it says.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": {},
+    "bob": {}
+  },
+  "steps": [
+    "alice create-account password",
+    "alice sign-in viewer",
+    "alice connect-source bee",
+    "alice buy-drive depth=20",
+    "alice choose-stamp mine --pick drive",
+    "bob create-account wallet",
+    "bob sign-in viewer",
+    "alice send \"alice on her own stamp {run}\" --stamp mine",
+    "bob send \"bob through the gateway {run}\"",
+    "expect sees alice \"bob through the gateway {run}\"",
+    "expect sees bob \"alice on her own stamp {run}\"",
+    "expect sender bob \"alice on her own stamp {run}\" name=chosen:alice badge=swarm-id stamp=own",
+    "expect sender alice \"bob through the gateway {run}\" name=chosen:bob badge=swarm-id stamp=gateway",
+    "expect details bob \"alice on her own stamp {run}\" identity=swarm-id sent=own own-feed=1 chat-feed=1 in-own-feed=yes",
+    "expect details alice \"bob through the gateway {run}\" identity=swarm-id sent=gateway ens=none",
+    "alice buy-drive depth=20",
+    "alice change-stamp",
+    "alice send \"alice on her second drive {run}\" --stamp mine",
+    "expect sees bob \"alice on her second drive {run}\"",
+    "bob sign-out",
+    "expect chat-feed"
+  ]
+}

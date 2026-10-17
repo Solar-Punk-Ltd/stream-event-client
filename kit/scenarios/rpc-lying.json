@@ -1,0 +1,23 @@
+{
+  "name": "rpc-lying",
+  "description": "Alice signs in with a wallet account and turns on Show my ENS name, so her messages carry a valid wallet link. Bob reads the chat through a browser whose Ethereum endpoint lies: it answers ENS's reverse lookup of every wallet with vitalik.eth, as a primary name whose address record names the wallet back. The viewer trusts the endpoint it is configured with for names, by design, so Bob's viewer shows the false name on Alice's message as a verified ENS name. Expected: the false name is shown, an accepted limit of trusting the configured endpoint.",
+  "profile": "partitioned",
+  "accepted": {
+    "limit": "the viewer trusts its configured Ethereum endpoint for names, so an endpoint that answers a false reverse and forward record makes it show the false name as verified"
+  },
+  "actors": {
+    "alice": {},
+    "bob": {}
+  },
+  "steps": [
+    "alice create-account wallet --ens-name",
+    "alice ens on",
+    "alice sign-in viewer",
+    "bob rpc lie",
+    "bob guest \"bob {run}\"",
+    "alice send \"the endpoint lies {run}\"",
+    "expect sender bob \"the endpoint lies {run}\" name=vitalik.eth badge=swarm-id ens=shown",
+    "expect rpc-answered bob",
+    "expect chat-feed"
+  ]
+}

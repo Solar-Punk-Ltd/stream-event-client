@@ -1,0 +1,18 @@
+{
+  "name": "stamp-key-stays-in-frame",
+  "description": "Alice buys a drive, picks My stamp for the viewer and sends a message on her own stamp, which Swarm ID's frame stamps without ever handing the stamp key or the account key to the page. The network, the page, its storage, its console and its traces are searched and hold neither key. Expected: the network and the page never carry the stamp key or the account key.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": {
+      "chatSource": "bee"
+    }
+  },
+  "steps": [
+    "alice create-account password",
+    "alice sign-in viewer",
+    "alice buy-drive depth=20",
+    "alice choose-stamp mine --pick drive",
+    "alice send \"the frame keeps the key {run}\" --stamp mine",
+    "expect no-key-leak alice"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "forge-wallet-link",
+  "description": "A hostile client writes messages carrying a wallet link that is wrong three ways: a non-canonical high-s wallet signature, a signature by another wallet, and a link naming another account than the binding's. The server must drop each as a binding failure, so no ENS name is ever shown for them. The server must receive every write, drop each exactly once for that reason, and the chat feed must hold none of their texts. Expected: high s, wrong wallet or another account, readers refuse, no name shown.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": {}
+  },
+  "steps": ["alice snapshot-drops", "alice evil forge wallet-link", "expect server-dropped alice reasons=binding"]
+}

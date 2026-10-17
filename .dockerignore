@@ -9,3 +9,11 @@ docs
 *.log
 .env
 .env.*
+# kit/ is a build-time folder. Only kit/evil is a build context (the hostile site), so the rest is left out,
+# the generated state most of all. kit/evil is included by default, and the evil Dockerfile is read with -f.
+kit/.run
+kit/src
+kit/test
+kit/scenarios
+kit/images
+

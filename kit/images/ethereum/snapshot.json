@@ -1,0 +1,22 @@
+{
+  "forkBlock": "26202337",
+  "rpc": "https://ethereum-rpc.publicnode.com",
+  "anvil": "v1.5.1",
+  "allowList": {
+    "name": "solarpunkid.eth",
+    "key": "buzz.solarpunk.sites",
+    "value": "http://127.0.0.1:4180"
+  },
+  "names": {
+    "alice": {
+      "name": "flowkit-alice.solarpunkid.eth",
+      "wallet": "0xeDc3dc08B868101DcFC941861d7EbA317D2af30e"
+    },
+    "bob": {
+      "name": "flowkit-bob.solarpunkid.eth",
+      "wallet": "0x74e03284e6E0A5A5a3d7597C4ecC52EEb0B17Dc2"
+    }
+  },
+  "nameless": "0x00000000000000000000000000000000f10ccafe",
+  "stateSha256": "58fff515e14486f9ee4e591d447979215e18a094626a915cbf8d1e7cceac34a1"
+}

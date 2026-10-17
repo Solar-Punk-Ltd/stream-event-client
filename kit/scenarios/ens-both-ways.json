@@ -1,0 +1,29 @@
+{
+  "name": "ens-both-ways",
+  "description": "Alice makes a Swarm ID account secured with the wallet the ENS snapshot named flowkit-alice.solarpunkid.eth, turns on Show my ENS name on sites and signs in to the viewer, and Bob makes one with a passkey in the sign-in window. Alice sends a message: Bob must see her ENS name with the Swarm ID badge, and in its details the ENS row with the checked tick and her chosen name. Alice turns the setting off and signs in again, after which her next message must show her chosen name and no ENS row, while the first keeps her ENS name. The setting reaches the viewer only at a sign-in, which ens-off-while-signed-in holds as a known finding.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": {},
+    "bob": {}
+  },
+  "steps": [
+    "alice create-account wallet --ens-name",
+    "alice ens on",
+    "alice sign-in viewer",
+    "expect ens-link alice on",
+    "bob create-account passkey",
+    "alice send \"with my ENS name {run}\"",
+    "expect sender bob \"with my ENS name {run}\" name=ens:alice badge=swarm-id ens=shown",
+    "bob read-details \"with my ENS name {run}\"",
+    "expect details bob \"with my ENS name {run}\" identity=swarm-id sent=gateway ens=alice",
+    "alice ens off",
+    "alice sign-out",
+    "alice sign-in viewer",
+    "expect ens-link alice off",
+    "alice send \"with my chosen name {run}\"",
+    "expect sender bob \"with my chosen name {run}\" name=chosen:alice badge=swarm-id ens=none",
+    "expect details bob \"with my chosen name {run}\" identity=swarm-id ens=none",
+    "expect sender bob \"with my ENS name {run}\" name=ens:alice badge=swarm-id ens=shown",
+    "expect chat-feed"
+  ]
+}

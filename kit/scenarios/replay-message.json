@@ -1,0 +1,13 @@
+{
+  "name": "replay-message",
+  "description": "A hostile client writes one well-formed guest message to the chat's inbox, waits for it to be published, then writes the identical bytes again. The repeat must not be published again: either the server receives it and drops it as a duplicate, or Bee never hands the identical chunk over a second time. Which of the two closed the replay is recorded. Expected: published once, shown once.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": {}
+  },
+  "steps": [
+    "alice evil replay \"replayed once {run}\"",
+    "expect replay-closed",
+    "expect published-once \"replayed once {run}\""
+  ]
+}

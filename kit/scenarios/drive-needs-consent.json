@@ -1,0 +1,16 @@
+{
+  "name": "drive-needs-consent",
+  "description": "Alice makes a Swarm ID account with a password and signs in to the viewer while she has no drive, then buys one, which becomes her account's default. She picks My stamp in the viewer and confirms nothing in Swarm ID. Swarm ID must give the viewer no stamp, the viewer must say so and offer Choose a stamp in Swarm ID, sending must be held, and no request of her browser may carry a postage stamp. A site uses only the drive the person picked for it, never the account default in its place.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": { "chatSource": "bee" }
+  },
+  "steps": [
+    "alice create-account password",
+    "alice sign-in viewer",
+    "expect frames-partitioned alice",
+    "alice buy-drive depth=20",
+    "alice choose-stamp mine",
+    "expect no-site-stamp alice"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "rpc-down",
+  "description": "Alice signs in with a wallet account and turns on Show my ENS name, so her messages carry a valid wallet link. Bob reads the chat through a browser whose Ethereum endpoint refuses every call. The viewer trusts the endpoint it is configured with for names, so with that endpoint down it can verify no name, and Bob's viewer shows Alice's chosen name with no ENS name. The endpoint must have been asked at least once, so the result is the endpoint's doing. Expected: no name is shown while the endpoint is down.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": {},
+    "bob": {}
+  },
+  "steps": [
+    "alice create-account wallet --ens-name",
+    "alice ens on",
+    "alice sign-in viewer",
+    "bob rpc down",
+    "bob guest \"bob {run}\"",
+    "alice send \"the endpoint is down {run}\"",
+    "expect sender bob \"the endpoint is down {run}\" name=chosen:alice badge=swarm-id ens=none",
+    "expect rpc-answered bob",
+    "expect chat-feed"
+  ]
+}

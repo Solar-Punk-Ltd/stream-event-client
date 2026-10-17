@@ -1,0 +1,131 @@
+# The flow kit's stack: bee-compose's chain and Bee nodes, and the kit's own services beside them on the same private
+# network. `kit up` runs every command against this file with the pins of kit.lock.json and the values it generated
+# for this stack in the environment, so nothing here is edited by hand per run. Containers reach each other by service
+# name on the kit's network. Every port is published on loopback only.
+name: flow-kit
+
+include:
+  - path: ../node_modules/@snaha/bee-compose/compose.yml
+
+services:
+  # Ethereum mainnet as the ENS snapshot holds it, for Swarm ID's and the viewer's ENS reads.
+  ethereum:
+    build:
+      context: ./images/ethereum
+      args:
+        FOUNDRY_VERSION: ${FOUNDRY_VERSION:?}
+    image: flow-kit-ethereum:${KIT_ENS_STATE:?}
+    command: ${KIT_ETHEREUM_ARGS:?}
+    ports:
+      - '127.0.0.1:8546:8545'
+
+  swarm-id:
+    build:
+      context: ./images/swarm-id
+      args:
+        SWARM_ID_REPO: ${KIT_SWARM_ID_REPO:?}
+        SWARM_ID_COMMIT: ${KIT_SWARM_ID_COMMIT:?}
+    image: flow-kit-swarm-id:${KIT_SWARM_ID_COMMIT:?}
+    environment:
+      PUBLIC_SITE_ALLOW_LIST_DEV_ORIGINS: ${KIT_LISTED_ORIGINS:-}
+      PUBLIC_ETHEREUM_RPC_URL: ${KIT_ETHEREUM_ORIGIN:-}
+    ports:
+      - '127.0.0.1:5500:5500'
+
+  # A strict Swarm ID build whose allow list names the viewer but not the hostile site, for the unlisted check. Same
+  # image, so it costs no extra build.
+  swarm-id-strict:
+    image: flow-kit-swarm-id:${KIT_SWARM_ID_COMMIT:?}
+    depends_on:
+      - swarm-id
+    environment:
+      PUBLIC_SITE_ALLOW_LIST_DEV_ORIGINS: ${KIT_VIEWER_ORIGIN:-}
+      PUBLIC_ETHEREUM_RPC_URL: ${KIT_ETHEREUM_ORIGIN:-}
+    command:
+      ['pnpm', '--filter', '@swarm-id/ui', 'exec', 'vite', 'dev', '--host', '0.0.0.0', '--port', '5501', '--strictPort']
+    ports:
+      - '127.0.0.1:5501:5501'
+
+  signaling:
+    image: flow-kit-swarm-id:${KIT_SWARM_ID_COMMIT:?}
+    depends_on:
+      - swarm-id
+    command: ['pnpm', '--filter', '@swarm-id/signaling', 'start']
+    environment:
+      PORT: '5520'
+    ports:
+      - '127.0.0.1:5520:5520'
+
+  # The chat server at its pinned commit, built against the chat library kit.lock.json pins. Its build context is the
+  # set of libraries `kit libraries` packed, and the server's source is fetched inside the build.
+  chat-server:
+    build:
+      context: ${KIT_LIBRARIES_DIR:?}
+      dockerfile: ${KIT_DIR:?}/images/chat-server/Dockerfile
+      args:
+        CHAT_SERVER_REPO: ${KIT_CHAT_SERVER_REPO:?}
+        CHAT_SERVER_COMMIT: ${KIT_CHAT_SERVER_COMMIT:?}
+    image: flow-kit-chat-server:${KIT_CHAT_SERVER_COMMIT:?}-${KIT_LIBRARIES_ID:?}
+    stop_grace_period: 60s
+    environment:
+      LISTEN_BEE_URL: http://queen:1633
+      WRITE_BEE_URL: http://worker-2:1633
+      HEARTBEAT_BEE_URL: http://worker-1:1633
+      WRITE_STAMP: ${KIT_SERVER_STAMP:-}
+      # Heartbeats are written to the inbox, as every chat write is, so they share the gateway's inbox stamp and leave
+      # the server's own stamp to its feeds, which spread over every bucket.
+      HEARTBEAT_STAMP: ${KIT_GATEWAY_STAMP:-}
+      FEED_KEY: ${KIT_FEED_KEY:-}
+      GSOC_KEY: ${KIT_GSOC_KEY:-}
+      GSOC_IDENTIFIER: ${KIT_GSOC_IDENTIFIER:-}
+      CHAT_TOPICS: ${KIT_CHAT_TOPIC:-}
+      CHAT_SITE_ORIGIN: ${KIT_VIEWER_ORIGIN:-}
+      HEALTH_PORT: '3000'
+      # The server's own heartbeat timings, a minute apart. Every heartbeat replaces the one inbox chunk a chat message
+      # also lives at. With heartbeats two seconds apart, a chat message on a fresh stack often never reaches the
+      # server.
+      MIN_CONNECTED_PEERS: '1'
+    volumes:
+      - chat-checkpoints:/app/checkpoints
+    ports:
+      - '127.0.0.1:3100:3000'
+
+  gateway:
+    build: ./images/gateway
+    image: flow-kit-gateway:local
+    environment:
+      GATEWAY_UPSTREAM: http://worker-1:1633
+      GATEWAY_STAMP: ${KIT_GATEWAY_STAMP:-}
+    ports:
+      - '127.0.0.1:8080:8080'
+
+  # The hostile site, built against the packed libraries like the viewer, on a loopback site of its own.
+  evil:
+    build:
+      context: ..
+      dockerfile: kit/images/evil/Dockerfile
+      additional_contexts:
+        libraries: ${KIT_LIBRARIES_DIR:?}
+    image: flow-kit-evil:${KIT_LIBRARIES_ID:?}
+    ports:
+      - '[::1]:4999:80'
+
+  # The viewer from this checkout, built against the libraries kit.lock.json pins rather than the published versions
+  # its lockfile names, until those are the same.
+  viewer:
+    build:
+      context: ..
+      dockerfile: kit/images/viewer/Dockerfile
+      additional_contexts:
+        libraries: ${KIT_LIBRARIES_DIR:?}
+    image: flow-kit-viewer:${KIT_LIBRARIES_ID:?}
+    environment:
+      GATEWAY_MODE: proxy
+      BEE_GATEWAY_URL: http://worker-1:1633
+      CHAT_WRITE_URL: ${KIT_GATEWAY_ORIGIN:-}
+      SWARM_ID_URL: ${KIT_SWARM_ID_ORIGIN:-}
+    ports:
+      - '127.0.0.1:4180:80'
+
+volumes:
+  chat-checkpoints:

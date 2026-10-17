@@ -1,0 +1,22 @@
+{
+  "name": "evil-allowed",
+  "description": "Alice signs in to the viewer, sends one message so the viewer's chat address is in the feed, buys a drive and picks it for the viewer, and Swarm ID's frame names that drive to the viewer, so she holds a stamp a site could be handed. A hostile site on an allow-listed origin then signs in her account the same way the viewer does, and in the connect window she picks No drive for it rather than the account default the window offers. It gets its own per-site chat key, which differs from the viewer's chat address for the same account and from the account id, it is given no stamp, and Swarm ID refuses to stamp a chunk for it. Expected: the hostile site gets only its own site key, cannot read the viewer's key or stamp, cannot stamp for the viewer.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": {
+      "chatSource": "bee"
+    }
+  },
+  "steps": [
+    "alice create-account password",
+    "alice sign-in viewer",
+    "alice send \"viewer message {run}\"",
+    "alice buy-drive depth=20",
+    "alice choose-stamp mine --pick drive",
+    "expect site-drive alice",
+    "alice evil visit allowed",
+    "alice evil sign-in --drive none",
+    "expect evil-site-key alice \"viewer message {run}\"",
+    "expect evil-no-stamp alice"
+  ]
+}

@@ -42,7 +42,7 @@ export const REPO_ROOT = resolve(HERE, '..');
 export const BASELINE_PATH = process.env.UNUSED_EXPORTS_BASELINE ?? join(HERE, 'unused-exports-baseline.json');
 const ROOTS = process.env.UNUSED_EXPORTS_ROOTS
   ? process.env.UNUSED_EXPORTS_ROOTS.split(',').filter(Boolean)
-  : ['src', 'test', 'e2e'];
+  : ['src', 'test', 'e2e', 'kit'];
 /** Build output and tool scratch are copies of the source, so they double every count they touch. */
 const SKIP = ['node_modules', '/dist', '.stryker-tmp', 'coverage', '/build', '/.next'];
 

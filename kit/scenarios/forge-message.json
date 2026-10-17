@@ -1,0 +1,15 @@
+{
+  "name": "forge-message",
+  "description": "Alice signs in to the viewer, so the viewer is told her chat address. A hostile client then writes two bad messages to the inbox: one claiming Alice's real chat address though its signature was not made by her key, and one whose body was changed after signing. The server must receive both, drop both as bad signatures, and publish neither, so neither text is in the chat feed. Expected: the server rejects a claimed address and a tampered body.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": {}
+  },
+  "steps": [
+    "alice create-account password",
+    "alice sign-in viewer",
+    "alice snapshot-drops",
+    "alice evil forge message",
+    "expect server-dropped alice reasons=signature"
+  ]
+}

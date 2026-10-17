@@ -1,0 +1,21 @@
+{
+  "name": "eth-name-refused",
+  "description": "Bob tries to chat as a guest named vitalik.eth, then with look-alikes of it, a Cyrillic e and a full-width dot, and each must be refused with the reason shown, since a name ending in .eth is kept for verified ENS names. A plain name is then taken, and his message shows it with the guest badge.",
+  "profile": "partitioned",
+  "actors": {
+    "bob": {}
+  },
+  "steps": [
+    "bob guest \"vitalik.eth\"",
+    "expect name-refused bob",
+    "bob guest \"vitalik.еth\"",
+    "expect name-refused bob",
+    "bob guest \"vitalik．eth\"",
+    "expect name-refused bob",
+    "bob guest \"vitalik {run}\"",
+    "expect joined bob",
+    "bob send \"a guest, not an ENS name {run}\"",
+    "expect sender bob \"a guest, not an ENS name {run}\" name=chosen:bob badge=guest stamp=gateway",
+    "expect chat-feed"
+  ]
+}

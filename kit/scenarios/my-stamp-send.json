@@ -1,0 +1,20 @@
+{
+  "name": "my-stamp-send",
+  "description": "Alice makes a Swarm ID account with a password, signs in to the viewer through Swarm ID's button, sends one message the gateway pays for, buys a drive, picks My stamp, picks that drive for the viewer in the Swarm ID window, and sends one on it. The chat feed must hold both, signed and vouched for by Swarm ID, the second paid with her own stamp, and nothing the viewer's page could reach may carry her keys.",
+  "profile": "partitioned",
+  "actors": {
+    "alice": { "chatSource": "bee" }
+  },
+  "steps": [
+    "alice create-account password",
+    "alice sign-in viewer",
+    "expect frames-partitioned alice",
+    "expect outside-blocked alice",
+    "alice send \"the gateway pays for this one {run}\"",
+    "alice buy-drive depth=20",
+    "alice choose-stamp mine --pick drive",
+    "alice send \"this one is on my own stamp {run}\" --stamp mine",
+    "expect chat-feed",
+    "expect no-key-leak alice"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "device-feed-leak",
+  "description": "Alice signs in, buys a drive and picks it for the viewer, so her account holds a connected site with its app secret and a stamp with its signer key. The account's device-state feed is then read from Swarm the way anyone who finds its address can: the newest pointer of each device's feed is fetched, the key is taken from the pointer when it carries one, and the state is opened with that key alone. The feed's address is worked out from the account here, which stands for an outsider who sees the feed's chunks on Swarm. The pointer should carry no key, and the state should hold no app secret and no signer key. Today the pointer carries the key and the state holds both, a known issue in Swarm ID that is not yet fixed, so this stays red at the clean check until the feed stops publishing re-derivable secrets.",
+  "profile": "partitioned",
+  "known": {
+    "finding": "known issue in Swarm ID: the device-state feed publishes every connected site's app secret and every stamp's signer key, and its epoch pointer carries the feed's decryption key in plain text, so anyone who finds the feed's address can read those secrets",
+    "failsAt": "expect device-feed-clean alice"
+  },
+  "actors": {
+    "alice": {
+      "chatSource": "bee"
+    }
+  },
+  "steps": [
+    "alice create-account password",
+    "alice sign-in viewer",
+    "alice buy-drive depth=20",
+    "alice choose-stamp mine --pick drive",
+    "alice evil read-device-feed",
+    "expect device-feed-clean alice"
+  ]
+}

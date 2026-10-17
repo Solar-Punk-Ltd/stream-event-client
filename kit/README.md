@@ -1,0 +1,243 @@
+# The full-flow test kit
+
+The kit brings the whole chat and identity stack up on one machine with one command, and drives it with named
+people and verbs written as data. It runs the real Swarm ID app, the real chat library, the real chat server and real
+Bee nodes on a local chain, so a flow that the browser journeys fake runs here for real. Every address it uses is a
+local development host, every key is made for the run, and the only money it moves is test money on its own chain.
+
+## Commands
+
+```bash
+pnpm kit up               # start the stack, or keep the one that is up, and refuse when it is not healthy
+pnpm kit up --fresh       # the same from nothing: chain, nodes and generated values made again
+pnpm kit status           # what runs, what each check reads, and where each part answers
+pnpm kit run my-stamp-send   # or any scenario in scenarios/
+pnpm kit libraries        # pack the libraries kit.lock.json pins and link them for the kit itself
+pnpm kit bake-ens         # fork Ethereum mainnet once and dump the ENS snapshot, the one command that reads the network
+pnpm kit down             # stop the containers and keep their volumes
+pnpm kit down --fresh     # remove the containers, their volumes and the generated values
+pnpm kit probe            # measure the addressing schemes, see below
+pnpm test:kit             # up --fresh, every scenario, down --fresh, for one CI job with a Docker daemon
+```
+
+The first `kit up` on a machine builds every image, which compiles Bee from source and installs the Swarm ID fork.
+Later ones reuse them.
+
+## What runs
+
+| Part        | Address                                             | What it is                                                                                                               |
+| ----------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Viewer      | `http://127.0.0.1:4180`                             | this repository's own nginx image, with a `config.json` made for the stack                                               |
+| Swarm ID    | `http://localhost:5500`                             | the Solar Punk fork's identity UI on its development server, its allow list naming the viewer                            |
+| Signaling   | `http://localhost:5520`                             | the fork's account-bus signaling server                                                                                  |
+| Gateway     | `http://localhost:8080`                             | nginx in front of worker-1, stamping every chat write with its own batch                                                 |
+| Chat server | `http://localhost:3100/health`                      | swarm-chat-aggregator-js, listening on the queen, writing its feeds through worker-2 and its heartbeats through worker-1 |
+| Bee         | `:1633` queen, `:16331` worker-1, `:16332` worker-2 | bee-compose's nodes, all full nodes, on Bee at the pinned version                                                        |
+| Chain       | `http://localhost:9545`                             | bee-compose's anvil on its baked Gnosis snapshot, chain 100                                                              |
+| Ethereum    | `http://localhost:8546`                             | anvil booted offline from the kit's ENS snapshot, chain 1, read by Swarm ID and the viewer for ENS                       |
+
+worker-2 is the viewer's own Bee node, the one a person's My stamp messages go through. The versions and commits
+of everything above are in `kit.lock.json`, and bee-compose is the version `package.json` names. Containers reach
+one another by service name on the kit's own Docker network. Every port is published on loopback only.
+
+## The libraries under test
+
+The viewer and the chat server are built against the chat library and the Swarm ID library that `kit.lock.json`
+names under `libraries`, installed over the versions their own lockfiles name. Before a release is published an
+entry names its repository and commit, with `dir` for a package in a folder of a repository that holds several, and
+`kit libraries` packs it in a container from exactly that commit, as `npm publish` would. After the publish the same
+entry becomes `{ "npm": "9.0.0" }`, and the kit runs what users install. The packed set is the build context the
+viewer's and the chat server's images install from, so both run the same bytes. `kit up` packs and links them first.
+
+The kit's own process reads the chat feed with the same chat library, so `kit libraries` also installs the set in
+`node_modules/.flow-kit/` and points `node_modules/@solarpunkltd/*` at it. That leaves `package.json` and the
+lockfile as committed, and a plain `pnpm install` puts the published versions back, until the next `kit libraries`.
+
+## ENS
+
+Swarm ID and the viewer read ENS from the kit's Ethereum chain, anvil booted from a snapshot committed in
+`images/ethereum/`, so no run reads the network. `kit bake-ens` makes the snapshot: it forks mainnet at a block near
+the head of a public endpoint, and as the owner of `solarpunkid.eth`, by impersonation, sets that name's
+`buzz.solarpunk.sites` record to the viewer's origin and gives two wallets names under it,
+`flowkit-alice.solarpunkid.eth` and `flowkit-bob.solarpunkid.eth`, each with its address and reverse record. The
+wallets' keys come from fixed phrases, so they are the same on every bake and worth nothing outside the kit's chain.
+It then runs every lookup the kit makes through Swarm ID's own library, writes every account and slot those reads
+touched into the chain, since a fork's dump keeps only what was written, dumps it, boots the dump offline and runs
+the lookups again. `images/ethereum/snapshot.json` records the block, the names and the dump's hash. Two bakes from
+the same block give the same hash. The public endpoint serves only recent blocks, so a later bake forks from a new
+block and gives a new snapshot with the same names. Swarm ID takes only https origins from that record, so the kit's
+http viewer is still admitted through Swarm ID's development origins, and the record is read and set aside.
+
+## Accounts and wallets
+
+An account is made with a password, a passkey or a wallet. A passkey is a Chrome virtual authenticator with the PRF
+extension, as the Swarm ID fork's own suite installs it. Its credential lives in the tab that made it and loses its
+PRF secret when copied to another, so a passkey account is made in the sign-in window opened from the viewer, which
+signs the person in at the same time. A wallet is an EIP-1193 provider the kit puts in Swarm ID's pages, named
+MetaMask so Swarm ID's wallet picker offers it, which signs in the kit's process with a key made for the run, funded
+on the local chain, or with `--ens-name` the wallet the ENS snapshot named for the actor. Swarm ID's documents get the
+provider and the kit's network settings from an init script, and a sign-in window that opened before the init script
+reached it is given them and loaded once more. A document is never rewritten on its way in, since Chrome then counts
+it as public and refuses its requests to loopback.
+
+## The browser guard
+
+Two layers keep every actor's browser on this machine. Each actor's context routes every request and stops one to a
+host off this machine. Under that, the browser starts with a resolver rule under which every name but `localhost` and
+names under it resolves to nothing, so a request the routing does not see still reaches no outside host. Service
+workers are blocked, since their requests can pass the routing, and the viewer's Weeb3 fake needs none.
+`expect outside-blocked`, in `my-stamp-send`, proves both: the viewer's page asks for an outside https address and the
+routing stops it, and a page of the same browser with no routing at all cannot resolve that address's name.
+
+Each stopped request is judged once, at the end of the step it came in, or after the last step until the browsers
+closed. Such a request fails that step, or the run after its last step, naming it, unless the release is known to
+make it: Swarm ID's wallet picker loads a font from its author's site and reads mainnet through viem's default
+endpoint. Those are stopped too and listed in the verdict with why they are made, and the list is in
+`src/addresses.ts`. The guard sees what the browser asks for. The kit's own process and the containers are not under
+it.
+
+## The addressing scheme
+
+Swarm ID's frames in the viewer must live apart from Swarm ID's own storage, as they do for any two separate sites,
+so the viewer and Swarm ID must be two sites. `kit probe` measures that in a Chromium with third-party storage partitioning
+on, for two schemes. The first puts each part on a name of its own under `localhost`. The second puts the viewer on
+`127.0.0.1` and Swarm ID on `localhost`, the pair the Swarm ID fork's own suites use. It also asks the chat library
+whether a Swarm ID binding naming the viewer's origin is accepted, because the chat, the chat server and Swarm ID
+take a plain http site only on `localhost`, `127.0.0.1` or `[::1]`. `kit up` serves the first scheme that passes
+both, and records the probe with the stack. `KIT_ADDRESSING=names` or `loopback` overrides the choice.
+
+## The preflight
+
+`kit libraries` and `kit bake-ens` refuse, and exit 1, when the Docker daemon is not on this machine, before they build
+or run a container. `kit up` refuses to start, and exits 1, when an address is not a local development host, when the Docker daemon is
+not on this machine, when one of its ports is held by another program, when Docker has less than 4 GiB, or when
+bee-compose's containers belong to another cluster. After the bring-up, and before every scenario, the same gate refuses a chain that does not answer chain
+100, a Bee node that is not ready or has fewer than two peers, a chat server whose `/health` is not 200 or none of
+whose heartbeats has come back through the inbox yet, an ENS lookup of a baked wallet that does not give its name, a
+stamp of
+the chat server that is not usable or is 80 percent full, and a gateway stamp that is not usable. The gateway's
+stamp is held to being usable alone, because every chat write and every heartbeat goes to the inbox's one address,
+Bee's own stamper takes a new slot of that address's bucket for each, and the mutable batch wraps the bucket, so it
+reads full a few minutes after the first write and keeps working.
+
+## Scenarios
+
+A scenario is a JSON file in `scenarios/`: a name, a description, a browser profile, its actors and its steps, one
+line each. A step is `<actor> <verb> [args]`, or `expect <check> [args]` for an assertion. Quoted text is one
+argument, and `{run}` in it becomes the run's id, so a scenario run twice on one stack does not meet its first run's
+messages. A `--flag` with no value after it is a flag. Every verb is a function in `src/verbs.ts`,
+`src/accountVerbs.ts`, `src/chatVerbs.ts` or `src/securityVerbs.ts`, registered by name, and a step naming a verb the kit lacks fails the run
+before anything starts. A scenario with `known` reproduces a finding of the release and stays red until it is fixed.
+`known` names the finding and `failsAt`, the step whose failure is its direct evidence. `kit test` passes while the
+scenario fails at that step, and fails when it passes, so it is turned into one that must pass, or when it fails at any
+other step, since that failure says nothing about the finding. The verdict records the step it failed at. A scenario
+with `accepted` must pass, and its expected result is a limit of the product by design, named in `limit` in plain
+words. The verdict and the run's line carry it, so such a pass is never read as more than it is.
+
+A step that needs one of Swarm ID's buttons waits for it to show in Swarm ID's frame. Under load the frame can miss the
+Swarm ID library's start deadline, and the viewer then gives up on the button and offers Try again in its place. The
+kit presses Try again once, as a person would, and records each press in the verdict under the finding
+`Swarm ID button tried again`, with the button and the viewer's words. If the viewer gives up a second time, the step
+fails with those words.
+
+| Verb                                             | What it does                                                                                                                                                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `create-account password`                        | an account made on Swarm ID's own site with a password made for the run                                                                                      |
+| `create-account wallet [--ens-name]`             | an account secured with a test wallet, made for the run or the one the snapshot named for the actor                                                          |
+| `create-account passkey`                         | an account made with a passkey in the sign-in window from the viewer, which also signs in                                                                    |
+| `sign-in viewer`                                 | Swarm ID's button in My Swarm, its window, the account unlocked its own way and confirmed there                                                              |
+| `sign-out`                                       | Sign out in My Swarm, after which the viewer offers Swarm ID's sign-in again                                                                                 |
+| `connect-source bee`, `gateway` or `weeb3`       | where Chat history is read from, in My Swarm. weeb3 is the viewer's fake, named in the verdict                                                               |
+| `guest "name"`                                   | asks to chat as a guest with that name                                                                                                                       |
+| `send "text" [--stamp mine]`                     | a chat message, sent once the chat has read it back, and who should have paid for it                                                                         |
+| `buy-drive depth=20`                             | a real batch on the chain through Swarm ID's `/dev` page, owned by the account's postage signer                                                              |
+| `choose-stamp mine` or `gateway`                 | who pays, in My Swarm. `--pick drive` also picks the run's drive in the Swarm ID window                                                                      |
+| `change-stamp`                                   | Change stamp in Swarm ID, and the run's newest drive picked in its window                                                                                    |
+| `link-wallet`                                    | Show my ENS name on sites turned on in Swarm ID, so the wallet signs the link                                                                                |
+| `ens on` or `off`                                | the same setting turned on or off                                                                                                                            |
+| `fail-copies on` or `off`                        | the actor's browser refuses every copy into their own feed, until off, after a copy was given up                                                             |
+| `sync`                                           | Sync in My stamp's own feed line, until it says what was copied                                                                                              |
+| `reload`                                         | the viewer's page loaded again                                                                                                                               |
+| `read-details "text"`                            | a message's details opened from its badge                                                                                                                    |
+| `expect frames-partitioned <actor>`              | Swarm ID's frame in the viewer is kept apart from Swarm ID's own storage                                                                                     |
+| `expect outside-blocked <actor>`                 | the browser guard's control, above                                                                                                                           |
+| `expect chat-feed`                               | the chat feed holds every message sent, signed, vouched for, and paid where the recorded network says                                                        |
+| `expect no-key-leak <actor>`                     | the account key, the stamp key and the password are nowhere the viewer's page could reach                                                                    |
+| `expect no-site-stamp <actor>`                   | Swarm ID gave the viewer no stamp, the viewer offers to choose one, and nothing was stamped                                                                  |
+| `expect sees <actor> "text"`                     | the message shows in that actor's chat                                                                                                                       |
+| `expect sender <actor> "text" ...`               | the name, `ens:<who>` or `chosen:<who>`, the badge, the own stamp mark above it, and `ens=shown` or `none` for the ENS name mark                             |
+| `expect details <actor> "text" ...`              | identity, who paid, the ENS row with its tick, and the Own feed and Chat feed counts                                                                         |
+| `expect own-feed-line <actor> ...`               | My stamp's line, Own feed: N of M messages and how many are missing                                                                                          |
+| `expect ens-link <actor> on` or `off`            | what Swarm ID's frame last told the viewer carries the actor's wallet, or not. `--record` only writes down what it saw                                       |
+| `expect no-wallet-link "text"`                   | the message the chat feed holds with that text carries no wallet link                                                                                        |
+| `expect name-refused <actor>`                    | the guest name was refused with its reason, and the actor does not chat                                                                                      |
+| `expect joined <actor>`                          | the actor chats                                                                                                                                              |
+| `expect site-drive <actor>`                      | Swarm ID's frame named to the viewer the drive picked for it                                                                                                 |
+| `evil visit allowed` or `unlisted`               | the hostile site opened in the actor's browser, against the Swarm ID build that lists it or the strict one that does not                                     |
+| `evil sign-in [--drive none]`                    | the account signed in to the hostile site, and with `none` No drive picked for it in the connect window                                                      |
+| `evil reload`                                    | the hostile site loaded again                                                                                                                                |
+| `evil forge message`, `binding` or `wallet-link` | bad messages written raw to the chat's inbox: a claim of the actor's chat address and a tampered body, a binding for another site, or three bad wallet links |
+| `evil replay "text"`                             | one guest message written, published, then written again byte for byte                                                                                       |
+| `evil read-device-feed`                          | the account's device-state feeds read from Swarm as an outsider: the pointer, the key it carries, and the state it opens                                     |
+| `snapshot-drops`                                 | the chat server's received and dropped counts, for `server-dropped`                                                                                          |
+| `revoke evil`                                    | the hostile site removed from the account on Swarm ID's Apps screen                                                                                          |
+| `rpc down`, `lie` or `honest`                    | the actor's Ethereum endpoint refuses every call, answers ENS's reverse lookup with a false name, or answers truthfully                                      |
+| `expect evil-refused <actor>`                    | Swarm ID refused the hostile site by its allow list, and it gets no key                                                                                      |
+| `expect evil-site-key <actor> "text"`            | the hostile site's chat key differs from the viewer's and the account's, the viewer's taken from the message and the frame                                   |
+| `expect evil-no-stamp <actor>`                   | the hostile site has no stamp, and Swarm ID refuses to stamp a chunk for it                                                                                  |
+| `expect evil-authenticated <actor>`              | the hostile site's authenticated calls are answered                                                                                                          |
+| `expect evil-cut-off <actor>`                    | the hostile site's authenticated calls are refused                                                                                                           |
+| `expect server-dropped <actor> reasons=…`        | the server received every forged write, dropped each for its reason exactly, and the chat feed holds none of their texts                                     |
+| `expect replay-closed`                           | the repeat was dropped as a duplicate or never handed over by Bee, and which of the two is recorded                                                          |
+| `expect published-once "text"`                   | the chat feed holds the message once                                                                                                                         |
+| `expect rpc-answered <actor>`                    | the endpoint setting answered at least one call                                                                                                              |
+| `expect device-feed-clean <actor>`               | no device-state pointer carries its key, and no state it opens holds an app secret or a signer key                                                           |
+| `expect window-blocked <actor>`                  | under a popup blocker the sign-in window is refused, the viewer says so and offers the button again                                                          |
+
+A site uses only the drive the person picked for it in Swarm ID, never the account's default in its place, so
+`choose-stamp mine --pick drive` needs the viewer to offer Choose a stamp in Swarm ID and fails when Swarm ID gave
+the site a stamp without a pick. `drive-needs-consent` holds the other side: a drive bought after the sign-in, My
+stamp chosen and nothing confirmed, and the viewer must have no stamp.
+
+`no-site-stamp` looks for stamped requests, ones carrying a stamp made outside Bee or naming the drive for Bee to
+stamp with, in the viewer's page and in the Swarm ID frames embedded in it, which act
+for the viewer's site. It leaves out Swarm ID's own windows, its `/dev` page and its sign-in window, because there
+the identity app stamps the account's own state and backups with the account's drive after a purchase. That is the
+account keeping its own records, not a site spending the drive, and a run that counted it failed with every step
+passing.
+
+An actor's `chatSource` of `bee` picks the viewer's own Bee node for the chat history before the first page load,
+since My stamp needs one.
+
+## Evidence
+
+Every run writes `test-results/kit/<run id>/<scenario>/`:
+
+- `header.json`: the commits under test, the lock, the Bee version, the browser and its switches, the addressing
+  scheme and its probe, the machine with its cpu ceiling, and the other containers on the daemon
+- `preflight.json` and `verdict.json`: the gate's checks, and each step with its time, its error and its screenshot
+- `actors/<name>/`: the console, the whole network as a HAR, the traces and a screenshot after every step
+- `metrics/before`, `metrics/after` and `metrics/diff`: every Bee node's whole `/metrics`, and every series that
+  moved, ranked by how far
+- `server-health-before.json` and `server-health-after.json`: the chat server's `/health`
+- `services/`: each container's standard output and error apart, and its state and exit code
+
+The trace is paused while a password is typed and until the page has left the field, while the recovery phrase is on
+screen, while a drive is bought on Swarm ID's `/dev` page, whose Chain tab shows a private key, and while the kit reads
+an account key or a stamp key out of Swarm ID for `no-key-leak` to look for. A step that fails inside one of those stretches takes no screenshot, since the
+secret may still be on screen. Those keys are held in the kit's memory and
+written to no file of its own. `no-key-leak` searches every trace as well, so a trace that caught one fails the run, as
+it did before these pauses covered the typed fields. Its silence counts only when the search looked at something: the
+recorded network must hold the drive's batch id, which is public, and at least one trace must hold text, or the check
+fails. The viewer's page, its storage and what its window was sent are read while the browser is open.
+
+## In a CI job
+
+`pnpm test:kit` needs a CI job with a Docker daemon. The job runs as root inside a container, so Chromium starts with
+`--no-sandbox`, the browser is installed by the suite itself, and the stack's containers are siblings of the job. The
+kit therefore joins its own Docker network from inside the job and forwards each loopback port to its service, so the
+browser still sees only loopback addresses. Files reach the daemon by image build or `docker compose cp`, never by a
+bind mount.
+
+A CI system that runs suites by script name needs `test:kit` named to it, since the kit is not one of the usual
+scripts.
