@@ -57,14 +57,26 @@ type Read = 'feed-head' | 'feed-entry' | 'soc' | 'chunk' | 'bytes';
 /** A provider each kind of read of which answers as the test says, logging what it was asked and with which owner. */
 class Answering implements SwarmProvider {
   readonly asked: Read[] = [];
+  /** Every read of the stream list's feed, in order: `head`, or `entry` and its index. */
+  readonly streamListReads: string[] = [];
   answers: Partial<Record<Read, SwarmAnswer>> = {};
+  /** What a read of one of the stream list's entries answers, where the test says, every other read untouched. */
+  streamListEntry: SwarmAnswer | null = null;
   found: ProbeResult = { kind: 'ok', elapsedMs: 3, version: '2.8.2' };
   current: ProviderStatus = { state: 'ready' };
 
-  readFeedHead = async (owner: string, _topic: unknown, options?: ReadOptions) =>
-    this.read('feed-head', owner, options);
-  readFeedEntry = async (owner: string, _topic: unknown, _index: number, options?: ReadOptions) =>
-    this.read('feed-entry', owner, options);
+  readFeedHead = async (owner: string, _topic: unknown, options?: ReadOptions) => {
+    this.noteStreamListRead(owner, 'head');
+    return this.read('feed-head', owner, options);
+  };
+  readFeedEntry = async (owner: string, _topic: unknown, index: number, options?: ReadOptions) => {
+    this.noteStreamListRead(owner, `entry ${index}`);
+    if (owner === OWNER && this.streamListEntry !== null) {
+      this.asked.push('feed-entry');
+      return this.streamListEntry;
+    }
+    return this.read('feed-entry', owner, options);
+  };
   readSoc = async (owner: string, _identifier: string, options?: ReadOptions) => this.read('soc', owner, options);
   readChunk = async (_address: string, options?: ReadOptions) => this.read('chunk', '', options);
   readBytes = async (_reference: string, options?: ReadOptions) => this.read('bytes', '', options);
@@ -85,6 +97,12 @@ class Answering implements SwarmProvider {
     }
     // The stream list's own reads name its owner, the stream's playlist reads the stream's.
     return text(owner === OWNER ? LIST : PLAYLIST);
+  }
+
+  private noteStreamListRead(owner: string, read: string): void {
+    if (owner === OWNER) {
+      this.streamListReads.push(read);
+    }
   }
 }
 
@@ -295,8 +313,34 @@ describe('the checks before the node in this browser is added', () => {
       ['bytes', 'passed'],
       ['feed', 'passed'],
     ]);
-    expect(source.asked).toContain('feed-entry');
-    expect(source.asked).not.toContain('feed-head');
+  });
+
+  it("read the stream list's entry the page shows, its newest, by its index rather than by a slow head search", async () => {
+    const { source, context, target } = world('weeb-3', '');
+    source.current = { state: 'ready', peers: 25 };
+    const results = await runSourceChecks(target, { ...context, streamListSlot: 41n });
+
+    expect(results.at(-1)).toMatchObject({ step: 'feed', state: 'passed' });
+    expect(source.streamListReads).toEqual(['entry 41']);
+  });
+
+  it("search the stream list's head when the entry the page shows is not on the node yet, never reading entry 0", async () => {
+    const { source, context, target } = world('weeb-3', '');
+    source.current = { state: 'ready', peers: 25 };
+    source.streamListEntry = { kind: 'not-found', serverTimeMs: null };
+    const results = await runSourceChecks(target, { ...context, streamListSlot: 42n });
+
+    expect(results.at(-1)).toMatchObject({ step: 'feed', state: 'passed' });
+    expect(source.streamListReads).toEqual(['entry 42', 'head']);
+  });
+
+  it("search the stream list's head, as the page does, when the page has not read the list", async () => {
+    const { source, context, target } = world('weeb-3', '');
+    source.current = { state: 'ready', peers: 25 };
+    const results = await runSourceChecks(target, { ...context, knownStreams: [], streamListSlot: null });
+
+    expect(results.at(-1)).toMatchObject({ step: 'feed', state: 'passed' });
+    expect(source.streamListReads).toEqual(['head', 'head']);
   });
 
   it('fail a node that did not start', async () => {

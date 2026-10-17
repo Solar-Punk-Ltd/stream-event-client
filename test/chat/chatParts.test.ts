@@ -203,6 +203,23 @@ describe("the chat's source over the Swarm client", () => {
       expect(await source.readSlot(5)).toEqual(whole);
     });
 
+    it("reads an erasure-coded slot's tree at the address made over its span as stored, redundancy level and all", async () => {
+      const whole = new Uint8Array(4_567).fill(7);
+      const root = new Uint8Array(96).fill(1);
+      const span = BigInt(whole.length) | (0x81n << 56n);
+      const rootChunk = Bytes.concat(Span.fromBigInt(span).toUint8Array(), root);
+      const tree = new ChunkBuilder(span);
+      tree.writer.buffer.set(root);
+      const source = sourceOver(
+        unsignedReads({
+          [slotIdentifier(6).toHex()]: content(rootChunk),
+          [tree.hash().toHex()]: content(whole),
+        }),
+      );
+
+      expect(await source.readSlot(6)).toEqual(whole);
+    });
+
     it('rejects as unreadable a chunk too short to carry a span', async () => {
       const source = sourceOver(unsignedReads({ [slotIdentifier(2).toHex()]: content(new Uint8Array(3)) }));
 

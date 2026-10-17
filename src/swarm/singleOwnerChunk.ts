@@ -1,11 +1,12 @@
-import { Bytes, ChunkBuilder, EthAddress, Identifier, Signature, Span } from '@ethersphere/bee-js';
+import { Bytes, ChunkBuilder, EthAddress, Identifier, Signature } from '@ethersphere/bee-js';
+
+import { bodyLengthOf, SPAN_LENGTH, storedSpanOf } from './chunkSpan';
 
 // A single-owner chunk is the identifier, the owner's signature, then the content-addressed chunk it
 // wraps, its span and its payload. These are the offsets Bee and bee-js lay it out at.
 const IDENTIFIER_LENGTH = 32;
 const SIGNATURE_LENGTH = 65;
 const SPAN_OFFSET = IDENTIFIER_LENGTH + SIGNATURE_LENGTH;
-const SPAN_LENGTH = 8;
 const PAYLOAD_OFFSET = SPAN_OFFSET + SPAN_LENGTH;
 
 /** The most payload one chunk carries. A span past it says the payload is the root of a tree of chunks. */
@@ -14,7 +15,7 @@ export const MAX_CHUNK_PAYLOAD = 4096;
 /** What a single-owner chunk read by its address holds, once it has proved to be its owner's. */
 export interface SingleOwnerChunk {
   /** How many bytes the wrapped chunk stands for, which is more than its payload for a tree's root. */
-  readonly span: bigint;
+  readonly bodyLength: bigint;
   readonly payload: Uint8Array;
   /** The address of the content-addressed chunk it wraps, which the bytes of a tree are read from. */
   readonly wrappedAddress: string;
@@ -41,13 +42,12 @@ export function parseSingleOwnerChunk(data: Uint8Array, address: string): Single
   }
   const identifier = new Identifier(data.slice(0, IDENTIFIER_LENGTH));
   const signature = new Signature(data.slice(IDENTIFIER_LENGTH, SPAN_OFFSET));
-  const span = Span.fromSlice(data, SPAN_OFFSET).toBigInt();
   const payload = data.slice(PAYLOAD_OFFSET);
   if (payload.length > MAX_CHUNK_PAYLOAD) {
     throw new Error(`a chunk carries at most ${MAX_CHUNK_PAYLOAD} bytes of payload, this one ${payload.length}`);
   }
 
-  const wrapped = new ChunkBuilder(span);
+  const wrapped = new ChunkBuilder(storedSpanOf(data, SPAN_OFFSET));
   wrapped.writer.buffer.set(payload);
   const wrappedAddress = wrapped.hash();
 
@@ -58,5 +58,5 @@ export function parseSingleOwnerChunk(data: Uint8Array, address: string): Single
   if (singleOwnerChunkAddress(identifier, owner) !== address.toLowerCase()) {
     throw new Error(`the chunk served for ${address} is not the single-owner chunk at that address`);
   }
-  return { span, payload, wrappedAddress: wrappedAddress.toHex(), owner };
+  return { bodyLength: bodyLengthOf(data, SPAN_OFFSET), payload, wrappedAddress: wrappedAddress.toHex(), owner };
 }

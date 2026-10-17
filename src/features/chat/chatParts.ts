@@ -105,7 +105,7 @@ function chatSource(options: ChatSourceOptions): ChatSource {
       throw new UnreadableSlotError(index, { cause: read.error });
     }
     const { chunk } = read;
-    if (!readsTree || chunk.span <= BigInt(MAX_CHUNK_PAYLOAD)) {
+    if (!readsTree || chunk.bodyLength <= BigInt(MAX_CHUNK_PAYLOAD)) {
       return chunk.payload;
     }
     // A payload too big for one chunk is the root of a tree, read whole by its address, as bee-js does.

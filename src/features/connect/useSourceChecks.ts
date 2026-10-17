@@ -33,7 +33,7 @@ interface SourceChecks {
 
 /** The checks one view runs, stopped when the view goes away so a late answer lands nowhere. */
 export function useSourceChecks(): SourceChecks {
-  const { catalogFeed, streamList, swarm } = useAppContext();
+  const { catalogFeed, streamList, streamListSlot, swarm } = useAppContext();
   const clientFor = useCheckClient();
   const [results, setResults] = useState<readonly StepState[] | null>(null);
   const running = useRef<AbortController | null>(null);
@@ -55,6 +55,7 @@ export function useSourceChecks(): SourceChecks {
           client: client ?? clientFor(source),
           catalog: catalogFeed,
           knownStreams: streamList,
+          streamListSlot,
           clockOffsetMs: swarm.clockOffsetMs(),
           signal: controller.signal,
         },
@@ -66,7 +67,7 @@ export function useSourceChecks(): SourceChecks {
       );
       return finished;
     },
-    [catalogFeed, clientFor, streamList, swarm],
+    [catalogFeed, clientFor, streamList, streamListSlot, swarm],
   );
 
   useEffect(() => () => running.current?.abort(), []);

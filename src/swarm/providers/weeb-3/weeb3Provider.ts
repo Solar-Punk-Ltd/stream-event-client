@@ -1,15 +1,14 @@
-import { ChunkBuilder, FeedIndex, Identifier, Span, type Topic } from '@ethersphere/bee-js';
+import { ChunkBuilder, FeedIndex, Identifier, type Topic } from '@ethersphere/bee-js';
 
 import { makeFeedIdentifier } from '@/shared/feedFollow';
 import { ABORTED, type SwarmAnswer, UNSUPPORTED } from '../../answers';
+import { bodyLengthOf, SPAN_LENGTH, storedSpanOf } from '../../chunkSpan';
 import { httpRead } from '../../httpRead';
 import type { OwnPlayer, ProbeResult, ProviderStatus, ReadOptions, SwarmProvider, UrlUse } from '../../provider';
 import { MAX_CHUNK_PAYLOAD, singleOwnerChunkAddress } from '../../singleOwnerChunk';
 import { findNewestEntry } from './newestEntrySearch';
 import type { Weeb3Node } from './weeb3Package';
 import { WEEB3_HEALTHY_PEERS, WEEB3_LOST_PEERS, WEEB3_PATH, type Weeb3Runtime } from './weeb3Runtime';
-
-const SPAN_LENGTH = 8;
 
 /** weeb-3's own budget for a whole read, so its 17 s give-up on a missing chunk ends as not found, not a timeout. */
 const WEEB3_READ_WINDOW_MS = 30_000;
@@ -71,7 +70,7 @@ function isContentAddressedAt(bytes: Uint8Array, address: string): boolean {
   if (bytes.length < SPAN_LENGTH || bytes.length - SPAN_LENGTH > MAX_CHUNK_PAYLOAD) {
     return false;
   }
-  const chunk = new ChunkBuilder(Span.fromSlice(bytes, 0).toBigInt());
+  const chunk = new ChunkBuilder(storedSpanOf(bytes));
   chunk.writer.buffer.set(bytes.slice(SPAN_LENGTH));
   return chunk.hash().toHex() === address.toLowerCase();
 }
@@ -104,14 +103,15 @@ function chooseQualityItself(node: Weeb3Node, video: HTMLMediaElement): void {
 /**
  * The root a wrapped chunk is and the length of the body it stands for, when its span says the body is longer than one chunk, or null when the
  * payload is the whole body. weeb-3 serves such a chunk as the root's span and the addresses of its children, where
- * Bee's `/soc` joins the body they make.
+ * Bee's `/soc` joins the body they make. An erasure-coded root's span also carries its redundancy level, which the
+ * length leaves out and the root's address keeps.
  */
 function treeRootOf(bytes: Uint8Array): { address: string; length: bigint } | null {
-  const length = Span.fromSlice(bytes, 0).toBigInt();
+  const length = bodyLengthOf(bytes);
   if (length <= BigInt(MAX_CHUNK_PAYLOAD) || bytes.length - SPAN_LENGTH > MAX_CHUNK_PAYLOAD) {
     return null;
   }
-  const root = new ChunkBuilder(length);
+  const root = new ChunkBuilder(storedSpanOf(bytes));
   root.writer.buffer.set(bytes.slice(SPAN_LENGTH));
   return { address: root.hash().toHex(), length };
 }

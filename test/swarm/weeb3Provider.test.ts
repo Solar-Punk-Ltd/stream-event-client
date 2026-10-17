@@ -104,24 +104,47 @@ function treeOf(body: Uint8Array): { rootPayload: Uint8Array; rootAddress: strin
 }
 
 /** What weeb-3 answers for a chunk whose span is longer than its payload: the span, then the payload as it is. */
-function withTreeSpan(totalLength: number, payload: Uint8Array): Uint8Array {
+function withTreeSpan(span: bigint, payload: Uint8Array): Uint8Array {
   const spanned = new Uint8Array(8 + payload.length);
-  spanned.set(Span.fromBigInt(BigInt(totalLength)).toUint8Array());
+  spanned.set(Span.fromBigInt(span).toUint8Array());
   spanned.set(payload, 8);
   return spanned;
 }
 
+/** Bee's mark of an erasure-coded root at redundancy level 1: the top byte of its span is 0x80 plus the level. */
+const LEVEL_ONE_MARK = 0x81n << 56n;
+
 /**
- * A feed whose only entry, index 0, is a stream list longer than one chunk, served as weeb-3 serves it: the entry's
- * single-owner chunk as the root it wraps, and the joined list on the bytes route at the root's address.
+ * An erasure-coded body as Bee stores one: the same leaves, a root whose payload also carries the address of a
+ * parity chunk, and whose span holds the redundancy level in its top byte. Its address is made over that span.
  */
-function bigEntryFetch(topic: Topic, body: Uint8Array, log: AskedLog = { urls: [] }): typeof fetch {
-  const { rootPayload, rootAddress } = treeOf(body);
-  const entryAddress = singleOwnerChunkAddress(makeFeedIdentifier(topic, FeedIndex.fromBigInt(0n)), OWNER);
-  const served: Record<string, Uint8Array> = {
-    [`/weeb-3/chunks/${entryAddress}`]: withTreeSpan(body.length, rootPayload),
-    [`/weeb-3/bytes/${rootAddress}`]: withSpan(body),
-  };
+function codedTreeOf(body: Uint8Array): { rootPayload: Uint8Array; rootAddress: string; span: bigint } {
+  const { rootPayload: dataRefs } = treeOf(body);
+  const rootPayload = new Uint8Array(dataRefs.length + 32);
+  rootPayload.set(dataRefs);
+  rootPayload.fill(0x5a, dataRefs.length);
+  const span = BigInt(body.length) | LEVEL_ONE_MARK;
+  const root = new ChunkBuilder(span);
+  root.writer.buffer.set(rootPayload);
+  return { rootPayload, rootAddress: root.hash().toHex(), span };
+}
+
+/**
+ * A feed whose entries 0 to `newest` are each a body longer than one chunk, served as weeb-3 serves it: the entry's
+ * single-owner chunk as the root it wraps, and the joined body on the bytes route at the root's address.
+ */
+function bigEntryFetch(
+  topic: Topic,
+  body: Uint8Array,
+  log: AskedLog = { urls: [] },
+  { coded = false, newest = 0 }: { readonly coded?: boolean; readonly newest?: number } = {},
+): typeof fetch {
+  const { rootPayload, rootAddress, span } = coded ? codedTreeOf(body) : { ...treeOf(body), span: BigInt(body.length) };
+  const served: Record<string, Uint8Array> = { [`/weeb-3/bytes/${rootAddress}`]: withSpan(body) };
+  for (let index = 0; index <= newest; index++) {
+    const entry = singleOwnerChunkAddress(makeFeedIdentifier(topic, FeedIndex.fromBigInt(BigInt(index))), OWNER);
+    served[`/weeb-3/chunks/${entry}`] = withTreeSpan(span, rootPayload);
+  }
   return (async (input: RequestInfo | URL) => {
     log.urls.push(String(input));
     const answer = served[new URL(String(input), PAGE_ORIGIN).pathname];
@@ -409,6 +432,57 @@ describe('the weeb-3 provider', () => {
 
     expect(snapshot?.slot).toBe(0n);
     expect(JSON.parse(snapshot!.body)).toHaveLength(120);
+  });
+
+  it("reads an erasure-coded feed entry whole, its length taken from below the redundancy level in its span's top byte", async () => {
+    const topic = Topic.fromString('a-coded-stream-list');
+    const list = text('x'.repeat(4567));
+    const log: AskedLog = { urls: [] };
+    const { provider } = weeb3(bigEntryFetch(topic, list, log, { coded: true }));
+
+    const answer = await provider.readFeedEntry(OWNER, topic, 0);
+
+    expect(answer).toMatchObject({ kind: 'content', bytes: list });
+    expect(log.urls.at(-1)).toBe(`${PAGE_ORIGIN}/weeb-3/bytes/${codedTreeOf(list).rootAddress}`);
+  });
+
+  it('finds the head of a feed whose newest entry is an erasure-coded stream list, as the browse page reads it', async () => {
+    const topic = Topic.fromString('a-coded-stream-list');
+    const list = streamListOf(120);
+    const { provider } = weeb3(bigEntryFetch(topic, list, undefined, { coded: true, newest: 4 }));
+
+    const snapshot = await new CatalogFeedReader(OWNER, topic).read(provider);
+
+    expect(snapshot?.slot).toBe(4n);
+    expect(JSON.parse(snapshot!.body)).toHaveLength(120);
+  });
+
+  it('answers unavailable for an erasure-coded entry whose joined body is not its real length', async () => {
+    const topic = Topic.fromString('a-coded-stream-list');
+    const list = text('x'.repeat(4567));
+    const served = bigEntryFetch(topic, list, undefined, { coded: true });
+    const cutShort = (async (input: RequestInfo | URL) => {
+      const response = await served(input);
+      if (!String(input).includes('/weeb-3/bytes/')) {
+        return response;
+      }
+      const whole = new Uint8Array(await response.arrayBuffer());
+      return new Response(whole.slice(0, whole.length - 10), { status: 200 });
+    }) as typeof fetch;
+
+    const answer = await weeb3(cutShort).provider.readFeedEntry(OWNER, topic, 0);
+
+    expect(answer.kind === 'unavailable' && answer.cause.kind === 'network' && String(answer.cause.error)).toContain(
+      'answering 4557 bytes for a body of 4567',
+    );
+  });
+
+  it('serves an erasure-coded root read by its address, which is made over the span as stored', async () => {
+    const { rootPayload, rootAddress, span } = codedTreeOf(text('x'.repeat(4567)));
+    const fetcher = (async () =>
+      new Response(withTreeSpan(span, rootPayload).slice(), { status: 200 })) as typeof fetch;
+
+    expect((await weeb3(fetcher).provider.readChunk(rootAddress)).kind).toBe('content');
   });
 
   it("gives a segment's URL on weeb-3's caching route, absolute because it is written into a playlist", () => {

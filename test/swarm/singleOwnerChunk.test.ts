@@ -26,11 +26,11 @@ const ADDRESS = singleOwnerChunkAddress(IDENTIFIER, OWNER);
 const PAYLOAD = new TextEncoder().encode('a message the chat wrote');
 
 describe('a single-owner chunk read by its address', () => {
-  it("gives the payload, the span and the owner of a chunk that is its owner's", () => {
+  it("gives the payload, the body's length and the owner of a chunk that is its owner's", () => {
     const chunk = parseSingleOwnerChunk(writeChunk(PAYLOAD), ADDRESS);
 
     expect(chunk.payload).toEqual(PAYLOAD);
-    expect(chunk.span).toBe(BigInt(PAYLOAD.length));
+    expect(chunk.bodyLength).toBe(BigInt(PAYLOAD.length));
     expect(chunk.owner).toBe(OWNER);
   });
 
@@ -58,7 +58,15 @@ describe('a single-owner chunk read by its address', () => {
   it("names the wrapped chunk of a tree's root, whose span is more than one chunk", () => {
     const chunk = parseSingleOwnerChunk(writeChunk(PAYLOAD, BigInt(MAX_CHUNK_PAYLOAD * 3)), ADDRESS);
 
-    expect(chunk.span).toBe(BigInt(MAX_CHUNK_PAYLOAD * 3));
+    expect(chunk.bodyLength).toBe(BigInt(MAX_CHUNK_PAYLOAD * 3));
     expect(chunk.wrappedAddress).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("gives an erasure-coded root's real length, below the redundancy level Bee keeps in its span's top byte", () => {
+    const coded = BigInt(4567) | (0x81n << 56n);
+    const chunk = parseSingleOwnerChunk(writeChunk(PAYLOAD, coded), ADDRESS);
+
+    expect(chunk.bodyLength).toBe(4567n);
+    expect(chunk.owner).toBe(OWNER);
   });
 });
