@@ -79,14 +79,26 @@ export function coTenants(): string[] {
     .map((line) => line.replace(/ $/, ''));
 }
 
+/**
+ * One number from `docker info`, or null. A machine with no docker program at all, such as the browser image a live
+ * run executes in, is answered the same way as a daemon that refuses.
+ */
+function dockerInfoNumber(format: string): number | null {
+  try {
+    return Number(docker(['info', '--format', format], { allowFailure: true }).stdout) || null;
+  } catch {
+    return null;
+  }
+}
+
 /** What the machine was: the bounds a run sat under, which a reader needs to judge any timing in it. */
 export function machine() {
   return {
     platform: `${platform()} ${release()}`,
     cpus: cpus().length,
     memoryBytes: totalmem(),
-    dockerMemoryBytes: Number(docker(['info', '--format', '{{.MemTotal}}'], { allowFailure: true }).stdout) || null,
-    dockerCpus: Number(docker(['info', '--format', '{{.NCPU}}'], { allowFailure: true }).stdout) || null,
+    dockerMemoryBytes: dockerInfoNumber('{{.MemTotal}}'),
+    dockerCpus: dockerInfoNumber('{{.NCPU}}'),
     cgroupCpuCeiling: cpuCeiling(),
     node: process.version,
   };
