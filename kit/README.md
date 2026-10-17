@@ -18,6 +18,8 @@ pnpm kit down             # stop the containers and keep their volumes
 pnpm kit down --fresh     # remove the containers, their volumes and the generated values
 pnpm kit probe            # measure the addressing schemes, see below
 pnpm test:kit             # up --fresh, every scenario, down --fresh, for one CI job with a Docker daemon
+pnpm kit live run eth-name-refused --target <file>   # one scenario against a real deployment, see Live mode
+pnpm kit live test --target <file>                   # every live scenario against it
 ```
 
 The first `kit up` on a machine builds every image, which compiles Bee from source and installs the Swarm ID fork.
@@ -230,6 +232,85 @@ written to no file of its own. `no-key-leak` searches every trace as well, so a 
 it did before these pauses covered the typed fields. Its silence counts only when the search looked at something: the
 recorded network must hold the drive's batch id, which is public, and at least one trace must hold text, or the check
 fails. The viewer's page, its storage and what its window was sent are read while the browser is open.
+
+## Live mode
+
+Live mode runs scenarios against a real deployment instead of the local stack: its public viewer, its real Swarm ID
+site, its gateway and its chat. Nothing of the local stack is started or read, and `kit up`, `kit run` and `kit test`
+are unchanged.
+
+The scenarios that run live are the ones that need no wallet and no drive: `partitioned-storage`, `popup-blocked`,
+`eth-name-refused` and `evil-unlisted`. `kit live test` runs those four, and `kit live run` refuses any other. A verb
+that needs the local stack, such as buying a drive or writing raw to the chat's inbox, fails at once with a line saying
+so, before it does anything.
+
+A run creates Swarm ID accounts on the real site and sends a few guest messages that the deployment's gateway pays
+for, from guests named `kit <actor> <run id>`. It writes nothing else: no setting, no stream list, no stamp.
+
+### The target file
+
+A target file names the deployment, and it lives outside this repository, because a deployment's names stay out of
+it. `targets/example.json` shows its shape with placeholders:
+
+| Field         | What it is                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------- |
+| `name`        | a short name for the deployment, written into the evidence                                        |
+| `viewer`      | the viewer's origin, with no path                                                                 |
+| `stream`      | the published stream to open: `mediaType`, `owner`, `topic` and `title`                           |
+| `alsoAllowed` | optional, outside origins a part of the deployment reads on its own, each with `origin` and `why` |
+
+Everything else is read from the viewer's public `config.json` at the start of each run: the gateway, the chat's read
+and write addresses, the chat inbox key, the feed owner, the Swarm ID site and the ENS endpoint. An address given as a
+path, such as `/bee`, is on the viewer's origin. The config is checked with the viewer's own schema, and live mode
+needs a single `gatewayUrl`, an enabled chat, a Swarm ID site and an ENS endpoint. The chat's feed is
+`chat-<stream topic>`, and the inbox owner is the address of the config's `gsocResourceId`.
+
+`alsoAllowed` is for what the deployment's parts reach that its config does not name. The real Swarm ID site, run as a
+visitor's browser runs it, reads its accounts through its own default Swarm gateway, so a live run of a scenario that
+makes an account needs that gateway named here.
+
+### The live gate
+
+Before every live scenario a gate refuses to start, and exits 1, when the viewer or its `config.json` does not answer,
+when the config is refused, when the Swarm ID site does not answer, when the stream list cannot be read through the
+gateway, when the target stream is not in that list, or when the chat's read address does not answer the stream's chat
+feed as Bee does. A feed with no message yet answers Bee's 404, which still says the chat is there. The gate never
+refuses an address for not being local. It refuses any address the run would use that the target and the config do
+not name, and holds the hostile site, the one part served from this machine, to a local address.
+
+### The browser guard, live
+
+The guard works as it does locally, with a different list. An actor's routing lets through exactly the origins the
+target and the config name, the target's `alsoAllowed` and the hostile site, and the browser's resolver rule resolves
+only those hosts and the local names. A local address the run does not name is stopped too. The requests the release
+is known to make, in `src/addresses.ts`, are stopped and recorded as they are locally, and any other stopped request
+fails its step. `expect outside-blocked` keeps working, since its outside address is never one a target names.
+
+Swarm ID's pages get nothing from the kit in live mode: no network settings and no test wallet. They run with the
+site's own settings, as a visitor's do.
+
+### What a live check reads
+
+`expect chat-feed` reads the chat feed through the chat's read address, as the viewer does, with the config's feed
+owner and the stream's chat topic. The chat server's counts come from its `/health`, which answers only on the
+deployment's own machine, so the live read waits on the feed alone: it reads each written slot once and asks the next
+unwritten one again every 10 seconds, until every message the run sent is there or 60 seconds pass. The verdict records
+under `live chat feed reads` where it read, how many entries, how many unwritten asks and how long it waited. How each
+message was paid is read from the recorded network as locally, against the chat's write address on the gateway and the
+inbox owner.
+
+`evil-unlisted` serves the hostile site from this machine, at `http://[::1]:4998`, built in the kit's own process
+against the Swarm ID library this checkout installs, and opens it with the real Swarm ID site. The real site must
+refuse it in its own words for a site its allow list does not serve. The strict Swarm ID build is local only, and
+`evil visit allowed` refuses to run live, since the real allow list never names the hostile site.
+
+### Live evidence
+
+Every live run writes `test-results/kit-live/<run id>/<scenario>/`: `config.json` as the viewer served it,
+`preflight.json` with the live gate's checks, `header.json` with the target, the whole config, every address the run
+used, the kit's commit, the libraries, the machine and how long reading the config, the gate and starting the hostile
+site took, then `verdict.json` and `actors/` as locally. A live run takes no Bee metrics, no chat server health and no
+container logs, since none of those are the kit's to read on a real deployment. Timings are recorded, never asserted.
 
 ## In a CI job
 
