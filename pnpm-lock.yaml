@@ -191,11 +191,11 @@ importers:
         specifier: 0.0.354001
         version: 0.0.354001
       '@solarpunkltd/swarm-chat-js':
-        specifier: 8.1.0
-        version: 8.1.0(@ethersphere/bee-js@13.1.0)
+        specifier: 9.0.0
+        version: 9.0.0(@ethersphere/bee-js@13.1.0)
       '@solarpunkltd/swarm-id':
-        specifier: 0.9.0
-        version: 0.9.0
+        specifier: 0.10.0
+        version: 0.10.0(typescript@7.0.2)
       cafe-utility:
         specifier: 36.3.0
         version: 36.3.0
@@ -872,14 +872,14 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@solarpunkltd/swarm-chat-js@8.1.0':
-    resolution: {integrity: sha512-nRXCYtApo3oM6GF1nz1fIP3mdpcvMOQDBuEVA1Z6sJ3eigJ2ZitBfdUb4Kwuqc5XHdykjsmQ3wX31h6CmvXRcw==}
+  '@solarpunkltd/swarm-chat-js@9.0.0':
+    resolution: {integrity: sha512-gD/xDvy55RUrh91+Ow4ftlsUjnpYMHInd4oAH+XsuLo4mivA+a3GBHBonyHrS0k3FkUEWpplZUbGmrZ6Z40u6g==}
     engines: {node: '>=24'}
     peerDependencies:
       '@ethersphere/bee-js': ^13.1.0
 
-  '@solarpunkltd/swarm-id@0.9.0':
-    resolution: {integrity: sha512-Wo9Deevi1ofnssW3PpOK6hYQEozuVN0RbHkWBJmE1dWUBj6kN+SDO0dnjrDHiC8zbpVUj8bNExLDXZ/eJ9/4HA==}
+  '@solarpunkltd/swarm-id@0.10.0':
+    resolution: {integrity: sha512-5lxnbclXlG5mQtZh0Z5MhVAySIb8d2vkqWPWZ/2TZ96NgHuHGWhGMHPYaAw83SdObVE025EmZeCw6A2UXKrQbA==}
     engines: {node: '>=22', pnpm: '>=11'}
 
   '@swc/core-darwin-arm64@1.16.2':
@@ -2096,23 +2096,25 @@ snapshots:
     dependencies:
       commander: 12.1.0
 
-  '@solarpunkltd/swarm-chat-js@8.1.0(@ethersphere/bee-js@13.1.0)':
+  '@solarpunkltd/swarm-chat-js@9.0.0(@ethersphere/bee-js@13.1.0)':
     dependencies:
       '@ethersphere/bee-js': 13.1.0
       '@ethersphere/core-sdk': 0.1.1
       zod: 4.6.5
 
-  '@solarpunkltd/swarm-id@0.9.0':
+  '@solarpunkltd/swarm-id@0.10.0(typescript@7.0.2)':
     dependencies:
       '@ethersphere/bee-js': 13.1.0
       '@ethersphere/core-sdk': 0.1.1
       '@noble/curves': 1.2.0
       '@noble/hashes': 1.3.2
       cafe-utility: 34.0.0
+      viem: 2.55.13(typescript@7.0.2)(zod@4.1.13)
       zod: 4.1.13
     transitivePeerDependencies:
       - bufferutil
       - supports-color
+      - typescript
       - utf-8-validate
 
   '@swc/core-darwin-arm64@1.16.2':
@@ -2274,6 +2276,11 @@ snapshots:
       vite: 8.3.0(@types/node@24.13.5)(sass@1.104.1)
 
   '@vitest/spy@5.0.1': {}
+
+  abitype@1.2.3(typescript@7.0.2)(zod@4.1.13):
+    optionalDependencies:
+      typescript: 7.0.2
+      zod: 4.1.13
 
   abitype@1.2.3(typescript@7.0.2)(zod@4.6.5):
     optionalDependencies:
@@ -2471,6 +2478,21 @@ snapshots:
     optional: true
 
   obug@2.2.1: {}
+
+  ox@0.14.33(typescript@7.0.2)(zod@4.1.13):
+    dependencies:
+      '@adraffy/ens-normalize': 1.11.1
+      '@noble/ciphers': 1.3.0
+      '@noble/curves': 1.9.1
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.2.3(typescript@7.0.2)(zod@4.1.13)
+      eventemitter3: 5.0.1
+    optionalDependencies:
+      typescript: 7.0.2
+    transitivePeerDependencies:
+      - zod
 
   ox@0.14.33(typescript@7.0.2)(zod@4.6.5):
     dependencies:
@@ -2701,6 +2723,23 @@ snapshots:
   use-sync-external-store@1.7.0(react@19.3.0):
     dependencies:
       react: 19.3.0
+
+  viem@2.55.13(typescript@7.0.2)(zod@4.1.13):
+    dependencies:
+      '@noble/curves': 1.9.1
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.2.3(typescript@7.0.2)(zod@4.1.13)
+      isows: 1.0.7(ws@8.21.3)
+      ox: 0.14.33(typescript@7.0.2)(zod@4.1.13)
+      ws: 8.21.3
+    optionalDependencies:
+      typescript: 7.0.2
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+      - zod
 
   viem@2.55.13(typescript@7.0.2)(zod@4.6.5):
     dependencies:
