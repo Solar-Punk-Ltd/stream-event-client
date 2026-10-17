@@ -12,3 +12,5 @@ export const COMPOSE_FILE = join(KIT_DIR, 'compose.yml');
 export const SCENARIO_DIR = join(KIT_DIR, 'scenarios');
 /** Every run's evidence, one folder per run, in the folder git already ignores. */
 export const EVIDENCE_DIR = join(REPO_DIR, 'test-results', 'kit');
+/** Every live run's evidence, apart from the local stack's, in the same ignored folder. */
+export const LIVE_EVIDENCE_DIR = join(REPO_DIR, 'test-results', 'kit-live');

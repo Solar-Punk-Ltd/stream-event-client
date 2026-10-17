@@ -4,7 +4,8 @@ import { join } from 'node:path';
 
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 
-import { type Addresses, isLocalRequest } from './addresses.ts';
+import type { Addresses } from './addresses.ts';
+import type { Guard } from './guard.ts';
 import type { ActorSettings } from './scenario.ts';
 import { UntracedSegments } from './untraced.ts';
 import { exposeWallet, type TestWallet } from './wallet.ts';
@@ -95,13 +96,28 @@ async function prepareSwarmIdDocuments(context: BrowserContext, addresses: Addre
   });
 }
 
+/**
+ * Where an actor's browser is pointed: the viewer, the guard that decides what it may reach, and the local stack's
+ * addresses, or null against a real deployment. Against one, nothing of the local network is put into Swarm ID's pages
+ * and no test wallet is offered, so Swarm ID runs with its own settings, as a visitor's does.
+ */
+export interface ActorEnvironment {
+  viewer: string;
+  guard: Guard;
+  local: Addresses | null;
+}
+
 export async function startActor(
   browser: Browser,
   name: string,
   settings: ActorSettings,
-  addresses: Addresses,
+  environment: ActorEnvironment,
   dir: string,
 ): Promise<Actor> {
+  const { viewer, guard, local } = environment;
+  if (!local && settings.chatSource === 'bee') {
+    throw new Error(`${name} reads the chat from the viewer's own Bee node, which live mode has none of`);
+  }
   mkdirSync(join(dir, 'steps'), { recursive: true });
   // A service worker's requests can pass the context's routing, and the viewer's Weeb3 fake needs none.
   const context = await browser.newContext({
@@ -111,13 +127,15 @@ export async function startActor(
   recordConsole(context, join(dir, 'console.log'));
   const blocked: string[] = [];
   let wallet: TestWallet | null = null;
-  const walletScript = await exposeWallet(context, addresses.swarmId, addresses.ethereum, () => wallet);
-  await prepareSwarmIdDocuments(context, addresses, walletScript);
-  // Every address the kit uses is local, so a request elsewhere is something under test reaching out, and the run
-  // that let it through would depend on a network the kit does not control.
+  if (local) {
+    const walletScript = await exposeWallet(context, local.swarmId, local.ethereum, () => wallet);
+    await prepareSwarmIdDocuments(context, local, walletScript);
+  }
+  // A request to an address the run does not name is something under test reaching out, and the run that let it
+  // through would depend on a network the kit does not control.
   await context.route('**/*', (route) => {
     const url = route.request().url();
-    if (isLocalRequest(url)) return route.fallback();
+    if (guard.allows(url)) return route.fallback();
     blocked.push(`${route.request().method()} ${url}`);
     return route.abort('blockedbyclient');
   });
@@ -169,8 +187,8 @@ export async function startActor(
       }
     },
     {
-      viewer: addresses.viewer,
-      ownNode: addresses.worker2,
+      viewer,
+      ownNode: local?.worker2 ?? '',
       chatSource: settings.chatSource,
       received: RECEIVED,
     },

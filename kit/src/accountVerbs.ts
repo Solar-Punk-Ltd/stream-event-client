@@ -8,6 +8,7 @@ import { expect, type Page } from '@playwright/test';
 import type { Hex } from 'viem';
 
 import type { Actor } from './actors.ts';
+import { localStack } from './deployment.ts';
 import { bakedWalletKey, ENS_ACTORS, type EnsActor } from './ens.ts';
 import { installVirtualAuthenticator } from './passkey.ts';
 import { CHAT_TIMEOUT_MS, type Run, type Verb } from './run.ts';
@@ -48,7 +49,7 @@ async function readSecrets(run: Run, actor: Actor, page: Page): Promise<void> {
 
 /** Funds a wallet on the local Gnosis chain, as the dev faucet would, so it can pay where a flow asks it to. */
 async function fund(run: Run, address: Hex): Promise<void> {
-  const answer = await fetch(run.addresses.chain, {
+  const answer = await fetch(localStack(run, 'funding a wallet').addresses.chain, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'anvil_setBalance', params: [address, WALLET_FUNDS] }),

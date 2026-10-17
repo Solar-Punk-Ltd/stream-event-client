@@ -2,11 +2,11 @@
  * The verbs and checks of the viewer's chat side: where the chat is read from, joining as a guest, a message's
  * details, and the own feed's count and Sync in My stamp, with a fault that makes the own feed's copies fail.
  */
-import { PrivateKey } from '@ethersphere/bee-js';
 import { expect, type Locator, type Page, type Route } from '@playwright/test';
 
 import { claimServiceWorkerControl, FAKE_WEEB3, serveFakeWeeb3 } from '../../e2e/fakeWeeb3.ts';
 import type { Actor } from './actors.ts';
+import { localStack } from './deployment.ts';
 import { bakedName, ENS_ACTORS, type EnsActor } from './ens.ts';
 import { CHAT_TIMEOUT_MS, expand, type Run, type Verb } from './run.ts';
 import type { Step } from './scenario.ts';
@@ -64,10 +64,9 @@ function detail(card: Locator, label: string): Locator {
 function isOwnFeedCopy(run: Run, request: { method(): string; url(): string }): boolean {
   if (request.method() !== 'POST') return false;
   const url = new URL(request.url());
-  if (url.origin !== new URL(run.addresses.worker2).origin) return false;
+  if (url.origin !== new URL(localStack(run, 'an own feed copy').addresses.worker2).origin) return false;
   const owner = url.pathname.match(/^\/soc\/([0-9a-fA-F]{40})\//)?.[1]?.toLowerCase();
-  const inbox = new PrivateKey(run.state.gsocKey).publicKey().address().toHex().toLowerCase();
-  return owner !== undefined && owner !== inbox;
+  return owner !== undefined && owner !== run.deployment.inboxOwner;
 }
 
 /** The faults an actor's browser carries now, by name, so a verb can take one away again. */
@@ -117,7 +116,8 @@ export const CHAT_VERBS: Record<string, Verb> = {
     }
     const dialog = await openConnect(page);
     const row = dialog.locator('[data-source-row]', { hasText: SOURCE_NAMES[kind] });
-    if (kind !== 'gateway' && !(await row.isVisible())) await addSource(dialog, kind, run.addresses.worker2);
+    if (kind !== 'gateway' && !(await row.isVisible()))
+      await addSource(dialog, kind, localStack(run, `connect-source ${kind}`).addresses.worker2);
     await useForChat(dialog, SOURCE_NAMES[kind]);
     await closeConnect(page);
   },
@@ -182,7 +182,7 @@ export const CHAT_VERBS: Record<string, Verb> = {
         },
       };
       faults.set(actor, fault);
-      await actor.context.route(`${run.addresses.worker2}/soc/**`, fault.route);
+      await actor.context.route(`${localStack(run, 'fail-copies').addresses.worker2}/soc/**`, fault.route);
       return;
     }
     if (step.args[0] !== 'off') throw new Error('fail-copies takes on or off');
@@ -191,7 +191,7 @@ export const CHAT_VERBS: Record<string, Verb> = {
     await expect
       .poll(() => fault.refused, { message: 'a copy was refused every time it was tried', timeout: CHAT_TIMEOUT_MS })
       .toBeGreaterThanOrEqual(OWN_COPY_ATTEMPTS);
-    await actor.context.unroute(`${run.addresses.worker2}/soc/**`, fault.route);
+    await actor.context.unroute(`${localStack(run, 'fail-copies').addresses.worker2}/soc/**`, fault.route);
     run.findings[`${actor.name} copies refused`] = fault.refused;
     faults.delete(actor);
   },

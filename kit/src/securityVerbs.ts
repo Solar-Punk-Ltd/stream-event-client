@@ -21,6 +21,7 @@ import {
   type WalletLinkFlaw,
 } from './forge.ts';
 import { healthStatus } from './bee.ts';
+import { localStack } from './deployment.ts';
 import { bareHex } from './hex.ts';
 import { lyingReverseAnswer } from './lyingRpc.ts';
 import { CHAT_TIMEOUT_MS, expand, type Run, type Verb } from './run.ts';
@@ -74,15 +75,16 @@ function forgeKey(run: Run, label: string): PrivateKey {
 
 /** Writes a payload straight to the chat's one GSOC inbox address, signed with the mined key every sender shares. */
 async function writeToInbox(run: Run, payload: Uint8Array): Promise<void> {
-  const bee = new Bee(run.addresses.worker1);
-  const signer = new PrivateKey(run.state.gsocKey);
-  const identifier = Identifier.fromString(run.state.gsocIdentifier);
-  await bee.messaging.gsocSend(run.state.stamps.gateway, signer, identifier, payload, { deferred: false });
+  const { addresses, state } = localStack(run, 'a raw inbox write');
+  const bee = new Bee(addresses.worker1);
+  const signer = new PrivateKey(state.gsocKey);
+  const identifier = Identifier.fromString(state.gsocIdentifier);
+  await bee.messaging.gsocSend(state.stamps.gateway, signer, identifier, payload, { deferred: false });
 }
 
 /** The chat server's counts of messages received and dropped by reason, now. */
 async function serverCounts(run: Run): Promise<ServerCounts> {
-  const { body } = await healthStatus(run.addresses.chatServer);
+  const { body } = await healthStatus(localStack(run, "the chat server's counts").addresses.chatServer);
   const counts = (body as { counts?: Partial<ServerCounts> } | null)?.counts;
   if (typeof counts?.received !== 'number') throw new Error('the chat server reports no count of messages received');
   return { received: counts.received, dropped: counts.dropped ?? {} };
@@ -114,9 +116,23 @@ const answered = (call: Promise<unknown>) =>
     () => 'refused' as const,
   );
 
-async function evilVisit(run: Run, actor: Actor, listing: string): Promise<void> {
-  const swarmId = listing === 'unlisted' ? run.addresses.swarmIdStrict : run.addresses.swarmId;
+/**
+ * The Swarm ID the hostile site embeds. Locally the unlisted check takes the strict build, whose allow list leaves the
+ * hostile site out. Live, the real Swarm ID's allow list does not name a site served from this machine, so the unlisted
+ * check takes it as it is, and no hostile site is ever put on the real list.
+ */
+function swarmIdForEvil(run: Run, listing: string): string {
   if (listing !== 'unlisted' && listing !== 'allowed') throw new Error('evil visit takes allowed or unlisted');
+  if (!run.local) {
+    if (listing === 'allowed')
+      throw new Error('evil visit allowed needs the local stack, the real allow list never names the hostile site');
+    return run.addresses.swarmId;
+  }
+  return listing === 'unlisted' ? run.local.addresses.swarmIdStrict : run.addresses.swarmId;
+}
+
+async function evilVisit(run: Run, actor: Actor, listing: string): Promise<void> {
+  const swarmId = swarmIdForEvil(run, listing);
   const query = new URLSearchParams({ swarmId, app: 'Hostile site' });
   const page = await actor.context.newPage();
   actor.evilPage = page;
@@ -165,7 +181,7 @@ export const SECURITY_VERBS: Record<string, Verb> = {
   async evil(run, step) {
     const actor = run.actor(step.actor!);
     const action = step.args[0];
-    const topic = run.state.chatTopic;
+    const topic = run.deployment.chatTopic;
     switch (action) {
       case 'visit':
         return evilVisit(run, actor, step.args[1]);
@@ -212,7 +228,7 @@ export const SECURITY_VERBS: Record<string, Verb> = {
   async rpc(run, step) {
     const actor = run.actor(step.actor!);
     const mode = step.args[0];
-    const ethereum = new URL(run.addresses.ethereum).origin;
+    const ethereum = new URL(localStack(run, 'rpc').addresses.ethereum).origin;
     const onEthereum = (url: URL) => url.origin === ethereum;
     const counted = `${actor.name} rpc answered`;
     run.findings[counted] = 0;

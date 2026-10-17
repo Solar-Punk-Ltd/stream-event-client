@@ -1,6 +1,7 @@
 import { Bee, PrivateKey, Topic } from '@ethersphere/bee-js';
 
 import { waitFor } from './bee.ts';
+import { localStack } from './deployment.ts';
 import { epochChunkAddress, epochIdentifier, epochPointer, type EpochPointer, findLatestPointer } from './epochFeed.ts';
 import { CHAT_TIMEOUT_MS, type Run } from './run.ts';
 
@@ -92,7 +93,7 @@ export async function readDeviceFeedAsOutsider(
   deviceIds: string[],
 ): Promise<DeviceFeedRead[]> {
   if (!deviceIds.length) throw new Error('the account names no device, so there is no device feed to read');
-  const bee = new Bee(run.addresses.worker2);
+  const bee = new Bee(localStack(run, 'reading the device feed').addresses.worker2);
   const owner = await feedOwner(derivationKey);
   // A device publishes its state to Swarm when it takes the write lease, which a drive purchase and a stamp pick do, so
   // the feed may not be there the instant the read runs.

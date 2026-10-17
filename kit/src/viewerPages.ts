@@ -17,8 +17,8 @@ export async function idPage(run: Run, actor: Actor): Promise<Page> {
 export async function viewerPage(run: Run, actor: Actor): Promise<Page> {
   if (actor.viewer && !actor.viewer.isClosed()) return actor.viewer;
   actor.viewer = await actor.context.newPage();
-  const { owner, topic } = run.state.stream;
-  await actor.viewer.goto(`${run.addresses.viewer}/#/watch/video/${owner}/${topic}`);
+  const { mediaType, owner, topic } = run.deployment.stream;
+  await actor.viewer.goto(`${run.addresses.viewer}/#/watch/${mediaType}/${owner}/${topic}`);
   await expect(chatRegion(actor.viewer)).toBeVisible({ timeout: CHAT_TIMEOUT_MS });
   return actor.viewer;
 }

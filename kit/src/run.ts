@@ -1,14 +1,18 @@
 import type { Actor } from './actors.ts';
-import type { Addresses } from './addresses.ts';
 import type { Sent } from './chatFeed.ts';
+import type { Deployment, LocalStack, SiteAddresses } from './deployment.ts';
 import type { Step } from './scenario.ts';
-import type { KitState } from './state.ts';
+import type { LiveDeployment } from './target.ts';
 
 /** What one scenario run holds while its steps run. A verb reads it and adds to it. */
 export interface Run {
   id: string;
-  addresses: Addresses;
-  state: KitState;
+  addresses: SiteAddresses;
+  deployment: Deployment;
+  /** The local stack, null in live mode. A verb that needs it takes it through `localStack`. */
+  local: LocalStack | null;
+  /** The real deployment, null in local mode. */
+  live: LiveDeployment | null;
   actor(name: string): Actor;
   actors: Actor[];
   sent: Sent[];

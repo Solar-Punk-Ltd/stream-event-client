@@ -1,11 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { PrivateKey } from '@ethersphere/bee-js';
 import { expect, type Page } from '@playwright/test';
 import { MessageVia } from '@solarpunkltd/swarm-chat-js';
 
 import { knowsBatch, waitFor } from './bee.ts';
+import { localStack } from './deployment.ts';
 import { ACCOUNT_CHECKS, ACCOUNT_VERBS, drivesOf, siteDriveOf } from './accountVerbs.ts';
 import { chatFeedProblems } from './chatFeed.ts';
 import { readChatFeed } from './chatFeedRead.ts';
@@ -62,6 +62,7 @@ const verbs: Record<string, Verb> = {
    * it has not seen.
    */
   async 'buy-drive'(run, step) {
+    const ownNode = localStack(run, 'buy-drive').addresses.worker2;
     const actor = run.actor(step.actor!);
     const depth = Number(step.options.depth ?? DEV_DRIVE_DEPTH);
     if (depth !== DEV_DRIVE_DEPTH)
@@ -76,7 +77,7 @@ const verbs: Record<string, Verb> = {
     if (stamp?.signerKey) {
       run.secrets.set(`${actor.name} stamp key`, await actor.untraced(() => openSealed(page, stamp.signerKey)));
     }
-    await waitFor('the viewer’s own node to know the batch', () => knowsBatch(run.addresses.worker2, batchID), {
+    await waitFor('the viewer’s own node to know the batch', () => knowsBatch(ownNode, batchID), {
       timeoutMs: 180_000,
       intervalMs: 5000,
     });
@@ -140,9 +141,10 @@ async function expectNoStampShown(run: Run, page: Page): Promise<void> {
 
 const checks: Record<string, Verb> = {
   /**
-   * `expect chat-feed`: the chat feed, read from Bee, holds every message the run sent, each signed by its sender
-   * and vouched for by Swarm ID, each saying it was paid the way it was sent, and, once the browsers closed, each
-   * actor's recorded network holding an inbox write to the gateway for each gateway send and one to their own node
+   * `expect chat-feed`: the chat feed, read from Bee locally or through the chat's read address live, holds every
+   * message the run sent, each signed by its sender and vouched for by Swarm ID, each saying it was paid the way it was
+   * sent, and, once the browsers closed, each actor's recorded network holding an inbox write to the chat's write
+   * address on the gateway for each gateway send and one to their own node
    * stamped with the drive picked for the site at the time of each own-stamp send, counted per drive, with no inbox
    * write on a drive no send was to spend.
    */
@@ -153,9 +155,9 @@ const checks: Record<string, Verb> = {
     if (problems.length) throw new Error(problems.join('; '));
     const places = {
       viewer: run.addresses.viewer,
-      gateway: run.addresses.gateway,
-      ownNode: run.addresses.worker2,
-      inboxOwner: new PrivateKey(run.state.gsocKey).publicKey().address().toHex(),
+      gateway: run.deployment.chatWrite,
+      ownNode: run.local?.addresses.worker2 ?? null,
+      inboxOwner: run.deployment.inboxOwner,
     };
     for (const actor of run.actors) {
       const mine = run.sent.filter((message) => message.actor === actor.name);
@@ -343,7 +345,7 @@ const checks: Record<string, Verb> = {
         const har = readFileSync(join(actor.dir, 'network.har'), 'utf8');
         // The control: the chat history is read from the viewer's own node, so a recording without a request there
         // recorded nothing, and its silence about stamps would mean nothing.
-        if (!har.includes(run.addresses.worker2)) {
+        if (!har.includes(localStack(run, 'no-site-stamp').addresses.worker2)) {
           throw new Error('the recorded network holds no request to the viewer’s own node, so it proves nothing');
         }
         const { viewerPages, stamped } = stampedRequests(har, run.addresses.viewer, [drive]);

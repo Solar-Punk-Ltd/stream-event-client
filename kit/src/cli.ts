@@ -10,7 +10,11 @@ const USAGE = `usage: pnpm kit <command>
   bake-ens [--block N]  fork Ethereum mainnet, set the kit's ENS names and record, and dump the snapshot the kit boots
   probe                 measure which addressing scheme gives the viewer and Swarm ID two sites
   run <scenario>        run one scenario against the stack that is up, with its evidence
-  test                  up --fresh, run every scenario, down, for one CI job with a Docker daemon`;
+  test                  up --fresh, run every scenario, down, for one CI job with a Docker daemon
+  live run <scenario> --target <file>
+                        run one live scenario against the real deployment the target file names
+  live test --target <file>
+                        run every live scenario against that deployment`;
 
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
@@ -59,6 +63,15 @@ async function main(argv: string[]): Promise<number> {
     case 'test': {
       const { test } = await import('./runner.ts');
       return test();
+    }
+    case 'live': {
+      const [action, ...args] = rest;
+      const { liveTest, runLiveScenario, targetFrom } = await import('./liveRun.ts');
+      if (action === 'test') return liveTest(targetFrom(args));
+      const name = args.find((arg, at) => !arg.startsWith('--') && args[at - 1] !== '--target');
+      if (action !== 'run' || !name) break;
+      const { suiteStatus } = await import('./scenario.ts');
+      return suiteStatus([await runLiveScenario(name, targetFrom(args))]);
     }
   }
   console.error(USAGE);

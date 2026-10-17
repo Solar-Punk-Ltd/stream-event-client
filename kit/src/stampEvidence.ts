@@ -146,7 +146,8 @@ interface WritePlaces {
   viewer: string;
   /** The chat's write address on the event's gateway, which may serve the inbox at a path, such as `/chat`. */
   gateway: string;
-  ownNode: string;
+  /** The viewer's own Bee node, which a live run against a real deployment has none of. */
+  ownNode: string | null;
   /** The inbox's owner address, 40 hex digits, the first part of every inbox write's `/soc/` path. */
   inboxOwner: string;
 }
@@ -183,7 +184,7 @@ export function paidAsSentProblems(har: string, places: WritePlaces, sends: Send
       .filter((request) => request.url?.toLowerCase().startsWith(inboxPath(place)));
   const toGateway = writesUnder(places.gateway).length;
   const onDrives = new Map<string, number>();
-  for (const request of writesUnder(places.ownNode)) {
+  for (const request of places.ownNode === null ? [] : writesUnder(places.ownNode)) {
     const stamp = request.headers?.find((header) => header.name.toLowerCase() === POSTAGE_STAMP_HEADER)?.value;
     if (!stamp) continue;
     const drive = stamp.toLowerCase().slice(0, BATCH_ID_HEX_LENGTH);
