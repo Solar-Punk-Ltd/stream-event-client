@@ -666,10 +666,10 @@ export class ManifestFetcher {
    * The URL a segment hls.js asks for by `url` loads from now: the same segment named by the current
    * reader when an earlier reader named it, and `url` itself when the player never named it.
    *
-   * A recording's playlist is read once, so hls.js keeps the URLs of whichever reader named them, and a
-   * viewer who switched the video to another source would otherwise go on loading every segment from
-   * the one they left. A live stream is renamed on its next playlist reload as well, but its segments in
-   * flight until then are not.
+   * hls.js keeps the URLs of whichever reader named them, for good in a recording, whose playlist is read
+   * once, and until the next playlist reload in a live stream. A viewer who switched the video to another
+   * source would otherwise go on loading segments from the one they left. A held URL is renamed as each
+   * segment is loaded, for a live stream as for a recording.
    */
   segmentUrlNow(url: string): string {
     const reference = this.segmentNames.referenceOf(url);

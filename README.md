@@ -872,10 +872,11 @@ so the player brings its own loaders:
   segment or a picture for the previews, so a source that serves feeds and fails every segment shows the
   failure bar. A failed one is asked again of the same source by hls.js. `fetchSegmentBytes` is the one place segment
   bytes are fetched, where a provider without URLs can plug in. It loads a segment from the source the video reads from
-  at that moment. A recording's playlist is read only once, so hls.js keeps the URLs it was first given, and the
-  loader names each segment the player named again by the current source before it goes out
-  (`ManifestFetcher.segmentUrlNow`). A viewer who switches Video to another gateway or to their own Bee node while
-  watching a recording therefore gets the next segment from the new source, and its load counts against that source.
+  at that moment. hls.js keeps the URLs it was given, for good in a recording, whose playlist is read only once, so
+  the loader names each segment the player named again by the current source before it goes out
+  (`ManifestFetcher.segmentUrlNow`), for a live stream as for a recording. A viewer who switches Video to another
+  gateway or to their own Bee node therefore gets the next segment from the new source, and its load counts against
+  that source.
   A URL the player did not name goes out as given: a preview's segment, and a recording published before
   2026-08-13 whose manifest names its publisher's gateway.
 - **ManifestStateManager** merges each live playlist into a growing EVENT playlist, so segments stay
@@ -939,9 +940,10 @@ Weeb3 (`providers/weeb-3/weeb3Push`) in `ChatStamp.tsx`, and the errors of both,
   (`src/swarm/registry.ts`). Each feature (the player, the stream list, the previews, the chat) reads
   through its own provider and through nothing else. A read that fails answers as it failed, and the
   feature's own retry, such as the player's backoff, asks the same provider again. URLs come from the
-  feature's own provider, and a playlist the player already holds names its segments again at a switch of
-  node, on its next reload for a live stream and as each segment is loaded for a recording. Every read is counted by feature, kind, provider and answer, and `activity()` gives the last
-  minute's answers per feature, which the diagnostics carry. The server time of the player's and the
+  feature's own provider, and a segment URL the player already holds is named again by the new source at
+  a switch of node, as each segment is loaded, for a live stream as for a recording. Every read is counted
+  by feature, kind, provider and answer, and `activity()` gives the last minute's answers per feature,
+  which the diagnostics carry. The server time of the player's and the
   stream list's answers keeps the gateway clock, and the chat's, read from the chat's own host, does not.
 - **The contract** (`test/swarm/providerContract.ts`) is the suite every provider kind must pass, run
   for Bee over HTTP against the answers the browser smoke test replays.
