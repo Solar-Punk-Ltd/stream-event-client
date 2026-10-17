@@ -124,17 +124,18 @@ describe("weeb-3's own player, once let go", () => {
 
     const [stopped] = players;
     stopped.attachMedia(video);
-    stopped.loadSource('/weeb-3/hls/one');
+    stopped.loadSource('/weeb-3/hls/again');
     stopped.startLoad();
     stopped.recoverMediaError();
     stopped.resumeBuffering();
     const fresh = new Weeb3Hls();
     fresh.attachMedia(video);
-    fresh.loadSource('/weeb-3/hls/one');
+    fresh.loadSource('/weeb-3/hls/again');
     fresh.startLoad();
 
-    expect(stopped.loading).toBe(false);
-    expect(fresh.loading).toBe(false);
+    expect(stopped).toMatchObject({ media: null, source: '/weeb-3/hls/one', started: false });
+    expect(stopped.transferMedia()).toBeNull();
+    expect(fresh).toMatchObject({ media: null, source: null, started: false });
   });
 
   it('is torn down once, however often weeb-3 destroys it after', async () => {
