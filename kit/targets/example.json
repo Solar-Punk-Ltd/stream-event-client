@@ -1,0 +1,10 @@
+{
+  "name": "example",
+  "viewer": "https://viewer.example.com",
+  "stream": {
+    "mediaType": "video",
+    "owner": "0000000000000000000000000000000000000000",
+    "topic": "00000000-0000-0000-0000-000000000000",
+    "title": "Example stream"
+  }
+}

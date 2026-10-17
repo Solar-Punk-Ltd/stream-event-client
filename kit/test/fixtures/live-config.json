@@ -1,0 +1,16 @@
+{
+  "theme": "swarm",
+  "gatewayUrl": "/bee",
+  "catalog": { "owner": "0000000000000000000000000000000000000000", "topic": "example-catalog" },
+  "chat": {
+    "enabled": true,
+    "readUrl": "https://gateway.example.com/chat",
+    "writeUrl": "https://gateway.example.com/chat/",
+    "gsocResourceId": "0000000000000000000000000000000000000000000000000000000000000001",
+    "gsocTopic": "example-chat-inbox",
+    "feedOwner": "0000000000000000000000000000000000000000",
+    "pollIntervalMs": 500
+  },
+  "swarmId": { "url": "https://id.example.com" },
+  "ensRpcUrl": "https://ethereum-rpc.example.org"
+}

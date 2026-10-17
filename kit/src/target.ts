@@ -1,0 +1,132 @@
+/**
+ * Live mode's view of a real deployment: the target file that names it, and what the viewer's own public
+ * `config.json` says about the rest. The target file lives outside the repository, since a deployment's names stay out
+ * of it, and `targets/example.json` shows its shape with placeholders.
+ */
+import { readFileSync } from 'node:fs';
+
+import { PrivateKey } from '@ethersphere/bee-js';
+import { z } from 'zod';
+
+import { parseRuntimeConfig } from '../../src/config/runtimeConfig.ts';
+import { mediaTypeSchema } from '../../src/shared/contracts/mediaType.ts';
+import type { Deployment, SiteAddresses } from './deployment.ts';
+
+/**
+ * Where live mode serves the hostile site: this machine's IPv6 loopback, a site apart from the viewer and Swarm ID, on
+ * a port beside the local stack's 4999 so both can be up at once.
+ */
+export const LIVE_EVIL_ORIGIN = 'http://[::1]:4998';
+
+const ORIGIN = /^https?:\/\/[A-Za-z0-9.-]+(:[0-9]{1,5})?$/;
+const ETH_ADDRESS = /^(0x)?[0-9a-fA-F]{40}$/;
+
+const targetSchema = z.strictObject({
+  name: z.string().regex(/^[a-z0-9-]+$/, { message: 'must be lower case letters, digits and hyphens' }),
+  viewer: z.string().regex(ORIGIN, { message: 'must be an origin such as https://viewer.example.com, with no path' }),
+  stream: z.strictObject({
+    mediaType: mediaTypeSchema,
+    owner: z.string().regex(ETH_ADDRESS, { message: 'must be an Ethereum address' }),
+    topic: z.string().min(1),
+    title: z.string().min(1),
+  }),
+  /**
+   * Outside origins a part of the deployment reads on its own, which neither the target nor the config names, such as
+   * the Swarm gateway the real Swarm ID site reads its accounts through. Each says why, and the verdict carries it.
+   */
+  alsoAllowed: z
+    .array(
+      z.strictObject({
+        origin: z.string().regex(ORIGIN, { message: 'must be an origin, with no path' }),
+        why: z.string().min(1),
+      }),
+    )
+    .default([]),
+});
+
+export type Target = z.output<typeof targetSchema>;
+
+const describe = (error: z.ZodError) =>
+  error.issues.map((issue) => `${issue.path.join('.') || 'the target'}: ${issue.message}`).join('; ');
+
+export function parseTarget(value: unknown): Target {
+  const parsed = targetSchema.safeParse(value);
+  if (!parsed.success) throw new Error(`the target file is refused: ${describe(parsed.error)}`);
+  return parsed.data;
+}
+
+export function readTarget(file: string): Target {
+  return parseTarget(JSON.parse(readFileSync(file, 'utf8')));
+}
+
+/** Everything live mode takes from the target and the viewer's config, every address resolved. */
+export interface LiveDeployment {
+  target: Target;
+  viewer: string;
+  /** The gateway the viewer reads streams and the stream list through. */
+  gateway: string;
+  chatRead: string;
+  chatWrite: string;
+  swarmId: string;
+  ensRpc: string;
+  catalog: { owner: string; topic: string };
+  deployment: Deployment;
+  addresses: SiteAddresses;
+}
+
+/** An address of the config as the viewer resolves it: a path on the viewer's own origin, or an address as written. */
+function resolve(viewer: string, address: string): string {
+  return new URL(address, `${viewer}/`).toString().replace(/\/+$/, '');
+}
+
+/**
+ * Builds live mode's addresses from the target and the config the viewer serves, after the viewer's own check of that
+ * config. Refuses a config without the parts a live run reads: a single gateway, an enabled chat, a Swarm ID site and
+ * an ENS endpoint.
+ */
+export function liveDeployment(target: Target, rawConfig: unknown): LiveDeployment {
+  const parsed = parseRuntimeConfig(rawConfig);
+  if (!parsed.ok) throw new Error(`the viewer's config.json is refused: ${parsed.problem}`);
+  const { config } = parsed;
+  const missing = (part: string) => new Error(`the viewer's config.json has no ${part}, which live mode reads`);
+  if (!config.gatewayUrl) throw missing('gatewayUrl');
+  if (!config.chat?.enabled) throw missing('enabled chat');
+  if (!config.swarmId) throw missing('swarmId');
+  if (!config.ensRpcUrl) throw missing('ensRpcUrl');
+  const chat = config.chat;
+  const viewer = target.viewer;
+  const parts = {
+    viewer,
+    swarmId: config.swarmId.url,
+    gateway: resolve(viewer, config.gatewayUrl),
+    chatRead: resolve(viewer, chat.readUrl),
+    chatWrite: resolve(viewer, chat.writeUrl),
+    ensRpc: resolve(viewer, config.ensRpcUrl),
+    evil: LIVE_EVIL_ORIGIN,
+  };
+  const bare = (address: string) => address.toLowerCase().replace(/^0x/, '');
+  return {
+    target,
+    viewer,
+    gateway: parts.gateway,
+    chatRead: parts.chatRead,
+    chatWrite: parts.chatWrite,
+    swarmId: parts.swarmId,
+    ensRpc: parts.ensRpc,
+    catalog: { owner: config.catalog.owner, topic: config.catalog.topic },
+    deployment: {
+      stream: target.stream,
+      chatTopic: `chat-${target.stream.topic}`,
+      feedOwner: bare(chat.feedOwner),
+      inboxOwner: bare(new PrivateKey(bare(chat.gsocResourceId)).publicKey().address().toHex()),
+      chatWrite: parts.chatWrite,
+    },
+    addresses: {
+      viewer: parts.viewer,
+      swarmId: parts.swarmId,
+      gateway: parts.gateway,
+      evil: parts.evil,
+      all: () => ({ ...parts }),
+    },
+  };
+}
