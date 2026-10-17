@@ -191,3 +191,64 @@ describe('a level request on a gateway whose misses answer within a second and a
     assert.ok(rig.windows.every((window) => window === undefined));
   });
 });
+
+/** A source that answers nothing it could time, so whatever is recorded after a switch came from before it. */
+const UNTIMED_SOURCE: SwarmReader = {
+  readFeedHead: async () => UNSUPPORTED,
+  readFeedEntry: async () => UNSUPPORTED,
+  readSoc: async () => UNSUPPORTED,
+  readChunk: async () => UNSUPPORTED,
+  readBytes: async () => UNSUPPORTED,
+  urlFor: () => null,
+  reportUrlLoad: () => {},
+};
+
+describe('the source a slow verdict belongs to', () => {
+  it('is forgotten when the viewer picks another source', async () => {
+    const rig = makeRig(SLOW_HIT_MS, SLOW_MISS_MS);
+    await levelRequest(rig);
+    assert.equal(rig.fetcher.startsSlowly(), true);
+
+    rig.fetcher.useSwarm(UNTIMED_SOURCE);
+
+    assert.equal(rig.fetcher.startsSlowly(), false);
+  });
+
+  it('is not the old source when a miss it was still answering arrives after the switch', async () => {
+    const rig = makeRig(SLOW_HIT_MS, SLOW_MISS_MS);
+    await rig.time.runUntil(JOIN_AT_MS);
+    await rig.fetcher.fetchSource(SOURCE_URL);
+    void rig.fetcher.fetch(RUNG_URL).catch(() => {});
+    // Past the two time marker reads, 7 s each, the search's first round of reads is out, and its
+    // misses answer 7 s after it started.
+    await rig.time.runUntil(JOIN_AT_MS + 15_000);
+
+    rig.fetcher.useSwarm(UNTIMED_SOURCE);
+    await rig.time.runUntil(JOIN_AT_MS + 60_000);
+
+    assert.equal(rig.fetcher.startsSlowly(), false);
+  });
+});
+
+describe('a source whose misses take 20 s', () => {
+  it('is waited for at most 125 s, eight rounds capped at 15 s and the margin', async () => {
+    const rig = makeRig(SLOW_HIT_MS, 20_000, { rungPublished: false });
+    // Its first quality fails at 20 s, when only one 20 s miss has been answered, too few to judge.
+    const first = await levelRequest(rig);
+    assert.ok(first.error instanceof RungNotReadyError);
+    assert.equal(first.error.deadlineMs, 20_000);
+    // The walk goes on searching, so by hls.js's retry its misses have judged the source.
+    await rig.time.runUntil(JOIN_AT_MS + 100_000);
+    assert.equal(rig.fetcher.startsSlowly(), true);
+
+    const retry = rig.fetcher.fetch(RUNG_URL).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    const error = await rig.time.runToCompletion(retry, 300_000);
+
+    assert.ok(error instanceof RungNotReadyError, `expected a failed level, got ${String(error)}`);
+    assert.equal(error.deadlineMs, 125_000);
+    assert.equal(rig.windows.at(-1), 30_000);
+  });
+});
