@@ -106,11 +106,22 @@ function check<T>(what: string, result: { ok: true; value: T } | { ok: false; re
   return result.value;
 }
 
-export async function publish(beeUrl: string, stamp: string, beeVersion: string) {
-  const bee = new Bee(beeUrl);
+/** Where a finished stream and the stream list naming it are published, and what the list calls it. */
+interface StreamNames {
+  streamTopic: string;
+  catalogTopic: string;
+  title: string;
+}
+
+/**
+ * Encodes the test pattern and publishes it as one finished stream, with a stream list naming it, both under one fresh
+ * key, in the formats the viewer reads. The flow kit publishes its stream this way too.
+ *
+ * @returns The key's address, which owns both feeds, and how many segments the stream has.
+ */
+export async function publishFinishedStream(bee: Bee, stamp: string, names: StreamNames) {
   const deferred = { deferred: true };
   const streamKey = new PrivateKey(randomBytes(32));
-  const chatKey = new PrivateKey(randomBytes(32));
   const owner = streamKey.publicKey().address().toHex();
 
   const { playlist, segments } = encodeStream();
@@ -130,14 +141,14 @@ export async function publish(beeUrl: string, stamp: string, beeVersion: string)
     );
   }
   await bee.feed
-    .makeWriter(Topic.fromString(STREAM_TOPIC), streamKey)
+    .makeWriter(Topic.fromString(names.streamTopic), streamKey)
     .uploadPayload(stamp, published, { ...deferred, index: 0 });
 
   const catalog = viewerCatalogSchema.parse([
     {
       owner,
-      topic: STREAM_TOPIC,
-      title: STREAM_TITLE,
+      topic: names.streamTopic,
+      title: names.title,
       timestamp: Date.now(),
       mediatype: MEDIA_TYPE_VIDEO,
       state: CATALOG_STATE_VOD,
@@ -146,8 +157,20 @@ export async function publish(beeUrl: string, stamp: string, beeVersion: string)
     },
   ]);
   await bee.feed
-    .makeWriter(Topic.fromString(CATALOG_TOPIC), streamKey)
+    .makeWriter(Topic.fromString(names.catalogTopic), streamKey)
     .uploadPayload(stamp, JSON.stringify(catalog), { ...deferred, index: 0 });
+  return { owner, segments: segments.size };
+}
+
+export async function publish(beeUrl: string, stamp: string, beeVersion: string) {
+  const bee = new Bee(beeUrl);
+  const deferred = { deferred: true };
+  const chatKey = new PrivateKey(randomBytes(32));
+  const { owner, segments } = await publishFinishedStream(bee, stamp, {
+    streamTopic: STREAM_TOPIC,
+    catalogTopic: CATALOG_TOPIC,
+    title: STREAM_TITLE,
+  });
 
   // Every message but the newest goes into one history file, and the newest is the feed's head entry linking to it,
   // so opening the chat reads the head, the history file, and then the slots after it.
@@ -209,7 +232,7 @@ export async function publish(beeUrl: string, stamp: string, beeVersion: string)
     },
   );
   const record: Published = {
-    stream: { owner, topic: STREAM_TOPIC, title: STREAM_TITLE, segments: segments.size },
+    stream: { owner, topic: STREAM_TOPIC, title: STREAM_TITLE, segments },
     chat: {
       topic: chatTopic,
       texts: CHAT_TEXTS,
