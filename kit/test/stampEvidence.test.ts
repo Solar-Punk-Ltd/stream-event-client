@@ -161,6 +161,24 @@ describe('paidAsSentProblems', () => {
     expect(paidAsSentProblems(har([onDrive, onDrive]), PLACES, { gateway: 0, ownStamp: { [DRIVE]: 1 } })).toEqual([]);
   });
 
+  it('counts the writes under a gateway that serves its inbox at a path, as a live deployment does', () => {
+    const places = { ...PLACES, viewer: 'https://viewer.example.com', gateway: 'https://gateway.example.com/chat' };
+    const liveHar = (url: string) =>
+      JSON.stringify({
+        log: {
+          entries: [
+            { pageref: 'page@viewer', _resourceType: 'document', request: { method: 'GET', url: places.viewer } },
+            write(url, []),
+          ],
+        },
+      });
+    const sends = { gateway: 1, ownStamp: {} };
+    expect(paidAsSentProblems(liveHar(`https://gateway.example.com/chat/soc/${INBOX}/01`), places, sends)).toEqual([]);
+    expect(paidAsSentProblems(liveHar(`https://gateway.example.com/soc/${INBOX}/01`), places, sends)).toEqual([
+      '1 gateway sends, 0 inbox writes to the gateway',
+    ]);
+  });
+
   it('does not count a write to another address, such as the own feed copy', () => {
     const copy = write(`http://localhost:16332/soc/${'cd'.repeat(20)}/02`, [
       { name: 'swarm-postage-stamp', value: `${DRIVE}${'00'.repeat(81)}` },

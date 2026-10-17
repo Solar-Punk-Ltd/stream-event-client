@@ -144,6 +144,7 @@ export function stampedRequests(har: string, viewerOrigin: string, drives: strin
 /** Where a viewer's chat writes go, and the address that owns the chat's inbox. */
 interface WritePlaces {
   viewer: string;
+  /** The chat's write address on the event's gateway, which may serve the inbox at a path, such as `/chat`. */
   gateway: string;
   ownNode: string;
   /** The inbox's owner address, 40 hex digits, the first part of every inbox write's `/soc/` path. */
@@ -174,17 +175,15 @@ export function paidAsSentProblems(har: string, places: WritePlaces, sends: Send
       .filter((entry) => entry._resourceType === 'document' && originOf(entry.request?.url) === viewer)
       .map((entry) => entry.pageref),
   );
-  const inboxWrites = entries
-    .filter((entry) => pages.has(entry.pageref) && entry.request?.method === 'POST')
-    .map((entry) => entry.request!)
-    .filter((request) => {
-      const url = request.url ? new URL(request.url) : null;
-      return url?.pathname.toLowerCase().startsWith(`/soc/${places.inboxOwner.toLowerCase()}/`);
-    });
-  const toGateway = inboxWrites.filter((request) => originOf(request.url) === originOf(places.gateway)).length;
+  const inboxPath = (place: string) => `${place.replace(/\/+$/, '')}/soc/${places.inboxOwner}/`.toLowerCase();
+  const writesUnder = (place: string) =>
+    entries
+      .filter((entry) => pages.has(entry.pageref) && entry.request?.method === 'POST')
+      .map((entry) => entry.request!)
+      .filter((request) => request.url?.toLowerCase().startsWith(inboxPath(place)));
+  const toGateway = writesUnder(places.gateway).length;
   const onDrives = new Map<string, number>();
-  for (const request of inboxWrites) {
-    if (originOf(request.url) !== originOf(places.ownNode)) continue;
+  for (const request of writesUnder(places.ownNode)) {
     const stamp = request.headers?.find((header) => header.name.toLowerCase() === POSTAGE_STAMP_HEADER)?.value;
     if (!stamp) continue;
     const drive = stamp.toLowerCase().slice(0, BATCH_ID_HEX_LENGTH);
