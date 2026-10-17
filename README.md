@@ -885,8 +885,10 @@ so the player brings its own loaders:
   that quality is failed so hls.js tries another, because a gateway that does not hold a quality never
   answers for it.
 - **A slow source.** The `ManifestFetcher` times how long the source it reads from takes to answer that
-  a slot is not there, over the latest 16 such answers (`src/features/player/sourceMissCost.ts`). When
-  the middle one of them is over 3 s the source is slow. A freshly started light Bee node with no
+  a slot is not there, over the latest 16 such answers (`src/features/player/sourceMissCost.ts`). Once
+  five have been answered, the source is slow when the middle one of them is over 3 s. Before that it
+  is slow only when at least two answers were all over 3 s, so one slow first answer on a cold
+  connection does not make a fast gateway slow. A freshly started light Bee node with no
   blockchain took 6 to 10 s, where a full node takes 1.3 to 1.6 s. On a slow source a search round is
   taken to last one and a half of those answers. A read is given two rounds instead of the usual 10 s,
   and a quality's first playlist is waited for eight rounds and 5 s more instead of 20 s, both capped,
@@ -895,7 +897,8 @@ so the player brings its own loaders:
   "This Swarm source answers slowly, so the video takes longer to start". On a source that is not slow
   nothing changes. On such a node the video can still stall after it starts: measured on 2026-10-18,
   a segment took 2 to 5 s to load and hls.js gave one up at its own 10 s, and each switch of quality
-  costs another search of about a minute.
+  costs another search of about a minute. A failover to another quality cannot succeed there either,
+  because the search of the quality tried keeps its fixed 15 s bound.
 
 Feed URIs use a `swarm://<owner>/<topic>` scheme, because hls.js resolves every playlist URI against
 the playlist's own URL and a URI with a scheme is the one case it leaves untouched.
