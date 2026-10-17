@@ -457,6 +457,11 @@ pull request, and reports what the first page load downloads.
 `scripts/unused-exports-baseline.json`. `node scripts/unused-exports.mjs --list` names them, and
 after removing one, `node scripts/unused-exports.mjs --write` lowers the baseline so the gain is kept.
 
+`pnpm kit up` starts the whole chat and identity stack on this machine, real Bee nodes on a local chain, the Swarm
+ID fork, the chat server and this repository's image, and `pnpm kit run my-stamp-send` drives it in a browser as a
+person would. It needs Docker. [`kit/README.md`](kit/README.md) says what runs, what its gate refuses and what every
+run keeps.
+
 ## Run the image
 
 The `Dockerfile` builds one image for every deployment: nginx serving the built page, with the page
