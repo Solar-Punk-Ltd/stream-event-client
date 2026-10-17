@@ -68,11 +68,19 @@ export function writeServiceLogs(env: Record<string, string>, dir: string): void
   }
 }
 
-/** The containers on this Docker daemon that are not the kit's, which shared every measurement of the run. */
-export function coTenants(): string[] {
-  const { stdout } = docker(['ps', '--format', '{{.Names}} {{.Image}} {{.Label "com.docker.compose.project"}}'], {
-    allowFailure: true,
-  });
+/**
+ * The containers on this Docker daemon that are not the kit's, which shared every measurement of the run, or null on
+ * a machine with no docker program, where who else ran is not known rather than nobody.
+ */
+export function coTenants(): string[] | null {
+  let stdout: string;
+  try {
+    ({ stdout } = docker(['ps', '--format', '{{.Names}} {{.Image}} {{.Label "com.docker.compose.project"}}'], {
+      allowFailure: true,
+    }));
+  } catch {
+    return null;
+  }
   return stdout
     .split('\n')
     .filter((line) => line && !line.endsWith(` ${PROJECT}`))
