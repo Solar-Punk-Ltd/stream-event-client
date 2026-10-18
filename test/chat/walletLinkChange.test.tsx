@@ -106,6 +106,7 @@ beforeEach(() => {
 afterEach(() => {
   mounted?.unmount();
   mounted = null;
+  vi.useRealTimers();
   globalThis.fetch = realFetch;
   document.body.innerHTML = '';
 });
@@ -150,12 +151,17 @@ describe('"Show my ENS name" changed in Swarm ID while the viewer is signed in',
     const before = FakeSwarmChat.latest();
     type(input('Message'), 'sent while the chat restarts');
 
+    // The new chat is built in a timer after the old one stops, so the test holds that timer to keep the gap open.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     swarmId.client().handOver(LINK_WITHHELD);
     await act(async () => {});
     expect(before.stop, 'the old chat stopped').toHaveBeenCalled();
     expect(FakeSwarmChat.latest(), 'the new chat has not started yet').toBe(before);
     press(input('Message'), 'Enter');
-    await settle();
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    vi.useRealTimers();
     await settle();
 
     expect(sentMessages()).toHaveLength(1);
