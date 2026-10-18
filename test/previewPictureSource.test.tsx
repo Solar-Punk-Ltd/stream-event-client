@@ -145,6 +145,34 @@ describe('a stream card after Previews is switched to Weeb3', () => {
     expect(picture()?.getAttribute('src')).toBe(WEEB3_PICTURE);
     expect(spinning()).toBe(false);
   });
+
+  it('stops waiting when the node fails to start, and shows the placeholder rather than another source', async () => {
+    const runtime = nodeRuntime({ state: 'starting', peers: 0 });
+    context.swarm = previewsFrom(new Weeb3Provider({ runtime, pageOrigin: PAGE_ORIGIN }));
+    showCard();
+    expect(spinning()).toBe(true);
+
+    runtime.set({ state: 'failed', peers: 0 });
+    await wait(1_000);
+
+    expect(spinning()).toBe(false);
+    expect(picture()).toBeNull();
+    expect(container.querySelector('.stream-thumbnail-placeholder')).not.toBeNull();
+  });
+
+  it('keeps a picture already drawn while the node has lost its peers', async () => {
+    const runtime = nodeRuntime({ state: 'ready', peers: 3 });
+    context.swarm = previewsFrom(new Weeb3Provider({ runtime, pageOrigin: PAGE_ORIGIN }));
+    showCard();
+    browserLoads(runtime);
+    expect(picture()?.getAttribute('src')).toBe(WEEB3_PICTURE);
+
+    runtime.set({ state: 'lost', peers: 0 });
+    await wait(1_000);
+
+    expect(picture()?.getAttribute('src')).toBe(WEEB3_PICTURE);
+    expect(spinning()).toBe(false);
+  });
 });
 
 describe('a stream card after Previews is switched to a gateway', () => {
