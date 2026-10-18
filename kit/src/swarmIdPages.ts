@@ -55,6 +55,8 @@ export async function toAccessStep(page: Page, secrets: Untraced): Promise<void>
  */
 const FOLD_MS = 180_000;
 
+const CLICK_RETRY_MS = 5_000;
+
 /**
  * Signs in to an existing account in this browser from its recovery phrase, Swarm ID's "I already have an account",
  * and secures it here with `password`, ending on Swarm ID's home page. Swarm ID reads the account's published state
@@ -63,8 +65,13 @@ const FOLD_MS = 180_000;
  * and its offer to set up a new account under the phrase is never taken.
  */
 export async function signInWithPhrase(page: Page, phrase: string, password: string, secrets: Untraced): Promise<void> {
-  await page.getByRole('link', { name: 'I already have an account' }).click({ timeout: FIRST_LOAD_MS });
-  await expect(page).toHaveURL(/\/account\/import$/);
+  // On the live site a click can land before Swarm ID's page has started, and the page stays put, about one run in
+  // three on 2026-10-18. So the click is repeated until the import page opens.
+  const toImport = page.getByRole('link', { name: 'I already have an account' });
+  await expect(async () => {
+    if (!page.url().endsWith('/account/import')) await toImport.click({ timeout: CLICK_RETRY_MS });
+    await expect(page).toHaveURL(/\/account\/import$/, { timeout: CLICK_RETRY_MS });
+  }).toPass({ timeout: FIRST_LOAD_MS });
   const main = page.getByRole('main');
   const refused = main.getByText(/^(Sign in failed|No account found)$/);
   await secrets.untraced(async () => {
