@@ -12,7 +12,9 @@ import {
   SWARM_ID_FETCHES_FILE,
   SWARM_ID_IN_FLIGHT,
   SWARM_ID_RETRY_DELAYS_MS,
+  SWARM_ID_START_GAP_MS,
   swarmIdFetchFinding,
+  SwarmIdPacer,
 } from '../src/gentleFetch.ts';
 
 const ORIGIN = 'https://id.example.com';
@@ -49,8 +51,73 @@ function fakeRoute(url: string, answer: (attempt: number) => Promise<number>) {
 
 const noWait = () => {
   const waited: number[] = [];
-  return { waited, sleep: async (ms: number) => void waited.push(ms) };
+  return { waited, sleep: async (ms: number) => void waited.push(ms), pacer: new SwarmIdPacer({ startGapMs: 0 }) };
 };
+
+/** A clock that only moves when something sleeps on it. */
+const fakeClock = () => {
+  let now = 0;
+  return { now: () => now, sleep: async (ms: number) => void (now += ms) };
+};
+
+describe('SwarmIdPacer', () => {
+  it("keeps one cap over every actor's fetches of a run, not one cap each", async () => {
+    let inFlight = 0;
+    let most = 0;
+    const releases: (() => void)[] = [];
+    const answer = () =>
+      new Promise<number>((resolve) => {
+        inFlight++;
+        most = Math.max(most, inFlight);
+        releases.push(() => {
+          inFlight--;
+          resolve(200);
+        });
+      });
+    const pacer = new SwarmIdPacer({ startGapMs: 0 });
+    const alice = new GentleFetcher<FakeResponse>(ORIGIN, { ...noWait(), pacer });
+    const bob = new GentleFetcher<FakeResponse>(ORIGIN, { ...noWait(), pacer });
+    const routes = Array.from({ length: 12 }, (_, n) => fakeRoute(`${ORIGIN}/_app/${n}.js`, answer));
+    const handled = routes.map((route, n) => (n % 2 ? alice : bob).handle(route));
+    while (routes.some((route) => route.settled === null)) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      releases.shift()?.();
+    }
+    await Promise.all(handled);
+    expect(most).toBe(SWARM_ID_IN_FLIGHT);
+  });
+
+  it('starts one fetch no sooner than its gap after the one before', async () => {
+    const clock = fakeClock();
+    const pacer = new SwarmIdPacer({ inFlight: 10, ...clock });
+    const started: number[] = [];
+    for (let n = 0; n < 5; n++) {
+      await pacer.acquire();
+      started.push(clock.now());
+      pacer.release();
+    }
+    const gaps = started.slice(1).map((at, n) => at - started[n]!);
+    expect(gaps).toEqual([SWARM_ID_START_GAP_MS, SWARM_ID_START_GAP_MS, SWARM_ID_START_GAP_MS, SWARM_ID_START_GAP_MS]);
+  });
+
+  it('gives its slot back while a file waits to be asked again, so a retry does not hold up the others', async () => {
+    const pacer = new SwarmIdPacer({ inFlight: 1, startGapMs: 0 });
+    let resume: () => void = () => undefined;
+    const fetcher = new GentleFetcher<FakeResponse>(ORIGIN, {
+      pacer,
+      sleep: () => new Promise<void>((resolve) => (resume = resolve)),
+    });
+    const failing = fakeRoute(`${ORIGIN}/_app/slow.js`, async (attempt) => (attempt === 0 ? 500 : 200));
+    const other = fakeRoute(`${ORIGIN}/_app/other.js`, async () => 200);
+    const first = fetcher.handle(failing);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await fetcher.handle(other);
+    expect(other.settled).toEqual({ fulfilled: 200 });
+    resume();
+    await first;
+    expect(failing.settled).toEqual({ fulfilled: 200 });
+  });
+});
 
 describe('GentleFetcher', () => {
   it('keeps at most its cap of Swarm ID fetches in flight and still answers every one', async () => {

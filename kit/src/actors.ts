@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { APIResponse, Browser, BrowserContext, Page } from '@playwright/test';
 
 import type { Addresses } from './addresses.ts';
-import { GentleFetcher, SWARM_ID_FETCHES_FILE } from './gentleFetch.ts';
+import { GentleFetcher, SWARM_ID_FETCHES_FILE, type SwarmIdPacer } from './gentleFetch.ts';
 import type { Guard } from './guard.ts';
 import type { ActorSettings } from './scenario.ts';
 import { UntracedSegments } from './untraced.ts';
@@ -126,7 +126,7 @@ export interface ActorEnvironment {
   guard: Guard;
   local: Addresses | null;
   wallet: WalletSetup | null;
-  swarmIdFetchedByKit: string | null;
+  swarmIdFetchedByKit: { origin: string; pacer: SwarmIdPacer } | null;
 }
 
 export async function startActor(
@@ -155,7 +155,9 @@ export async function startActor(
   }
   // Registered before the guard's route, so it runs after the guard (Playwright tries the newest route first) and only
   // for a request the guard let through.
-  const swarmIdFetcher = swarmIdFetchedByKit ? new GentleFetcher<APIResponse>(swarmIdFetchedByKit) : null;
+  const swarmIdFetcher = swarmIdFetchedByKit
+    ? new GentleFetcher<APIResponse>(swarmIdFetchedByKit.origin, { pacer: swarmIdFetchedByKit.pacer })
+    : null;
   if (swarmIdFetcher) await context.route('**/*', swarmIdFetcher.handle);
   // A request to an address the run does not name is something under test reaching out, and the run that let it
   // through would depend on a network the kit does not control.

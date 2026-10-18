@@ -11,8 +11,10 @@ import { basename, join } from 'node:path';
 
 /** The file in an actor's evidence folder where its fetcher's counts are written when the actor closes. */
 export const SWARM_ID_FETCHES_FILE = 'swarm-id-fetches.json';
-/** How many of one actor's fetches to the Swarm ID site may be in flight at once. */
+/** How many fetches to the Swarm ID site may be in flight at once, over all of a run's actors together. */
 export const SWARM_ID_IN_FLIGHT = 4;
+/** The least time between the starts of two fetches to the Swarm ID site, so a run never asks in a burst. */
+export const SWARM_ID_START_GAP_MS = 100;
 /**
  * How long to wait before each further attempt after a server error or a network error, six attempts in all over 31 s.
  * Measured on bzz.link on 2026-10-18: once a burst overloads it, a file it answered 500 keeps answering 500 for 8 to 30
@@ -47,13 +49,56 @@ export interface GentleRoute<Response extends { status(): number }> {
   abort(errorCode?: string): Promise<void>;
 }
 
-export interface GentleOptions {
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+export interface PacerOptions {
   inFlight?: number;
+  startGapMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
+}
+
+/**
+ * The pace of one run's fetches to the Swarm ID site, shared by its actors: a cap on how many are in flight, and a gap
+ * between one start and the next. Every attempt takes a slot, a retry's wait does not.
+ */
+export class SwarmIdPacer {
+  private readonly inFlight: number;
+  private readonly startGapMs: number;
+  private readonly sleep: (ms: number) => Promise<void>;
+  private readonly now: () => number;
+  private running = 0;
+  private readonly waiting: (() => void)[] = [];
+  private nextStart = 0;
+
+  constructor(options: PacerOptions = {}) {
+    this.inFlight = options.inFlight ?? SWARM_ID_IN_FLIGHT;
+    this.startGapMs = options.startGapMs ?? SWARM_ID_START_GAP_MS;
+    this.sleep = options.sleep ?? wait;
+    this.now = options.now ?? Date.now;
+  }
+
+  async acquire(): Promise<void> {
+    if (this.running < this.inFlight) this.running++;
+    else await new Promise<void>((resolve) => this.waiting.push(resolve));
+    const at = Math.max(this.now(), this.nextStart);
+    this.nextStart = at + this.startGapMs;
+    const early = at - this.now();
+    if (early > 0) await this.sleep(early);
+  }
+
+  release(): void {
+    const next = this.waiting.shift();
+    if (next) next();
+    else this.running--;
+  }
+}
+
+export interface GentleOptions {
+  pacer?: SwarmIdPacer;
   retryDelaysMs?: readonly number[];
   sleep?: (ms: number) => Promise<void>;
 }
-
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function isAt(url: string, origin: string): boolean {
   try {
@@ -66,11 +111,9 @@ function isAt(url: string, origin: string): boolean {
 /** One actor's fetcher for the Swarm ID site's requests, used as a context route's handler. */
 export class GentleFetcher<Response extends { status(): number }> {
   private readonly origin: string;
-  private readonly inFlight: number;
+  private readonly pacer: SwarmIdPacer;
   private readonly retryDelaysMs: readonly number[];
   private readonly sleep: (ms: number) => Promise<void>;
-  private running = 0;
-  private readonly waiting: (() => void)[] = [];
   private readonly tally: GentleCounts = {
     requests: 0,
     serverErrors: 0,
@@ -82,7 +125,7 @@ export class GentleFetcher<Response extends { status(): number }> {
 
   constructor(origin: string, options: GentleOptions = {}) {
     this.origin = new URL(origin).origin;
-    this.inFlight = options.inFlight ?? SWARM_ID_IN_FLIGHT;
+    this.pacer = options.pacer ?? new SwarmIdPacer();
     this.retryDelaysMs = options.retryDelaysMs ?? SWARM_ID_RETRY_DELAYS_MS;
     this.sleep = options.sleep ?? wait;
   }
@@ -98,42 +141,28 @@ export class GentleFetcher<Response extends { status(): number }> {
   handle = async (route: GentleRoute<Response>): Promise<void> => {
     if (!isAt(route.request().url(), this.origin)) return route.fallback();
     this.tally.requests++;
-    await this.slot();
     let last: Response | null = null;
-    try {
-      for (let attempt = 0; attempt <= this.retryDelaysMs.length; attempt++) {
-        if (attempt > 0) {
-          this.tally.retries++;
-          if (attempt === 1) this.tally.filesRetried++;
-          await this.sleep(this.retryDelaysMs[attempt - 1]!);
-        }
+    for (let attempt = 0; attempt <= this.retryDelaysMs.length; attempt++) {
+      if (attempt > 0) {
+        this.tally.retries++;
+        if (attempt === 1) this.tally.filesRetried++;
+        await this.sleep(this.retryDelaysMs[attempt - 1]!);
+      }
+      await this.pacer.acquire();
+      try {
         // The browser follows a redirect itself, so a page keeps the address its relative links resolve against.
         last = await route.fetch({ maxRedirects: 0 }).catch(() => null);
-        if (last === null) this.tally.networkErrors++;
-        else if (last.status() >= SERVER_ERROR) this.tally.serverErrors++;
-        else break;
+      } finally {
+        this.pacer.release();
       }
-    } finally {
-      this.release();
+      if (last === null) this.tally.networkErrors++;
+      else if (last.status() >= SERVER_ERROR) this.tally.serverErrors++;
+      else break;
     }
     if (last === null || last.status() >= SERVER_ERROR) this.tally.stillFailed++;
     // The page or its context may have closed while the fetch ran, and then nothing waits for the answer.
     await (last === null ? route.abort('failed') : route.fulfill({ response: last })).catch(() => undefined);
   };
-
-  private async slot(): Promise<void> {
-    if (this.running < this.inFlight) {
-      this.running++;
-      return;
-    }
-    await new Promise<void>((resolve) => this.waiting.push(resolve));
-  }
-
-  private release(): void {
-    const next = this.waiting.shift();
-    if (next) next();
-    else this.running--;
-  }
 }
 
 /** Each actor's counts, by the actor's folder name, from the folders that have them. */

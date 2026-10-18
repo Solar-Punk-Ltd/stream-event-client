@@ -11,6 +11,7 @@ import { healthStatus, json } from './bee.ts';
 import { launchForProfile } from './browser.ts';
 import { type Deployment, type LocalStack, localDeployment, type SiteAddresses } from './deployment.ts';
 import { coTenants, machine, snapshotMetrics, writeJson, writeMetricsDiff, writeServiceLogs } from './evidence.ts';
+import { SwarmIdPacer } from './gentleFetch.ts';
 import { type Guard, LOCAL_GUARD } from './guard.ts';
 import { readLock } from './lock.ts';
 import { OutsideRequests } from './outside.ts';
@@ -202,7 +203,7 @@ export async function execute(
       guard: mode.guard,
       local: mode.local?.addresses ?? null,
       wallet: mode.wallet,
-      swarmIdFetchedByKit: mode.live?.swarmId ?? null,
+      swarmIdFetchedByKit: mode.live ? { origin: mode.live.swarmId, pacer: new SwarmIdPacer() } : null,
     };
     for (const [actorName, settings] of Object.entries(scenario.actors)) {
       actors.set(
