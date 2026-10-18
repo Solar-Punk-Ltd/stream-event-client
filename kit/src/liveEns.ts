@@ -1,8 +1,7 @@
 /**
  * Live mode's ENS scenarios: the wallet that owns a real ENS name, whose key reaches the kit only through the
- * environment, the gate that checks that wallet and its name before a run, the name the checks expect, and the two
- * readings of a finished run's evidence that matter on a real deployment: the key nowhere in it, and how many of Swarm
- * ID's own files its site answered with a server error.
+ * environment, the gate that checks that wallet and its name before a run, the name the checks expect, and the reading
+ * of a finished run's evidence that matters on a real deployment: the key nowhere in it.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -150,47 +149,6 @@ export function ensNameFor(run: { live: { target: Pick<Target, 'ens'> } | null }
     throw new Error(`the ENS snapshot names wallets for ${ENS_ACTORS.join(' and ')} only, not ${actor}`);
   }
   return bakedName(actor as EnsActor);
-}
-
-interface HarLog {
-  log?: { entries?: { request?: { url?: string }; response?: { status?: number } }[] };
-}
-
-/** How many answers a recorded network holds from `origin` with a server error, 500 and up. */
-export function serverErrorsAt(har: string, origin: string): number {
-  const entries = (JSON.parse(har) as HarLog).log?.entries ?? [];
-  return entries.filter((entry) => {
-    const status = entry.response?.status ?? 0;
-    if (status < 500) return false;
-    try {
-      return new URL(entry.request?.url ?? '').origin === origin;
-    } catch {
-      return false;
-    }
-  }).length;
-}
-
-/**
- * The finding a live run records when Swarm ID's site answered its own files with a server error, so a failed run
- * classifies itself. bzz.link answers such errors under parallel load, a known limit of the deployment's address for
- * Swarm ID. A passed run gets the count alone.
- */
-export function swarmIdServerErrorFinding(
-  passed: boolean,
-  byActor: Record<string, number>,
-): { count: number; byActor: Record<string, number>; cause?: string } | null {
-  const count = Object.values(byActor).reduce((sum, n) => sum + n, 0);
-  if (count === 0) return null;
-  return {
-    count,
-    byActor,
-    ...(passed
-      ? {}
-      : {
-          cause:
-            "Swarm ID's site answered its own files with 500 and up, which bzz.link does under parallel load, so the failure may be the deployment's address for Swarm ID and not the release",
-        }),
-  };
 }
 
 /**

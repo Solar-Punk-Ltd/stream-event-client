@@ -1,10 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { Browser, BrowserContext, Page } from '@playwright/test';
+import type { APIResponse, Browser, BrowserContext, Page } from '@playwright/test';
 
 import type { Addresses } from './addresses.ts';
+import { GentleFetcher, SWARM_ID_FETCHES_FILE } from './gentleFetch.ts';
 import type { Guard } from './guard.ts';
 import type { ActorSettings } from './scenario.ts';
 import { UntracedSegments } from './untraced.ts';
@@ -115,15 +116,17 @@ export interface WalletSetup {
 
 /**
  * Where an actor's browser is pointed: the viewer, the guard that decides what it may reach, the local stack's
- * addresses, or null against a real deployment, and where the kit's wallet is offered, or null for none. Against a
- * real deployment nothing of the local network is put into Swarm ID's pages, so Swarm ID runs with its own settings, as
- * a visitor's does, and a wallet is offered only to a scenario that signs with one.
+ * addresses, or null against a real deployment, where the kit's wallet is offered, or null for none, and the Swarm ID
+ * site whose files the kit fetches itself, or null for the browser to fetch them. Against a real deployment nothing of
+ * the local network is put into Swarm ID's pages, so Swarm ID runs with its own settings, as a visitor's does, and a
+ * wallet is offered only to a scenario that signs with one.
  */
 export interface ActorEnvironment {
   viewer: string;
   guard: Guard;
   local: Addresses | null;
   wallet: WalletSetup | null;
+  swarmIdFetchedByKit: string | null;
 }
 
 export async function startActor(
@@ -133,7 +136,7 @@ export async function startActor(
   environment: ActorEnvironment,
   dir: string,
 ): Promise<Actor> {
-  const { viewer, guard, local, wallet: walletAt } = environment;
+  const { viewer, guard, local, wallet: walletAt, swarmIdFetchedByKit } = environment;
   if (!local && settings.chatSource === 'bee') {
     throw new Error(`${name} reads the chat from the viewer's own Bee node, which live mode has none of`);
   }
@@ -150,6 +153,10 @@ export async function startActor(
     const walletScript = await exposeWallet(context, walletAt.swarmId, walletAt.rpc, () => wallet);
     await prepareSwarmIdDocuments(context, walletAt.swarmId, local, walletScript);
   }
+  // Registered before the guard's route, so it runs after the guard (Playwright tries the newest route first) and only
+  // for a request the guard let through.
+  const swarmIdFetcher = swarmIdFetchedByKit ? new GentleFetcher<APIResponse>(swarmIdFetchedByKit) : null;
+  if (swarmIdFetcher) await context.route('**/*', swarmIdFetcher.handle);
   // A request to an address the run does not name is something under test reaching out, and the run that let it
   // through would depend on a network the kit does not control.
   await context.route('**/*', (route) => {
@@ -243,6 +250,9 @@ export async function startActor(
       await context.tracing.stopChunk({ path: traceFile() }).catch(() => undefined);
       await context.tracing.stop().catch(() => undefined);
       await context.close();
+      if (swarmIdFetcher) {
+        writeFileSync(join(dir, SWARM_ID_FETCHES_FILE), `${JSON.stringify(swarmIdFetcher.counts, null, 2)}\n`);
+      }
     },
   };
   return actor;

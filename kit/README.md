@@ -316,6 +316,14 @@ visitor's do. Only an ENS scenario offers them a wallet, the ENS wallet, the way
 window gets that wallet in the document it opened with, and is not loaded a second time, so it asks for Swarm ID's files
 once.
 
+Live, the kit fetches every request to the Swarm ID site itself, after the guard let it through. The deployment's Swarm
+ID site is served from bzz.link, which answers many of a burst of parallel requests with `500 Internal Server Error`
+and every file asked for one at a time with 200. A fresh test browser has an empty cache and asks for Swarm ID's whole
+module graph at once, so without this its sign-in window never shows its account button. Each actor has at most 4
+such fetches in flight, and a fetch answered 500 or above, or not at all, is asked again after 0.5, 1, 2 and 4
+seconds, five attempts in all. The page then gets the last answer, so a file that never loads still fails the step.
+Locally the browser fetches Swarm ID's files itself, as before.
+
 ### What a live check reads
 
 `expect chat-feed` reads the chat feed through the chat's read address, as the viewer does, with the config's feed
@@ -341,10 +349,13 @@ container logs, since none of those are the kit's to read on a real deployment. 
 
 Two readings of the evidence are made once the browsers closed. An ENS run searches every actor's recorded network,
 console and traces, its `header.json`, its `preflight.json` and its verdict for the ENS wallet's key, and fails when any
-holds it, naming where and never the key. And a run whose Swarm ID site answered its own files with 500 or above
-records `swarm id server errors` in its verdict, with the count for each actor. On a failed run that finding also names
-the likely cause: bzz.link answers Swarm ID's files with 500 under parallel load, a known limit of that address. The run
-is still failed, and the kit never retries around it.
+holds it, naming where and never the key. And every live run records `swarm id server errors` in its verdict,
+from the counts each actor's fetcher writes to `actors/<actor>/swarm-id-fetches.json` when it closes: how many requests
+went to the Swarm ID site, how many attempts were answered 500 or above, how many got no answer, how many retries were
+made, how many files needed a retry, and how many still failed after the last attempt, summed and for each actor. The
+recorded network shows only the answer each request finally got, so these counts are where the site's errors stay
+seen. On a failed run that met any, the finding also names the likely cause: bzz.link answers Swarm ID's files with 500
+under parallel load, a known limit of that address.
 
 ## In a CI job
 

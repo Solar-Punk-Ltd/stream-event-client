@@ -5,21 +5,14 @@
  * hostile site, which is served from this machine.
  */
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { join } from 'node:path';
 
 import { type EvilSite, serveEvilSite } from './evilSite.ts';
 import { writeJson } from './evidence.ts';
+import { readSwarmIdFetches, swarmIdFetchFinding } from './gentleFetch.ts';
 import { liveGuard } from './guard.ts';
 import { judgeLiveGate, namedAddresses, readLiveGate } from './liveGate.ts';
-import {
-  ensActorsOf,
-  evidenceLeaks,
-  judgeEnsGate,
-  readEnsGate,
-  readEnsKey,
-  serverErrorsAt,
-  swarmIdServerErrorFinding,
-} from './liveEns.ts';
+import { ensActorsOf, evidenceLeaks, judgeEnsGate, readEnsGate, readEnsKey } from './liveEns.ts';
 import { readLock } from './lock.ts';
 import { LIVE_EVIDENCE_DIR, REPO_DIR } from './paths.ts';
 import type { PreflightCheck } from './preflight.ts';
@@ -129,19 +122,12 @@ export async function runLiveScenario(name: string, target: Target, runId = newR
   const needsEvil = scenario.steps.some((step) => step.verb === 'evil');
   const ensWallet = ensKey?.state === 'read' ? ensKey.wallet : null;
   /**
-   * The ENS wallet's key is the one live secret the kit holds, so the run fails when any of its evidence holds it, and
-   * a failed run whose Swarm ID files were answered with server errors says so.
+   * The ENS wallet's key is the one live secret the kit holds, so the run fails when any of its evidence holds it. What
+   * the Swarm ID site's answers cost is recorded on every run, from the actors' own counts, since the page and the
+   * recorded network see only the answer the last attempt got.
    */
   const afterBrowsers = (actorDirs: string[], passed: boolean, texts: Record<string, string>): AfterBrowsers => {
-    const byActor = Object.fromEntries(
-      actorDirs
-        .filter((actorDir) => existsSync(join(actorDir, 'network.har')))
-        .map((actorDir) => [
-          basename(actorDir),
-          serverErrorsAt(readFileSync(join(actorDir, 'network.har'), 'utf8'), live.swarmId),
-        ]),
-    );
-    const finding = swarmIdServerErrorFinding(passed, byActor);
+    const finding = swarmIdFetchFinding(passed, readSwarmIdFetches(actorDirs));
     const leaks = ensWallet
       ? evidenceLeaks(actorDirs, { 'the ENS wallet key': ensWallet.key }, { ...texts, ...evidenceFiles(dir) })
       : [];

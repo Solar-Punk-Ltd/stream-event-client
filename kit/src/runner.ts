@@ -202,6 +202,7 @@ export async function execute(
       guard: mode.guard,
       local: mode.local?.addresses ?? null,
       wallet: mode.wallet,
+      swarmIdFetchedByKit: mode.live?.swarmId ?? null,
     };
     for (const [actorName, settings] of Object.entries(scenario.actors)) {
       actors.set(

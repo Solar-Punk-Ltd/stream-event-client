@@ -14,8 +14,6 @@ import {
   evidenceLeaks,
   judgeEnsGate,
   readEnsKey,
-  serverErrorsAt,
-  swarmIdServerErrorFinding,
 } from '../src/liveEns.ts';
 import { parseScenario } from '../src/scenario.ts';
 
@@ -113,40 +111,6 @@ describe('ensNameFor', () => {
     expect(() => ensNameFor({ live: { target: { ens: ENS } } }, 'bob')).toThrow(/bob/);
     expect(() => ensNameFor({ live: { target: {} } }, 'alice')).toThrow(/ens/);
     expect(() => ensNameFor({ live: null }, 'carol')).toThrow(/carol/);
-  });
-});
-
-const har = (entries: { url: string; status: number }[]) =>
-  JSON.stringify({
-    log: { entries: entries.map(({ url, status }) => ({ request: { url }, response: { status } })) },
-  });
-
-describe('serverErrorsAt', () => {
-  it('counts the 5xx answers from one origin only', () => {
-    const recorded = har([
-      { url: 'https://id.example.com/_app/a.js', status: 500 },
-      { url: 'https://id.example.com/_app/b.js', status: 503 },
-      { url: 'https://id.example.com/_app/c.js', status: 200 },
-      { url: 'https://id.example.com/_app/d.js', status: 404 },
-      { url: 'https://viewer.example.com/x.js', status: 500 },
-    ]);
-    expect(serverErrorsAt(recorded, 'https://id.example.com')).toBe(2);
-    expect(serverErrorsAt(har([]), 'https://id.example.com')).toBe(0);
-  });
-});
-
-describe('swarmIdServerErrorFinding', () => {
-  it('names the count and the known cause on a failed run with Swarm ID 5xx answers', () => {
-    const finding = swarmIdServerErrorFinding(false, { alice: 3, bob: 1 });
-    expect(finding).toMatchObject({ count: 4, byActor: { alice: 3, bob: 1 } });
-    expect(String(finding?.cause)).toMatch(/500/);
-  });
-
-  it('counts without blaming on a passed run, and says nothing when there were none', () => {
-    const finding = swarmIdServerErrorFinding(true, { alice: 2 });
-    expect(finding).toMatchObject({ count: 2 });
-    expect(finding?.cause).toBeUndefined();
-    expect(swarmIdServerErrorFinding(false, { alice: 0 })).toBeNull();
   });
 });
 
