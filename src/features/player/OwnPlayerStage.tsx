@@ -10,6 +10,9 @@ import './OwnPlayerStage.scss';
 /** What a viewer reads when the source's own player cannot play the stream. */
 export const PLAY_FAILED = 'The Swarm node in this browser could not play this stream.';
 
+/** What a viewer reads while a recording's video is held still until it can go to where they were. */
+export const MOVING_TO_PLACE = 'Going to where you were in the recording';
+
 interface OwnPlayerStageProps {
   readonly load: () => Promise<OwnPlayer>;
   /** Where the source's node is, which the stage shows until it is ready. */
@@ -35,6 +38,7 @@ export function OwnPlayerStage({ load, status, owner, topic, from, place }: OwnP
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
   const [startFrom] = useState(from);
+  const [isMovingToPlace, setIsMovingToPlace] = useState(false);
   const node = useNodeStatus(status);
   const placeRef = useRef(place);
   placeRef.current = place;
@@ -51,11 +55,18 @@ export function OwnPlayerStage({ load, status, owner, topic, from, place }: OwnP
     // Read once for the stream this run plays, as the app's player does.
     const streamPlace = placeRef.current;
     const resume = isRecording ? (streamPlace?.recorded() ?? null) : null;
-    let stopMoving = (): void => undefined;
     const followed = followPlace(video);
-    if (resume?.paused) {
-      video.autoplay = false;
-    }
+    // Until the video reaches the place, where it is says nothing about where the viewer was.
+    let isAtPlace = resume === null;
+    setIsMovingToPlace(!isAtPlace);
+    const stopMoving = resume
+      ? moveToPlace(video, resume, () => {
+          isAtPlace = true;
+          if (current) {
+            setIsMovingToPlace(false);
+          }
+        })
+      : () => undefined;
     setFailed(false);
     load()
       .then(async (loaded) => {
@@ -65,9 +76,6 @@ export function OwnPlayerStage({ load, status, owner, topic, from, place }: OwnP
         }
         player = loaded;
         await loaded.attach(video, owner, topic, startFrom);
-        if (current && resume) {
-          stopMoving = moveToPlace(video, resume);
-        }
       })
       .catch((error: unknown) => {
         console.warn("The source's own player could not play the stream:", error);
@@ -79,7 +87,7 @@ export function OwnPlayerStage({ load, status, owner, topic, from, place }: OwnP
       current = false;
       stopMoving();
       followed.detach();
-      if (isRecording) {
+      if (isRecording && isAtPlace) {
         streamPlace?.record(followed.place());
       }
       video.pause();
@@ -87,11 +95,13 @@ export function OwnPlayerStage({ load, status, owner, topic, from, place }: OwnP
     };
   }, [load, owner, topic, startFrom]);
 
-  const playing = !failed && node.state === 'ready';
+  const isReady = !failed && node.state === 'ready';
+  const playing = isReady && !isMovingToPlace;
   const note = failed ? null : healthyPeersNote(node);
   // A ready node whose player would not attach could not play this stream. Any other failure is the node's own.
-  const words =
-    !failed || node.state === 'lost'
+  const words = isReady
+    ? MOVING_TO_PLACE
+    : !failed || node.state === 'lost'
       ? weeb3StatusLine(node)
       : node.state === 'ready'
         ? PLAY_FAILED

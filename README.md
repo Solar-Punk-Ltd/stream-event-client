@@ -670,8 +670,11 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   that place and keeps asking until its first segment is in, because hls.js forgets a start position it is given again
   before then, as the play that autoplay starts does. weeb-3's player starts at the beginning, since weeb-3 starts
   only there or live, and the video is moved to the place once weeb-3's rebuilt playlist reaches it. Measured
-  on 2026-10-18 on a 1483 s recording, that playlist named 8 s at first and the whole length about 9 s later, so the
-  first seconds of the recording can show before the video moves to the place. A live stream joins at its live edge
+  on 2026-10-18 on a 1483 s recording, that playlist named 8 s at first and the whole length about 9 s later. Until
+  then the video is held still and silent, every play weeb-3 starts is paused again, and the line under it says "Going
+  to where you were in the recording", so the start of the recording never plays first. Once there, it plays from the
+  place, or stays paused there if the viewer had paused. A viewer who leaves weeb-3 before it got there keeps the
+  place they had. A live stream joins at its live edge
   in either player, as it always has, and a player that joined a broadcast live keeps no place for the next one,
   because its timeline starts where it joined.
 - **Diagnosing playback.** `?qoe=1` on a watch page shows the playback quality panel, ported from

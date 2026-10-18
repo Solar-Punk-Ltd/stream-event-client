@@ -76,32 +76,36 @@ export function followPlace(media: HTMLMediaElement): FollowedPlace {
 }
 
 /**
- * Moves a video to `place` once its duration reaches it, and holds it paused when the viewer had paused. Answers a
- * detach that stops waiting.
+ * Moves a video to `place` once its duration reaches it, holding it still until then, and plays it from there unless
+ * the viewer had paused. Calls `onArrived` once it is there. Answers a detach that stops waiting.
  *
  * Used for weeb-3's player, whose `attachStream` starts only at the beginning or live. Its player is hls.js, which
  * loads from wherever the video is moved to. weeb-3 rebuilds a recording's playlist from its first segments on, so
  * the duration it first names is a few seconds and a seek past it lands at its end. Measured on 2026-10-18 on a
- * 1483 s recording: 8 s at its metadata, the whole length about 9 s later.
+ * 1483 s recording: 8 s at its metadata, the whole length about 9 s later. Every play until then, weeb-3's own
+ * included, is paused again, so the start of the recording does not play first (Levi, 2026-10-18).
  */
-export function moveToPlace(media: HTMLMediaElement, place: PlaybackPlace): () => void {
-  if (place.paused) {
-    media.pause();
-  }
+export function moveToPlace(media: HTMLMediaElement, place: PlaybackPlace, onArrived: () => void): () => void {
+  const hold = (): void => media.pause();
   const move = (): void => {
     if (!(media.duration >= place.positionS)) {
       return;
     }
     detach();
     media.currentTime = place.positionS;
-    if (place.paused) {
-      media.pause();
+    if (!place.paused) {
+      media.play().catch(() => undefined);
     }
+    onArrived();
   };
   const detach = (): void => {
+    media.removeEventListener('play', hold);
     media.removeEventListener('loadedmetadata', move);
     media.removeEventListener('durationchange', move);
   };
+  media.autoplay = false;
+  media.pause();
+  media.addEventListener('play', hold);
   media.addEventListener('loadedmetadata', move);
   media.addEventListener('durationchange', move);
   if (media.readyState >= HTMLMediaElement.HAVE_METADATA) {

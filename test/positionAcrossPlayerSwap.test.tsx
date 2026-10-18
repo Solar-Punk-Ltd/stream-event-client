@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from 
 import { Events } from 'hls.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { MOVING_TO_PLACE } from '../src/features/player/OwnPlayerStage';
 import { StreamWatcher } from '../src/features/player/StreamWatcher/StreamWatcher';
 import type { OwnPlayer, ProviderStatus } from '../src/swarm/provider';
 import { fakeWeeb3Package } from './helpers/fakeWeeb3';
@@ -363,6 +364,41 @@ describe('a recording, when the video moves between weeb-3 and the app’s playe
     durationTo(video, RECORDING_S);
 
     expect(video.currentTime).toBe(58);
+  });
+
+  // Levi's ruling of 2026-10-18: the first seconds of the recording do not play while weeb-3's player waits.
+  it('holds weeb-3’s video still with a line under it until it reaches the place, then plays from there', async () => {
+    watchOnAppPlayer(58);
+    page.ownPlayer = await weeb3Player();
+    mounted!.render(watchPage());
+    await settle();
+    const video = weeb3Video();
+
+    durationTo(video, 8);
+    void video.play();
+    expect(video.paused).toBe(true);
+    expect(document.querySelector('.own-player-words')?.textContent).toBe(MOVING_TO_PLACE);
+
+    durationTo(video, RECORDING_S);
+    await settle();
+
+    expect(video.currentTime).toBe(58);
+    expect(video.paused).toBe(false);
+    expect(document.querySelector('.own-player-status')).toBeNull();
+  });
+
+  it('keeps the place the viewer had when they leave weeb-3 before it got there', async () => {
+    watchOnAppPlayer(58);
+    page.ownPlayer = await weeb3Player();
+    mounted!.render(watchPage());
+    await settle();
+    const waiting = weeb3Video();
+    durationTo(waiting, 8);
+    playheadTo(waiting, 2, false);
+
+    moveToAppPlayer();
+
+    expect(fakes.hls.at(-1)!.startLoads[0]).toBe(58);
   });
 
   it("keeps the viewer's place when it moves from weeb-3's player to the app's", async () => {
