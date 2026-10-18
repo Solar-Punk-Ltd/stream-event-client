@@ -320,8 +320,8 @@ Live, the kit fetches every request to the Swarm ID site itself, after the guard
 ID site is served from bzz.link, which answers many of a burst of parallel requests with `500 Internal Server Error`
 and every file asked for one at a time with 200. A fresh test browser has an empty cache and asks for Swarm ID's whole
 module graph at once, so without this its sign-in window never shows its account button. Each actor has at most 4
-such fetches in flight, and a fetch answered 500 or above, or not at all, is asked again after 0.5, 1, 2 and 4
-seconds, five attempts in all. The page then gets the last answer, so a file that never loads still fails the step.
+such fetches in flight, and a fetch answered 500 or above, or not at all, is asked again after 1, 2, 4, 8 and 16
+seconds, six attempts in all, since once overloaded bzz.link keeps answering a file 500 for 8 to 30 seconds. The page then gets the last answer, so a file that never loads still fails the step.
 Locally the browser fetches Swarm ID's files itself, as before.
 
 ### What a live check reads

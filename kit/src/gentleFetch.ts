@@ -13,8 +13,12 @@ import { basename, join } from 'node:path';
 export const SWARM_ID_FETCHES_FILE = 'swarm-id-fetches.json';
 /** How many of one actor's fetches to the Swarm ID site may be in flight at once. */
 export const SWARM_ID_IN_FLIGHT = 4;
-/** How long to wait before each further attempt after a server error or a network error, so five attempts in all. */
-export const SWARM_ID_RETRY_DELAYS_MS = [500, 1_000, 2_000, 4_000] as const;
+/**
+ * How long to wait before each further attempt after a server error or a network error, six attempts in all over 31 s.
+ * Measured on bzz.link on 2026-10-18: once a burst overloads it, a file it answered 500 keeps answering 500 for 8 to 30
+ * s, so a shorter series gives up while the site is still recovering.
+ */
+export const SWARM_ID_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 16_000] as const;
 /** Answers from here up are the server's own failure, and are asked again. */
 const SERVER_ERROR = 500;
 
