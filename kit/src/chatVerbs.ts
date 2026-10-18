@@ -299,7 +299,9 @@ export const CHAT_CHECKS: Record<string, Verb> = {
 
   /**
    * `expect details <actor> "text" [identity=swarm-id|guest] [sent=own|gateway] [ens=<who>|none] [own-feed=N]
-   * [chat-feed=N] [in-own-feed=yes|no]`: what the message's details card says. ens names the actor whose baked name
+   * [chat-feed=N] [in-own-feed=yes|no] [from=<actor>]`: what the message's details card says. own-feed and chat-feed
+   * count the sender's messages from their `own-feed-start`, and from names the sender when another actor reads the
+   * card. ens names the actor whose baked name
    * must show with the ENS checked tick, the baked name locally and the target's live, and the sender's chosen name, or none for no ENS row.
    */
   async details(run, step) {
@@ -317,7 +319,8 @@ export const CHAT_CHECKS: Record<string, Verb> = {
       await expect(row).toContainText(`Chosen name ${expectedName(run, `chosen:${ens}`)}`);
     }
     const ownFeed = card.getByRole('region', { name: 'Own feed' });
-    const before = ownFeedAtStart(run, run.actor(step.args[1]).name).total;
+    const sender = run.actor(step.options.from ?? step.args[1]).name;
+    const before = ownFeedAtStart(run, sender).total;
     const count = (n: string) => messagesWord(before + Number(n));
     if (step.options['own-feed']) {
       await expect(ownFeed.getByText(`Own feed: ${count(step.options['own-feed'])}`, { exact: true })).toBeVisible({

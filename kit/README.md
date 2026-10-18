@@ -170,7 +170,7 @@ fails with those words.
 | `expect no-site-stamp <actor>`                   | Swarm ID gave the viewer no stamp, the viewer offers to choose one, and nothing was stamped                                                                  |
 | `expect sees <actor> "text"`                     | the message shows in that actor's chat                                                                                                                       |
 | `expect sender <actor> "text" ...`               | the name, `ens:<who>` or `chosen:<who>`, the badge, the own stamp mark above it, and `ens=shown` or `none` for the ENS name mark                             |
-| `expect details <actor> "text" ...`              | identity, who paid, the ENS row with its tick, and the Own feed and Chat feed counts                                                                         |
+| `expect details <actor> "text" ...`              | identity, who paid, the ENS row with its tick, and the sender's Own feed and Chat feed counts from their `own-feed-start`                                    |
 | `expect own-feed-line <actor> ...`               | My stamp's line, Own feed: N of M messages and how many are missing, counted from `own-feed-start`                                                           |
 | `expect ens-link <actor> on` or `off`            | what Swarm ID's frame last told the viewer carries the actor's wallet, or not. `--record` only writes down what it saw                                       |
 | `expect no-wallet-link "text"`                   | the message the chat feed holds with that text carries no wallet link                                                                                        |
