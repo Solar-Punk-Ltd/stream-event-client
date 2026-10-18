@@ -76,6 +76,16 @@ export function followPlace(media: HTMLMediaElement): FollowedPlace {
 }
 
 /**
+ * How long a duration short of the place may stay the same before the recording counts as having stopped growing.
+ * Three times the 9 s weeb-3 took to grow from its first duration to the whole length in the one measurement there is,
+ * so the measured growth is waited out and a recording that ends before the place is not held for ever.
+ */
+export const DURATION_SETTLED_MS = 30_000;
+
+/** How far before the end a place past it is taken, so the video starts on a frame rather than on the end. */
+const SHORT_OF_END_S = 1;
+
+/**
  * Moves a video to `place` once its duration reaches it, holding it still until then, and plays it from there unless
  * the viewer had paused. Calls `onArrived` once it is there. Answers a detach that stops waiting.
  *
@@ -84,21 +94,43 @@ export function followPlace(media: HTMLMediaElement): FollowedPlace {
  * the duration it first names is a few seconds and a seek past it lands at its end. Measured on 2026-10-18 on a
  * 1483 s recording: 8 s at its metadata, the whole length about 9 s later. Every play until then, weeb-3's own
  * included, is paused again, so the start of the recording does not play first, as the owner asked.
+ *
+ * A duration that stays short of the place for {@link DURATION_SETTLED_MS} is taken as the whole recording, and the
+ * video goes a second before its end instead, never back to the start.
  */
 export function moveToPlace(media: HTMLMediaElement, place: PlaybackPlace, onArrived: () => void): () => void {
+  let settled: ReturnType<typeof setTimeout> | null = null;
   const hold = (): void => media.pause();
-  const move = (): void => {
-    if (!(media.duration >= place.positionS)) {
-      return;
-    }
+  const arriveAt = (positionS: number): void => {
     detach();
-    media.currentTime = place.positionS;
+    media.currentTime = positionS;
     if (!place.paused) {
       media.play().catch(() => undefined);
     }
     onArrived();
   };
+  const goNearEnd = (): void => {
+    settled = null;
+    arriveAt(Math.max(0, media.duration - SHORT_OF_END_S));
+  };
+  const move = (): void => {
+    if (!(media.duration > 0)) {
+      return;
+    }
+    if (media.duration >= place.positionS) {
+      arriveAt(place.positionS);
+      return;
+    }
+    if (settled !== null) {
+      clearTimeout(settled);
+    }
+    settled = setTimeout(goNearEnd, DURATION_SETTLED_MS);
+  };
   const detach = (): void => {
+    if (settled !== null) {
+      clearTimeout(settled);
+      settled = null;
+    }
     media.removeEventListener('play', hold);
     media.removeEventListener('loadedmetadata', move);
     media.removeEventListener('durationchange', move);

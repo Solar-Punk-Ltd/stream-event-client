@@ -387,6 +387,24 @@ describe('a recording, when the video moves between weeb-3 and the app’s playe
     expect(document.querySelector('.own-player-status')).toBeNull();
   });
 
+  it('lets go of the video and its line when the viewer leaves weeb-3 before it got there', async () => {
+    watchOnAppPlayer(58);
+    page.ownPlayer = await weeb3Player();
+    mounted!.render(watchPage());
+    await settle();
+    const waiting = weeb3Video();
+    durationTo(waiting, 8);
+    expect(document.querySelector('.own-player-status')).not.toBeNull();
+
+    moveToAppPlayer();
+    durationTo(waiting, RECORDING_S);
+    void waiting.play();
+
+    expect(document.querySelector('.own-player-status')).toBeNull();
+    expect(waiting.currentTime).toBe(0);
+    expect(waiting.paused).toBe(false);
+  });
+
   it('keeps the place the viewer had when they leave weeb-3 before it got there', async () => {
     watchOnAppPlayer(58);
     page.ownPlayer = await weeb3Player();
