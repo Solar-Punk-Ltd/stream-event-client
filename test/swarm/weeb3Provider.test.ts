@@ -503,7 +503,11 @@ describe('the weeb-3 provider', () => {
 
   it("brings weeb-3's own player once the node is ready, which holds the node until it detaches", async () => {
     const { provider, runtime } = weeb3(servedFetch(), { state: 'starting', peers: 0 });
-    const video = {} as HTMLVideoElement;
+    const video = {
+      pause: () => undefined,
+      removeAttribute: () => undefined,
+      load: () => undefined,
+    } as unknown as HTMLVideoElement;
     let player: Awaited<ReturnType<typeof provider.ownPlayer>> | null = null;
 
     void provider.ownPlayer().then((loaded) => (player = loaded));

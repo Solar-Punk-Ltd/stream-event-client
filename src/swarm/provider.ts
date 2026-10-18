@@ -57,7 +57,10 @@ export type PlaybackStart = 'live' | 'beginning';
 /** A player a provider brings with it, which plays a stream into a video element the page owns. */
 export interface OwnPlayer {
   attach(video: HTMLVideoElement, owner: string, topic: string, from: PlaybackStart): Promise<void>;
-  /** Lets go of what the player held, such as a node in the tab, which stops once nothing holds it. */
+  /**
+   * Stops the player loading for the video it attached, and lets go of what it held, such as a node in the tab, which
+   * stops once nothing holds it.
+   */
   detach(): void;
 }
 
