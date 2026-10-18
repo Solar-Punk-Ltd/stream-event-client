@@ -3,7 +3,7 @@
  * `ui/tests/drive-onchain-setup.ts` at the pinned commit). The labels are Swarm ID's, so a change there shows up here
  * as a step that cannot find its control, with the screenshot of what was on the page instead.
  */
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 import { pickInjectedWallet } from './wallet.ts';
 
@@ -160,22 +160,24 @@ export async function createDevDrive(idPage: Page, swarmIdOrigin: string): Promi
 export const NO_DRIVE = 'No drive';
 
 /**
- * Removes every site from the account's Apps screen, the way the fork's own suite removes one, and returns how many
- * there were. A removal is synced to the account's other devices.
+ * Sets every site on the account's Apps screen to "No drive" and returns how many had one. A site is not removed,
+ * because a removal is published to the account and ends that site's session in every browser that restores it.
  */
-export async function removeEverySite(idPage: Page, swarmIdOrigin: string): Promise<number> {
+export async function giveEverySiteNoDrive(idPage: Page, swarmIdOrigin: string): Promise<number> {
   await idPage.goto(`${swarmIdOrigin}/`);
   await idPage.getByRole('tab', { name: 'Apps' }).click({ timeout: FIRST_LOAD_MS });
-  const actions = idPage.getByRole('button', { name: 'App actions' });
-  let removed = 0;
-  while ((await actions.count()) > 0) {
-    const before = await actions.count();
-    await actions.first().click();
-    await idPage.getByRole('menuitem', { name: 'Remove' }).click();
-    await expect(actions).toHaveCount(before - 1);
-    removed++;
+  const pickers = idPage.getByLabel('Drive this app uses');
+  let changed = 0;
+  const chosen = (picker: Locator) =>
+    picker.evaluate((select: HTMLSelectElement) => select.selectedOptions[0]?.text ?? '');
+  for (let index = 0; index < (await pickers.count()); index++) {
+    const picker = pickers.nth(index);
+    if ((await chosen(picker)) === NO_DRIVE) continue;
+    await picker.selectOption({ label: NO_DRIVE });
+    await expect.poll(() => chosen(picker)).toBe(NO_DRIVE);
+    changed++;
   }
-  return removed;
+  return changed;
 }
 
 /**

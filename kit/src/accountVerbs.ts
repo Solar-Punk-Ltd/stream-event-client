@@ -20,7 +20,7 @@ import {
   confirmInWindow,
   NO_DRIVE,
   openSealed,
-  removeEverySite,
+  giveEverySiteNoDrive,
   signInWithPhrase,
   storedAccount,
   toAccessStep,
@@ -85,8 +85,9 @@ function walletFor(run: Run, actor: Actor, named: boolean) {
 /**
  * Live, an actor the scenario gives a drive signs in to their standing account from its phrase instead of making one,
  * secured in this browser with its password, and the account must be the one the target names, holding every drive the
- * target names. The one change made is to remove the sites an earlier run left on the account's Apps screen, because
- * a site keeps the drive it was given, and every scenario starts from a site that has none. The drives stay attached.
+ * target names. The one change made is to give the sites an earlier run left on the account's Apps screen no drive,
+ * because a site keeps the drive it was given, and every scenario starts from a site that has none. The drives stay
+ * attached and no site is removed.
  */
 async function signInToStanding(run: Run, actor: Actor, page: Page, standing: StandingAccount): Promise<void> {
   const { phrase, password } = standing.credentials;
@@ -103,8 +104,8 @@ async function signInToStanding(run: Run, actor: Actor, page: Page, standing: St
       `the phrase signed in to ${address}, holding the drives ${attached.join(', ') || 'none'}, and the target names ${standing.address} with ${standing.drives.join(', ')}`,
     );
   }
-  const sitesRemoved = await removeEverySite(page, run.addresses.swarmId);
-  run.findings[`${actor.name} standing account`] = { address, drives: attached, sitesRemoved };
+  const sitesGivenNoDrive = await giveEverySiteNoDrive(page, run.addresses.swarmId);
+  run.findings[`${actor.name} standing account`] = { address, drives: attached, sitesGivenNoDrive };
   await readSecrets(run, actor, page);
 }
 

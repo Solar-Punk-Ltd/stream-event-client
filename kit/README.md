@@ -308,10 +308,12 @@ the step fails saying what the phrase opened. Each `buy-drive` then takes the ac
 order, with nothing bought, and a step past the last drive fails. When Swarm ID finds no account for the phrase it
 offers to set up a new one under it, and the kit never takes that offer.
 
-After the sign-in the kit removes every site from the account's Apps screen. A site keeps the drive it was given, so
-the next run would find its site already stamped, and every scenario starts from a site with no drive, as a new
-account's is. The removal is the one change the kit makes to a standing account, it counts them in the verdict's
-`<actor> standing account` finding, and the drives stay attached.
+After the sign-in the kit sets every site on the account's Apps screen to "No drive". A site keeps the drive it was
+given, so the next run would find its site already stamped, and every scenario starts from a site with no drive, as a
+new account's is. A site is never removed: a removal is published to the account and ends that site's session in every
+browser that restores it, so a reload would sign the actor out. This is the one change the kit makes to a standing
+account, it counts the sites it changed in the verdict's `<actor> standing account` finding, and the drives stay
+attached.
 For the same reason `sign-in viewer` picks "No drive" in Swarm ID's window for a standing account. The window starts
 its picker on the account's default drive, which a new account does not have yet, and "Go to app" would give it to
 the site.
