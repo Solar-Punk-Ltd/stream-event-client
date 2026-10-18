@@ -87,7 +87,7 @@ const NOT_WRITTEN = 404;
 
 /**
  * Reads the chat feed of a real deployment through the chat's read address, as the viewer reads it, since the chat
- * server's `/health` and its counts answer only on the deployment's own machine. The wait is on the feed alone, so it
+ * server's `/health` answers only on the deployment's own machine, through a tunnel at most. The wait is on the feed alone, so it
  * is bounded and its verdict says so: every text must be among the verified entries within the chat's timeout.
  */
 async function readLiveChatFeed(run: Run, texts: string[]): Promise<FeedEntry[]> {
@@ -118,7 +118,9 @@ async function readLiveChatFeed(run: Run, texts: string[]): Promise<FeedEntry[]>
       entries: entries.length,
       unwrittenAsks,
       waitedMs,
-      counts: "not read, the chat server's /health answers only on the deployment's own machine",
+      counts: live.chatHealth
+        ? `the steps that need them read them through ${live.chatHealth}`
+        : "not read, the chat server's /health answers only on the deployment's own machine",
     },
   ];
   return entries;

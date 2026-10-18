@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { countProblems, replayOutcome, type ServerCounts } from '../src/serverCounts.ts';
+import { countProblems, countsOf, replayOutcome, type ServerCounts } from '../src/serverCounts.ts';
 
 const counts = (received: number, dropped: Record<string, number> = {}): ServerCounts => ({ received, dropped });
 
@@ -65,5 +65,21 @@ describe('replayOutcome', () => {
     expect(replayOutcome(counts(5), counts(5))).toEqual({
       problem: 'the server received 0 writes and dropped 0 as duplicate, so the first write never arrived',
     });
+  });
+});
+
+describe('countsOf', () => {
+  it('reads received and the drops by reason from the chat server health', () => {
+    expect(countsOf({ counts: { received: 3, published: 2, heartbeats: 9, dropped: { duplicate: 1 } } })).toEqual({
+      received: 3,
+      dropped: { duplicate: 1 },
+    });
+    expect(countsOf({ counts: { received: 0 } })).toEqual({ received: 0, dropped: {} });
+  });
+
+  it('answers null for a body that is not the chat server health', () => {
+    expect(countsOf(null)).toBeNull();
+    expect(countsOf({ code: 404, message: 'Not Found' })).toBeNull();
+    expect(countsOf({ counts: { received: 'x' } })).toBeNull();
   });
 });

@@ -12,6 +12,7 @@ import { writeJson } from './evidence.ts';
 import { readSwarmIdFetches, swarmIdFetchFinding } from './gentleFetch.ts';
 import { liveGuard } from './guard.ts';
 import { judgeLiveGate, namedAddresses, readLiveGate } from './liveGate.ts';
+import { judgeCountsGate, needsServerCounts, readCountsGate } from './liveCounts.ts';
 import { ensActorsOf, evidenceLeaks, judgeEnsGate, readEnsGate, readEnsKey } from './liveEns.ts';
 import { readLock } from './lock.ts';
 import { LIVE_EVIDENCE_DIR, REPO_DIR } from './paths.ts';
@@ -24,7 +25,9 @@ import { LIVE_EVIL_ORIGIN, type LiveDeployment, liveDeployment, readTarget, type
 /**
  * The scenarios that run live. Group A needs no wallet and no drive, nothing on the deployment beyond guest messages
  * the gateway pays for and Swarm ID accounts on its real site. Group B signs besides with the wallet that owns the
- * target's ENS name, its key routed in through the environment, and spends nothing more.
+ * target's ENS name, its key routed in through the environment, and spends nothing more. Group D's forging and replay
+ * scenarios write raw to the chat's inbox through the deployment's chat write address, which its gateway stamps as it
+ * stamps every guest message, and read the chat server's counts through the operator's tunnel.
  */
 export const LIVE_SCENARIOS = [
   'partitioned-storage',
@@ -35,6 +38,10 @@ export const LIVE_SCENARIOS = [
   'ens-off-while-signed-in',
   'rpc-down',
   'rpc-lying',
+  'forge-binding',
+  'forge-message',
+  'forge-wallet-link',
+  'replay-message',
 ] as const;
 
 const REFUSED_BY_GATE = 'the live gate';
@@ -115,11 +122,12 @@ export async function runLiveScenario(name: string, target: Target, runId = newR
   const ensActors = ensActorsOf(scenario);
   const ensKey = ensActors.length ? readEnsKey(process.env) : null;
   if (ensKey) gate.push(...judgeEnsGate(await readEnsGate(live.ensRpc, ensKey, target.ens, ensActors)));
+  if (needsServerCounts(scenario.steps)) gate.push(...judgeCountsGate(await readCountsGate(live.chatHealth)));
   timings.gateMs = Date.now() - begin;
   writeJson(join(dir, 'preflight.json'), gate);
   if (gate.some((check) => !check.ok)) return refuse(gate);
 
-  const needsEvil = scenario.steps.some((step) => step.verb === 'evil');
+  const needsEvil = scenario.steps.some((step) => step.verb === 'evil' && !needsServerCounts([step]));
   const ensWallet = ensKey?.state === 'read' ? ensKey.wallet : null;
   /**
    * The ENS wallet's key is the one live secret the kit holds, so the run fails when any of its evidence holds it. What
@@ -165,6 +173,7 @@ export async function runLiveScenario(name: string, target: Target, runId = newR
         stream: target.stream,
         alsoAllowed: target.alsoAllowed,
         ...(target.ens ? { ens: target.ens } : {}),
+        ...(target.chatHealth ? { chatHealth: target.chatHealth } : {}),
       },
       config: read.config,
       addresses: live.addresses.all(),

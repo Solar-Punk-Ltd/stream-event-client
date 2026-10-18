@@ -241,26 +241,31 @@ are unchanged.
 
 The scenarios that run live are the ones that need no drive. Four need no wallet either: `partitioned-storage`,
 `popup-blocked`, `eth-name-refused` and `evil-unlisted`. Four sign with a wallet that owns a real ENS name:
-`ens-both-ways`, `ens-off-while-signed-in`, `rpc-down` and `rpc-lying`. `kit live test` runs those eight, and
-`kit live run` refuses any other. A verb
-that needs the local stack, such as buying a drive or writing raw to the chat's inbox, fails at once with a line saying
+`ens-both-ways`, `ens-off-while-signed-in`, `rpc-down` and `rpc-lying`. Four write forged or replayed messages raw to
+the chat's inbox and read the chat server's counts: `forge-binding`, `forge-message`, `forge-wallet-link` and
+`replay-message`. `kit live test` runs those twelve, and `kit live run` refuses any other. `evil-allowed`,
+`cross-site-isolation` and `revoke-while-sending` stay local only, since the real allow list never names the hostile
+site. A verb
+that needs the local stack, such as buying a drive or reading the device feed, fails at once with a line saying
 so, before it does anything.
 
 A run creates Swarm ID accounts on the real site and sends a few guest messages that the deployment's gateway pays
-for, from guests named `kit <actor> <run id>`. It writes nothing else: no setting, no stream list, no stamp.
+for, from guests named `kit <actor> <run id>`. The forging and replay scenarios write a few raw inbox messages the same
+way, which the gateway pays for too. A run writes nothing else: no setting, no stream list, no stamp.
 
 ### The target file
 
 A target file names the deployment, and it lives outside this repository, because a deployment's names stay out of
 it. `targets/example.json` shows its shape with placeholders:
 
-| Field         | What it is                                                                                        |
-| ------------- | ------------------------------------------------------------------------------------------------- |
-| `name`        | a short name for the deployment, written into the evidence                                        |
-| `viewer`      | the viewer's origin, with no path                                                                 |
-| `stream`      | the published stream to open: `mediaType`, `owner`, `topic` and `title`                           |
-| `alsoAllowed` | optional, outside origins a part of the deployment reads on its own, each with `origin` and `why` |
-| `ens`         | optional, the ENS wallet's `actor`, its `address` and its `name`, which the ENS scenarios need    |
+| Field         | What it is                                                                                            |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| `name`        | a short name for the deployment, written into the evidence                                            |
+| `viewer`      | the viewer's origin, with no path                                                                     |
+| `stream`      | the published stream to open: `mediaType`, `owner`, `topic` and `title`                               |
+| `alsoAllowed` | optional, outside origins a part of the deployment reads on its own, each with `origin` and `why`     |
+| `ens`         | optional, the ENS wallet's `actor`, its `address` and its `name`, which the ENS scenarios need        |
+| `chatHealth`  | optional, the local end of the tunnel to the chat server's `/health`, such as `http://127.0.0.1:4997` |
 
 Everything else is read from the viewer's public `config.json` at the start of each run: the gateway, the chat's read
 and write addresses, the chat inbox key, the feed owner, the Swarm ID site and the ENS endpoint. An address given as a
@@ -334,11 +339,36 @@ in time, and a close that ran out says so on the run's output.
 a minute to start while its files are asked again. The verdict's `<actor> ens link seen` finding says how long after
 the check began the frame's first update came and when the wanted one did.
 
+### The chat server's counts, live
+
+`forge-binding`, `forge-message`, `forge-wallet-link` and `replay-message` prove the chat server's checks by its exact
+counts: every forged write received, and each dropped once for the reason it was forged for. The server's `/health`
+answers only on the deployment's own machine, so the operator opens an SSH tunnel to it before the run and names its
+local end as `chatHealth` in the target:
+
+```sh
+ssh -N -L 4997:127.0.0.1:<its health port> <the deployment's host>
+```
+
+Before such a scenario the live gate reads `/health` through the tunnel, and refuses to start when the target names no
+`chatHealth`, when the tunnel answers nothing, when the answer carries no counts, or when the server says it is not
+healthy, each time naming the tunnel to open. `chatHealth` must be on this machine, since only a tunnel reaches it.
+
+The forged and replayed messages are built in the kit's process and written to the chat's inbox through the config's
+chat write address, the path every guest message takes, with the inbox key the config publishes for every sender. The
+deployment's gateway stamps each write with its own chat batch and ignores the batch id it is sent, so the kit holds
+no stamp and writes to no Bee node of its own. Locally they still go to a Bee node of the stack with the kit's stamp.
+
+The counts are the server's since it started, and anyone's message to the chat in the same minute raises `received` as
+the run's do, so a run on a deployment with other senders can fail on a count it did not cause. The server's own
+heartbeats are never counted as received, and their drops, `heartbeat-repeat` and `heartbeat-unknown`, are left out
+of the comparison in both modes.
+
 ### What a live check reads
 
 `expect chat-feed` reads the chat feed through the chat's read address, as the viewer does, with the config's feed
-owner and the stream's chat topic. The chat server's counts come from its `/health`, which answers only on the
-deployment's own machine, so the live read waits on the feed alone: it reads each written slot once and asks the next
+owner and the stream's chat topic. The chat server's `/health` answers only on the deployment's own machine, so
+the live read waits on the feed alone, even when the counts are read through a tunnel: it reads each written slot once and asks the next
 unwritten one again every 10 seconds, until every message the run sent is there or 60 seconds pass. The verdict records
 under `live chat feed reads` where it read, how many entries, how many unwritten asks and how long it waited. How each
 message was paid is read from the recorded network as locally, against the chat's write address on the gateway and the
@@ -354,8 +384,9 @@ refuse it in its own words for a site its allow list does not serve. The strict 
 Every live run writes `test-results/kit-live/<run id>/<scenario>/`: `config.json` as the viewer served it,
 `preflight.json` with the live gate's checks, `header.json` with the target, the whole config, every address the run
 used, the kit's commit, the libraries, the machine and how long reading the config, the gate and starting the hostile
-site took, then `verdict.json` and `actors/` as locally. A live run takes no Bee metrics, no chat server health and no
-container logs, since none of those are the kit's to read on a real deployment. Timings are recorded, never asserted.
+site took, then `verdict.json` and `actors/` as locally. A live run takes no Bee metrics, no snapshot of the chat server's
+health and no container logs, since none of those are the kit's to read on a real deployment. The counting scenarios
+record the counts they read before and after in the verdict. Timings are recorded, never asserted.
 
 Two readings of the evidence are made once the browsers closed. An ENS run searches every actor's recorded network,
 console and traces, its `header.json`, its `preflight.json` and its verdict for the ENS wallet's key, and fails when any

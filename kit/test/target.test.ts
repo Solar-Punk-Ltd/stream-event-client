@@ -57,6 +57,27 @@ describe('parseTarget', () => {
   });
 });
 
+describe('parseTarget chatHealth', () => {
+  const good = () => {
+    const { chatHealth: _example, ...rest } = JSON.parse(readFileSync(EXAMPLE_TARGET, 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    return rest;
+  };
+
+  it('takes the local end of the tunnel to the chat server, a loopback origin, and leaves it out when not given', () => {
+    expect(parseTarget({ ...good(), chatHealth: 'http://127.0.0.1:4997' }).chatHealth).toBe('http://127.0.0.1:4997');
+    expect(parseTarget({ ...good(), chatHealth: 'http://localhost:4997' }).chatHealth).toBe('http://localhost:4997');
+    expect(parseTarget(good()).chatHealth).toBeUndefined();
+  });
+
+  it('refuses a chatHealth that is not on this machine or carries a path, since only a tunnel reaches it', () => {
+    expect(() => parseTarget({ ...good(), chatHealth: 'http://192.0.2.10:4997' })).toThrow(/chatHealth/);
+    expect(() => parseTarget({ ...good(), chatHealth: 'http://127.0.0.1:4997/health' })).toThrow(/chatHealth/);
+  });
+});
+
 describe('liveDeployment', () => {
   const target = readTarget(EXAMPLE_TARGET);
 
@@ -78,6 +99,23 @@ describe('liveDeployment', () => {
     expect(live.deployment.inboxOwner).toBe(KEY_ONE_ADDRESS);
     expect(live.deployment.chatWrite).toBe('https://gateway.example.com/chat');
     expect(live.deployment.stream).toEqual(target.stream);
+  });
+
+  it('takes the inbox key and identifier from the config, which every sender writes with', () => {
+    const live = liveDeployment(target, config());
+    expect(live.inbox).toEqual({
+      key: '0000000000000000000000000000000000000000000000000000000000000001',
+      identifier: 'example-chat-inbox',
+    });
+  });
+
+  it('carries the chat server health address only when the target names one', () => {
+    const { chatHealth: _example, ...untunnelled } = JSON.parse(readFileSync(EXAMPLE_TARGET, 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    expect(liveDeployment(parseTarget(untunnelled), config()).chatHealth).toBeNull();
+    expect(liveDeployment(target, config()).chatHealth).toBe('http://127.0.0.1:4997');
   });
 
   it('serves the hostile site from this machine and puts every address the run uses in its table', () => {

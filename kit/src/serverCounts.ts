@@ -4,6 +4,13 @@ export interface ServerCounts {
   dropped: Record<string, number>;
 }
 
+/** The counts the security set reads out of the chat server's `/health` body, or null for a body that is not one. */
+export function countsOf(body: unknown): ServerCounts | null {
+  const counts = (body as { counts?: { received?: unknown; dropped?: Record<string, number> } } | null)?.counts;
+  if (typeof counts?.received !== 'number') return null;
+  return { received: counts.received, dropped: counts.dropped ?? {} };
+}
+
 /** What a step wrote to the inbox: how many messages, and how many of them the server must drop for each reason. */
 export interface ExpectedCounts {
   received: number;

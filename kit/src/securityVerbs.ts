@@ -25,7 +25,7 @@ import { localStack } from './deployment.ts';
 import { bareHex } from './hex.ts';
 import { lyingReverseAnswer } from './lyingRpc.ts';
 import { CHAT_TIMEOUT_MS, expand, type Run, type Verb } from './run.ts';
-import { countProblems, type ExpectedCounts, replayOutcome, type ServerCounts } from './serverCounts.ts';
+import { countProblems, countsOf, type ExpectedCounts, replayOutcome, type ServerCounts } from './serverCounts.ts';
 import { frameIdentity } from './stampEvidence.ts';
 import { isAllowListRefusal, isNoDriveRefusal } from './swarmIdRefusals.ts';
 import { confirmInWindow, storedAccount, thisDeviceId } from './swarmIdPages.ts';
@@ -73,8 +73,26 @@ function forgeKey(run: Run, label: string): PrivateKey {
   return new PrivateKey(forgeHex(run, label).slice(2));
 }
 
-/** Writes a payload straight to the chat's one GSOC inbox address, signed with the mined key every sender shares. */
+/**
+ * A batch id for a write through a gateway that stamps chat writes itself and replaces the one it is sent. Bee refuses
+ * a write with no batch id, so something well formed goes. It is the value the chat library sends, which it keeps
+ * private.
+ */
+const GATEWAY_STAMPS_ITSELF = '0123456789abcdef'.repeat(4);
+
+/**
+ * Writes a payload straight to the chat's one GSOC inbox address, signed with the mined key every sender shares.
+ * Locally it goes to a Bee node with the kit's own stamp. Live it goes to the deployment's chat write address, the
+ * path every guest message takes, where the gateway stamps it with its own batch, so the kit holds no stamp.
+ */
 async function writeToInbox(run: Run, payload: Uint8Array): Promise<void> {
+  if (run.live) {
+    const bee = new Bee(run.live.chatWrite);
+    const signer = new PrivateKey(run.live.inbox.key);
+    const identifier = Identifier.fromString(run.live.inbox.identifier);
+    await bee.messaging.gsocSend(GATEWAY_STAMPS_ITSELF, signer, identifier, payload, { deferred: false });
+    return;
+  }
   const { addresses, state } = localStack(run, 'a raw inbox write');
   const bee = new Bee(addresses.worker1);
   const signer = new PrivateKey(state.gsocKey);
@@ -82,12 +100,16 @@ async function writeToInbox(run: Run, payload: Uint8Array): Promise<void> {
   await bee.messaging.gsocSend(state.stamps.gateway, signer, identifier, payload, { deferred: false });
 }
 
-/** The chat server's counts of messages received and dropped by reason, now. */
+/**
+ * The chat server's counts of messages received and dropped by reason, now. Live they are read through the operator's
+ * tunnel, which the live gate has checked before the run.
+ */
 async function serverCounts(run: Run): Promise<ServerCounts> {
-  const { body } = await healthStatus(localStack(run, "the chat server's counts").addresses.chatServer);
-  const counts = (body as { counts?: Partial<ServerCounts> } | null)?.counts;
-  if (typeof counts?.received !== 'number') throw new Error('the chat server reports no count of messages received');
-  return { received: counts.received, dropped: counts.dropped ?? {} };
+  const address = run.live ? run.live.chatHealth : localStack(run, "the chat server's counts").addresses.chatServer;
+  if (!address) throw new Error("the target names no chatHealth, so the chat server's counts cannot be read");
+  const counts = countsOf((await healthStatus(address)).body);
+  if (!counts) throw new Error('the chat server reports no count of messages received');
+  return counts;
 }
 
 /** The bare address of a chat key given as hex, which is a site's chat address. */

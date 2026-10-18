@@ -10,6 +10,7 @@ import { z } from 'zod';
 
 import { parseRuntimeConfig } from '../../src/config/runtimeConfig.ts';
 import { mediaTypeSchema } from '../../src/shared/contracts/mediaType.ts';
+import { isLocalDevHost } from './addresses.ts';
 import type { Deployment, SiteAddresses } from './deployment.ts';
 
 /**
@@ -42,6 +43,17 @@ const targetSchema = z.strictObject({
       }),
     )
     .default([]),
+  /**
+   * The local end of the operator's SSH tunnel to the chat server's `/health`, which answers only on the deployment's
+   * own machine. The scenarios that read the server's counts refuse to start without it.
+   */
+  chatHealth: z
+    .string()
+    .regex(ORIGIN, { message: 'must be an origin such as http://127.0.0.1:4997, with no path' })
+    .refine((origin) => isLocalDevHost(new URL(origin).hostname), {
+      message: 'must be on this machine, the local end of a tunnel',
+    })
+    .optional(),
   /**
    * The actor whose account a scenario makes with a wallet that owns a real ENS name, that wallet's address, and the
    * name, which must resolve to the address and back. The wallet's key never comes from this file: live mode reads it
@@ -83,6 +95,10 @@ export interface LiveDeployment {
   chatWrite: string;
   swarmId: string;
   ensRpc: string;
+  /** The local end of the tunnel to the chat server's `/health`, null when the target names none. */
+  chatHealth: string | null;
+  /** The chat inbox's key and identifier, public in the config, which every sender signs its inbox writes with. */
+  inbox: { key: string; identifier: string };
   catalog: { owner: string; topic: string };
   deployment: Deployment;
   addresses: SiteAddresses;
@@ -127,6 +143,8 @@ export function liveDeployment(target: Target, rawConfig: unknown): LiveDeployme
     chatWrite: parts.chatWrite,
     swarmId: parts.swarmId,
     ensRpc: parts.ensRpc,
+    chatHealth: target.chatHealth ?? null,
+    inbox: { key: bare(chat.gsocResourceId), identifier: chat.gsocTopic },
     catalog: { owner: config.catalog.owner, topic: config.catalog.topic },
     deployment: {
       stream: target.stream,
