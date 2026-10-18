@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import {
   HLS_ENDLIST,
@@ -12,7 +12,7 @@ import Hls, { Events } from 'hls.js';
 import Pqueue from 'p-queue';
 
 import { fetchPreviewManifest, rungSlotsKey } from '@/features/catalog/StreamPreview/previewManifest';
-import { previewMode, thumbnailFailed } from '@/features/catalog/StreamPreview/previewMode';
+import { pictureFailed, pictureSourceOf, previewMode } from '@/features/catalog/StreamPreview/previewMode';
 import { PREVIEW_PLAYLIST_URL, previewPlaylistLoader } from '@/features/catalog/StreamPreview/previewPlaylistLoader';
 import { previewSourceFrom } from '@/features/catalog/StreamPreview/previewSource';
 import { CustomFragmentLoader } from '@/features/player/CustomManifestLoader';
@@ -29,6 +29,7 @@ import { formatDuration } from '@/features/catalog/format';
 import { previewSegmentUrl } from '@/features/catalog/thumbnailManifest';
 import { watchPath } from '@/features/catalog/watchPath';
 import { PlayIcon } from '@/shared/components/Icons/PlayIcon';
+import { useNodeState } from '@/shared/nodeInTabStatus';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 
 import { PreviewPlaceholder } from './PreviewPlaceholder';
@@ -80,23 +81,32 @@ export const StreamPreview = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDataAvailable, setIsDataAvailable] = useState(false);
+  // Read again while the card shows, because a node in this tab gives the picture its URL only once it
+  // is ready, and nothing else renders the card again when it becomes so.
+  const previewsState = useNodeState(useCallback(() => swarm.statusOf('previews').state, [swarm]));
+  const pictureUrl = thumbnail ? previews.urlFor(thumbnail, 'thumbnail') : null;
   /**
-   * The thumbnail reference the browser could not load, which demotes this card out of `image` mode.
+   * The picture's URL the browser could not load, which demotes this card out of `image` mode.
    * Held in state rather than handled in the `onError` branch directly, so the decision stays in
    * `previewMode`. A scheduled card must not fall back to a probe, and that rule lives in one place
    * with a test rather than in two handlers.
    *
-   * ⛔ The reference and not a boolean, because a card outlives the picture it was given. `StreamList`
-   * keys a card by topic, and a topic outlives every broadcast published under it, so a publisher replacing a broken thumbnail re-renders this same mounted component
-   * with a new `thumbnail` prop. A boolean latched on the first failure never cleared, and the card
-   * went on probing, or, for a scheduled stream, went on showing the placeholder for ever, since a
-   * scheduled card is never probed. Comparing against the current reference makes the failure a fact
-   * about one picture rather than about the card.
+   * ⛔ The URL and not a boolean, because a card outlives the picture it was given and the source it
+   * was read from. `StreamList` keys a card by topic, and a topic outlives every broadcast published
+   * under it, so a publisher replacing a broken thumbnail re-renders this same mounted component with
+   * a new `thumbnail` prop, and a viewer switching Previews to another source re-renders it with a new
+   * URL. A boolean latched on the first failure never cleared, and the card went on probing, or, for a
+   * scheduled stream, went on showing the placeholder for ever, since a scheduled card is never probed.
    */
-  const [failedThumbnail, setFailedThumbnail] = useState<string | null>(null);
-  const imageFailed = thumbnailFailed(failedThumbnail, thumbnail);
+  const [failedPictureUrl, setFailedPictureUrl] = useState<string | null>(null);
+  const imageFailed = pictureFailed(failedPictureUrl, pictureUrl);
 
-  const mode = previewMode({ thumbnail, state, imageFailed });
+  const mode = previewMode({
+    thumbnail,
+    state,
+    imageFailed,
+    picture: pictureSourceOf(pictureUrl, previewsState),
+  });
   const isScheduled = state === STREAM_STATUS_SCHEDULED;
   const isLive = state === STREAM_STATUS_LIVE;
   const fillsCard = variant === 'fill';
@@ -224,6 +234,7 @@ export const StreamPreview = ({
   }, [owner, topic, swarm, index, state, slotsKey, mode]);
 
   const showsPlaceholder = mode === 'placeholder' || (mode === 'probe' && !isLoading && !isDataAvailable);
+  const showsLoading = isLoading || mode === 'waiting';
 
   return (
     <Link
@@ -240,21 +251,21 @@ export const StreamPreview = ({
           mounted only for a probe: `videoRef` is what the effect attaches hls.js to, so rendering it
           beside an image would hand the card a second, black layer for no reason.
         */}
-        {mode === 'image' && thumbnail && (
+        {mode === 'image' && pictureUrl !== null && (
           <img
-            // Keyed by the reference so a replaced thumbnail mounts a new element rather than having its
-            // `src` swapped underneath. React updates attributes in place, so without this an error for
-            // the picture just replaced could arrive after the prop changed and be recorded against the
-            // new reference, demoting a card for a failure that was never its own.
-            key={thumbnail}
+            // Keyed by the URL so a replaced thumbnail or another source mounts a new element rather than
+            // having its `src` swapped underneath. React updates attributes in place, so without this an
+            // error for the picture just replaced could arrive after it changed and be recorded against
+            // the new one, demoting a card for a failure that was never its own.
+            key={pictureUrl}
             className="stream-thumbnail-picture"
-            src={previews.urlFor(thumbnail, 'thumbnail') ?? undefined}
+            src={pictureUrl}
             // Empty because the title names the stream, and the link reads it out.
             alt=""
             onLoad={() => previews.reportUrlLoad({ loaded: true })}
             onError={() => {
               previews.reportUrlLoad({ loaded: false, status: null });
-              setFailedThumbnail(thumbnail);
+              setFailedPictureUrl(pictureUrl);
             }}
           />
         )}
@@ -270,20 +281,20 @@ export const StreamPreview = ({
           />
         )}
         {showsPlaceholder && <PreviewPlaceholder />}
-        {isLoading && (
+        {showsLoading && (
           <div className="stream-thumbnail-loading">
             <Spinner />
           </div>
         )}
 
         {/* Nothing to play yet on an announced broadcast, so the thumbnail does not promise one. */}
-        {!isScheduled && !isLoading && (
+        {!isScheduled && !showsLoading && (
           <span className="stream-thumbnail-play" aria-hidden="true">
             <PlayIcon />
           </span>
         )}
-        {isLive && !isLoading && <span className="stream-thumbnail-live">Live</span>}
-        {duration && !isLive && !isLoading && (
+        {isLive && !showsLoading && <span className="stream-thumbnail-live">Live</span>}
+        {duration && !isLive && !showsLoading && (
           <span className="stream-thumbnail-duration">{formatDuration(Number.parseFloat(String(duration)))}</span>
         )}
       </div>

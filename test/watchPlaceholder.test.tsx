@@ -19,8 +19,14 @@ import {
 const NOW = Date.UTC(2026, 10, 17, 9, 0);
 const DAY = 24 * 60 * 60 * 1000;
 
-const render = (view: WatchPageView, scheduledStart: number | null = null, thumbnailUrl: string | null = null) =>
-  renderToStaticMarkup(createElement(WatchPlaceholder, { view, scheduledStart, thumbnailUrl }));
+vi.mock('../src/app/AppProvider', async () => {
+  const { gatewaySwarm } = await import('./helpers/gatewaySwarm');
+  const swarm = gatewaySwarm('/bee');
+  return { useAppContext: () => ({ swarm }) };
+});
+
+const render = (view: WatchPageView, scheduledStart: number | null = null, thumbnail?: string) =>
+  renderToStaticMarkup(createElement(WatchPlaceholder, { view, scheduledStart, thumbnail }));
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
@@ -61,7 +67,7 @@ describe('the watch page in place of the player', () => {
   });
 
   it('shows the picture the publisher gave an announced stream behind the countdown', () => {
-    const html = render(WATCH_VIEW_NOT_STARTED, NOW + DAY, '/bee/bzz/abc/');
+    const html = render(WATCH_VIEW_NOT_STARTED, NOW + DAY, 'abc');
 
     assert.match(html, /<img[^>]+src="\/bee\/bzz\/abc\/"/);
   });

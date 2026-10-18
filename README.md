@@ -574,7 +574,10 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   types. While it holds a query the matches are one flat list, paged the same way, and a query that
   matches nothing says so.
 - **Previews.** The entry's uploaded thumbnail when it has one, otherwise a frame decoded from the
-  stream's first segment, with a live badge and the duration.
+  stream's first segment, with a live badge and the duration. A picture that failed to load from one
+  source is asked again when Previews move to another. With Weeb3 a card waits with its loading
+  indicator until the node is ready, and an announced stream's watch page shows its countdown without
+  the picture until then, as [the node in this browser](#the-node-in-this-browser-weeb-3) says.
 - **Scheduled streams.** An entry whose state is `scheduled` has been announced and not yet
   broadcast. Its watch page says the stream has not started and reads the broadcast's ladder markers,
   each period's marker once, about 4 seconds into the period. Each marker found prompts one read of the
@@ -869,6 +872,17 @@ controls the page, and counts as failed when it is not ready after 30 s.
   (`readUnsignedSoc`), and takes weeb-3's word for whose chunk it is (`src/features/chat/ownersChunk.ts`). Every
   message is still checked against its sender's signature, so such a chunk can at most carry a message somebody
   signed, never one in another's name.
+- **Stream pictures.** With weeb-3 as the source of Previews, a stream card's picture loads from weeb-3's route
+  `/weeb-3/bzz/<reference>/`, which only its service worker answers. Until the node is ready that worker may not
+  control the page, and the browser would ask the site itself, which never serves a picture there. So a card is
+  given the picture's address only once the node is ready, and shows its loading indicator until then, whether
+  Weeb3 was picked before the page loaded or switched to while the pictures showed from a gateway. My Swarm
+  has no way to stop the node while a part reads from it, so a stopped node is only the moment before the
+  client starts it, and the card waits through that as it waits through the start. An announced stream's
+  watch page draws its picture behind the countdown the same way, once the node is ready. A picture
+  already drawn stays while the node is lost. A node that fails to start gives no picture, and the card shows what
+  it shows for a stream with none, and no other source is asked. A picture that failed to load counts against the
+  address it failed at, so switching Previews to another source asks that source for it again.
 - **Stopping, as far as it goes.** Stopping frees the page's handle on the node, and with 0.0.354001 that leaves the
   node in the package's shared worker running: a handle made after a stop still finds its peers. The package names
   no way to stop that worker's node, so it lasts until the browser closes the worker with the tab. Its player in the

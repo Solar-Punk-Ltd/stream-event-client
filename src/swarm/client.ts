@@ -217,6 +217,11 @@ export class SwarmClient {
     return this.chosen.provider.status();
   }
 
+  /** Where the provider a feature reads from is in its own life. */
+  statusOf(feature: SwarmFeature): ProviderStatus {
+    return this.primaryFor(feature).provider.status();
+  }
+
   /** Asks the provider every feature reads from first whether it is there at all. Never rejects. */
   probe(options?: ReadOptions): Promise<ProbeResult> {
     return this.chosen.provider.probe(options);

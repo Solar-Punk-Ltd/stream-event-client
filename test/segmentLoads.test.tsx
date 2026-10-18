@@ -16,6 +16,7 @@ const reported = vi.hoisted(() => ({ outcomes: [] as unknown[] }));
 vi.mock('../src/app/AppProvider', () => ({
   useAppContext: () => ({
     swarm: {
+      statusOf: () => ({ state: 'ready' }),
       reader: () => ({
         urlFor: (reference: string) => `https://gateway.example.com/bzz/${reference}/`,
         reportUrlLoad: (outcome: unknown) => reported.outcomes.push(outcome),
