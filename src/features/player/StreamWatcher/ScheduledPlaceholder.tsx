@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { useAppContext } from '@/app/AppProvider';
+import { useNodeState } from '@/shared/nodeInTabStatus';
 
 import { scheduledCountdown } from './scheduledCountdown';
 
@@ -21,17 +24,23 @@ function useNow(tickMs: number): number {
 interface ScheduledPlaceholderProps {
   /** The announced start in epoch milliseconds, or null when the entry names none. */
   scheduledStart: number | null;
-  /** The picture the publisher gave the broadcast, or null when there is none. */
-  thumbnailUrl: string | null;
+  /** A Swarm reference to the picture the publisher gave the broadcast. Absent or '' when there is none. */
+  thumbnail?: string;
 }
 
 /**
  * Stands where the player will be for a broadcast that is announced but not live: its picture, and
  * how long until it starts, as the Swarm site shows it.
  */
-export function ScheduledPlaceholder({ scheduledStart, thumbnailUrl }: ScheduledPlaceholderProps) {
+export function ScheduledPlaceholder({ scheduledStart, thumbnail }: ScheduledPlaceholderProps) {
   const now = useNow(COUNTDOWN_TICK_MS);
-  // The reference and not a boolean, so a picture the publisher replaces is tried again.
+  const { swarm } = useAppContext();
+  // Read again while it shows, because a node in this tab gives the picture its URL only once it is
+  // ready, and nothing else renders the placeholder again when it becomes so.
+  useNodeState(useCallback(() => swarm.statusOf('previews').state, [swarm]));
+  const thumbnailUrl =
+    thumbnail !== undefined && thumbnail.trim() !== '' ? swarm.reader('previews').urlFor(thumbnail, 'thumbnail') : null;
+  // The URL and not a boolean, so a picture the publisher replaces, or another source's, is tried again.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const picture = thumbnailUrl !== null && thumbnailUrl !== failedUrl ? thumbnailUrl : null;
   const countdown = scheduledStart === null ? null : scheduledCountdown(scheduledStart, now);
