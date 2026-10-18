@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 
 import { OwnPlayerStage } from '@/features/player/OwnPlayerStage';
+import { PlacesAcrossSwap } from '@/features/player/placeAcrossSwap';
 import { SwarmHlsPlayer } from '@/features/player/SwarmHlsPlayer';
 import { useAppContext } from '@/app/AppProvider';
 import type { SwarmClient } from '@/swarm/client';
@@ -60,6 +62,7 @@ export function StreamWatcher() {
   const isWaiting = useIsWaitingForStart(`${owner}/${topic}`, stream);
   const view = watchPageView(isStreamListLoaded, stream, isWaiting);
   useCatalogPoll(watchPageCatalogPollMs(view));
+  const [placesAcrossSwap] = useState(() => new PlacesAcrossSwap());
 
   const streamKey = `${owner}/${topic}`;
 
@@ -85,6 +88,10 @@ export function StreamWatcher() {
   // yet, so a player there polls a slot nobody writes and loads for ever. See `watchPageView`.
   const description = stream ? watchPageDescription(stream) : null;
 
+  // A recording has one timeline in either player, so a viewer who moves the video to a source with the other player
+  // carries on where they were. A live stream joins at its live edge in whichever player plays it.
+  const place = stream?.state === STREAM_STATUS_VOD ? placesAcrossSwap.forStream(streamKey) : undefined;
+
   // A video source that brings its own player plays bare, and nothing takes its place: a viewer who
   // picked it watches through it alone.
   const ownPlayer = swarm.ownPlayer('player');
@@ -96,6 +103,7 @@ export function StreamWatcher() {
       owner={owner}
       topic={topic}
       from={stream?.state === STREAM_STATUS_VOD ? 'beginning' : 'live'}
+      place={place}
     />
   ) : (
     <SwarmHlsPlayer
@@ -106,6 +114,7 @@ export function StreamWatcher() {
       renditions={playableRenditions(stream)}
       level={level}
       onLadderShort={readNextStreamListSlot}
+      place={place}
     />
   );
 

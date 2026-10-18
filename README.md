@@ -661,6 +661,18 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   nothing is marked. The playback quality panel counts each skipped segment once, under Segments
   Skipped, and not as a fatal error or a reconnect attempt.
 - **Where the video loads from.** My Swarm, the button in the header, is described below.
+- **Moving the video keeps the place in a recording.** When the viewer picks another source for the video while a
+  recording plays, the video carries on where it was, and stays paused if it was paused. Between two gateways or Bee
+  nodes the same player keeps playing and only its source changes. A move to or from Weeb3 swaps this app's player for
+  weeb-3's own, so the player being taken down records where the viewer was and whether they had paused
+  (`src/features/player/placeAcrossSwap.ts`), and the new one starts there. This app's player asks hls.js to start at
+  that place and keeps asking until its first segment is in, because hls.js forgets a start position it is given again
+  before then, as the play that autoplay starts does. weeb-3's player starts at the beginning, since weeb-3 starts
+  only there or live, and the video is moved to the place once weeb-3's rebuilt playlist reaches it. Measured
+  on 2026-10-18 on a 1483 s recording, that playlist named 8 s at first and the whole length about 9 s later, so the
+  first seconds of the recording can show before the video moves to the place. A live stream joins at its live edge
+  in either player, as it always has, and a player that joined a broadcast live keeps no place for the next one,
+  because its timeline starts where it joined.
 - **Diagnosing playback.** `?qoe=1` on a watch page shows the playback quality panel, ported from
   Nandor Komlodi's panel in the streaming monorepo's client. Its round button toggles it, and so does
   `Q` when you are not typing in a field. The panel lives in the browser window, not in the player:

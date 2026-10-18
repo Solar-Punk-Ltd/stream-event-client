@@ -16,6 +16,7 @@ import { ManifestStateManager } from './ManifestManagement';
 import { nextMediaErrorAction, NO_MEDIA_ERRORS_YET, recoverFromMediaError } from './mediaErrorRecovery';
 import { attachPlaybackStallReporter } from './playbackHealth';
 import { buildPlayerConfig, HLS_TUNING } from './playerConfig';
+import { followPlace, type StreamPlace } from './placeAcrossSwap';
 import { buildSwarmUri } from './playlist';
 import { hasPlayedPast, nextRestartResume, type RestartResume, restartResumeOf } from './restartResume';
 import { attachResumeOnReturn } from './resumeOnReturn';
@@ -285,6 +286,11 @@ interface HlsPlayerProps extends React.VideoHTMLAttributes<HTMLVideoElement> {
    * a bounded time after each build.
    */
   onLadderShort?: () => void;
+  /**
+   * Where the viewer was in a recording when another player played it, which this player starts at once, and records
+   * as it is taken down. Absent for a live stream.
+   */
+  place?: StreamPlace;
 }
 
 /** The key both the manifest state and the feed state are held under. Null if the name is unusable. */
@@ -308,6 +314,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
   level,
   hlsConfig,
   onLadderShort,
+  place,
   ...videoProps
 }) => {
   const [restartTrigger, setRestartTrigger] = useState(0);
@@ -329,6 +336,11 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
   const [liveGapBudgets] = useState(() => new LiveGapBudgetPerStream());
   // Held by the component for the same reason: the player a restart builds reads where the old one was.
   const resumeAfterRestartRef = useRef<RestartResume | null>(null);
+  const placeRef = useRef(place);
+  placeRef.current = place;
+  // The place another player left is where this one starts, once. A restart that keeps no place of its own, as a
+  // broadcast that came back does, is not sent back to it.
+  const hasStartedRef = useRef(false);
 
   // Deliberately not part of the effect below, which reruns on every restart. A fatal network error
   // is what causes a restart, so a subscription torn down and rebuilt with the player would be
@@ -394,11 +406,19 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
     const onHlsPause = () => {
       hls?.stopLoad();
     };
+    // Where this player was asked to start, until its first segment is in. hls.js forgets a start position when
+    // `startLoad` is called again before then, and autoplay's play event calls it at once, which sent a viewer whose
+    // place was kept back to the start (measured 2026-10-18).
+    let pendingStartS: number | undefined;
     const onHlsPlay = () => {
-      hls?.startLoad();
+      hls?.startLoad(pendingStartS);
     };
     let detachResumeOnReturn: (() => void) | null = null;
     let detachStartedAt: (() => void) | null = null;
+    // Whether the first playlist this player read was finished. One joined live counts its time from where it joined,
+    // which no other player's timeline shares, even once the broadcast ends.
+    let isRecordingTimeline: boolean | null = null;
+    const followed = followPlace(video);
 
     if (Hls.isSupported()) {
       const tuning: HlsTuning = { ...DEFAULT_HLS_TUNING, ...callerTuning };
@@ -449,6 +469,12 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
       );
 
       hls.on(Events.FRAG_LOADED, () => manifestFetcher.reportSegmentLoad({ loaded: true }));
+      hls.on(Events.FRAG_BUFFERED, () => {
+        pendingStartS = undefined;
+      });
+      hls.on(Events.LEVEL_LOADED, (_event, data) => {
+        isRecordingTimeline ??= !data.details.live;
+      });
       hls.on(Events.ERROR, (_event, data) => {
         const segmentFailure = segmentLoadFailure(data);
         if (segmentFailure) {
@@ -528,9 +554,15 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
         const resume = resumeAfterRestartRef.current;
         resumeAfterRestartRef.current = null;
         startedAt = resume?.sourceUrl === sourceUrl ? resume : null;
-        hls!.startLoad(startedAt?.positionS);
+        const swapPlace = hasStartedRef.current ? null : (placeRef.current?.recorded() ?? null);
+        hasStartedRef.current = true;
+        if (swapPlace?.paused) {
+          video.autoplay = false;
+        }
+        pendingStartS = startedAt?.positionS ?? swapPlace?.positionS;
+        hls!.startLoad(pendingStartS);
 
-        if (autoPlay) {
+        if (autoPlay && !swapPlace?.paused) {
           video.play().catch((err) => {
             console.warn('Auto-play failed:', err);
           });
@@ -598,6 +630,10 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
         : null;
 
     return () => {
+      followed.detach();
+      if (isRecordingTimeline) {
+        placeRef.current?.record(followed.place());
+      }
       stopLadderWatch();
       video.removeEventListener('pause', onHlsPause);
       video.removeEventListener('play', onHlsPlay);
