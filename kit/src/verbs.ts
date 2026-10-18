@@ -145,12 +145,15 @@ const verbs: Record<string, Verb> = {
     const popupOpened = page.waitForEvent('popup', { timeout: 30_000 });
     await choose.click();
     await confirmInWindow(await popupOpened, actor.password, actor, drive);
-    await expect(group.getByText(/days left/)).toBeVisible({ timeout: CHAT_TIMEOUT_MS });
+    await expect(group.getByText(TIME_LEFT)).toBeVisible({ timeout: CHAT_TIMEOUT_MS });
     await expect(group.getByText(/% used/)).toBeVisible();
     run.findings[`${actor.name} site drive`] = drive;
     await closeConnect(page);
   },
 };
+
+/** A drive's remaining time as the Chat stamp group shows it, "12 days left" or, on its last day, "1 day left". */
+const TIME_LEFT = /\b\d+ days? left\b/;
 
 /** The viewer's Chat stamp group and its chat say the site has no stamp, and offer the way to choose one. */
 async function expectNoStampShown(run: Run, page: Page): Promise<void> {
@@ -160,7 +163,7 @@ async function expectNoStampShown(run: Run, page: Page): Promise<void> {
     timeout: CHAT_TIMEOUT_MS,
   });
   await waitForSwarmIdButton(run, group, CHOOSE_STAMP);
-  await expect(group.getByText(/days left/)).toHaveCount(0);
+  await expect(group.getByText(TIME_LEFT)).toHaveCount(0);
   await closeConnect(page);
   // The bar's words are its live region and Swarm ID's button sits beside them, so the bar is found by its words.
   const warning = chatRegion(page)
