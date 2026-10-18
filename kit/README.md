@@ -312,6 +312,9 @@ After the sign-in the kit removes every site from the account's Apps screen. A s
 the next run would find its site already stamped, and every scenario starts from a site with no drive, as a new
 account's is. The removal is the one change the kit makes to a standing account, it counts them in the verdict's
 `<actor> standing account` finding, and the drives stay attached.
+For the same reason `sign-in viewer` picks "No drive" in Swarm ID's window for a standing account. The window starts
+its picker on the account's default drive, which a new account does not have yet, and "Go to app" would give it to
+the site.
 
 The phrase and the password never sit in a file. The kit reads them from `KIT_<ACTOR>_PHRASE` and
 `KIT_<ACTOR>_PASSWORD`, `KIT_ALICE_PHRASE` and `KIT_ALICE_PASSWORD` for alice, which the operator routes in from a

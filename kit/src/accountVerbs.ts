@@ -18,6 +18,7 @@ import {
   confirmAccessWithPasskey,
   confirmAccessWithWallet,
   confirmInWindow,
+  NO_DRIVE,
   openSealed,
   removeEverySite,
   signInWithPhrase,
@@ -243,12 +244,16 @@ export const ACCOUNT_VERBS: Record<string, Verb> = {
     await readSecrets(run, actor, page);
   },
 
-  /** `sign-in viewer`: Swarm ID's own button in My Swarm, its window, the account unlocked and confirmed there. */
+  /**
+   * `sign-in viewer`: Swarm ID's own button in My Swarm, its window, the account unlocked and confirmed there. A
+   * standing account already holds drives, and the window would give the site the default one, so it is given no drive,
+   * as a new account's site has none when it signs in.
+   */
   async 'sign-in'(run, step) {
     const actor = run.actor(step.actor!);
     if (step.args[0] !== 'viewer') throw new Error('sign-in knows the viewer only');
     const { page, popup } = await openSignInWindow(run, actor);
-    await confirmInWindow(popup, actor.password, actor);
+    await confirmInWindow(popup, actor.password, actor, run.standing.has(actor.name) ? NO_DRIVE : undefined);
     await expectSignedIn(actor, page);
   },
 

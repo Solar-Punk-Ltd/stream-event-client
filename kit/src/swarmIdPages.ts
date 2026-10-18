@@ -156,6 +156,9 @@ export async function createDevDrive(idPage: Page, swarmIdOrigin: string): Promi
   return batchID;
 }
 
+/** The connect window's drive picker entry that gives the site no drive. */
+export const NO_DRIVE = 'No drive';
+
 /**
  * Removes every site from the account's Apps screen, the way the fork's own suite removes one, and returns how many
  * there were. A removal is synced to the account's other devices.

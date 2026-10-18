@@ -28,7 +28,7 @@ import { CHAT_TIMEOUT_MS, expand, type Run, type Verb } from './run.ts';
 import { countProblems, countsOf, type ExpectedCounts, replayOutcome, type ServerCounts } from './serverCounts.ts';
 import { frameIdentity } from './stampEvidence.ts';
 import { isAllowListRefusal, isNoDriveRefusal } from './swarmIdRefusals.ts';
-import { confirmInWindow, storedAccount, thisDeviceId } from './swarmIdPages.ts';
+import { confirmInWindow, NO_DRIVE, storedAccount, thisDeviceId } from './swarmIdPages.ts';
 import { closeConnect, idPage, openConnect, viewerPage } from './viewerPages.ts';
 import { swarmIdButton, waitForSwarmIdButton } from './swarmIdButton.ts';
 
@@ -165,7 +165,6 @@ async function evilVisit(run: Run, actor: Actor, listing: string): Promise<void>
 }
 
 /** The label of the connect window's choice to give a site no drive. */
-const NO_DRIVE = 'No drive';
 
 /**
  * Signs the account in to the hostile site through its Swarm ID button. The connect window offers a new site the
