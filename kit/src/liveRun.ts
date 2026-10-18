@@ -196,7 +196,7 @@ export async function runLive(scenario: Scenario, target: Target, runId = newRun
     local: null,
     live,
     guard: liveGuard([...namedAddresses(live), LIVE_EVIL_ORIGIN]),
-    wallet: ensWallet ? { swarmId: live.swarmId, rpc: live.ensRpc } : null,
+    wallet: { swarmId: live.swarmId, rpc: live.ensRpc },
     ensWallet,
     standing,
     header: {
