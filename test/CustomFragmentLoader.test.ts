@@ -1,9 +1,14 @@
+import { Topic } from '@ethersphere/bee-js';
 import type { FragmentLoaderContext, HlsConfig, LoaderCallbacks, LoaderConfiguration, LoaderContext } from 'hls.js';
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 import { CustomFragmentLoader, manifestFetcher, requestJitter } from '../src/features/player/CustomManifestLoader';
 import { FEED_STATE_LIVE, FEED_STATE_RECONNECTING } from '../src/features/player/feedState';
+import { ManifestStateManager } from '../src/features/player/ManifestManagement';
+import { buildSwarmUri } from '../src/features/player/playlist';
+import type { SwarmAnswer } from '../src/swarm/answers';
+import type { SwarmReader } from '../src/swarm/client';
 
 const TOPIC = 'a-topic-being-watched';
 const FRAGMENT_URL = 'http://127.0.0.1:1633/bytes/0123456789abcdef';
@@ -297,5 +302,126 @@ describe('CustomFragmentLoader holding a fragment back', () => {
     );
 
     assert.equal(staggered.length, 0, 'a url that names no gateway was queued for a stagger anyway');
+  });
+});
+
+/**
+ * A viewer switched the video from the event gateway to another one while watching a recording, on
+ * 2026-10-17, and every segment kept loading from the old gateway for at least a minute. A recording's
+ * playlist is read once, so hls.js keeps the URLs it was first given. The loader is the one place every
+ * segment passes through after that, so it is where a switch has to reach them.
+ */
+describe('CustomFragmentLoader following the source the player reads from now', () => {
+  const OWNER = '4'.repeat(40);
+  const SEGMENT_TOPIC = 'a-recording-watched-across-a-switch';
+  const hexTopic = Topic.fromString(SEGMENT_TOPIC).toString();
+  const SEGMENT_REF = 'cd'.repeat(32);
+  const RECORDING = [
+    '#EXTM3U',
+    '#EXT-X-PLAYLIST-TYPE:VOD',
+    '#EXT-X-TARGETDURATION:2',
+    '#EXTINF:2.0,',
+    SEGMENT_REF,
+    '#EXT-X-ENDLIST',
+  ].join('\n');
+
+  /** A reader that names segments the way a Bee node's HTTP API does. */
+  function gatewayReader(base: string): SwarmReader {
+    const recording: SwarmAnswer = {
+      kind: 'content',
+      bytes: new TextEncoder().encode(RECORDING),
+      feedIndex: 0,
+      serverTimeMs: null,
+    };
+    return {
+      readFeedHead: async () => recording,
+      readFeedEntry: async () => recording,
+      readSoc: async () => ({ kind: 'not-found', serverTimeMs: null }),
+      readChunk: async () => ({ kind: 'not-found', serverTimeMs: null }),
+      readBytes: async () => ({ kind: 'not-found', serverTimeMs: null }),
+      urlFor: (reference) => `${base}/bytes/${reference}`,
+      reportUrlLoad: () => {},
+    };
+  }
+
+  const OLD = gatewayReader('https://old-gateway.example.com');
+  const NEW = gatewayReader('https://new-gateway.example.com');
+
+  /** The segment URL the recording's playlist handed hls.js while the player read from `reader`. */
+  async function segmentNamedUnder(reader: SwarmReader): Promise<string> {
+    manifestFetcher.useSwarm(reader);
+    const playlist = await manifestFetcher.fetchSource(buildSwarmUri(OWNER, SEGMENT_TOPIC));
+    const line = playlist.split('\n').find((entry) => entry.endsWith(SEGMENT_REF));
+    assert.ok(line, 'the recording named no segment');
+    return line;
+  }
+
+  /** The URL the transport was asked for when hls.js loaded `url`. */
+  function transportedUrl(url: string): string {
+    const reachedTransport = vi.spyOn(transport, 'load').mockImplementation(() => {});
+    new CustomFragmentLoader({} as HlsConfig).load(
+      { url } as FragmentLoaderContext,
+      {} as LoaderConfiguration,
+      { onSuccess: vi.fn(), onError: vi.fn(), onTimeout: vi.fn() } as unknown as LoaderCallbacks<LoaderContext>,
+    );
+    assert.equal(reachedTransport.mock.calls.length, 1, 'the fragment never reached the transport');
+    return reachedTransport.mock.calls[0][0].url;
+  }
+
+  beforeEach(() => {
+    manifestFetcher.feedHealth.clear();
+    runStaggerInline();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    ManifestStateManager.getInstance().clear(hexTopic);
+    manifestFetcher.useSwarm(gatewayReader('https://nowhere.example.com'));
+    manifestFetcher.feedHealth.clear();
+  });
+
+  it('loads a segment named under the old gateway from the one switched to', async () => {
+    const named = await segmentNamedUnder(OLD);
+    assert.equal(named, `https://old-gateway.example.com/bytes/${SEGMENT_REF}`);
+
+    manifestFetcher.useSwarm(NEW);
+
+    assert.equal(transportedUrl(named), `https://new-gateway.example.com/bytes/${SEGMENT_REF}`);
+  });
+
+  // The control. Without it the test above passes on a loader that renames before any switch.
+  it('loads it from the gateway that named it while nothing was switched', async () => {
+    const named = await segmentNamedUnder(OLD);
+
+    assert.equal(transportedUrl(named), named);
+  });
+
+  // hls.js asks again with the fragment's own URL, which is still the one the old gateway named.
+  it('sends a retry of that segment to the gateway switched to as well', async () => {
+    const named = await segmentNamedUnder(OLD);
+    manifestFetcher.useSwarm(NEW);
+    const reachedTransport = vi.spyOn(transport, 'load').mockImplementation(() => {});
+    const loader = new CustomFragmentLoader({} as HlsConfig);
+    const fromHls = { onSuccess: vi.fn(), onError: vi.fn(), onTimeout: vi.fn() };
+
+    loader.load({ url: named } as FragmentLoaderContext, {} as LoaderConfiguration, fromHls as never);
+    loader.load({ url: named } as FragmentLoaderContext, {} as LoaderConfiguration, fromHls as never);
+
+    assert.deepEqual(
+      reachedTransport.mock.calls.map((call) => call[0].url),
+      [`https://new-gateway.example.com/bytes/${SEGMENT_REF}`, `https://new-gateway.example.com/bytes/${SEGMENT_REF}`],
+    );
+  });
+
+  /**
+   * A recording published before 2026-08-13 names its segments by the publisher's gateway, and a stream
+   * card's preview names its own through the previews' source. Neither is the player's to rename.
+   */
+  it('passes a segment URL the player did not name through unchanged', async () => {
+    await segmentNamedUnder(OLD);
+    manifestFetcher.useSwarm(NEW);
+    const notNamedHere = `https://publisher-gateway.example.com/bytes/${SEGMENT_REF}`;
+
+    assert.equal(transportedUrl(notNamedHere), notNamedHere);
   });
 });

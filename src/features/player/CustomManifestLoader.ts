@@ -113,13 +113,17 @@ export class CustomFragmentLoader extends FragmentLoader {
   /**
    * The one place segment bytes are fetched, today from the gateway through hls.js's own loader.
    * Another source of segment bytes, such as a Swarm node in the tab, plugs in here.
+   *
+   * Asked of the source the player reads from when the request goes out rather than of the one that
+   * named the segment, since a viewer can switch sources while hls.js still holds the old URLs. A URL
+   * the player did not name, such as a preview's, goes out as given.
    */
   private fetchSegmentBytes(
     context: FragmentLoaderContext,
     config: LoaderConfiguration,
     callbacks: LoaderCallbacks<LoaderContext>,
   ): void {
-    super.load(context, config, {
+    super.load({ ...context, url: manifestFetcher.segmentUrlNow(context.url) }, config, {
       ...callbacks,
       // A segment that arrived is proof the gateway is answering, and the manifest side is the only
       // half that ever holds off on the belief that it is not. Its backoff doubles from the failure
