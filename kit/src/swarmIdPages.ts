@@ -187,9 +187,6 @@ export async function giveEverySiteNoDrive(idPage: Page, swarmIdOrigin: string):
   return changed;
 }
 
-/** Swarm ID's connect window saves the sign-in to Swarm for up to 30 s before it closes, from 0.10.4. */
-export const CONNECT_WINDOW_CLOSE_TIMEOUT_MS = 40_000;
-
 /**
  * "Go to app" closes the popup from its click handler, so under load the window can be gone before the click returns.
  * The closure is what is checked.
@@ -199,7 +196,7 @@ async function goToApp(popup: Page): Promise<void> {
     .getByRole('button', { name: 'Go to app' })
     .click()
     .catch(() => undefined);
-  await expect.poll(() => popup.isClosed(), { timeout: CONNECT_WINDOW_CLOSE_TIMEOUT_MS }).toBe(true);
+  await expect.poll(() => popup.isClosed(), { timeout: 30_000 }).toBe(true);
 }
 
 /**
