@@ -1,7 +1,7 @@
 import { Bee, PrivateKey, Topic } from '@ethersphere/bee-js';
 
 import { waitFor } from './bee.ts';
-import { localStack } from './deployment.ts';
+import { ownNodeOf } from './deployment.ts';
 import { epochChunkAddress, epochIdentifier, epochPointer, type EpochPointer, findLatestPointer } from './epochFeed.ts';
 import { CHAT_TIMEOUT_MS, type Run } from './run.ts';
 
@@ -84,16 +84,18 @@ async function newestPointer(bee: Bee, topic: Uint8Array, owner: Uint8Array): Pr
  * Reads the account's device-state feeds from Swarm as anyone who finds their address can: the newest pointer of each
  * device's feed, the key taken from the pointer when it carries one, and with that key alone the state it points at,
  * searched for the secrets it should never hold. A pointer with no key opens nothing, which is the fixed state. A device
- * that has published nothing is left out, and the read throws when none has, which is no evidence either way.
+ * that has published nothing is left out, and the read throws when none has, which is no evidence either way. It reads
+ * through the actor's own node, as any Bee node would answer it.
  */
 export async function readDeviceFeedAsOutsider(
   run: Run,
+  actor: string,
   derivationKey: string,
   accountId: string,
   deviceIds: string[],
 ): Promise<DeviceFeedRead[]> {
   if (!deviceIds.length) throw new Error('the account names no device, so there is no device feed to read');
-  const bee = new Bee(localStack(run, 'reading the device feed').addresses.worker2);
+  const bee = new Bee(ownNodeOf(run, actor));
   const owner = await feedOwner(derivationKey);
   // A device publishes its state to Swarm when it takes the write lease, which a drive purchase and a stamp pick do, so
   // the feed may not be there the instant the read runs.

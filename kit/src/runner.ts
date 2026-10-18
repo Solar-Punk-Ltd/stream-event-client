@@ -14,6 +14,7 @@ import { coTenants, machine, snapshotMetrics, writeJson, writeMetricsDiff, write
 import { SwarmIdPacer } from './gentleFetch.ts';
 import { type Guard, LOCAL_GUARD } from './guard.ts';
 import type { StandingAccount } from './liveAccounts.ts';
+import { ownNodeActorsOf } from './liveOwnNode.ts';
 import { readLock } from './lock.ts';
 import { OutsideRequests } from './outside.ts';
 import { EVIDENCE_DIR, REPO_DIR, SCENARIO_DIR } from './paths.ts';
@@ -208,6 +209,9 @@ export async function execute(
       local: mode.local?.addresses ?? null,
       wallet: mode.wallet,
       swarmIdFetchedByKit: mode.live ? { origin: mode.live.swarmId, pacer: new SwarmIdPacer() } : null,
+      ownNode: (actorName: string) =>
+        mode.local?.addresses.worker2 ??
+        (ownNodeActorsOf(scenario).includes(actorName) ? (mode.live?.ownNodes[actorName] ?? null) : null),
     };
     for (const [actorName, settings] of Object.entries(scenario.actors)) {
       actors.set(

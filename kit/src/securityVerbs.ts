@@ -229,6 +229,7 @@ export const SECURITY_VERBS: Record<string, Verb> = {
         const devices = [...new Set([...listed, ...(await thisDeviceId(await idPage(run, actor)))])];
         const reads = await readDeviceFeedAsOutsider(
           run,
+          actor.name,
           accountSecrets(run, actor).derivationKey,
           account.id,
           devices,

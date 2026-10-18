@@ -161,7 +161,10 @@ async function readChat(live: LiveDeployment): Promise<LiveGateReadings['chat']>
   }
 }
 
-/** Every address the target and the config name, resolved as the run resolves them, and what the target allows besides. */
+/**
+ * Every address the target and the config name, resolved as the run resolves them, what the target allows besides, and
+ * the tunnels to the actors' own nodes.
+ */
 export function namedAddresses(live: LiveDeployment): string[] {
   return [
     live.viewer,
@@ -171,6 +174,7 @@ export function namedAddresses(live: LiveDeployment): string[] {
     live.swarmId,
     live.ensRpc,
     ...live.target.alsoAllowed.map((allowed) => allowed.origin),
+    ...Object.values(live.ownNodes),
   ];
 }
 

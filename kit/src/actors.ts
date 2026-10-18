@@ -128,7 +128,16 @@ export interface ActorEnvironment {
   local: Addresses | null;
   wallet: WalletSetup | null;
   swarmIdFetchedByKit: { origin: string; pacer: SwarmIdPacer } | null;
+  /** The actor's own Bee node, the local stack's worker-2 locally, live the tunnel the target names, or null. */
+  ownNode(actor: string): string | null;
 }
+
+/**
+ * Chrome's Local Network Access permission, under which a public page may call an address on this machine. Live, the
+ * viewer is a public https page and an own node is the local end of a tunnel, which Chrome refuses without the
+ * permission, and a test browser cannot answer its prompt, so it is granted the way a visitor allows it.
+ */
+const LOCAL_NETWORK_ACCESS = 'local-network-access';
 
 export async function startActor(
   browser: Browser,
@@ -138,8 +147,9 @@ export async function startActor(
   dir: string,
 ): Promise<Actor> {
   const { viewer, guard, local, wallet: walletAt, swarmIdFetchedByKit } = environment;
-  if (!local && settings.chatSource === 'bee') {
-    throw new Error(`${name} reads the chat from the viewer's own Bee node, which live mode has none of`);
+  const ownNode = environment.ownNode(name);
+  if (settings.chatSource === 'bee' && !ownNode) {
+    throw new Error(`${name} reads the chat from the viewer's own Bee node, and the target names none in ownNodes`);
   }
   mkdirSync(join(dir, 'steps'), { recursive: true });
   // A service worker's requests can pass the context's routing, and the viewer's Weeb3 fake needs none.
@@ -147,6 +157,7 @@ export async function startActor(
     recordHar: { path: join(dir, 'network.har'), content: 'embed' },
     serviceWorkers: 'block',
   });
+  if (!local && ownNode) await context.grantPermissions([LOCAL_NETWORK_ACCESS], { origin: viewer });
   recordConsole(context, join(dir, 'console.log'));
   const openRequests = OpenRequests.of(context);
   const blocked: string[] = [];
@@ -218,7 +229,7 @@ export async function startActor(
     },
     {
       viewer,
-      ownNode: local?.worker2 ?? '',
+      ownNode: ownNode ?? '',
       chatSource: settings.chatSource,
       received: RECEIVED,
     },

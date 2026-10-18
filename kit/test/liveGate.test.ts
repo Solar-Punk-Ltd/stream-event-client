@@ -105,6 +105,7 @@ describe('namedAddresses', () => {
       'https://gateway.example.com/chat',
       'https://id.example.com',
       'https://ethereum-rpc.example.org',
+      'http://127.0.0.1:4996',
     ]);
     const wider = parseTarget({ ...target, alsoAllowed: [{ origin: 'https://swarm.example.net', why: 'its reads' }] });
     expect(namedAddresses(liveDeployment(wider, config))).toContain('https://swarm.example.net');

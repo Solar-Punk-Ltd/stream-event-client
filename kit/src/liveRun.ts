@@ -21,6 +21,7 @@ import {
   standingActorsOf,
   standingSecrets,
 } from './liveAccounts.ts';
+import { judgeOwnNodeGate, ownNodeActorsOf, readOwnNodeGate } from './liveOwnNode.ts';
 import { readLock } from './lock.ts';
 import { LIVE_EVIDENCE_DIR, REPO_DIR } from './paths.ts';
 import type { PreflightCheck } from './preflight.ts';
@@ -34,7 +35,9 @@ import { LIVE_EVIL_ORIGIN, type LiveDeployment, liveDeployment, readTarget, type
  * the gateway pays for and Swarm ID accounts on its real site. Group B signs besides with the wallet that owns the
  * target's ENS name, its key routed in through the environment, and spends nothing more. Group D's forging and replay
  * scenarios write raw to the chat's inbox through the deployment's chat write address, which its gateway stamps as it
- * stamps every guest message, and read the chat server's counts through the operator's tunnel.
+ * stamps every guest message, and read the chat server's counts through the operator's tunnel. Group C signs an actor
+ * in to a standing account with its drives and sends on its own stamp through the viewer's own Bee node, a node of the
+ * deployment's the operator tunnels to.
  */
 export const LIVE_SCENARIOS = [
   'partitioned-storage',
@@ -49,6 +52,12 @@ export const LIVE_SCENARIOS = [
   'forge-message',
   'forge-wallet-link',
   'replay-message',
+  'my-stamp-send',
+  'own-feed-sync',
+  'stamp-key-stays-in-frame',
+  'drive-needs-consent',
+  'two-people-chat',
+  'device-feed-leak',
 ] as const;
 
 const REFUSED_BY_GATE = 'the live gate';
@@ -138,6 +147,8 @@ export async function runLive(scenario: Scenario, target: Target, runId = newRun
   );
   gate.push(...judgeStandingGate(standingReadings, target.standing));
   if (needsServerCounts(scenario.steps)) gate.push(...judgeCountsGate(await readCountsGate(live.chatHealth)));
+  const ownNodeActors = ownNodeActorsOf(scenario);
+  if (ownNodeActors.length) gate.push(...judgeOwnNodeGate(await readOwnNodeGate(ownNodeActors, live.ownNodes)));
   timings.gateMs = Date.now() - begin;
   writeJson(join(dir, 'preflight.json'), gate);
   if (gate.some((check) => !check.ok)) return refuse(gate);
@@ -196,6 +207,7 @@ export async function runLive(scenario: Scenario, target: Target, runId = newRun
         alsoAllowed: target.alsoAllowed,
         ...(target.ens ? { ens: target.ens } : {}),
         ...(target.chatHealth ? { chatHealth: target.chatHealth } : {}),
+        ...(Object.keys(target.ownNodes).length ? { ownNodes: target.ownNodes } : {}),
         ...(target.standing.length ? { standing: target.standing } : {}),
       },
       config: read.config,

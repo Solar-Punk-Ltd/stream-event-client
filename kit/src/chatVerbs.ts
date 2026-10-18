@@ -6,7 +6,7 @@ import { expect, type Locator, type Page, type Route } from '@playwright/test';
 
 import { claimServiceWorkerControl, FAKE_WEEB3, serveFakeWeeb3 } from '../../e2e/fakeWeeb3.ts';
 import type { Actor } from './actors.ts';
-import { localStack } from './deployment.ts';
+import { localStack, ownNodeOf } from './deployment.ts';
 import { ensNameFor } from './liveEns.ts';
 import { CHAT_TIMEOUT_MS, expand, type Run, type Verb } from './run.ts';
 import type { Step } from './scenario.ts';
@@ -64,10 +64,10 @@ function detail(card: Locator, label: string): Locator {
 }
 
 /** Whether a request writes a single-owner chunk to the own node at an address other than the chat's inbox. */
-function isOwnFeedCopy(run: Run, request: { method(): string; url(): string }): boolean {
+function isOwnFeedCopy(run: Run, actor: Actor, request: { method(): string; url(): string }): boolean {
   if (request.method() !== 'POST') return false;
   const url = new URL(request.url());
-  if (url.origin !== new URL(localStack(run, 'an own feed copy').addresses.worker2).origin) return false;
+  if (url.origin !== new URL(ownNodeOf(run, actor.name)).origin) return false;
   const owner = url.pathname.match(/^\/soc\/([0-9a-fA-F]{40})\//)?.[1]?.toLowerCase();
   return owner !== undefined && owner !== run.deployment.inboxOwner;
 }
@@ -99,9 +99,10 @@ async function useForChat(dialog: Locator, sourceName: string): Promise<void> {
 export const CHAT_VERBS: Record<string, Verb> = {
   /**
    * `connect-source bee|gateway|weeb3`: picks where the chat history is read from, and so what a message on the
-   * person's own stamp is sent through, in My Swarm. bee adds the viewer's own node, worker-2, through Add source and
-   * its checks. weeb3 adds the viewer's existing fake of the in-browser node, since the real one joins the public
-   * network, and the verdict names it as a fake. gateway goes back to the event's gateway.
+   * person's own stamp is sent through, in My Swarm. bee adds the viewer's own node, worker-2 locally and live the
+   * tunnel the target names for the actor, through Add source and its checks. weeb3 adds the viewer's existing fake of
+   * the in-browser node, since the real one joins the public network, and the verdict names it as a fake, so it runs
+   * locally only. gateway goes back to the event's gateway.
    */
   async 'connect-source'(run, step) {
     const actor = run.actor(step.actor!);
@@ -109,6 +110,7 @@ export const CHAT_VERBS: Record<string, Verb> = {
     if (kind !== 'bee' && kind !== 'gateway' && kind !== 'weeb3') {
       throw new Error('connect-source takes bee, gateway or weeb3');
     }
+    if (kind === 'weeb3') localStack(run, 'connect-source weeb3');
     let page = await viewerPage(run, actor);
     if (kind === 'weeb3') {
       await claimServiceWorkerControl(page);
@@ -120,7 +122,7 @@ export const CHAT_VERBS: Record<string, Verb> = {
     const dialog = await openConnect(page);
     const row = dialog.locator('[data-source-row]', { hasText: SOURCE_NAMES[kind] });
     if (kind !== 'gateway' && !(await row.isVisible()))
-      await addSource(dialog, kind, localStack(run, `connect-source ${kind}`).addresses.worker2);
+      await addSource(dialog, kind, kind === 'bee' ? ownNodeOf(run, actor.name) : '');
     await useForChat(dialog, SOURCE_NAMES[kind]);
     await closeConnect(page);
   },
@@ -179,13 +181,13 @@ export const CHAT_VERBS: Record<string, Verb> = {
       const fault = {
         refused: 0,
         route: async (route: Route) => {
-          if (!isOwnFeedCopy(run, route.request())) return route.fallback();
+          if (!isOwnFeedCopy(run, actor, route.request())) return route.fallback();
           fault.refused++;
           return route.abort('failed');
         },
       };
       faults.set(actor, fault);
-      await actor.context.route(`${localStack(run, 'fail-copies').addresses.worker2}/soc/**`, fault.route);
+      await actor.context.route(`${ownNodeOf(run, actor.name)}/soc/**`, fault.route);
       return;
     }
     if (step.args[0] !== 'off') throw new Error('fail-copies takes on or off');
@@ -194,7 +196,7 @@ export const CHAT_VERBS: Record<string, Verb> = {
     await expect
       .poll(() => fault.refused, { message: 'a copy was refused every time it was tried', timeout: CHAT_TIMEOUT_MS })
       .toBeGreaterThanOrEqual(OWN_COPY_ATTEMPTS);
-    await actor.context.unroute(`${localStack(run, 'fail-copies').addresses.worker2}/soc/**`, fault.route);
+    await actor.context.unroute(`${ownNodeOf(run, actor.name)}/soc/**`, fault.route);
     run.findings[`${actor.name} copies refused`] = fault.refused;
     faults.delete(actor);
   },

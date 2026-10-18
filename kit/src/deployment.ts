@@ -51,3 +51,17 @@ export function localStack(run: { local: LocalStack | null }, what: string): Loc
   if (!run.local) throw new Error(`${what} needs the local stack, and live mode runs against a real deployment`);
   return run.local;
 }
+
+/**
+ * The viewer's own Bee node for an actor: the local stack's worker-2 for everyone locally, and live the tunnel the
+ * target names for that actor, or a refusal naming the field when it names none.
+ */
+export function ownNodeOf(
+  run: { local: LocalStack | null; live: { ownNodes: Record<string, string> } | null },
+  actor: string,
+): string {
+  if (run.local) return run.local.addresses.worker2;
+  const node = run.live?.ownNodes[actor];
+  if (!node) throw new Error(`${actor} needs an own Bee node, and the target names none for ${actor} in ownNodes`);
+  return node;
+}

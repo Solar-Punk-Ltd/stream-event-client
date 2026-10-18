@@ -22,6 +22,17 @@ export const LIVE_EVIL_ORIGIN = 'http://[::1]:4998';
 const ORIGIN = /^https?:\/\/[A-Za-z0-9.-]+(:[0-9]{1,5})?$/;
 const ETH_ADDRESS = /^(0x)?[0-9a-fA-F]{40}$/;
 
+const ACTOR = /^[a-z]+$/;
+
+/** The local end of an SSH tunnel the operator opens: an origin on this machine, with no path. */
+const tunnelEnd = (example: string) =>
+  z
+    .string()
+    .regex(ORIGIN, { message: `must be an origin such as ${example}, with no path` })
+    .refine((origin) => isLocalDevHost(new URL(origin).hostname), {
+      message: 'must be on this machine, the local end of a tunnel',
+    });
+
 const targetSchema = z.strictObject({
   name: z.string().regex(/^[a-z0-9-]+$/, { message: 'must be lower case letters, digits and hyphens' }),
   viewer: z.string().regex(ORIGIN, { message: 'must be an origin such as https://viewer.example.com, with no path' }),
@@ -47,13 +58,18 @@ const targetSchema = z.strictObject({
    * The local end of the operator's SSH tunnel to the chat server's `/health`, which answers only on the deployment's
    * own machine. The scenarios that read the server's counts refuse to start without it.
    */
-  chatHealth: z
-    .string()
-    .regex(ORIGIN, { message: 'must be an origin such as http://127.0.0.1:4997, with no path' })
-    .refine((origin) => isLocalDevHost(new URL(origin).hostname), {
-      message: 'must be on this machine, the local end of a tunnel',
-    })
-    .optional(),
+  chatHealth: tunnelEnd('http://127.0.0.1:4997').optional(),
+  /**
+   * The local end of the operator's SSH tunnel to a Bee node of the deployment's that stands in for an actor's own
+   * node, by actor. A message on a person's own stamp goes out only through their own node or Weeb3, so the scenarios
+   * that read and send through the own node refuse to start without it.
+   */
+  ownNodes: z
+    .record(
+      z.string().regex(ACTOR, { message: 'must be an actor name such as alice' }),
+      tunnelEnd('http://127.0.0.1:4996'),
+    )
+    .default({}),
   /**
    * The actor whose account a scenario makes with a wallet that owns a real ENS name, that wallet's address, and the
    * name, which must resolve to the address and back. The wallet's key never comes from this file: live mode reads it
@@ -61,7 +77,7 @@ const targetSchema = z.strictObject({
    */
   ens: z
     .strictObject({
-      actor: z.string().regex(/^[a-z]+$/, { message: 'must be an actor name such as alice' }),
+      actor: z.string().regex(ACTOR, { message: 'must be an actor name such as alice' }),
       address: z.string().regex(ETH_ADDRESS, { message: 'must be an Ethereum address' }),
       name: z
         .string()
@@ -76,7 +92,7 @@ const targetSchema = z.strictObject({
   standing: z
     .array(
       z.strictObject({
-        actor: z.string().regex(/^[a-z]+$/, { message: 'must be an actor name such as alice' }),
+        actor: z.string().regex(ACTOR, { message: 'must be an actor name such as alice' }),
         address: z.string().regex(ETH_ADDRESS, { message: 'must be an Ethereum address' }),
         drives: z
           .array(z.string().regex(/^[0-9a-f]{64}$/, { message: 'must be a whole batch id, 64 hex digits' }))
@@ -113,6 +129,8 @@ export interface LiveDeployment {
   ensRpc: string;
   /** The local end of the tunnel to the chat server's `/health`, null when the target names none. */
   chatHealth: string | null;
+  /** The local end of the tunnel to each actor's own Bee node, by actor. */
+  ownNodes: Record<string, string>;
   /** The chat inbox's key and identifier, public in the config, which every sender signs its inbox writes with. */
   inbox: { key: string; identifier: string };
   catalog: { owner: string; topic: string };
@@ -160,6 +178,7 @@ export function liveDeployment(target: Target, rawConfig: unknown): LiveDeployme
     swarmId: parts.swarmId,
     ensRpc: parts.ensRpc,
     chatHealth: target.chatHealth ?? null,
+    ownNodes: target.ownNodes,
     inbox: { key: bare(chat.gsocResourceId), identifier: chat.gsocTopic },
     catalog: { owner: config.catalog.owner, topic: config.catalog.topic },
     deployment: {

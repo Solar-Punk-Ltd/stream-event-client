@@ -22,5 +22,8 @@
       ]
     }
   ],
-  "chatHealth": "http://127.0.0.1:4997"
+  "chatHealth": "http://127.0.0.1:4997",
+  "ownNodes": {
+    "alice": "http://127.0.0.1:4996"
+  }
 }

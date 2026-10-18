@@ -7,7 +7,7 @@ import { MessageVia } from '@solarpunkltd/swarm-chat-js';
 import type { Actor } from './actors.ts';
 import { knowsBatch, waitFor } from './bee.ts';
 import { nextStandingDrive } from './liveAccounts.ts';
-import { localStack } from './deployment.ts';
+import { localStack, ownNodeOf } from './deployment.ts';
 import { ACCOUNT_CHECKS, ACCOUNT_VERBS, drivesOf, siteDriveOf } from './accountVerbs.ts';
 import { chatFeedProblems } from './chatFeed.ts';
 import { readChatFeed } from './chatFeedRead.ts';
@@ -41,6 +41,10 @@ async function takeStandingDrive(run: Run, actor: Actor): Promise<void> {
   if (!stamp) throw new Error(`${actor.name}'s account in this browser does not hold the drive ${batchID}`);
   if (stamp.signerKey) {
     run.secrets.set(`${actor.name} stamp key`, await actor.untraced(() => openSealed(page, stamp.signerKey)));
+  }
+  const ownNode = run.live?.ownNodes[actor.name];
+  if (ownNode && !(await knowsBatch(ownNode, batchID))) {
+    throw new Error(`the own node at ${ownNode} does not know ${actor.name}'s drive ${batchID}, so it would refuse it`);
   }
   run.findings[`${actor.name} drive`] = { batchID, depth: stamp.depth, standing: true };
   run.findings[`${actor.name} drives`] = [...drivesOf(run, actor), batchID];
@@ -82,7 +86,7 @@ const verbs: Record<string, Verb> = {
    * `buy-drive depth=20`: a real batch on the local chain, through Swarm ID's `/dev` page, owned by the account's own
    * postage signer. Waits until the viewer's own Bee node knows the batch, since it refuses a chunk stamped with one
    * it has not seen. Live, nothing is bought: the step takes the actor's standing account's next drive in the target's
-   * order, which the account already holds.
+   * order, which the account already holds, and checks that the actor's own node knows it, when the target names one.
    */
   async 'buy-drive'(run, step) {
     const actor = run.actor(step.actor!);
@@ -180,15 +184,15 @@ const checks: Record<string, Verb> = {
     run.findings['chat feed'] = entries;
     const problems = chatFeedProblems(entries, run.sent, run.id);
     if (problems.length) throw new Error(problems.join('; '));
-    const places = {
-      viewer: run.addresses.viewer,
-      gateway: run.deployment.chatWrite,
-      ownNode: run.local?.addresses.worker2 ?? null,
-      inboxOwner: run.deployment.inboxOwner,
-    };
     for (const actor of run.actors) {
       const mine = run.sent.filter((message) => message.actor === actor.name);
       if (!mine.length) continue;
+      const places = {
+        viewer: run.addresses.viewer,
+        gateway: run.deployment.chatWrite,
+        ownNode: run.local?.addresses.worker2 ?? run.live?.ownNodes[actor.name] ?? null,
+        inboxOwner: run.deployment.inboxOwner,
+      };
       const ownStamp: Record<string, number> = {};
       for (const { drive } of mine.filter((message) => message.via === MessageVia.OWN_STAMP)) {
         ownStamp[drive!] = (ownStamp[drive!] ?? 0) + 1;
@@ -372,7 +376,7 @@ const checks: Record<string, Verb> = {
         const har = readFileSync(join(actor.dir, 'network.har'), 'utf8');
         // The control: the chat history is read from the viewer's own node, so a recording without a request there
         // recorded nothing, and its silence about stamps would mean nothing.
-        if (!har.includes(localStack(run, 'no-site-stamp').addresses.worker2)) {
+        if (!har.includes(ownNodeOf(run, actor.name))) {
           throw new Error('the recorded network holds no request to the viewer’s own node, so it proves nothing');
         }
         const { viewerPages, stamped } = stampedRequests(har, run.addresses.viewer, [drive]);

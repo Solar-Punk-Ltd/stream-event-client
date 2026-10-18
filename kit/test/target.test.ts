@@ -101,6 +101,26 @@ describe('parseTarget chatHealth', () => {
   });
 });
 
+describe('parseTarget ownNodes', () => {
+  const good = () => {
+    const { ownNodes: _example, ...rest } = JSON.parse(readFileSync(EXAMPLE_TARGET, 'utf8')) as Record<string, unknown>;
+    return rest;
+  };
+
+  it('takes the local end of the tunnel to each actor’s own Bee node, a loopback origin, and none when not given', () => {
+    expect(parseTarget({ ...good(), ownNodes: { alice: 'http://127.0.0.1:4996' } }).ownNodes).toEqual({
+      alice: 'http://127.0.0.1:4996',
+    });
+    expect(parseTarget(good()).ownNodes).toEqual({});
+  });
+
+  it('refuses an own node off this machine, one with a path, and a key that is not an actor name', () => {
+    expect(() => parseTarget({ ...good(), ownNodes: { alice: 'http://192.0.2.10:1633' } })).toThrow(/ownNodes/);
+    expect(() => parseTarget({ ...good(), ownNodes: { alice: 'http://127.0.0.1:4996/bee' } })).toThrow(/ownNodes/);
+    expect(() => parseTarget({ ...good(), ownNodes: { Alice1: 'http://127.0.0.1:4996' } })).toThrow(/ownNodes/);
+  });
+});
+
 describe('liveDeployment', () => {
   const target = readTarget(EXAMPLE_TARGET);
 
@@ -139,6 +159,10 @@ describe('liveDeployment', () => {
     >;
     expect(liveDeployment(parseTarget(untunnelled), config()).chatHealth).toBeNull();
     expect(liveDeployment(target, config()).chatHealth).toBe('http://127.0.0.1:4997');
+  });
+
+  it('carries the own nodes the target names, by actor', () => {
+    expect(liveDeployment(target, config()).ownNodes).toEqual({ alice: 'http://127.0.0.1:4996' });
   });
 
   it('serves the hostile site from this machine and puts every address the run uses in its table', () => {

@@ -239,16 +239,16 @@ Live mode runs scenarios against a real deployment instead of the local stack: i
 site, its gateway and its chat. Nothing of the local stack is started or read, and `kit up`, `kit run` and `kit test`
 are unchanged.
 
-The scenarios that run live are the ones that need no drive. Four need no wallet either: `partitioned-storage`,
+Eighteen scenarios run live. Four need no wallet and no drive: `partitioned-storage`,
 `popup-blocked`, `eth-name-refused` and `evil-unlisted`. Four sign with a wallet that owns a real ENS name:
 `ens-both-ways`, `ens-off-while-signed-in`, `rpc-down` and `rpc-lying`. Four write forged or replayed messages raw to
 the chat's inbox and read the chat server's counts: `forge-binding`, `forge-message`, `forge-wallet-link` and
-`replay-message`. `kit live test` runs those twelve, and `kit live run` refuses any other. `evil-allowed`,
+`replay-message`. Six sign in to a standing account with its drives and send on its own stamp through the viewer's
+own Bee node: `my-stamp-send`, `own-feed-sync`, `stamp-key-stays-in-frame`, `drive-needs-consent`, `two-people-chat`
+and `device-feed-leak`. `kit live test` runs those eighteen, and `kit live run` refuses any other. `evil-allowed`,
 `cross-site-isolation` and `revoke-while-sending` stay local only, since the real allow list never names the hostile
-site. The six scenarios that need a drive, `my-stamp-send`, `own-feed-sync`, `stamp-key-stays-in-frame`,
-`drive-needs-consent`, `two-people-chat` and `device-feed-leak`, do not run live yet, as the standing accounts below
-say. A verb that needs the local stack, such as reading the device feed or adding the viewer's own Bee node, fails at
-once with a line saying so, before it does anything.
+site. A verb that needs the local stack, such as funding a wallet or adding Weeb3, fails at once with a line saying
+so, before it does anything.
 
 A run creates Swarm ID accounts on the real site and sends a few guest messages that the deployment's gateway pays
 for, from guests named `kit <actor> <run id>`. The forging and replay scenarios write a few raw inbox messages the same
@@ -268,6 +268,7 @@ it. `targets/example.json` shows its shape with placeholders:
 | `ens`         | optional, the ENS wallet's `actor`, its `address` and its `name`, which the ENS scenarios need         |
 | `chatHealth`  | optional, the local end of the tunnel to the chat server's `/health`, such as `http://127.0.0.1:4997`  |
 | `standing`    | optional, standing Swarm ID accounts, each an `actor`, its account `address` and its `drives` in order |
+| `ownNodes`    | optional, by actor, the local end of the tunnel to the Bee node that is that actor's own node          |
 
 Everything else is read from the viewer's public `config.json` at the start of each run: the gateway, the chat's read
 and write addresses, the chat inbox key, the feed owner, the Swarm ID site and the ENS endpoint. An address given as a
@@ -316,13 +317,41 @@ names no standing account for the actor. Neither value is ever part of what the 
 with the trace paused, until the page has left their fields.
 
 Signing in on a new device asks Swarm ID to find the account's published state on Swarm, through the Swarm gateway its
-own settings name. Measured on 2026-10-18 against swarm-dev's Swarm ID with its default settings, that never succeeds:
-Swarm ID reads the account's device roster with `GET /soc`, the public gateway and the event gateway both answer that
-route with a 404 that is not Bee's own, and Swarm ID then stops with "roster scan inconclusive: cannot confirm the
-roster is empty" rather than risk reading a roster as empty. The roster's chunks were not found through either gateway
-either. A standing account can therefore not be opened in a fresh browser on that deployment today, and the six drive
-scenarios stay off the live list. They also send on the actor's own stamp, which goes out only through a Bee node of
-the viewer's own or Weeb3 in the tab, and live mode has neither.
+own settings name, so the target's `alsoAllowed` names that gateway. A Swarm ID older than 0.10.1 gave up reading the
+account's device list before the public gateway answered a missing chunk, and refused the sign-in.
+
+### The viewer's own node, live
+
+A message on a person's own stamp goes out only through a Bee node of their own or Weeb3 in the tab, so the scenarios
+that send on one read the chat from the viewer's own Bee node, by `chatSource: bee` or `connect-source bee`. Live, a
+Bee node of the deployment's stands in for the actor's own: the operator opens an SSH tunnel to its API before the run
+and names its local end for the actor under `ownNodes` in the target:
+
+```sh
+ssh -N -L 4996:<the node's API address> <the node's host>
+```
+
+```json
+"ownNodes": { "alice": "http://127.0.0.1:4996" }
+```
+
+The node must know the actor's drives, since Bee refuses a chunk stamped with a batch it has not seen, so a node that
+holds no batch of its own and has a funded chequebook fits best. The node pays the bandwidth of what it sends and reads
+from its own chequebook. It never buys or tops up a batch for the kit. The page adds the node as a person does, and
+every own-stamp send, own feed copy and device feed read goes through it. A standing drive the node does not know fails
+its `buy-drive` step, saying so.
+
+Before such a scenario the live gate reads the node's `/health` through the tunnel for each actor that uses one, and
+refuses to start when the target names no own node for the actor, when the tunnel answers nothing, or when the answer is
+not Bee's or not healthy, each time naming the tunnel to open. An own node must be on this machine, since only a tunnel
+reaches it.
+
+Chrome lets a public https page call an address on this machine only with its Local Network Access permission, which
+it asks the visitor for. A test browser cannot answer the prompt and refuses the call with `Permission was denied for
+this request to access the loopback address space`, so live, an actor with an own node is given that permission for
+the viewer's origin, the way a visitor allows it. Measured on 2026-10-18 with Chromium 153 and Chrome 155: without it
+every call to the tunnel fails, with it the node answers. Bee's own CORS answer took the viewer's origin. A real visitor
+with a node of their own therefore meets Chrome's prompt the first time the viewer calls it.
 
 ### The live gate
 
