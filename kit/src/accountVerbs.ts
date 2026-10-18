@@ -12,7 +12,7 @@ import { localStack } from './deployment.ts';
 import { bakedWalletKey, ENS_ACTORS, type EnsActor } from './ens.ts';
 import { installVirtualAuthenticator } from './passkey.ts';
 import { CHAT_TIMEOUT_MS, type Run, type Verb } from './run.ts';
-import { stampsNamedToViewer, walletLinkSeen, type WalletLinkSeen } from './stampEvidence.ts';
+import { stampsNamedToViewer, type WalletLinkSeen } from './stampEvidence.ts';
 import {
   completeCreateFlow,
   confirmAccessWithPasskey,
@@ -25,6 +25,7 @@ import {
 import { banner, chatRegion, chatStampGroup, closeConnect, idPage, openConnect, viewerPage } from './viewerPages.ts';
 import { swarmIdButton, waitForSwarmIdButton } from './swarmIdButton.ts';
 import { pickInjectedWallet, testWallet } from './wallet.ts';
+import { ensLinkWaitMs, watchWalletLink } from './walletLinkWatch.ts';
 
 const SIGN_IN = 'Sign in with Swarm ID';
 const CHANGE_STAMP = 'Change stamp in Swarm ID';
@@ -110,17 +111,21 @@ const RECORD_ONLY_MS = 15_000;
  * it saw instead. With `recordOnly` it writes what it saw into the run's findings and never fails.
  */
 async function expectLastUpdate(run: Run, actor: Actor, wanted: WalletLinkSeen, recordOnly: boolean): Promise<void> {
-  const wallet = actor.wallet!.address;
-  let seen: WalletLinkSeen = 'no update';
-  const deadline = Date.now() + (recordOnly ? RECORD_ONLY_MS : CHAT_TIMEOUT_MS);
-  while (Date.now() < deadline) {
-    seen = walletLinkSeen(await actor.received(), wallet);
-    if (seen === wanted) break;
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
+  const watched = await watchWalletLink({
+    received: () => actor.received(),
+    wallet: actor.wallet!.address,
+    wanted,
+    waitMs: recordOnly ? RECORD_ONLY_MS : ensLinkWaitMs(run.live !== null),
+  });
+  const after = (ms: number | null) => (ms === null ? 'never' : `after ${(ms / 1000).toFixed(1)} s`);
   const recorded = (run.findings[`${actor.name} ens link seen`] as string[] | undefined) ?? [];
-  run.findings[`${actor.name} ens link seen`] = [...recorded, `${wanted} wanted, ${seen} seen`];
-  if (!recordOnly && seen !== wanted) throw new Error(`the viewer was to see "${wanted}", and saw "${seen}"`);
+  run.findings[`${actor.name} ens link seen`] = [
+    ...recorded,
+    `${wanted} wanted, ${watched.seen} seen, the frame's first update ${after(watched.firstUpdateMs)}, the wanted one ${after(watched.wantedMs)}`,
+  ];
+  if (!recordOnly && watched.seen !== wanted) {
+    throw new Error(`the viewer was to see "${wanted}", and saw "${watched.seen}"`);
+  }
 }
 
 /** Swarm ID's account page, its Account tab with the Identity section open, where the ENS setting is. */

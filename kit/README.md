@@ -330,6 +330,10 @@ request still open, and a live viewer's player keeps asking for its stream, so a
 requests open when the close began are written to `open-at-close.json` in the actor's folder, with whether it closed
 in time, and a close that ran out says so on the run's output.
 
+`expect ens-link` waits 120 seconds live instead of 60. After a reload the deployment's Swarm ID frame can take most of
+a minute to start while its files are asked again. The verdict's `<actor> ens link seen` finding says how long after
+the check began the frame's first update came and when the wanted one did.
+
 ### What a live check reads
 
 `expect chat-feed` reads the chat feed through the chat's read address, as the viewer does, with the config's feed
