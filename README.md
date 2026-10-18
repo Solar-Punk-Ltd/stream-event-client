@@ -664,6 +664,24 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   nothing is marked. The playback quality panel counts each skipped segment once, under Segments
   Skipped, and not as a fatal error or a reconnect attempt.
 - **Where the video loads from.** My Swarm, the button in the header, is described below.
+- **Moving the video keeps the place in a recording.** When the viewer picks another source for the video while a
+  recording plays, the video carries on where it was, and stays paused if it was paused. Between two gateways or Bee
+  nodes the same player keeps playing and only its source changes. A move to or from Weeb3 swaps this app's player for
+  weeb-3's own, so the player being taken down records where the viewer was and whether they had paused
+  (`src/features/player/placeAcrossSwap.ts`), and the new one starts there. Each recording keeps a place of its own
+  while the watch page stays open, so a recording opened again from the same page starts where the viewer left it.
+  This app's player asks hls.js to start at that place and keeps asking until its first segment is in, because hls.js
+  forgets a start position it is given again before then, as the play that autoplay starts does. weeb-3's player
+  starts at the beginning, since weeb-3 starts only there or live, and the video is moved to the place once weeb-3's
+  rebuilt playlist reaches it. Measured on 2026-10-18 on a 1483 s recording, that playlist named 8 s at first and the
+  whole length about 9 s later. Until then the video is held still and silent, every play weeb-3 starts is paused
+  again, and the line under it says "Going to where you were in the recording", so the start of the recording never
+  plays first. Once there, it plays from the place, or stays paused there if the viewer had paused. A duration that
+  stays short of the place for 30 s, three times the growth measured, counts as the whole recording, and the video
+  goes a second before its end instead, never back to the start. A viewer who leaves weeb-3 before it got there keeps
+  the place they had. A live stream joins at its live edge in either player,
+  as it always has, and a player that joined a broadcast live keeps no place for the next one, because its timeline
+  starts where it joined.
 - **Diagnosing playback.** `?qoe=1` on a watch page shows the playback quality panel, ported from
   Nandor Komlodi's panel in the streaming monorepo's client. Its round button toggles it, and so does
   `Q` when you are not typing in a field. The panel lives in the browser window, not in the player:

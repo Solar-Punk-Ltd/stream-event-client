@@ -140,7 +140,7 @@ describe('SwarmHlsPlayer hls.js tuning', () => {
     });
 
     it('starts the loading the config above left off', () => {
-      assert.match(code, /\bstartLoad\(\)/);
+      assert.match(code, /\bhls!\.startLoad\(pendingStartS\)/);
     });
 
     for (const key of Object.keys(SHIPPED_TUNING)) {
