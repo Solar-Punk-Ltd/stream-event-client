@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import { MessageVia } from '@solarpunkltd/swarm-chat-js';
 
+import type { Actor } from './actors.ts';
 import { knowsBatch, waitFor } from './bee.ts';
+import { nextStandingDrive } from './liveAccounts.ts';
 import { localStack } from './deployment.ts';
 import { ACCOUNT_CHECKS, ACCOUNT_VERBS, drivesOf, siteDriveOf } from './accountVerbs.ts';
 import { chatFeedProblems } from './chatFeed.ts';
@@ -23,6 +25,26 @@ import { confirmInWindow, createDevDrive, DEV_DRIVE_DEPTH, openSealed, storedAcc
 const GUARD_CONTROL_URL = 'https://example.com/';
 /** What Chromium says when a name does not resolve, which the guard's resolver rule makes every outside name do. */
 const NAME_NOT_RESOLVED = 'ERR_NAME_NOT_RESOLVED';
+
+/**
+ * Live, a drive step takes the actor's standing account's next drive, as the account holds it, and records it as a
+ * bought one is recorded. Its stamp key is read for `no-key-leak` with the trace paused. Live mode never buys a drive.
+ */
+async function takeStandingDrive(run: Run, actor: Actor): Promise<void> {
+  const standing = run.standing.get(actor.name);
+  if (!standing) {
+    throw new Error(`live mode never buys a drive, and ${actor.name} has no standing account in this run`);
+  }
+  const batchID = nextStandingDrive(actor.name, standing.drives, drivesOf(run, actor));
+  const page = await idPage(run, actor);
+  const stamp = (await storedAccount(page))?.postageStamps?.find((s) => s.batchID === batchID);
+  if (!stamp) throw new Error(`${actor.name}'s account in this browser does not hold the drive ${batchID}`);
+  if (stamp.signerKey) {
+    run.secrets.set(`${actor.name} stamp key`, await actor.untraced(() => openSealed(page, stamp.signerKey)));
+  }
+  run.findings[`${actor.name} drive`] = { batchID, depth: stamp.depth, standing: true };
+  run.findings[`${actor.name} drives`] = [...drivesOf(run, actor), batchID];
+}
 
 const verbs: Record<string, Verb> = {
   /**
@@ -59,11 +81,16 @@ const verbs: Record<string, Verb> = {
   /**
    * `buy-drive depth=20`: a real batch on the local chain, through Swarm ID's `/dev` page, owned by the account's own
    * postage signer. Waits until the viewer's own Bee node knows the batch, since it refuses a chunk stamped with one
-   * it has not seen.
+   * it has not seen. Live, nothing is bought: the step takes the actor's standing account's next drive in the target's
+   * order, which the account already holds.
    */
   async 'buy-drive'(run, step) {
-    const ownNode = localStack(run, 'buy-drive').addresses.worker2;
     const actor = run.actor(step.actor!);
+    if (run.live) {
+      await takeStandingDrive(run, actor);
+      return;
+    }
+    const ownNode = localStack(run, 'buy-drive').addresses.worker2;
     const depth = Number(step.options.depth ?? DEV_DRIVE_DEPTH);
     if (depth !== DEV_DRIVE_DEPTH)
       throw new Error(`/dev buys depth ${DEV_DRIVE_DEPTH} only, and the kit has no verb for a paid drive`);

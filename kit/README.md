@@ -152,7 +152,7 @@ fails with those words.
 | `connect-source bee`, `gateway` or `weeb3`       | where Chat history is read from, in My Swarm. weeb3 is the viewer's fake, named in the verdict                                                               |
 | `guest "name"`                                   | asks to chat as a guest with that name                                                                                                                       |
 | `send "text" [--stamp mine]`                     | a chat message, sent once the chat has read it back, and who should have paid for it                                                                         |
-| `buy-drive depth=20`                             | a real batch on the chain through Swarm ID's `/dev` page, owned by the account's postage signer                                                              |
+| `buy-drive depth=20`                             | a real batch on the chain through Swarm ID's `/dev` page, owned by the account's postage signer. Live, the standing account's next drive                     |
 | `choose-stamp mine` or `gateway`                 | who pays, in My Swarm. `--pick drive` also picks the run's drive in the Swarm ID window                                                                      |
 | `change-stamp`                                   | Change stamp in Swarm ID, and the run's newest drive picked in its window                                                                                    |
 | `link-wallet`                                    | Show my ENS name on sites turned on in Swarm ID, so the wallet signs the link                                                                                |
@@ -245,9 +245,10 @@ The scenarios that run live are the ones that need no drive. Four need no wallet
 the chat's inbox and read the chat server's counts: `forge-binding`, `forge-message`, `forge-wallet-link` and
 `replay-message`. `kit live test` runs those twelve, and `kit live run` refuses any other. `evil-allowed`,
 `cross-site-isolation` and `revoke-while-sending` stay local only, since the real allow list never names the hostile
-site. A verb
-that needs the local stack, such as buying a drive or reading the device feed, fails at once with a line saying
-so, before it does anything.
+site. The six scenarios that need a drive, `my-stamp-send`, `own-feed-sync`, `stamp-key-stays-in-frame`,
+`drive-needs-consent`, `two-people-chat` and `device-feed-leak`, do not run live yet, as the standing accounts below
+say. A verb that needs the local stack, such as reading the device feed or adding the viewer's own Bee node, fails at
+once with a line saying so, before it does anything.
 
 A run creates Swarm ID accounts on the real site and sends a few guest messages that the deployment's gateway pays
 for, from guests named `kit <actor> <run id>`. The forging and replay scenarios write a few raw inbox messages the same
@@ -258,14 +259,15 @@ way, which the gateway pays for too. A run writes nothing else: no setting, no s
 A target file names the deployment, and it lives outside this repository, because a deployment's names stay out of
 it. `targets/example.json` shows its shape with placeholders:
 
-| Field         | What it is                                                                                            |
-| ------------- | ----------------------------------------------------------------------------------------------------- |
-| `name`        | a short name for the deployment, written into the evidence                                            |
-| `viewer`      | the viewer's origin, with no path                                                                     |
-| `stream`      | the published stream to open: `mediaType`, `owner`, `topic` and `title`                               |
-| `alsoAllowed` | optional, outside origins a part of the deployment reads on its own, each with `origin` and `why`     |
-| `ens`         | optional, the ENS wallet's `actor`, its `address` and its `name`, which the ENS scenarios need        |
-| `chatHealth`  | optional, the local end of the tunnel to the chat server's `/health`, such as `http://127.0.0.1:4997` |
+| Field         | What it is                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------ |
+| `name`        | a short name for the deployment, written into the evidence                                             |
+| `viewer`      | the viewer's origin, with no path                                                                      |
+| `stream`      | the published stream to open: `mediaType`, `owner`, `topic` and `title`                                |
+| `alsoAllowed` | optional, outside origins a part of the deployment reads on its own, each with `origin` and `why`      |
+| `ens`         | optional, the ENS wallet's `actor`, its `address` and its `name`, which the ENS scenarios need         |
+| `chatHealth`  | optional, the local end of the tunnel to the chat server's `/health`, such as `http://127.0.0.1:4997`  |
+| `standing`    | optional, standing Swarm ID accounts, each an `actor`, its account `address` and its `drives` in order |
 
 Everything else is read from the viewer's public `config.json` at the start of each run: the gateway, the chat's read
 and write addresses, the chat inbox key, the feed owner, the Swarm ID site and the ENS endpoint. An address given as a
@@ -293,6 +295,34 @@ A check that names the ENS name, such as `name=ens:alice` or `details ... ens=al
 `ens.name` gives live, and the baked snapshot's name locally. `rpc down` and `rpc lie` stop or alter the calls to the
 config's ENS endpoint live, as they do the local chain's endpoint locally, and the lie lets every call but the reverse
 lookup through to the real endpoint.
+
+### Standing accounts
+
+A drive is bought once and kept for live runs, and Swarm ID cannot take a drive into another account, so an actor a
+scenario gives a drive signs in to the same Swarm ID account on every run, a standing account, instead of making one.
+Live, `create-account password` for an actor with a `buy-drive` step signs in to that actor's standing account from its
+recovery phrase, through Swarm ID's "I already have an account", and secures it in the run's fresh browser with the
+account's password. The account must be the one the target's `standing` entry names, holding every drive it names, or
+the step fails saying what the phrase opened. Each `buy-drive` then takes the account's next drive in the target's
+order, with nothing bought, and a step past the last drive fails. When Swarm ID finds no account for the phrase it
+offers to set up a new one under it, and the kit never takes that offer.
+
+The phrase and the password never sit in a file. The kit reads them from `KIT_<ACTOR>_PHRASE` and
+`KIT_<ACTOR>_PASSWORD`, `KIT_ALICE_PHRASE` and `KIT_ALICE_PASSWORD` for alice, which the operator routes in from a
+secret store when starting the run. A phrase kept as a numbered list, `1. word 2. word`, loses its numbers. Before such
+a scenario the live gate refuses to start when either variable is missing, naming it and how a run gets it, when the
+phrase is not 12 to 24 lower-case words or the password is shorter than Swarm ID's 8 characters, or when the target
+names no standing account for the actor. Neither value is ever part of what the gate writes or prints. Both are typed
+with the trace paused, until the page has left their fields.
+
+Signing in on a new device asks Swarm ID to find the account's published state on Swarm, through the Swarm gateway its
+own settings name. Measured on 2026-10-18 against swarm-dev's Swarm ID with its default settings, that never succeeds:
+Swarm ID reads the account's device roster with `GET /soc`, the public gateway and the event gateway both answer that
+route with a 404 that is not Bee's own, and Swarm ID then stops with "roster scan inconclusive: cannot confirm the
+roster is empty" rather than risk reading a roster as empty. The roster's chunks were not found through either gateway
+either. A standing account can therefore not be opened in a fresh browser on that deployment today, and the six drive
+scenarios stay off the live list. They also send on the actor's own stamp, which goes out only through a Bee node of
+the viewer's own or Weeb3 in the tab, and live mode has neither.
 
 ### The live gate
 
@@ -388,9 +418,11 @@ site took, then `verdict.json` and `actors/` as locally. A live run takes no Bee
 health and no container logs, since none of those are the kit's to read on a real deployment. The counting scenarios
 record the counts they read before and after in the verdict. Timings are recorded, never asserted.
 
-Two readings of the evidence are made once the browsers closed. An ENS run searches every actor's recorded network,
-console and traces, its `header.json`, its `preflight.json` and its verdict for the ENS wallet's key, and fails when any
-holds it, naming where and never the key. And every live run records `swarm id server errors` in its verdict,
+Two readings of the evidence are made once the browsers closed. A run that holds a live secret, the ENS wallet's key
+or a standing account's phrase and password, searches every actor's recorded network, console and traces, its
+`header.json`, its `preflight.json` and its verdict for each, and fails when any holds one, naming which and where
+and never the value. A key is looked for in hex and base64, a typed secret as typed, as JSON and an address encode it,
+and in base64. The verdict lists what was searched for under `live secrets searched for`. And every live run records `swarm id server errors` in its verdict,
 from the counts each actor's fetcher writes to `actors/<actor>/swarm-id-fetches.json` when it closes: how many requests
 went to the Swarm ID site, how many attempts were answered 500 or above, how many got no answer, how many retries were
 made, how many files needed a retry, and how many still failed after the last attempt, summed and for each actor. The

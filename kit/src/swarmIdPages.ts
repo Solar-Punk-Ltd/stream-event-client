@@ -49,6 +49,45 @@ export async function toAccessStep(page: Page, secrets: Untraced): Promise<void>
   });
 }
 
+/**
+ * Finding the account on Swarm from its phrase reads its published state through Swarm ID's own gateway, and on a new
+ * device that is several feed lookups.
+ */
+const FOLD_MS = 180_000;
+
+/**
+ * Signs in to an existing account in this browser from its recovery phrase, Swarm ID's "I already have an account",
+ * and secures it here with `password`, ending on Swarm ID's home page. Swarm ID reads the account's published state
+ * from Swarm and keeps its drives, connected sites and settings as they are. The phrase and the password are typed
+ * with the trace paused, until the page has left their fields. A phrase Swarm ID finds no account for fails the step,
+ * and its offer to set up a new account under the phrase is never taken.
+ */
+export async function signInWithPhrase(page: Page, phrase: string, password: string, secrets: Untraced): Promise<void> {
+  await page.getByRole('link', { name: 'I already have an account' }).click({ timeout: FIRST_LOAD_MS });
+  await expect(page).toHaveURL(/\/account\/import$/);
+  const main = page.getByRole('main');
+  const refused = main.getByText(/^(Sign in failed|No account found)$/);
+  await secrets.untraced(async () => {
+    await main.getByRole('textbox').fill(phrase);
+    await main.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Access security' }).or(refused)).toBeVisible({ timeout: FOLD_MS });
+  });
+  if (await refused.isVisible()) {
+    const words = await main.locator('p').allInnerTexts();
+    throw new Error(`Swarm ID did not sign in from the phrase: ${words.join(' ').replace(/\s+/g, ' ')}`);
+  }
+  await expect(page).toHaveURL(/\/account\/new\/access$/);
+  await page.getByRole('tab', { name: 'Password' }).click();
+  await secrets.untraced(async () => {
+    await page.locator('#new-password').fill(password);
+    await page.locator('#verify-password').fill(password);
+    await page.getByRole('button', { name: 'Confirm' }).click();
+    await expect(page).toHaveURL(/\/account\/ready$/, { timeout: FIRST_LOAD_MS });
+  });
+  await page.getByRole('link', { name: 'Continue with this account' }).click();
+  await expect(page).toHaveURL(/\/$/);
+}
+
 /** The account Swarm ID keeps in its own storage, as the identity site's first-party page reads it. */
 interface StoredAccounts {
   data?: {

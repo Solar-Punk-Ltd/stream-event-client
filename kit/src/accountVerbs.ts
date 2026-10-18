@@ -19,9 +19,11 @@ import {
   confirmAccessWithWallet,
   confirmInWindow,
   openSealed,
+  signInWithPhrase,
   storedAccount,
   toAccessStep,
 } from './swarmIdPages.ts';
+import type { StandingAccount } from './liveAccounts.ts';
 import { banner, chatRegion, chatStampGroup, closeConnect, idPage, openConnect, viewerPage } from './viewerPages.ts';
 import { swarmIdButton, waitForSwarmIdButton } from './swarmIdButton.ts';
 import { pickInjectedWallet, testWallet } from './wallet.ts';
@@ -76,6 +78,30 @@ function walletFor(run: Run, actor: Actor, named: boolean) {
     throw new Error(`the ENS snapshot names wallets for ${ENS_ACTORS.join(' and ')} only, not ${actor.name}`);
   }
   return testWallet(bakedWalletKey(actor.name as EnsActor));
+}
+
+/**
+ * Live, an actor the scenario gives a drive signs in to their standing account from its phrase instead of making one,
+ * secured in this browser with its password, and the account must be the one the target names, holding every drive the
+ * target names. Nothing of the account is changed here: its drives stay attached and its settings as they were.
+ */
+async function signInToStanding(run: Run, actor: Actor, page: Page, standing: StandingAccount): Promise<void> {
+  const { phrase, password } = standing.credentials;
+  run.secrets.set(`${actor.name} recovery phrase`, phrase);
+  run.secrets.set(`${actor.name} password`, password);
+  actor.password = password;
+  await signInWithPhrase(page, phrase, password, actor);
+  const account = await storedAccount(page);
+  const address = `0x${(account?.id ?? '').replace(/^0x/i, '')}`.toLowerCase();
+  const attached = (account?.postageStamps ?? []).map((stamp) => stamp.batchID);
+  const missing = standing.drives.filter((drive) => !attached.includes(drive));
+  if (address !== standing.address.toLowerCase() || missing.length) {
+    throw new Error(
+      `the phrase signed in to ${address}, holding the drives ${attached.join(', ') || 'none'}, and the target names ${standing.address} with ${standing.drives.join(', ')}`,
+    );
+  }
+  run.findings[`${actor.name} standing account`] = { address, drives: attached };
+  await readSecrets(run, actor, page);
 }
 
 /** Notes who the viewer now shows the actor as, after a sign-in or a guest join. */
@@ -164,7 +190,9 @@ export const ACCOUNT_VERBS: Record<string, Verb> = {
   /**
    * `create-account password|passkey|wallet [--ens-name]`. A password or wallet account is made on Swarm ID's own
    * site. A wallet account signs with a wallet made for the run, funded on the local chain, or with `--ens-name` the
-   * wallet the ENS snapshot named for this actor, which live is the target's ENS wallet and is never funded. A passkey account is made in Swarm ID's sign-in window opened from
+   * wallet the ENS snapshot named for this actor, which live is the target's ENS wallet and is never funded. Live, a
+   * password account for an actor the scenario gives a drive is their standing account, signed in to from its phrase
+   * instead of made. A passkey account is made in Swarm ID's sign-in window opened from
    * the viewer, since a virtual authenticator's passkey lives in the tab that made it, so the actor ends signed in.
    */
   async 'create-account'(run, step) {
@@ -187,6 +215,11 @@ export const ACCOUNT_VERBS: Record<string, Verb> = {
     }
     const page = await idPage(run, actor);
     await page.goto(`${run.addresses.swarmId}/?signin`);
+    const standing = run.standing.get(actor.name);
+    if (method === 'password' && standing) {
+      await signInToStanding(run, actor, page, standing);
+      return;
+    }
     if (method === 'password') {
       await completeCreateFlow(page, actor.password, actor);
       run.secrets.set(`${actor.name} password`, actor.password);

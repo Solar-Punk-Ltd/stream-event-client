@@ -1,6 +1,7 @@
 import type { Actor } from './actors.ts';
 import type { Sent } from './chatFeed.ts';
 import type { Deployment, LocalStack, SiteAddresses } from './deployment.ts';
+import type { StandingAccount } from './liveAccounts.ts';
 import type { Step } from './scenario.ts';
 import type { LiveDeployment } from './target.ts';
 import type { TestWallet } from './wallet.ts';
@@ -19,6 +20,11 @@ export interface Run {
    * snapshot's baked wallets stand in for it. Its key is a secret no evidence may hold.
    */
   ensWallet: TestWallet | null;
+  /**
+   * The standing accounts live mode signs actors in to instead of making one, by actor. Empty locally, where every
+   * account is made for the run. Their phrase and password are secrets no evidence may hold.
+   */
+  standing: Map<string, StandingAccount>;
   actor(name: string): Actor;
   actors: Actor[];
   sent: Sent[];

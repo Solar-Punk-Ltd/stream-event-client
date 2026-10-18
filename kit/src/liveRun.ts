@@ -14,11 +14,18 @@ import { liveGuard } from './guard.ts';
 import { judgeLiveGate, namedAddresses, readLiveGate } from './liveGate.ts';
 import { judgeCountsGate, needsServerCounts, readCountsGate } from './liveCounts.ts';
 import { ensActorsOf, evidenceLeaks, judgeEnsGate, readEnsGate, readEnsKey } from './liveEns.ts';
+import {
+  judgeStandingGate,
+  readStandingAccount,
+  standingAccounts,
+  standingActorsOf,
+  standingSecrets,
+} from './liveAccounts.ts';
 import { readLock } from './lock.ts';
 import { LIVE_EVIDENCE_DIR, REPO_DIR } from './paths.ts';
 import type { PreflightCheck } from './preflight.ts';
 import { type AfterBrowsers, execute, loadScenario, newRunId, STOPPED_OUTSIDE_A_STEP } from './runner.ts';
-import { type ScenarioResult, suiteStatus } from './scenario.ts';
+import { type Scenario, type ScenarioResult, suiteStatus } from './scenario.ts';
 import { commitOf } from './stack.ts';
 import { LIVE_EVIL_ORIGIN, type LiveDeployment, liveDeployment, readTarget, type Target } from './target.ts';
 
@@ -84,7 +91,11 @@ export async function runLiveScenario(name: string, target: Target, runId = newR
     console.error(`kit: ${name} does not run live, the live scenarios are ${LIVE_SCENARIOS.join(', ')}`);
     return { ok: false, failedAt: STOPPED_OUTSIDE_A_STEP };
   }
-  const scenario = loadScenario(name);
+  return runLive(loadScenario(name), target, runId);
+}
+
+/** Runs `scenario` live against the deployment `target` names, whether or not it is one of the live scenarios. */
+export async function runLive(scenario: Scenario, target: Target, runId = newRunId()): Promise<ScenarioResult> {
   const dir = join(LIVE_EVIDENCE_DIR, runId, scenario.name);
   mkdirSync(dir, { recursive: true });
   const timings: Record<string, number> = {};
@@ -122,6 +133,10 @@ export async function runLiveScenario(name: string, target: Target, runId = newR
   const ensActors = ensActorsOf(scenario);
   const ensKey = ensActors.length ? readEnsKey(process.env) : null;
   if (ensKey) gate.push(...judgeEnsGate(await readEnsGate(live.ensRpc, ensKey, target.ens, ensActors)));
+  const standingReadings = Object.fromEntries(
+    standingActorsOf(scenario).map((actor) => [actor, readStandingAccount(process.env, actor)]),
+  );
+  gate.push(...judgeStandingGate(standingReadings, target.standing));
   if (needsServerCounts(scenario.steps)) gate.push(...judgeCountsGate(await readCountsGate(live.chatHealth)));
   timings.gateMs = Date.now() - begin;
   writeJson(join(dir, 'preflight.json'), gate);
@@ -129,22 +144,28 @@ export async function runLiveScenario(name: string, target: Target, runId = newR
 
   const needsEvil = scenario.steps.some((step) => step.verb === 'evil' && !needsServerCounts([step]));
   const ensWallet = ensKey?.state === 'read' ? ensKey.wallet : null;
+  const standing = standingAccounts(standingReadings, target.standing);
+  const secrets = {
+    ...(ensWallet ? { 'the ENS wallet key': ensWallet.key } : {}),
+    ...standingSecrets(standing),
+  };
   /**
-   * The ENS wallet's key is the one live secret the kit holds, so the run fails when any of its evidence holds it. What
+   * The ENS wallet's key and a standing account's phrase and password are the live secrets the kit holds, so the run
+   * fails when any of its evidence holds one. What
    * the Swarm ID site's answers cost is recorded on every run, from the actors' own counts, since the page and the
    * recorded network see only the answer the last attempt got.
    */
   const afterBrowsers = (actorDirs: string[], passed: boolean, texts: Record<string, string>): AfterBrowsers => {
     const finding = swarmIdFetchFinding(passed, readSwarmIdFetches(actorDirs));
-    const leaks = ensWallet
-      ? evidenceLeaks(actorDirs, { 'the ENS wallet key': ensWallet.key }, { ...texts, ...evidenceFiles(dir) })
-      : [];
+    const searched = Object.keys(secrets);
+    const leaks = searched.length ? evidenceLeaks(actorDirs, secrets, { ...texts, ...evidenceFiles(dir) }) : [];
     return {
       findings: {
         ...(finding ? { 'swarm id server errors': finding } : {}),
-        ...(ensWallet
+        ...(searched.length
           ? {
-              'ens wallet key searched in': [
+              'live secrets searched for': searched,
+              'live secrets searched in': [
                 'every actor’s network, console and traces',
                 'the verdict',
                 'header.json',
@@ -166,6 +187,7 @@ export async function runLiveScenario(name: string, target: Target, runId = newR
     guard: liveGuard([...namedAddresses(live), LIVE_EVIL_ORIGIN]),
     wallet: ensWallet ? { swarmId: live.swarmId, rpc: live.ensRpc } : null,
     ensWallet,
+    standing,
     header: {
       target: {
         name: target.name,
@@ -174,6 +196,7 @@ export async function runLiveScenario(name: string, target: Target, runId = newR
         alsoAllowed: target.alsoAllowed,
         ...(target.ens ? { ens: target.ens } : {}),
         ...(target.chatHealth ? { chatHealth: target.chatHealth } : {}),
+        ...(target.standing.length ? { standing: target.standing } : {}),
       },
       config: read.config,
       addresses: live.addresses.all(),

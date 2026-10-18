@@ -13,6 +13,7 @@ import { type Deployment, type LocalStack, localDeployment, type SiteAddresses }
 import { coTenants, machine, snapshotMetrics, writeJson, writeMetricsDiff, writeServiceLogs } from './evidence.ts';
 import { SwarmIdPacer } from './gentleFetch.ts';
 import { type Guard, LOCAL_GUARD } from './guard.ts';
+import type { StandingAccount } from './liveAccounts.ts';
 import { readLock } from './lock.ts';
 import { OutsideRequests } from './outside.ts';
 import { EVIDENCE_DIR, REPO_DIR, SCENARIO_DIR } from './paths.ts';
@@ -71,6 +72,8 @@ export interface ModeSetup {
   wallet: WalletSetup | null;
   /** The wallet that owns the target's ENS name, live only. */
   ensWallet: TestWallet | null;
+  /** The standing accounts of the actors the scenario gives a drive, live only. */
+  standing: Map<string, StandingAccount>;
   header: Record<string, unknown>;
   /**
    * Reads the finished run's evidence once the browsers closed: findings to add to the verdict, and problems that fail
@@ -125,6 +128,7 @@ export async function runScenario(name: string, runId = newRunId()): Promise<Sce
     guard: LOCAL_GUARD,
     wallet: { swarmId: addresses.swarmId, rpc: addresses.ethereum },
     ensWallet: null,
+    standing: new Map(),
     header: {
       commits: { viewer: commitOf(REPO_DIR), swarmId: lock.swarmId.commit, chatServer: lock.chatServer.commit },
       lock,
@@ -218,6 +222,7 @@ export async function execute(
       local: mode.local,
       live: mode.live,
       ensWallet: mode.ensWallet,
+      standing: mode.standing,
       actor: (actorName) => {
         const actor = actors.get(actorName);
         if (!actor) throw new Error(`no actor ${actorName}`);
