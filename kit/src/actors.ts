@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { APIResponse, Browser, BrowserContext, Page } from '@playwright/test';
 
 import type { Addresses } from './addresses.ts';
+import { CLOSE_DEADLINE_MS, closeWithin, OPEN_AT_CLOSE_FILE, OpenRequests } from './closeActor.ts';
 import { GentleFetcher, SWARM_ID_FETCHES_FILE, type SwarmIdPacer } from './gentleFetch.ts';
 import type { Guard } from './guard.ts';
 import type { ActorSettings } from './scenario.ts';
@@ -147,6 +148,7 @@ export async function startActor(
     serviceWorkers: 'block',
   });
   recordConsole(context, join(dir, 'console.log'));
+  const openRequests = OpenRequests.of(context);
   const blocked: string[] = [];
   let wallet: TestWallet | null = null;
   if (walletAt) {
@@ -254,7 +256,15 @@ export async function startActor(
       if (swarmIdFetcher) {
         writeFileSync(join(dir, SWARM_ID_FETCHES_FILE), `${JSON.stringify(swarmIdFetcher.counts, null, 2)}\n`);
       }
-      await context.close();
+      const open = openRequests.list();
+      await context.unrouteAll({ behavior: 'ignoreErrors' }).catch(() => undefined);
+      const outcome = await closeWithin(() => context.close(), CLOSE_DEADLINE_MS);
+      writeFileSync(join(dir, OPEN_AT_CLOSE_FILE), `${JSON.stringify({ outcome, open }, null, 2)}\n`);
+      if (outcome === 'timed out') {
+        console.error(
+          `kit: ${name}'s browser did not close within ${CLOSE_DEADLINE_MS / 1000} s, ${open.length} requests were open, see ${OPEN_AT_CLOSE_FILE}`,
+        );
+      }
     },
   };
   return actor;

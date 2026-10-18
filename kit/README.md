@@ -325,6 +325,11 @@ next, so the run never asks in a burst. A fetch answered 500 or above, or not at
 seconds, six attempts in all, since once overloaded bzz.link keeps answering a file 500 for 8 to 30 seconds. The page then gets the last answer, so a file that never loads still fails the step.
 Locally the browser fetches Swarm ID's files itself, as before.
 
+An actor's browser gets 60 seconds to close. Playwright writes the network recording on close and waits for every
+request still open, and a live viewer's player keeps asking for its stream, so a close could wait for good. The
+requests open when the close began are written to `open-at-close.json` in the actor's folder, with whether it closed
+in time, and a close that ran out says so on the run's output.
+
 ### What a live check reads
 
 `expect chat-feed` reads the chat feed through the chat's read address, as the viewer does, with the config's feed
