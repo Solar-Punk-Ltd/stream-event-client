@@ -15,6 +15,7 @@ import { CHAT_TIMEOUT_MS, type Run, type Verb } from './run.ts';
 import { stampsNamedToViewer, type WalletLinkSeen } from './stampEvidence.ts';
 import {
   completeCreateFlow,
+  CONNECT_WINDOW_CLOSE_TIMEOUT_MS,
   confirmAccessWithPasskey,
   confirmAccessWithWallet,
   confirmInWindow,
@@ -214,7 +215,7 @@ export const ACCOUNT_VERBS: Record<string, Verb> = {
         .getByRole('button', { name: 'Go to app' })
         .click({ timeout: 60_000 })
         .catch(() => undefined);
-      await expect.poll(() => popup.isClosed(), { timeout: 30_000 }).toBe(true);
+      await expect.poll(() => popup.isClosed(), { timeout: CONNECT_WINDOW_CLOSE_TIMEOUT_MS }).toBe(true);
       await expectSignedIn(actor, page);
       return;
     }
