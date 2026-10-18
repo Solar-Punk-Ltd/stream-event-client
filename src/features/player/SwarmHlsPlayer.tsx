@@ -338,9 +338,9 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
   const resumeAfterRestartRef = useRef<RestartResume | null>(null);
   const placeRef = useRef(place);
   placeRef.current = place;
-  // The place another player left is where this one starts, once. A restart that keeps no place of its own, as a
-  // broadcast that came back does, is not sent back to it.
-  const hasStartedRef = useRef(false);
+  // The stream place this player last started from. Each stream's place is where this player starts it, once, so a
+  // restart that keeps no place of its own, as a broadcast that came back does, is not sent back to it.
+  const startedFromPlaceRef = useRef<StreamPlace | null>(null);
 
   // Deliberately not part of the effect below, which reruns on every restart. A fatal network error
   // is what causes a restart, so a subscription torn down and rebuilt with the player would be
@@ -419,6 +419,9 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
     // which no other player's timeline shares, even once the broadcast ends.
     let isRecordingTimeline: boolean | null = null;
     const followed = followPlace(video);
+    // Read once for the stream this run plays, because the page renders the next stream's place before this run's
+    // cleanup records where the viewer was in this one.
+    const streamPlace = placeRef.current ?? null;
 
     if (Hls.isSupported()) {
       const tuning: HlsTuning = { ...DEFAULT_HLS_TUNING, ...callerTuning };
@@ -554,8 +557,8 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
         const resume = resumeAfterRestartRef.current;
         resumeAfterRestartRef.current = null;
         startedAt = resume?.sourceUrl === sourceUrl ? resume : null;
-        const swapPlace = hasStartedRef.current ? null : (placeRef.current?.recorded() ?? null);
-        hasStartedRef.current = true;
+        const swapPlace = streamPlace === startedFromPlaceRef.current ? null : (streamPlace?.recorded() ?? null);
+        startedFromPlaceRef.current = streamPlace;
         if (swapPlace?.paused) {
           video.autoplay = false;
         }
@@ -632,7 +635,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
     return () => {
       followed.detach();
       if (isRecordingTimeline) {
-        placeRef.current?.record(followed.place());
+        streamPlace?.record(followed.place());
       }
       stopLadderWatch();
       video.removeEventListener('pause', onHlsPause);

@@ -665,7 +665,8 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   recording plays, the video carries on where it was, and stays paused if it was paused. Between two gateways or Bee
   nodes the same player keeps playing and only its source changes. A move to or from Weeb3 swaps this app's player for
   weeb-3's own, so the player being taken down records where the viewer was and whether they had paused
-  (`src/features/player/placeAcrossSwap.ts`), and the new one starts there. This app's player asks hls.js to start at
+  (`src/features/player/placeAcrossSwap.ts`), and the new one starts there. Each recording keeps a place of its own
+  while the watch page stays open, so a recording opened again from the same page starts where the viewer left it. This app's player asks hls.js to start at
   that place and keeps asking until its first segment is in, because hls.js forgets a start position it is given again
   before then, as the play that autoplay starts does. weeb-3's player starts at the beginning, since weeb-3 starts
   only there or live, and the video is moved to the place once weeb-3's rebuilt playlist reaches it. Measured

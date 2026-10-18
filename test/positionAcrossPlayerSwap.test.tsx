@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, createElement } from 'react';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from 'react-router';
 import { Events } from 'hls.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -21,6 +21,7 @@ import { mount, settle, type Mounted } from './helpers/dom';
 
 const OWNER = 'a'.repeat(40);
 const TOPIC = 'recorded-talk';
+const OTHER_TOPIC = 'another-recorded-talk';
 
 type Handler = (event: string, data: unknown) => void;
 
@@ -99,7 +100,14 @@ const page = vi.hoisted(() => ({
 
 vi.mock('../src/app/AppProvider', () => ({
   useAppContext: () => ({
-    streamList: [{ owner: OWNER, topic: TOPIC, title: 'A talk', timestamp: 1, mediatype: 'video', state: page.state }],
+    streamList: [TOPIC, OTHER_TOPIC].map((topic) => ({
+      owner: OWNER,
+      topic,
+      title: 'A talk',
+      timestamp: 1,
+      mediatype: 'video',
+      state: page.state,
+    })),
     isStreamListLoaded: true,
     chat: null,
     readNextStreamListSlot: () => undefined,
@@ -178,16 +186,31 @@ async function weeb3Player(): Promise<OwnPlayerHandle> {
   return { id: 'weeb-3', load: async () => own, status: () => ({ state: 'ready', peers: 5, healthyPeers: 200 }) };
 }
 
+let navigate: NavigateFunction | null = null;
+
+function NavigateProbe() {
+  navigate = useNavigate();
+  return null;
+}
+
 function watchPage() {
   return createElement(
     MemoryRouter,
     { initialEntries: [`/watch/video/${OWNER}/${TOPIC}`] },
+    createElement(NavigateProbe),
     createElement(
       Routes,
       null,
       createElement(Route, { path: '/watch/:mediatype/:owner/:topic', element: createElement(StreamWatcher) }),
     ),
   );
+}
+
+/** Opens another recording on the same watch page, as a link to it does. */
+function openOtherRecording(): void {
+  act(() => {
+    void navigate!(`/watch/video/${OWNER}/${OTHER_TOPIC}`);
+  });
 }
 
 function appVideo(): HTMLVideoElement {
@@ -394,6 +417,60 @@ describe('a recording, when the video moves between weeb-3 and the app’s playe
     moveToAppPlayer();
 
     expect(fakes.hls.at(-1)!.startLoads[0]).toBe(103);
+  });
+});
+
+describe('a second recording opened on the same watch page', () => {
+  it("does not take the first recording's place when the video then moves to weeb-3", async () => {
+    watchOnAppPlayer(58);
+
+    openOtherRecording();
+    emit(fakes.hls.length - 1, Events.MANIFEST_PARSED);
+    const video = await moveToWeeb3();
+
+    expect(weeb3.nodes[0].attached.map(({ topic }) => topic)).toEqual([OTHER_TOPIC]);
+    expect(video.currentTime).toBe(0);
+  });
+
+  it('keeps the first recording at its own place when the viewer goes back to it on weeb-3', async () => {
+    await watchOnWeeb3(40);
+    moveToAppPlayer();
+    emit(fakes.hls.length - 1, Events.LEVEL_LOADED, { details: { live: false } });
+    playheadTo(appVideo(), 58, false);
+
+    openOtherRecording();
+    emit(fakes.hls.length - 1, Events.MANIFEST_PARSED);
+    emit(fakes.hls.length - 1, Events.LEVEL_LOADED, { details: { live: false } });
+    playheadTo(appVideo(), 12, false);
+    const onWeeb3 = await moveToWeeb3();
+    expect(onWeeb3.currentTime).toBe(12);
+    playheadTo(onWeeb3, 20, false);
+    act(() => {
+      void navigate!(`/watch/video/${OWNER}/${TOPIC}`);
+    });
+    await settle();
+    const backOnFirst = weeb3Video();
+    durationTo(backOnFirst, RECORDING_S);
+
+    expect(backOnFirst.currentTime).toBe(58);
+  });
+});
+
+describe("a recording opened again on the same app's player", () => {
+  it('starts at the place it had, as a new player would', async () => {
+    await watchOnWeeb3(30);
+    moveToAppPlayer();
+    emit(fakes.hls.length - 1, Events.LEVEL_LOADED, { details: { live: false } });
+    playheadTo(appVideo(), 35, false);
+
+    openOtherRecording();
+    emit(fakes.hls.length - 1, Events.MANIFEST_PARSED);
+    act(() => {
+      void navigate!(`/watch/video/${OWNER}/${TOPIC}`);
+    });
+    emit(fakes.hls.length - 1, Events.MANIFEST_PARSED);
+
+    expect(fakes.hls.at(-1)!.startLoads[0]).toBe(35);
   });
 });
 
