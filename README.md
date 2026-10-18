@@ -575,8 +575,9 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   matches nothing says so.
 - **Previews.** The entry's uploaded thumbnail when it has one, otherwise a frame decoded from the
   stream's first segment, with a live badge and the duration. A picture that failed to load from one
-  source is asked again when Previews move to another, and with Weeb3 a card waits with its loading
-  indicator until the node is ready, as [the node in this browser](#the-node-in-this-browser-weeb-3) says.
+  source is asked again when Previews move to another. With Weeb3 a card waits with its loading
+  indicator until the node is ready, and an announced stream's watch page shows its countdown without
+  the picture until then, as [the node in this browser](#the-node-in-this-browser-weeb-3) says.
 - **Scheduled streams.** An entry whose state is `scheduled` has been announced and not yet
   broadcast. Its watch page says the stream has not started and reads the broadcast's ladder markers,
   each period's marker once, about 4 seconds into the period. Each marker found prompts one read of the
@@ -875,7 +876,10 @@ controls the page, and counts as failed when it is not ready after 30 s.
   `/weeb-3/bzz/<reference>/`, which only its service worker answers. Until the node is ready that worker may not
   control the page, and the browser would ask the site itself, which never serves a picture there. So a card is
   given the picture's address only once the node is ready, and shows its loading indicator until then, whether
-  Weeb3 was picked before the page loaded or switched to while the pictures showed from a gateway. A picture
+  Weeb3 was picked before the page loaded or switched to while the pictures showed from a gateway. My Swarm
+  has no way to stop the node while a part reads from it, so a stopped node is only the moment before the
+  client starts it, and the card waits through that as it waits through the start. An announced stream's
+  watch page draws its picture behind the countdown the same way, once the node is ready. A picture
   already drawn stays while the node is lost. A node that fails to start gives no picture, and the card shows what
   it shows for a stream with none, and no other source is asked. A picture that failed to load counts against the
   address it failed at, so switching Previews to another source asks that source for it again.

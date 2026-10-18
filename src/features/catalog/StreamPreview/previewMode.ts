@@ -73,14 +73,15 @@ export function previewMode({ thumbnail, state, imageFailed = false, picture = '
  * Whether an image failure this card recorded still applies to the picture it is now being asked to
  * render.
  *
- * ⛔ A card outlives the picture it was given, which is why this compares URLs rather than reading a
- * flag. `StreamList` keys a card by topic, and in admin mode the topic belongs to the declaration and
- * outlives every session on it, so a publisher replacing an unfetchable thumbnail re-renders the same
- * mounted component with a new reference. Latched on a boolean, the first failure demoted the card for
- * as long as it stayed mounted: a live card went on probing when it had a perfectly good picture to
+ * ⛔ A card outlives the picture it was given and the source it was read from, which is why this
+ * compares URLs rather than reading a flag. `StreamList` keys a card by topic, and in admin mode the
+ * topic belongs to the declaration and outlives every session on it, so a publisher replacing an
+ * unfetchable thumbnail re-renders the same mounted component with a new picture URL, and so does a
+ * viewer switching Previews to another source. Latched on a boolean, the first failure demoted the card
+ * for as long as it stayed mounted: a live card went on probing when it had a perfectly good picture to
  * show, and a scheduled one went on showing the placeholder for ever, since {@link previewMode} never
- * probes a scheduled stream. The URL rather than the reference, because the viewer can switch where
- * Previews are read from, and a picture one source could not serve is asked of the next.
+ * probes a scheduled stream. Compared by URL, a failure belongs to one picture from one source, and a
+ * picture one source could not serve is asked of the next.
  *
  * @param failedUrl the picture's URL that failed to load, or null while none has.
  * @param url the URL this render gives the picture, or null while it has none.
