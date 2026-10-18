@@ -84,6 +84,8 @@ vi.mock('../src/features/player/CustomManifestLoader', () => ({
     attachPlayhead: () => () => undefined,
     markLiveSegmentGap: () => false,
     reportSegmentLoad: () => undefined,
+    startsSlowly: () => false,
+    subscribeStartsSlowly: () => () => undefined,
   },
 }));
 
