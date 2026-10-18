@@ -52,7 +52,6 @@ export function OwnPlayerStage({ load, status, owner, topic, from, place }: OwnP
     let player: OwnPlayer | null = null;
     // A live start has the live stream's timeline, which a recording's place does not fit.
     const isRecording = startFrom === 'beginning';
-    // Read once for the stream this run plays, as the app's player does.
     const streamPlace = placeRef.current;
     const resume = isRecording ? (streamPlace?.recorded() ?? null) : null;
     const followed = followPlace(video);

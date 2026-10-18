@@ -83,7 +83,7 @@ export function followPlace(media: HTMLMediaElement): FollowedPlace {
  * loads from wherever the video is moved to. weeb-3 rebuilds a recording's playlist from its first segments on, so
  * the duration it first names is a few seconds and a seek past it lands at its end. Measured on 2026-10-18 on a
  * 1483 s recording: 8 s at its metadata, the whole length about 9 s later. Every play until then, weeb-3's own
- * included, is paused again, so the start of the recording does not play first (Levi, 2026-10-18).
+ * included, is paused again, so the start of the recording does not play first, as the owner asked.
  */
 export function moveToPlace(media: HTMLMediaElement, place: PlaybackPlace, onArrived: () => void): () => void {
   const hold = (): void => media.pause();
