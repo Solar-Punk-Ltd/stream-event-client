@@ -84,7 +84,7 @@ const ALLOWED_PAST_THE_SURFACE: readonly { readonly file: string; readonly targe
   {
     file: 'src/features/chat/ownersChunk.ts',
     target: 'singleOwnerChunk',
-    why: "the chat checks each slot and each own copy is its owner's single-owner chunk, a codec that reads nothing",
+    why: "the chat checks each slot and each own copy is its owner's single-owner chunk, and reads the chunk it wraps, a codec that reads nothing",
   },
   {
     file: 'src/features/chat/stamp/ownStampWrite.ts',

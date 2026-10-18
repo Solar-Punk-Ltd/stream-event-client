@@ -740,10 +740,15 @@ once and is kept in the browser, and nothing switches a source by itself.
   | Connected to 20 peers                            | Weeb3        | Its peer count, waited for up to a minute                                                                                |
   | Reads a chunk                                    | every kind   | The root chunk of a segment of this event's video, read the way the chat history reads its slots, through its chat route |
   | Reads bytes                                      | every kind   | The same segment's bytes, read the way the player reads it                                                               |
-  | Reads this event's stream list                   | every kind   | The stream list feed's head, which it must parse as a stream list. Weeb3, with a slow head search, reads its first entry |
+  | Reads this event's stream list                   | every kind   | The feed's head, parsed as a stream list, then its entry by index, as the player reads a playlist. Weeb3 below           |
 
   The segment comes from the stream list the page shows, a live stream first, else the newest with video, and its
-  playlist is found as the player finds it. A stream's picture stands in where no stream has video yet.
+  playlist is found as the player finds it. A stream's picture stands in where no stream has video yet. A gateway or
+  a Bee node then reads the entry its stream list head names by that index, the read the player opens every playlist
+  with, so one that serves feed heads and no feed entry, by `/soc` or by chunk address, fails there. Weeb3's head
+  search costs a few 17 s misses, so its stream list check reads the newest entry the page already read by that
+  entry's index, one read of the same body the browse page reads. It searches for the head when the page has not
+  read the list, and when that entry is not on the node yet, as right after a gateway ahead of it served a new list.
 
 - **A source's settings.** Its name and address, Test connection, which runs the same checks again, and the last
   light check's time until then. A source the event offers says "Offered by this event. It cannot be changed or
@@ -752,7 +757,8 @@ once and is kept in the browser, and nothing switches a source by itself.
   and the weeb-3 build, and its Test connection starts a node that failed once more. Copy diagnostics is there for
   every source.
 - **No fallback.** A part reads from the source picked for it and from nothing else, whatever that source answers.
-  The player's own retries ask the same source again.
+  The player's own retries ask the same source again. A switch under Use for takes effect at once, so the video's next
+  segment comes from the new source, in a recording as in a live stream.
 - **A source that fails.** When a part's reads, or the segments and pictures loaded for it, have had no answer it can use for 10 s, a bar under the header says
   so, such as "Video cannot load from Event gateway." and "No answer for more than 10 s.", with a Choose another source button
   that opens My Swarm. One bar per failing part, gone at the part's next answer, or 30 s after it stopped reading. A not
@@ -794,7 +800,8 @@ controls the page, and counts as failed when it is not ready after 30 s.
   ready, and one made while it is stopped starts it first, so a part never gets an early answer from a node that is
   not there yet. A node that fails to start answers the read as unavailable. Listing a saved one starts
   nothing. When the last of them lets go, as when every part moves to another source or the source is removed, the
-  node is stopped and freed.
+  node is stopped and freed. The watch page's player lets go of the node and also stops weeb-3's player for its video,
+  so a video the viewer has left loads nothing more through weeb-3.
 - **Getting ready.** The page downloads the 2.2 MB WebAssembly module itself, reading it as it streams, so the
   row in My Swarm and the watch page can show how much has arrived against the length the server names. A
   download that has not finished after 60 s, or whose package fails to load, is stopped and the node counts as
@@ -819,6 +826,19 @@ controls the page, and counts as failed when it is not ready after 30 s.
   so again if it loses its peers. The stream is attached once the node is ready. Nothing replaces weeb-3's player: one whose node fails, or that cannot attach, says "The Swarm node in this browser could not play this stream." and stays. weeb-3's limits
   are its own: it plays about 16 s behind live, does not leave a quality that stopped, does not notice a broadcast
   that returns, and plays one stream across the browser's tabs.
+- **Leaving weeb-3's player stops it.** weeb-3 names no way to stop its player, which is hls.js underneath and would
+  keep loading segments, up to three minutes ahead for a finished stream, for a video the viewer has left. So the
+  build hands weeb-3's own import of hls.js the app's copy with its player class made stoppable
+  (`src/swarm/providers/weeb-3/weeb3Hls.ts`, pointed at by `scripts/weeb3-files.mjs`), which records each player by
+  the video it plays into. When the watch page stops showing weeb-3's player, because the video moves to another
+  source, the viewer leaves the page or picks another stream, the player for that video is stopped and destroyed, and
+  nothing weeb-3 calls on it afterwards loads again, nor does a new player weeb-3 makes for that video, until the page
+  plays a stream into it again. The video itself is then paused and emptied, which stops the download in a browser
+  that plays HLS natively, as Safari does without Media Source Extensions, where weeb-3 uses no hls.js and there is
+  no player to stop. So both cases are covered: an hls.js player is stopped and destroyed, and a native one stops
+  with its emptied video. The stoppable copy of hls.js is a small chunk of its own, loaded only by weeb-3's chunk, so the first
+  page load still carries none of weeb-3. The dev server's dependency bundler leaves the package out, so the dev
+  server makes the same switch.
 - **No switching.** A part that reads from weeb-3 reads from it alone, as every part reads from its own source alone.
   None of its reads is handed to another source whatever it answers. Every read through it gets weeb-3's
   own 30 s budget rather than the client's 10 s, so a missing chunk, which weeb-3 gives up on after about 17 s, ends
@@ -827,26 +847,33 @@ controls the page, and counts as failed when it is not ready after 30 s.
 - **Reads.** weeb-3 reads through its service worker's routes: `/weeb-3/chunks/` for a chunk, a feed entry or a
   single-owner chunk, `/weeb-3/bytes/` for bytes, and segment URLs on its caching route `/weeb-3/hls/bytes/`. weeb-3
   puts a chunk's 8-byte span before bytes and before a single-owner chunk's payload, which Bee leaves out, so it is
-  taken off. A feed entry or a single-owner chunk whose body is longer than one chunk's 4 KB, such as a stream list
-  of more than a few dozen streams, wraps the root of a tree of chunks, and weeb-3 answers it with the root's own
+  taken off. A feed entry or a single-owner chunk whose body is longer than one chunk's 4 KB, such as a stream list of
+  more than a few dozen streams, wraps the root of a tree of chunks, and weeb-3 answers it with the root's own
   payload, the addresses of the chunks below it, where Bee joins the body. So when the span says the body is longer
   than the payload, the body is read whole from `/weeb-3/bytes/` at the root's address, and a body that is not the
-  length the span names answers unavailable. A feed's head, which weeb-3 has no lookup for, is found by reading the feed's entries by index, eight at
-  a time: entry 0 and every power of four less one, then wider steps past the newest entry found until one misses,
-  then even cuts of the gap until the newest entry and the missing one above it touch. A miss costs weeb-3 about
-  17 s, so a head read takes a few of those, about a minute for a feed of a few hundred entries, and the answer it
-  gives is always an entry read with the one above it read missing. A later head read of the same feed starts from the
-  head found before, reading it and the five entries above it at once, so a polled chat, stream list or own feed that
-  gained up to four entries costs one round. When the head found before is missing, the head went back below it, and
-  the search starts again from scratch rather than keep the old one. A single-owner chunk comes back as the chunk it
-  wraps, without the identifier and signature that prove it the owner's, so a read of one by its address answers
-  unsupported, and plainly. The chat reads its slots, its notes and a sender's own copies by the owner and the
-  identifier instead (`readUnsignedSoc`), and takes weeb-3's word for whose chunk it is
-  (`src/features/chat/ownersChunk.ts`). Every message is still checked against its sender's signature, so such a
-  chunk can at most carry a message somebody signed, never one in another's name.
+  length the span names answers unavailable. A body uploaded with erasure coding keeps its redundancy level in the top
+  byte of its root's span, as 0x80 plus the level, so a span whose top byte is above 0x80 names the length in its
+  lower 7 bytes (`src/swarm/chunkSpan.ts`, as Bee's own `redundancy.DecodeSpan` reads it). The root's address is still
+  made over the span as stored. Read whole, such a span names a body of about 9.3e18 bytes, which no joined body
+  matches. The chat's slots, read through Weeb3 or through a gateway, take their length the same way. A feed's head,
+  which weeb-3 has no lookup for, is found by reading the feed's entries by index, eight at a time: entry 0 and every
+  power of four less one, then wider steps past the newest entry found until one misses, then even cuts of the gap
+  until the newest entry and the missing one above it touch. A miss costs weeb-3 about 17 s, so a head read takes a
+  few of those, about a minute for a feed of a few hundred entries, and the answer it gives is always an entry read
+  with the one above it read missing. A later head read of the same feed starts from the head found before, reading it
+  and the five entries above it at once, so a polled chat, stream list or own feed that gained up to four entries
+  costs one round. When the head found before is missing, the head went back below it, and the search starts again
+  from scratch rather than keep the old one. A single-owner chunk comes back as the chunk it wraps, without the
+  identifier and signature that prove it the owner's, so a read of one by its address answers unsupported, and
+  plainly. The chat reads its slots, its notes and a sender's own copies by the owner and the identifier instead
+  (`readUnsignedSoc`), and takes weeb-3's word for whose chunk it is (`src/features/chat/ownersChunk.ts`). Every
+  message is still checked against its sender's signature, so such a chunk can at most carry a message somebody
+  signed, never one in another's name.
 - **Stopping, as far as it goes.** Stopping frees the page's handle on the node, and with 0.0.354001 that leaves the
   node in the package's shared worker running: a handle made after a stop still finds its peers. The package names
-  no way to stop that worker's node, so it lasts until the browser closes the worker with the tab.
+  no way to stop that worker's node, so it lasts until the browser closes the worker with the tab. Its player in the
+  page is another matter: the app stops that one itself when the viewer leaves it, as "Leaving weeb-3's player stops
+  it" above says.
 - **The live proof.** `pnpm proof:weeb3` builds the app and, on the public Swarm network, adds the node in a real
   browser, picks it for the video, waits for it to be ready, plays a finished stream from its beginning, checks that
   `/weeb-3/bytes/` carries exactly the 8-byte span `/weeb-3/hls/bytes/` leaves out, and asks the shared worker for
@@ -870,7 +897,14 @@ so the player brings its own loaders:
   reported to the client (`reportUrlLoad`): a segment hls.js loads or fails for the video, and a preview
   segment or a picture for the previews, so a source that serves feeds and fails every segment shows the
   failure bar. A failed one is asked again of the same source by hls.js. `fetchSegmentBytes` is the one place segment
-  bytes are fetched, where a provider without URLs can plug in.
+  bytes are fetched, where a provider without URLs can plug in. It loads a segment from the source the video reads from
+  at that moment. hls.js keeps the URLs it was given, for good in a recording, whose playlist is read only once, so
+  the loader names each segment the player named again by the current source before it goes out
+  (`ManifestFetcher.segmentUrlNow`), for a live stream as for a recording. A viewer who switches Video to another
+  gateway or to their own Bee node therefore gets the next segment from the new source, and its load counts against
+  that source.
+  A URL the player did not name goes out as given: a preview's segment, and a recording published before
+  2026-08-13 whose manifest names its publisher's gateway.
 - **ManifestStateManager** merges each live playlist into a growing EVENT playlist, so segments stay
   playable longer than the publisher's sliding window.
 - **LadderFeedPoller** follows the feed of the quality hls.js plays, plus the one being switched to
@@ -937,7 +971,14 @@ Weeb3 (`providers/weeb-3/weeb3Push`) in `ChatStamp.tsx`, and the errors of both,
   feed entry is one, and so is a ladder's time marker), a chunk, the bytes a reference names, and a URL
   for what the browser or hls.js loads itself. It also has its status, a probe, and start and stop
   for a node in the tab. `src/swarm/providers/bee-http/` is Bee's HTTP API, asking the paths the app has
-  always asked.
+  always asked. Public gateways such as `api.gateway.ethswarm.org` and `bzz.limo` refuse `/soc` at their front
+  door, with a plain-text `Not Found` where Bee answers every 404 as JSON, and serve the same chunk at
+  `/chunks/<address>`. So a 404 on `/soc` that is not Bee's JSON makes the provider read that single-owner chunk by
+  its address, and every later one there first. It checks the chunk is the owner's, its signature recovering the
+  owner who with the identifier makes the address asked, and joins a body longer than one chunk from `/bytes` at
+  the root it wraps, as `/soc` does. Bee's own JSON 404 stays not found and asks nothing more, so a gateway that
+  serves `/soc`, the event gateway among them, pays no extra request for a slot not written yet. When the chunk
+  address is refused as well, the read is unavailable with that 404, and the next one asks `/soc` again.
 - **Every read answers and never throws** (`src/swarm/answers.ts`): the content, with the feed index
   and the server time where the answer carries them, not found, rate limited with the wait asked for,
   unsupported, unavailable with its cause (a timeout, a status or no answer at all), or aborted. Every
@@ -950,9 +991,10 @@ Weeb3 (`providers/weeb-3/weeb3Push`) in `ChatStamp.tsx`, and the errors of both,
   (`src/swarm/registry.ts`). Each feature (the player, the stream list, the previews, the chat) reads
   through its own provider and through nothing else. A read that fails answers as it failed, and the
   feature's own retry, such as the player's backoff, asks the same provider again. URLs come from the
-  feature's own provider, and a playlist the player already holds names its segments again at a switch of
-  node. Every read is counted by feature, kind, provider and answer, and `activity()` gives the last
-  minute's answers per feature, which the diagnostics carry. The server time of the player's and the
+  feature's own provider, and a segment URL the player already holds is named again by the new source at
+  a switch of node, as each segment is loaded, for a live stream as for a recording. Every read is counted
+  by feature, kind, provider and answer, and `activity()` gives the last minute's answers per feature,
+  which the diagnostics carry. The server time of the player's and the
   stream list's answers keeps the gateway clock, and the chat's, read from the chat's own host, does not.
 - **The contract** (`test/swarm/providerContract.ts`) is the suite every provider kind must pass, run
   for Bee over HTTP against the answers the browser smoke test replays.

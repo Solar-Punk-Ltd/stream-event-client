@@ -31,6 +31,8 @@ import { loadSourceChoices, saveAddedSources, saveRouting, type SourceChoices } 
 
 type AppContextState = {
   streamList: Stream[];
+  /** The stream list feed's entry {@link streamList} was read from, or null before a read named one. */
+  streamListSlot: bigint | null;
   /**
    * Whether the catalog has been read at least once, successfully or not.
    *
@@ -344,6 +346,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
     <AppContext.Provider
       value={{
         streamList: catalog.streams,
+        streamListSlot: catalog.slot,
         isStreamListLoaded,
         isStreamListFromCurrentGateway: catalog.gateway === wiring.parts['stream-list'],
         setNewStreamList,
