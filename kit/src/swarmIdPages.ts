@@ -157,6 +157,25 @@ export async function createDevDrive(idPage: Page, swarmIdOrigin: string): Promi
 }
 
 /**
+ * Removes every site from the account's Apps screen, the way the fork's own suite removes one, and returns how many
+ * there were. A removal is synced to the account's other devices.
+ */
+export async function removeEverySite(idPage: Page, swarmIdOrigin: string): Promise<number> {
+  await idPage.goto(`${swarmIdOrigin}/`);
+  await idPage.getByRole('tab', { name: 'Apps' }).click({ timeout: FIRST_LOAD_MS });
+  const actions = idPage.getByRole('button', { name: 'App actions' });
+  let removed = 0;
+  while ((await actions.count()) > 0) {
+    const before = await actions.count();
+    await actions.first().click();
+    await idPage.getByRole('menuitem', { name: 'Remove' }).click();
+    await expect(actions).toHaveCount(before - 1);
+    removed++;
+  }
+  return removed;
+}
+
+/**
  * "Go to app" closes the popup from its click handler, so under load the window can be gone before the click returns.
  * The closure is what is checked.
  */

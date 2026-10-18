@@ -308,6 +308,11 @@ the step fails saying what the phrase opened. Each `buy-drive` then takes the ac
 order, with nothing bought, and a step past the last drive fails. When Swarm ID finds no account for the phrase it
 offers to set up a new one under it, and the kit never takes that offer.
 
+After the sign-in the kit removes every site from the account's Apps screen. A site keeps the drive it was given, so
+the next run would find its site already stamped, and every scenario starts from a site with no drive, as a new
+account's is. The removal is the one change the kit makes to a standing account, it counts them in the verdict's
+`<actor> standing account` finding, and the drives stay attached.
+
 The phrase and the password never sit in a file. The kit reads them from `KIT_<ACTOR>_PHRASE` and
 `KIT_<ACTOR>_PASSWORD`, `KIT_ALICE_PHRASE` and `KIT_ALICE_PASSWORD` for alice, which the operator routes in from a
 secret store when starting the run. A phrase kept as a numbered list, `1. word 2. word`, loses its numbers. Before such
