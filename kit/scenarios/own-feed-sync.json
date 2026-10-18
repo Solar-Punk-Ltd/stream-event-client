@@ -22,7 +22,7 @@
     "expect own-feed-line alice copied=2 total=3 missing=1",
     "alice sync",
     "expect own-feed-line alice copied=3 total=3",
-    "expect details alice \"third, its copy refused {run}\" sent=own own-feed=3 chat-feed=3 in-own-feed=yes",
+    "expect details alice \"third, its copy refused {run}\" sent=own own-feed=all chat-feed=3 in-own-feed=yes",
     "expect chat-feed",
     "expect no-key-leak alice"
   ]

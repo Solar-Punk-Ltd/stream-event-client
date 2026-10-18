@@ -299,9 +299,9 @@ export const CHAT_CHECKS: Record<string, Verb> = {
 
   /**
    * `expect details <actor> "text" [identity=swarm-id|guest] [sent=own|gateway] [ens=<who>|none] [own-feed=N]
-   * [chat-feed=N] [in-own-feed=yes|no] [from=<actor>]`: what the message's details card says. own-feed and chat-feed
-   * count the sender's messages from their `own-feed-start`, and from names the sender when another actor reads the
-   * card. ens names the actor whose baked name
+   * [chat-feed=N] [in-own-feed=yes|no] [from=<actor>]`: what the message's details card says. own-feed counts the
+   * sender's copies from the copied number their `own-feed-start` read, or is all when every copy is made, earlier runs'
+   * included, chat-feed counts from its total, and from names the sender when another actor reads the card. ens names the actor whose baked name
    * must show with the ENS checked tick, the baked name locally and the target's live, and the sender's chosen name, or none for no ENS row.
    */
   async details(run, step) {
@@ -319,17 +319,18 @@ export const CHAT_CHECKS: Record<string, Verb> = {
       await expect(row).toContainText(`Chosen name ${expectedName(run, `chosen:${ens}`)}`);
     }
     const ownFeed = card.getByRole('region', { name: 'Own feed' });
-    const sender = run.actor(step.options.from ?? step.args[1]).name;
-    const before = ownFeedAtStart(run, sender).total;
-    const count = (n: string) => messagesWord(before + Number(n));
+    const start = ownFeedAtStart(run, run.actor(step.options.from ?? step.args[1]).name);
+    const chatFeed = start.total + Number(step.options['chat-feed'] ?? 0);
+    const inOwnFeed = (n: string) => (n === 'all' ? chatFeed : start.copied + Number(n));
     if (step.options['own-feed']) {
-      await expect(ownFeed.getByText(`Own feed: ${count(step.options['own-feed'])}`, { exact: true })).toBeVisible({
+      const own = messagesWord(inOwnFeed(step.options['own-feed']));
+      await expect(ownFeed.getByText(`Own feed: ${own}`, { exact: true })).toBeVisible({
         timeout: CHAT_TIMEOUT_MS,
       });
     }
     if (step.options['chat-feed']) {
       await expect(
-        ownFeed.getByText(`Chat feed: ${count(step.options['chat-feed'])} on their own stamp`, { exact: true }),
+        ownFeed.getByText(`Chat feed: ${messagesWord(chatFeed)} on their own stamp`, { exact: true }),
       ).toBeVisible({ timeout: CHAT_TIMEOUT_MS });
     }
     if (step.options['in-own-feed']) {
