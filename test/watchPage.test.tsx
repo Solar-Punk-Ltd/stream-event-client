@@ -172,6 +172,7 @@ describe('the watch page', () => {
                 }
               : null,
           reader: () => ({ urlFor: () => null }),
+          statusOf: () => ({ state: 'ready' }),
         },
       };
       return attached;
