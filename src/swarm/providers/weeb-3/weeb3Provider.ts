@@ -1,11 +1,11 @@
-import { ChunkBuilder, FeedIndex, Identifier, type Topic } from '@ethersphere/bee-js';
+import { FeedIndex, Identifier, type Topic } from '@ethersphere/bee-js';
 
 import { makeFeedIdentifier } from '@/shared/feedFollow';
 import { ABORTED, type SwarmAnswer, UNSUPPORTED } from '../../answers';
-import { bodyLengthOf, SPAN_LENGTH, storedSpanOf } from '../../chunkSpan';
+import { SPAN_LENGTH } from '../../chunkSpan';
 import { httpRead } from '../../httpRead';
 import type { OwnPlayer, ProbeResult, ProviderStatus, ReadOptions, SwarmProvider, UrlUse } from '../../provider';
-import { MAX_CHUNK_PAYLOAD, singleOwnerChunkAddress } from '../../singleOwnerChunk';
+import { singleOwnerChunkAddress, socBodyOf, type WrappedChunk, wrappedChunkOf } from '../../singleOwnerChunk';
 import { findNewestEntry } from './newestEntrySearch';
 import type { Weeb3Node } from './weeb3Package';
 import { allowOwnPlayback, stopOwnPlayback } from './weeb3Playback';
@@ -68,12 +68,11 @@ function withoutSpan(answer: SwarmAnswer): SwarmAnswer {
 
 /** Whether a chunk's span and payload make the content address it was read at. */
 function isContentAddressedAt(bytes: Uint8Array, address: string): boolean {
-  if (bytes.length < SPAN_LENGTH || bytes.length - SPAN_LENGTH > MAX_CHUNK_PAYLOAD) {
+  try {
+    return wrappedChunkOf(bytes).wrappedAddress === address.toLowerCase();
+  } catch {
     return false;
   }
-  const chunk = new ChunkBuilder(storedSpanOf(bytes));
-  chunk.writer.buffer.set(bytes.slice(SPAN_LENGTH));
-  return chunk.hash().toHex() === address.toLowerCase();
 }
 
 /** weeb-3's level that lets its player choose the quality itself. */
@@ -99,22 +98,6 @@ function chooseQualityItself(node: Weeb3Node, video: HTMLMediaElement): void {
       { once: true },
     );
   }
-}
-
-/**
- * The root a wrapped chunk is and the length of the body it stands for, when its span says the body is longer than one chunk, or null when the
- * payload is the whole body. weeb-3 serves such a chunk as the root's span and the addresses of its children, where
- * Bee's `/soc` joins the body they make. An erasure-coded root's span also carries its redundancy level, which the
- * length leaves out and the root's address keeps.
- */
-function treeRootOf(bytes: Uint8Array): { address: string; length: bigint } | null {
-  const length = bodyLengthOf(bytes);
-  if (length <= BigInt(MAX_CHUNK_PAYLOAD) || bytes.length - SPAN_LENGTH > MAX_CHUNK_PAYLOAD) {
-    return null;
-  }
-  const root = new ChunkBuilder(storedSpanOf(bytes));
-  root.writer.buffer.set(bytes.slice(SPAN_LENGTH));
-  return { address: root.hash().toHex(), length };
 }
 
 /**
@@ -304,21 +287,16 @@ export class Weeb3Provider implements SwarmProvider {
       return UNSUPPORTED;
     }
     const answer = await this.read(`chunks/${address}`, options);
-    if (answer.kind !== 'content' || answer.bytes.length < SPAN_LENGTH) {
+    if (answer.kind !== 'content') {
+      return answer;
+    }
+    let chunk: WrappedChunk;
+    try {
+      chunk = wrappedChunkOf(answer.bytes);
+    } catch {
       return withoutSpan(answer);
     }
-    const root = treeRootOf(answer.bytes);
-    if (root === null) {
-      return withoutSpan(answer);
-    }
-    const joined = withoutSpan(await this.read(`bytes/${root.address}`, options));
-    if (joined.kind !== 'content') {
-      return joined;
-    }
-    if (BigInt(joined.bytes.length) !== root.length) {
-      return notReady(`answering ${joined.bytes.length} bytes for a body of ${root.length}`);
-    }
-    return { ...answer, bytes: joined.bytes };
+    return socBodyOf(chunk, answer, (root) => this.readBytes(root, options), notReady);
   }
 
   private async read(path: string, options: ReadOptions = {}): Promise<SwarmAnswer> {

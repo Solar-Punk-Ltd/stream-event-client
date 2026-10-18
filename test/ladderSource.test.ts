@@ -17,6 +17,7 @@ import { RequestJitter } from '../src/shared/requestJitter';
 import { slotPathsOf } from './helpers/slotPaths';
 import { waitFor } from './helpers/waiting';
 import { segmentsUnder, swarmOverGlobalFetch } from './helpers/playerReader';
+import { beeNotFound } from './helpers/beeNotFound';
 
 /**
  * The ladder entry points, which arrived with the ABR merge carrying no tests at all.
@@ -134,7 +135,7 @@ describe('the ladder entry points', () => {
       if (slot && slot.index <= RUNG_HEAD) {
         return new Response(rungBody, { status: 200 });
       }
-      return new Response('not found', { status: 404 });
+      return beeNotFound();
     }) as typeof fetch;
   }
 

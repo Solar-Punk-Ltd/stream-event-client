@@ -390,12 +390,26 @@ class CheckRun {
     return streamListIn(contentText(answer)) ?? NOT_THE_STREAM_LIST;
   }
 
+  /**
+   * A gateway or a Bee node then reads the head's entry by its index, the read the player opens every playlist with.
+   * A gateway can serve a feed's head and refuse its entries, and the player then waits for a broadcast forever.
+   */
   private async readsStreamList(): Promise<Outcome> {
     const answer = await this.readStreamListAnswer();
     if (answer.kind !== 'content') {
       return fail(readFailure("this event's stream list", answer));
     }
-    return streamListIn(contentText(answer)) === null ? fail(NOT_THE_STREAM_LIST) : pass();
+    if (streamListIn(contentText(answer)) === null) {
+      return fail(NOT_THE_STREAM_LIST);
+    }
+    if (this.target.type === 'weeb-3') {
+      return pass();
+    }
+    const { owner, topic } = this.context.catalog;
+    const entry = await this.context.client
+      .reader('player')
+      .readFeedEntry(owner, Topic.fromString(topic), answer.feedIndex ?? 0, this.window);
+    return entry.kind === 'content' ? pass() : fail(readFailure("this event's stream list by its index", entry));
   }
 
   /** Started once its module is in and it runs, which is before it has peers. */

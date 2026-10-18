@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ManifestFetcher, ManifestStateManager } from '../src/features/player/ManifestManagement';
 import { RequestJitter } from '../src/shared/requestJitter';
 
+import { beeNotFound } from './helpers/beeNotFound';
 import { slotPathsOf } from './helpers/slotPaths';
 import { swarmOverGlobalFetch } from './helpers/playerReader';
 
@@ -91,7 +92,7 @@ describe('a published ladder master starts the rungs', () => {
       if (slot?.index === 0) {
         return new Response(RUNG_MEDIA, { status: 200 });
       }
-      return new Response('not found', { status: 404 });
+      return beeNotFound();
     }) as typeof fetch;
 
     fetcher = new ManifestFetcher(manager, undefined, undefined, NO_JITTER);
