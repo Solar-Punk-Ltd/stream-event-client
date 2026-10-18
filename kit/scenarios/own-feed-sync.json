@@ -1,6 +1,6 @@
 {
   "name": "own-feed-sync",
-  "description": "Alice signs in with a password account, reads the chat from her own Bee node, buys a drive and picks it for the viewer, and sends three messages on her own stamp. The copy of the third into her own feed is refused by her browser every time it is tried. My stamp must then say 2 of 3 messages are in her own feed with 1 missing, Sync must copy the missing one, and the third message's details must show 3 in her own feed and 3 in the chat feed on her own stamp, with the message in her own feed. The chat feed must hold all three, paid with her drive, and nothing the viewer could reach may hold her keys. The page is loaded again before the own feed line is read, because the line answers from a count made when My Swarm was last opened, up to three minutes before, and would still say 0 of 0 messages.",
+  "description": "Alice signs in with a password account, reads the chat from her own Bee node, buys a drive and picks it for the viewer, and sends three messages on her own stamp. The copy of the third into her own feed is refused by her browser every time it is tried. My stamp must then say 2 of 3 messages are in her own feed with 1 missing, Sync must copy the missing one, and the third message's details must show 3 in her own feed and 3 in the chat feed on her own stamp, with the message in her own feed. The chat feed must hold all three, paid with her drive, and nothing the viewer could reach may hold her keys. Her own feed line is read before she sends, and the counts are counted from it, because a standing account already has messages in the chat. The page is loaded again before each reading of the line, because the line answers from a count made when My Swarm was last opened, up to three minutes before, and would still say 0 of 0 messages.",
   "profile": "partitioned",
   "actors": {
     "alice": {}
@@ -11,6 +11,8 @@
     "alice connect-source bee",
     "alice buy-drive depth=20",
     "alice choose-stamp mine --pick drive",
+    "alice reload",
+    "alice own-feed-start",
     "alice send \"first on my stamp {run}\" --stamp mine",
     "alice send \"second on my stamp {run}\" --stamp mine",
     "alice fail-copies on",

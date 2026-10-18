@@ -158,6 +158,7 @@ fails with those words.
 | `link-wallet`                                    | Show my ENS name on sites turned on in Swarm ID, so the wallet signs the link                                                                                |
 | `ens on` or `off`                                | the same setting turned on or off                                                                                                                            |
 | `fail-copies on` or `off`                        | the actor's browser refuses every copy into their own feed, until off, after a copy was given up                                                             |
+| `own-feed-start`                                 | reads My stamp's own feed line before sending, and later own feed counts count from it                                                                       |
 | `sync`                                           | Sync in My stamp's own feed line, until it says what was copied                                                                                              |
 | `reload`                                         | the viewer's page loaded again                                                                                                                               |
 | `wait <seconds>`                                 | nothing, for that many seconds. After a `reload`, Swarm ID's frame checks the restored sign-in a few seconds later                                           |
@@ -170,7 +171,7 @@ fails with those words.
 | `expect sees <actor> "text"`                     | the message shows in that actor's chat                                                                                                                       |
 | `expect sender <actor> "text" ...`               | the name, `ens:<who>` or `chosen:<who>`, the badge, the own stamp mark above it, and `ens=shown` or `none` for the ENS name mark                             |
 | `expect details <actor> "text" ...`              | identity, who paid, the ENS row with its tick, and the Own feed and Chat feed counts                                                                         |
-| `expect own-feed-line <actor> ...`               | My stamp's line, Own feed: N of M messages and how many are missing                                                                                          |
+| `expect own-feed-line <actor> ...`               | My stamp's line, Own feed: N of M messages and how many are missing, counted from `own-feed-start`                                                           |
 | `expect ens-link <actor> on` or `off`            | what Swarm ID's frame last told the viewer carries the actor's wallet, or not. `--record` only writes down what it saw                                       |
 | `expect no-wallet-link "text"`                   | the message the chat feed holds with that text carries no wallet link                                                                                        |
 | `expect name-refused <actor>`                    | the guest name was refused with its reason, and the actor does not chat                                                                                      |

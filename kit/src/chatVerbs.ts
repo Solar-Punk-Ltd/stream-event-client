@@ -96,6 +96,41 @@ async function useForChat(dialog: Locator, sourceName: string): Promise<void> {
   await useFor.getByLabel('Chat history', { exact: true }).selectOption({ label: sourceName });
 }
 
+/** My stamp's own feed line as numbers: the actor's copies in their own feed, their messages on their own stamp, and the missing ones */
+interface OwnFeedCount {
+  copied: number;
+  total: number;
+  missing: number;
+}
+
+const NOTHING_YET: OwnFeedCount = { copied: 0, total: 0, missing: 0 };
+const OWN_FEED_LINE = /Own feed: (\d+) of (\d+) messages?/;
+const MISSING = /(\d+) missing/;
+
+function ownFeedStartKey(actorName: string): string {
+  return `${actorName} own feed at the start`;
+}
+
+/**
+ * Where the actor's own feed line stood before the scenario sent anything. A standing account already has messages
+ * in the chat from earlier runs, so the counts a scenario expects are counted from here.
+ */
+function ownFeedAtStart(run: Run, actorName: string): OwnFeedCount {
+  return (run.findings[ownFeedStartKey(actorName)] as OwnFeedCount | undefined) ?? NOTHING_YET;
+}
+
+async function readOwnFeedLine(line: Locator): Promise<OwnFeedCount> {
+  await expect(line.getByText(OWN_FEED_LINE)).toBeVisible({ timeout: CHAT_TIMEOUT_MS });
+  const words = (await line.innerText()).replace(/\s+/g, ' ');
+  const counts = OWN_FEED_LINE.exec(words);
+  if (!counts) throw new Error(`the own feed line reads "${words}"`);
+  return { copied: Number(counts[1]), total: Number(counts[2]), missing: Number(MISSING.exec(words)?.[1] ?? 0) };
+}
+
+function messagesWord(n: number): string {
+  return n === 1 ? '1 message' : `${n} messages`;
+}
+
 export const CHAT_VERBS: Record<string, Verb> = {
   /**
    * `connect-source bee|gateway|weeb3`: picks where the chat history is read from, and so what a message on the
@@ -201,6 +236,18 @@ export const CHAT_VERBS: Record<string, Verb> = {
     faults.delete(actor);
   },
 
+  /**
+   * `own-feed-start`: reads My stamp's own feed line before the scenario sends, so the counts expected later are
+   * counted from it. Load the page again first, because the line answers from a count made when My Swarm was opened.
+   */
+  async 'own-feed-start'(run, step) {
+    const actor = run.actor(step.actor!);
+    const page = await viewerPage(run, actor);
+    const line = chatStampGroup(await openConnect(page)).getByRole('group', { name: 'Own feed in this chat' });
+    run.findings[ownFeedStartKey(actor.name)] = await readOwnFeedLine(line);
+    await closeConnect(page);
+  },
+
   /** `sync`: Sync in My stamp's own feed line, waiting until it says every copy was made or which could not be. */
   async sync(run, step) {
     const actor = run.actor(step.actor!);
@@ -270,7 +317,8 @@ export const CHAT_CHECKS: Record<string, Verb> = {
       await expect(row).toContainText(`Chosen name ${expectedName(run, `chosen:${ens}`)}`);
     }
     const ownFeed = card.getByRole('region', { name: 'Own feed' });
-    const count = (n: string) => (n === '1' ? '1 message' : `${n} messages`);
+    const before = ownFeedAtStart(run, run.actor(step.args[1]).name).total;
+    const count = (n: string) => messagesWord(before + Number(n));
     if (step.options['own-feed']) {
       await expect(ownFeed.getByText(`Own feed: ${count(step.options['own-feed'])}`, { exact: true })).toBeVisible({
         timeout: CHAT_TIMEOUT_MS,
@@ -289,20 +337,26 @@ export const CHAT_CHECKS: Record<string, Verb> = {
 
   /**
    * `expect own-feed-line <actor> copied=N total=M [missing=K]`: My stamp's line about the actor's own feed in this
-   * chat, "Own feed: N of M messages", and "K missing" while copies are missing.
+   * chat, "Own feed: N of M messages", and "K missing" while copies are missing. The numbers count from the line read
+   * by `own-feed-start`, or from nothing without it, and copied equal to total means every copy is made, those of
+   * earlier runs included, since Sync copies all that are missing.
    */
   async 'own-feed-line'(run, step) {
-    const page = await viewerPage(run, run.actor(step.args[1]));
+    const actor = run.actor(step.args[1]);
+    const page = await viewerPage(run, actor);
     const line = chatStampGroup(await openConnect(page)).getByRole('group', { name: 'Own feed in this chat' });
-    const total = step.options.total === '1' ? '1 message' : `${step.options.total} messages`;
-    await expect(line.getByText(/^Own feed:/)).toBeVisible({ timeout: CHAT_TIMEOUT_MS });
+    const start = ownFeedAtStart(run, actor.name);
+    const total = start.total + Number(step.options.total);
+    const copied = step.options.copied === step.options.total ? total : start.copied + Number(step.options.copied);
+    await expect(line.getByText(OWN_FEED_LINE)).toBeVisible({ timeout: CHAT_TIMEOUT_MS });
     const seen = (run.findings['own feed lines'] as string[] | undefined) ?? [];
     run.findings['own feed lines'] = [...seen, `${step.line}: ${(await line.innerText()).replace(/\s+/g, ' ')}`];
-    await expect(line.getByText(`Own feed: ${step.options.copied} of ${total}`, { exact: true })).toBeVisible({
+    await expect(line.getByText(`Own feed: ${copied} of ${messagesWord(total)}`, { exact: true })).toBeVisible({
       timeout: CHAT_TIMEOUT_MS,
     });
     if (step.options.missing) {
-      await expect(line.getByText(`${step.options.missing} missing`, { exact: true })).toBeVisible();
+      const missing = start.missing + Number(step.options.missing);
+      await expect(line.getByText(`${missing} missing`, { exact: true })).toBeVisible();
     }
     await closeConnect(page);
   },
