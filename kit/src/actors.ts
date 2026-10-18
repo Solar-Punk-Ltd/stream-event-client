@@ -249,10 +249,10 @@ export async function startActor(
     async close() {
       await context.tracing.stopChunk({ path: traceFile() }).catch(() => undefined);
       await context.tracing.stop().catch(() => undefined);
-      await context.close();
       if (swarmIdFetcher) {
         writeFileSync(join(dir, SWARM_ID_FETCHES_FILE), `${JSON.stringify(swarmIdFetcher.counts, null, 2)}\n`);
       }
+      await context.close();
     },
   };
   return actor;
