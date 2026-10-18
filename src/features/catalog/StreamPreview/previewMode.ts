@@ -13,10 +13,13 @@
  */
 
 import { STREAM_STATUS_SCHEDULED, StreamState } from '@/features/catalog/stream';
+import type { ProviderState } from '@/swarm/provider';
 
 type PreviewMode =
   /** The catalog carries a picture. Render it and fetch nothing else. */
   | 'image'
+  /** The catalog carries a picture its source will give a URL for once its node in this tab has started. */
+  | 'waiting'
   /** No picture to render, so the frame has to come out of the stream's own first segment. */
   | 'probe'
   /** Nothing to render and nothing worth asking for. The default image, immediately. */
@@ -28,6 +31,26 @@ interface PreviewEntry {
   state?: StreamState;
   /** Set once the browser has failed to load the referenced image, so the card can move on. */
   imageFailed?: boolean;
+  /** Whether the previews' source gives the picture a URL, see {@link pictureSourceOf}. */
+  picture?: PictureSource;
+}
+
+/**
+ * Whether the previews' source gives a picture a URL: `given`, `waiting` while a node in this tab starts
+ * and will give one once ready, or `none` from a source that gives none, such as a node that failed.
+ */
+type PictureSource = 'given' | 'waiting' | 'none';
+
+/**
+ * ⛔ A URL the source does not give yet is not a picture that failed. A node in this tab gives none
+ * until it is ready, because the browser would otherwise ask the site itself for it and fail, and a
+ * card that took that failure as the picture's went on without it for as long as it stayed mounted.
+ */
+export function pictureSourceOf(url: string | null, sourceState: ProviderState): PictureSource {
+  if (url !== null) {
+    return 'given';
+  }
+  return sourceState === 'starting' || sourceState === 'stopped' ? 'waiting' : 'none';
 }
 
 /**
@@ -39,9 +62,9 @@ interface PreviewEntry {
  * A live or finished stream does fall back to the probe, because its manifest is real and a broken
  * thumbnail reference is no reason to lose a frame the stream can still supply.
  */
-export function previewMode({ thumbnail, state, imageFailed = false }: PreviewEntry): PreviewMode {
-  if (!imageFailed && hasThumbnail(thumbnail)) {
-    return 'image';
+export function previewMode({ thumbnail, state, imageFailed = false, picture = 'given' }: PreviewEntry): PreviewMode {
+  if (!imageFailed && picture !== 'none' && hasThumbnail(thumbnail)) {
+    return picture === 'waiting' ? 'waiting' : 'image';
   }
   return state === STREAM_STATUS_SCHEDULED ? 'placeholder' : 'probe';
 }
@@ -50,19 +73,20 @@ export function previewMode({ thumbnail, state, imageFailed = false }: PreviewEn
  * Whether an image failure this card recorded still applies to the picture it is now being asked to
  * render.
  *
- * ⛔ A card outlives the picture it was given, which is why this compares references rather than
- * reading a flag. `StreamList` keys a card by topic, and in admin mode the topic belongs to the
- * declaration and outlives every session on it, so a publisher replacing an unfetchable thumbnail
- * re-renders the same mounted component with a new reference. Latched on a boolean, the first failure
- * demoted the card for as long as it stayed mounted: a live card went on probing when it had a
- * perfectly good picture to show, and a scheduled one went on showing the placeholder for ever, since
- * {@link previewMode} never probes a scheduled stream.
+ * ⛔ A card outlives the picture it was given, which is why this compares URLs rather than reading a
+ * flag. `StreamList` keys a card by topic, and in admin mode the topic belongs to the declaration and
+ * outlives every session on it, so a publisher replacing an unfetchable thumbnail re-renders the same
+ * mounted component with a new reference. Latched on a boolean, the first failure demoted the card for
+ * as long as it stayed mounted: a live card went on probing when it had a perfectly good picture to
+ * show, and a scheduled one went on showing the placeholder for ever, since {@link previewMode} never
+ * probes a scheduled stream. The URL rather than the reference, because the viewer can switch where
+ * Previews are read from, and a picture one source could not serve is asked of the next.
  *
- * @param failedThumbnail the reference that failed to load, or null while none has.
- * @param thumbnail the reference this render carries.
+ * @param failedUrl the picture's URL that failed to load, or null while none has.
+ * @param url the URL this render gives the picture, or null while it has none.
  */
-export function thumbnailFailed(failedThumbnail: string | null, thumbnail: string | undefined): boolean {
-  return failedThumbnail !== null && failedThumbnail === thumbnail;
+export function pictureFailed(failedUrl: string | null, url: string | null): boolean {
+  return failedUrl !== null && failedUrl === url;
 }
 
 /** Absent and empty are the same answer: the publisher gave no image. */

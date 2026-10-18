@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import type { DownloadProgress, ProviderStatus } from '@/swarm/provider';
+import type { DownloadProgress, ProviderState, ProviderStatus } from '@/swarm/provider';
 
 import { OPEN_MY_SWARM } from './mySwarmPanel';
 
@@ -75,6 +75,21 @@ const sameStatus = (one: ProviderStatus, other: ProviderStatus) =>
   one.healthyPeers === other.healthyPeers &&
   one.download?.receivedBytes === other.download?.receivedBytes &&
   one.download?.totalBytes === other.download?.totalBytes;
+
+/**
+ * Only a node's state, read as often as {@link useNodeStatus} reads its status, for a component that
+ * changes with the state and should not render again on every peer the node finds.
+ */
+export function useNodeState(read: () => ProviderState): ProviderState {
+  const [state, setState] = useState(read);
+  useEffect(() => {
+    const update = () => setState(read());
+    update();
+    const timer = setInterval(update, STATUS_READ_MS);
+    return () => clearInterval(timer);
+  }, [read]);
+  return state;
+}
 
 /** A node's state, read again every {@link STATUS_READ_MS} while the component shows. */
 export function useNodeStatus(read: () => ProviderStatus): ProviderStatus {

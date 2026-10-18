@@ -493,6 +493,20 @@ describe('the weeb-3 provider', () => {
     expect(provider.urlFor(` ${REFERENCE} `, 'thumbnail')).toBe(`/weeb-3/bzz/${REFERENCE}/`);
   });
 
+  /**
+   * Until the node is ready its service worker may not control the page, and the browser then asks the
+   * site itself for `/weeb-3/bzz/`, which never serves a picture there. Once ready it stays given while
+   * the node is lost, so a picture already drawn is not taken away.
+   */
+  it("gives a picture's URL only once the node has been ready", () => {
+    for (const state of ['stopped', 'starting', 'failed'] as const) {
+      expect(weeb3(servedFetch(), { state, peers: 0 }).provider.urlFor(REFERENCE, 'thumbnail'), state).toBeNull();
+    }
+    expect(weeb3(servedFetch(), { state: 'lost', peers: 0 }).provider.urlFor(REFERENCE, 'thumbnail')).toBe(
+      `/weeb-3/bzz/${REFERENCE}/`,
+    );
+  });
+
   it('waits for a node that is starting, holding it, and reads once it is ready', async () => {
     const log: AskedLog = { urls: [] };
     const { provider, runtime } = weeb3(servedFetch(log), { state: 'starting', peers: 0 });

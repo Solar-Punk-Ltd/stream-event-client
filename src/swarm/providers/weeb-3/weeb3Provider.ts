@@ -199,11 +199,15 @@ export class Weeb3Provider implements SwarmProvider {
 
   /**
    * A segment's URL is weeb-3's caching route, absolute because it is written into a playlist. A
-   * picture's is weeb-3's manifest route on this page, which the page loads itself.
+   * picture's is weeb-3's manifest route on this page, which the page loads itself, so it is given only
+   * once the node has been ready: before that weeb-3's service worker may not control the page, and the
+   * browser would ask the site itself, which never serves a picture there. A segment needs no such
+   * wait, since its URL is only asked for after a read through the node that waited for it.
    */
   urlFor(reference: string, use: UrlUse): string | null {
     if (use === 'thumbnail') {
-      return `${WEEB3_PATH}bzz/${encodeURIComponent(reference.trim())}/`;
+      const { state } = this.runtime.status();
+      return state === 'ready' || state === 'lost' ? `${WEEB3_PATH}bzz/${encodeURIComponent(reference.trim())}/` : null;
     }
     return new URL(`${WEEB3_PATH}hls/bytes/${reference}`, this.pageOrigin).href;
   }

@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { previewMode, thumbnailFailed } from '../src/features/catalog/StreamPreview/previewMode';
+import { pictureFailed, pictureSourceOf, previewMode } from '../src/features/catalog/StreamPreview/previewMode';
 
 const REF = '6ce8aab7f729e4614ceab32b108336e0d25d53a673bc7c028d01ff386a9aaa70';
 
@@ -68,19 +68,19 @@ describe('whether a recorded image failure still applies', () => {
   const OTHER_REF = 'a'.repeat(64);
 
   it('demotes the reference that actually failed', () => {
-    assert.equal(thumbnailFailed(REF, REF), true);
-    assert.equal(previewMode({ thumbnail: REF, state: 'live', imageFailed: thumbnailFailed(REF, REF) }), 'probe');
+    assert.equal(pictureFailed(REF, REF), true);
+    assert.equal(previewMode({ thumbnail: REF, state: 'live', imageFailed: pictureFailed(REF, REF) }), 'probe');
   });
 
   it('does not demote a card that has never had a failure', () => {
-    assert.equal(thumbnailFailed(null, REF), false);
+    assert.equal(pictureFailed(null, REF), false);
   });
 
   /** ⛔ The regression itself: a new picture must be rendered rather than inheriting the old verdict. */
   it('stops applying once the publisher hands the card a different reference', () => {
-    assert.equal(thumbnailFailed(REF, OTHER_REF), false);
+    assert.equal(pictureFailed(REF, OTHER_REF), false);
     assert.equal(
-      previewMode({ thumbnail: OTHER_REF, state: 'live', imageFailed: thumbnailFailed(REF, OTHER_REF) }),
+      previewMode({ thumbnail: OTHER_REF, state: 'live', imageFailed: pictureFailed(REF, OTHER_REF) }),
       'image',
       'a replaced thumbnail must be rendered, not probed past',
     );
@@ -92,16 +92,47 @@ describe('whether a recorded image failure still applies', () => {
    */
   it('lets a scheduled card show a replacement picture instead of the placeholder for ever', () => {
     assert.equal(
-      previewMode({ thumbnail: OTHER_REF, state: 'scheduled', imageFailed: thumbnailFailed(REF, OTHER_REF) }),
+      previewMode({ thumbnail: OTHER_REF, state: 'scheduled', imageFailed: pictureFailed(REF, OTHER_REF) }),
       'image',
     );
   });
 
   it('still demotes when the publisher re-publishes the same broken reference', () => {
-    assert.equal(thumbnailFailed(REF, REF), true);
+    assert.equal(pictureFailed(REF, REF), true);
   });
 
-  it('treats an entry that lost its thumbnail as carrying no failure', () => {
-    assert.equal(thumbnailFailed(REF, undefined), false);
+  it('treats a picture with no URL as carrying no failure', () => {
+    assert.equal(pictureFailed(REF, null), false);
+  });
+
+  it('stops applying once Previews read from another source, which gives the picture another URL', () => {
+    const fromWeeb3 = `/weeb-3/bzz/${REF}/`;
+    const fromGateway = `https://gateway.example.com/bzz/${REF}/`;
+    assert.equal(pictureFailed(fromWeeb3, fromGateway), false);
+  });
+});
+
+/**
+ * A node in this tab gives a picture no URL until it is ready, since until then the browser would ask
+ * the site itself and fail. Measured on 2026-10-18: a card handed weeb-3's URL at a live switch showed
+ * the placeholder for good.
+ */
+describe('a picture whose source is a node in this tab', () => {
+  it('waits while the node is stopped or starting, rather than counting as no picture', () => {
+    assert.equal(pictureSourceOf(null, 'stopped'), 'waiting');
+    assert.equal(pictureSourceOf(null, 'starting'), 'waiting');
+    assert.equal(previewMode({ thumbnail: REF, state: 'scheduled', picture: 'waiting' }), 'waiting');
+    assert.equal(previewMode({ thumbnail: REF, state: 'live', picture: 'waiting' }), 'waiting');
+  });
+
+  it('renders the picture once the node gives its URL', () => {
+    assert.equal(pictureSourceOf('/weeb-3/bzz/x/', 'ready'), 'given');
+    assert.equal(previewMode({ thumbnail: REF, state: 'scheduled', picture: 'given' }), 'image');
+  });
+
+  it('counts as no picture from a source that gives none, such as a node that failed', () => {
+    assert.equal(pictureSourceOf(null, 'failed'), 'none');
+    assert.equal(previewMode({ thumbnail: REF, state: 'scheduled', picture: 'none' }), 'placeholder');
+    assert.equal(previewMode({ thumbnail: REF, state: 'live', picture: 'none' }), 'probe');
   });
 });
