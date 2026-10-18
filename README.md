@@ -740,10 +740,13 @@ once and is kept in the browser, and nothing switches a source by itself.
   | Connected to 20 peers                            | Weeb3        | Its peer count, waited for up to a minute                                                                                |
   | Reads a chunk                                    | every kind   | The root chunk of a segment of this event's video, read the way the chat history reads its slots, through its chat route |
   | Reads bytes                                      | every kind   | The same segment's bytes, read the way the player reads it                                                               |
-  | Reads this event's stream list                   | every kind   | The stream list feed's head, which it must parse as a stream list. Weeb3, with a slow head search, reads its first entry |
+  | Reads this event's stream list                   | every kind   | The stream list feed's head, parsed as a stream list. Weeb3 reads the page's newest entry by index, else the head        |
 
   The segment comes from the stream list the page shows, a live stream first, else the newest with video, and its
-  playlist is found as the player finds it. A stream's picture stands in where no stream has video yet.
+  playlist is found as the player finds it. A stream's picture stands in where no stream has video yet. Weeb3's head
+  search costs a few 17 s misses, so its stream list check reads the newest entry the page already read by that
+  entry's index, one read of the same body the browse page reads. It searches for the head when the page has not
+  read the list, and when that entry is not on the node yet, as right after a gateway ahead of it served a new list.
 
 - **A source's settings.** Its name and address, Test connection, which runs the same checks again, and the last
   light check's time until then. A source the event offers says "Offered by this event. It cannot be changed or
@@ -842,23 +845,28 @@ controls the page, and counts as failed when it is not ready after 30 s.
 - **Reads.** weeb-3 reads through its service worker's routes: `/weeb-3/chunks/` for a chunk, a feed entry or a
   single-owner chunk, `/weeb-3/bytes/` for bytes, and segment URLs on its caching route `/weeb-3/hls/bytes/`. weeb-3
   puts a chunk's 8-byte span before bytes and before a single-owner chunk's payload, which Bee leaves out, so it is
-  taken off. A feed entry or a single-owner chunk whose body is longer than one chunk's 4 KB, such as a stream list
-  of more than a few dozen streams, wraps the root of a tree of chunks, and weeb-3 answers it with the root's own
+  taken off. A feed entry or a single-owner chunk whose body is longer than one chunk's 4 KB, such as a stream list of
+  more than a few dozen streams, wraps the root of a tree of chunks, and weeb-3 answers it with the root's own
   payload, the addresses of the chunks below it, where Bee joins the body. So when the span says the body is longer
   than the payload, the body is read whole from `/weeb-3/bytes/` at the root's address, and a body that is not the
-  length the span names answers unavailable. A feed's head, which weeb-3 has no lookup for, is found by reading the feed's entries by index, eight at
-  a time: entry 0 and every power of four less one, then wider steps past the newest entry found until one misses,
-  then even cuts of the gap until the newest entry and the missing one above it touch. A miss costs weeb-3 about
-  17 s, so a head read takes a few of those, about a minute for a feed of a few hundred entries, and the answer it
-  gives is always an entry read with the one above it read missing. A later head read of the same feed starts from the
-  head found before, reading it and the five entries above it at once, so a polled chat, stream list or own feed that
-  gained up to four entries costs one round. When the head found before is missing, the head went back below it, and
-  the search starts again from scratch rather than keep the old one. A single-owner chunk comes back as the chunk it
-  wraps, without the identifier and signature that prove it the owner's, so a read of one by its address answers
-  unsupported, and plainly. The chat reads its slots, its notes and a sender's own copies by the owner and the
-  identifier instead (`readUnsignedSoc`), and takes weeb-3's word for whose chunk it is
-  (`src/features/chat/ownersChunk.ts`). Every message is still checked against its sender's signature, so such a
-  chunk can at most carry a message somebody signed, never one in another's name.
+  length the span names answers unavailable. A body uploaded with erasure coding keeps its redundancy level in the top
+  byte of its root's span, as 0x80 plus the level, so a span whose top byte is above 0x80 names the length in its
+  lower 7 bytes (`src/swarm/chunkSpan.ts`, as Bee's own `redundancy.DecodeSpan` reads it). The root's address is still
+  made over the span as stored. Read whole, such a span names a body of about 9.3e18 bytes, which no joined body
+  matches. The chat's slots, read through Weeb3 or through a gateway, take their length the same way. A feed's head,
+  which weeb-3 has no lookup for, is found by reading the feed's entries by index, eight at a time: entry 0 and every
+  power of four less one, then wider steps past the newest entry found until one misses, then even cuts of the gap
+  until the newest entry and the missing one above it touch. A miss costs weeb-3 about 17 s, so a head read takes a
+  few of those, about a minute for a feed of a few hundred entries, and the answer it gives is always an entry read
+  with the one above it read missing. A later head read of the same feed starts from the head found before, reading it
+  and the five entries above it at once, so a polled chat, stream list or own feed that gained up to four entries
+  costs one round. When the head found before is missing, the head went back below it, and the search starts again
+  from scratch rather than keep the old one. A single-owner chunk comes back as the chunk it wraps, without the
+  identifier and signature that prove it the owner's, so a read of one by its address answers unsupported, and
+  plainly. The chat reads its slots, its notes and a sender's own copies by the owner and the identifier instead
+  (`readUnsignedSoc`), and takes weeb-3's word for whose chunk it is (`src/features/chat/ownersChunk.ts`). Every
+  message is still checked against its sender's signature, so such a chunk can at most carry a message somebody
+  signed, never one in another's name.
 - **Stopping, as far as it goes.** Stopping frees the page's handle on the node, and with 0.0.354001 that leaves the
   node in the package's shared worker running: a handle made after a stop still finds its peers. The package names
   no way to stop that worker's node, so it lasts until the browser closes the worker with the tab. Its player in the
