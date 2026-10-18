@@ -68,6 +68,22 @@ const targetSchema = z.strictObject({
         .regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, { message: 'must be an ENS name such as alice.example.eth' }),
     })
     .optional(),
+  /**
+   * The standing Swarm ID accounts of the actors a scenario gives a drive: the account's address, and its drives in the
+   * order the scenario's drive steps use them. The account's recovery phrase and password never come from this file:
+   * live mode reads them from the environment.
+   */
+  standing: z
+    .array(
+      z.strictObject({
+        actor: z.string().regex(/^[a-z]+$/, { message: 'must be an actor name such as alice' }),
+        address: z.string().regex(ETH_ADDRESS, { message: 'must be an Ethereum address' }),
+        drives: z
+          .array(z.string().regex(/^[0-9a-f]{64}$/, { message: 'must be a whole batch id, 64 hex digits' }))
+          .min(1, { message: 'must name at least one drive' }),
+      }),
+    )
+    .default([]),
 });
 
 export type Target = z.output<typeof targetSchema>;

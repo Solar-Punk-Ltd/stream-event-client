@@ -57,6 +57,29 @@ describe('parseTarget', () => {
   });
 });
 
+describe('parseTarget standing', () => {
+  const good = () => JSON.parse(readFileSync(EXAMPLE_TARGET, 'utf8')) as Record<string, unknown>;
+  const alice = {
+    actor: 'alice',
+    address: '0x0000000000000000000000000000000000000001',
+    drives: ['aa'.repeat(32), 'bb'.repeat(32)],
+  };
+
+  it('takes standing accounts, each an actor, its account address and its drives in the order they are used', () => {
+    expect(parseTarget({ ...good(), standing: [alice] }).standing).toEqual([alice]);
+    const { standing: _example, ...none } = good();
+    expect(parseTarget(none).standing).toEqual([]);
+  });
+
+  it('refuses a drive that is not a batch id, an account with no drive, and a phrase or password in the file', () => {
+    expect(() => parseTarget({ ...good(), standing: [{ ...alice, drives: ['7ec2f440'] }] })).toThrow(/standing/);
+    expect(() => parseTarget({ ...good(), standing: [{ ...alice, drives: [] }] })).toThrow(/standing/);
+    expect(() => parseTarget({ ...good(), standing: [{ ...alice, address: 'nope' }] })).toThrow(/standing/);
+    expect(() => parseTarget({ ...good(), standing: [{ ...alice, phrase: 'x' }] })).toThrow();
+    expect(() => parseTarget({ ...good(), standing: [{ ...alice, password: 'x' }] })).toThrow();
+  });
+});
+
 describe('parseTarget chatHealth', () => {
   const good = () => {
     const { chatHealth: _example, ...rest } = JSON.parse(readFileSync(EXAMPLE_TARGET, 'utf8')) as Record<
