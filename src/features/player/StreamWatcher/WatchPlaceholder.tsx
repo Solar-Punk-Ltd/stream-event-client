@@ -12,15 +12,15 @@ interface WatchPlaceholderProps {
   view: WatchPageView;
   /** The announced start in epoch milliseconds, or null when the entry names none. */
   scheduledStart: number | null;
-  /** The picture the publisher gave the stream, or null when there is none. */
-  thumbnailUrl: string | null;
+  /** A Swarm reference to the picture the publisher gave the stream. Absent or '' when there is none. */
+  thumbnail?: string;
 }
 
 /**
  * What the watch page says in place of the player, and nothing once the player is showing. A shared link opens
  * before the catalog has been read, and a first read over a cold gateway takes a while.
  */
-export function WatchPlaceholder({ view, scheduledStart, thumbnailUrl }: WatchPlaceholderProps) {
+export function WatchPlaceholder({ view, scheduledStart, thumbnail }: WatchPlaceholderProps) {
   if (view === WATCH_VIEW_LOADING) {
     return (
       <WatchNotice>
@@ -30,7 +30,7 @@ export function WatchPlaceholder({ view, scheduledStart, thumbnailUrl }: WatchPl
     );
   }
   if (view === WATCH_VIEW_NOT_STARTED) {
-    return <ScheduledPlaceholder scheduledStart={scheduledStart} thumbnailUrl={thumbnailUrl} />;
+    return <ScheduledPlaceholder scheduledStart={scheduledStart} thumbnail={thumbnail} />;
   }
   if (view === WATCH_VIEW_UNAVAILABLE) {
     return (

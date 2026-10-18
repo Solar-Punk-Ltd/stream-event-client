@@ -11,7 +11,7 @@ import { MEDIA_TYPE_VIDEO, STREAM_STATUS_VOD } from '../src/features/catalog/str
 const SEGMENT_URL = 'https://gateway.example.com/bytes/abc123';
 
 vi.mock('../src/app/AppProvider', () => ({
-  useAppContext: () => ({ swarm: { reader: () => ({ urlFor: () => null }) } }),
+  useAppContext: () => ({ swarm: { statusOf: () => ({ state: 'ready' }), reader: () => ({ urlFor: () => null }) } }),
 }));
 
 vi.mock('../src/features/catalog/StreamPreview/previewManifest', () => ({

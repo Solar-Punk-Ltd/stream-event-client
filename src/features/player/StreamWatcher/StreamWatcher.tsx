@@ -5,7 +5,6 @@ import { OwnPlayerStage } from '@/features/player/OwnPlayerStage';
 import { PlacesAcrossSwap } from '@/features/player/placeAcrossSwap';
 import { SwarmHlsPlayer } from '@/features/player/SwarmHlsPlayer';
 import { useAppContext } from '@/app/AppProvider';
-import type { SwarmClient } from '@/swarm/client';
 import { sourceName } from '@/swarm/sources';
 import { watchPageCatalogPollMs } from '@/features/catalog/catalogPoll';
 import { useCatalogPoll } from '@/features/catalog/useCatalogPoll';
@@ -33,13 +32,6 @@ const VALID_MEDIA_TYPES: MediaType[] = [MEDIA_TYPE_AUDIO, MEDIA_TYPE_VIDEO];
 
 function isMediaType(value: string): value is MediaType {
   return VALID_MEDIA_TYPES.includes(value as MediaType);
-}
-
-/** The picture a publisher gave the stream, where the gateway serves it. Absent and empty mean none. */
-function streamPictureUrl(swarm: SwarmClient, thumbnail: string | undefined): string | null {
-  return typeof thumbnail === 'string' && thumbnail.trim() !== ''
-    ? swarm.reader('previews').urlFor(thumbnail, 'thumbnail')
-    : null;
 }
 
 export function StreamWatcher() {
@@ -128,7 +120,7 @@ export function StreamWatcher() {
           <WatchPlaceholder
             view={view}
             scheduledStart={scheduledStartMs(stream?.scheduledStartTime)}
-            thumbnailUrl={streamPictureUrl(swarm, stream?.thumbnail)}
+            thumbnail={stream?.thumbnail}
           />
         )
       }

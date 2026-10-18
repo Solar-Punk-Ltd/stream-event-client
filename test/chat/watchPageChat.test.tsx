@@ -21,7 +21,7 @@ const appContext = vi.hoisted(() => ({
     streamList: [],
     isStreamListLoaded: true,
     chat: null as ChatConfig | null,
-    swarm: { ownPlayer: () => null },
+    swarm: { ownPlayer: () => null, statusOf: () => ({ state: 'ready' }) },
     sources: [],
     parts: { player: 'gateway' },
   },
