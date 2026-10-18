@@ -117,6 +117,7 @@ vi.mock('../src/app/AppProvider', () => ({
     swarm: {
       ownPlayer: (feature: string) => (feature === 'player' ? page.ownPlayer : null),
       reader: () => ({ urlFor: () => null }),
+      statusOf: () => ({ state: 'ready' }),
     },
   }),
 }));
