@@ -10,12 +10,18 @@ export interface ExpectedCounts {
   dropped: Record<string, number>;
 }
 
+/**
+ * The server sends itself a heartbeat through the inbox every minute and drops a repeat or a stranger of one under these
+ * reasons. A heartbeat is never counted as received, so its drops say nothing about what a step wrote.
+ */
+const isHeartbeatReason = (reason: string) => reason.startsWith('heartbeat-');
+
 const rise = (before: Record<string, number>, after: Record<string, number>, reason: string) =>
   (after[reason] ?? 0) - (before[reason] ?? 0);
 
 /**
  * What is wrong with the server's counts against what was written, one line each, none when they agree exactly: every
- * write received, each named reason risen by the number forged for it, and no other reason risen at all.
+ * write received, each named reason risen by the number forged for it, and no other reason risen but the heartbeats'.
  */
 export function countProblems(before: ServerCounts, after: ServerCounts, expected: ExpectedCounts): string[] {
   const problems: string[] = [];
@@ -29,7 +35,7 @@ export function countProblems(before: ServerCounts, after: ServerCounts, expecte
   }
   for (const reason of Object.keys(after.dropped)) {
     const rose = rise(before.dropped, after.dropped, reason);
-    if (!(reason in expected.dropped) && rose > 0) {
+    if (!(reason in expected.dropped) && !isHeartbeatReason(reason) && rose > 0) {
       problems.push(`the server dropped ${rose} as ${reason}, which nothing forged`);
     }
   }

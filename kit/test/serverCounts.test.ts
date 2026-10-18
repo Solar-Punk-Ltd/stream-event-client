@@ -37,6 +37,12 @@ describe('countProblems', () => {
       }),
     ).toEqual(['the server dropped 1 as rate-sender, which nothing forged']);
   });
+
+  it('leaves out the server dropping its own heartbeats, which are not writes and never count as received', () => {
+    const before = counts(0, { 'heartbeat-repeat': 4 });
+    const after = counts(1, { signature: 1, 'heartbeat-repeat': 5, 'heartbeat-unknown': 1 });
+    expect(countProblems(before, after, { received: 1, dropped: { signature: 1 } })).toEqual([]);
+  });
 });
 
 describe('replayOutcome', () => {
