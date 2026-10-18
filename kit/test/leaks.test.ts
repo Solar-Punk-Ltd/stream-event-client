@@ -18,6 +18,22 @@ describe('findLeaks', () => {
 
   it('refuses an empty secret, which every text would contain', () => {
     expect(() => findLeaks({ dom: 'x' }, { stampKey: '' })).toThrow(/empty/);
+    expect(() => findLeaks({ dom: 'x' }, { password: '' })).toThrow(/empty/);
+  });
+
+  it('finds a secret that is text, such as a phrase or a password, as typed, encoded in an address, and in base64', () => {
+    const phrase = 'abandon ability able about';
+    const password = 'p&ss/w+rd "x"';
+    expect(findLeaks({ trace: `value:"${phrase}"` }, { phrase })).toEqual(['phrase in trace']);
+    expect(findLeaks({ har: `?q=${encodeURIComponent(phrase)}` }, { phrase })).toEqual(['phrase in har']);
+    expect(findLeaks({ har: `q=${phrase.replaceAll(' ', '+')}` }, { phrase })).toEqual(['phrase in har']);
+    expect(findLeaks({ har: Buffer.from(phrase).toString('base64') }, { phrase })).toEqual(['phrase in har']);
+    expect(findLeaks({ har: JSON.stringify({ typed: password }) }, { password })).toEqual(['password in har']);
+  });
+
+  it('never reads a text secret as hex, so a few hex letters at its start are not decoded into bytes found elsewhere', () => {
+    expect(findLeaks({ har: 'qw==' }, { password: 'abzz-zzzz' })).toEqual([]);
+    expect(findLeaks({ har: 'nothing typed here' }, { phrase: 'abandon ability able about' })).toEqual([]);
   });
 });
 
