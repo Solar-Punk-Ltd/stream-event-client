@@ -722,7 +722,8 @@ once and is kept in the browser, and nothing switches a source by itself.
   viewer added. Each row has a status dot, the name, its kind and address, how long its last light check took, and a
   Settings button. While My Swarm is open each source gets that light check about every 10 s, the stream list's
   first entry for a gateway and Bee's `/health`, `/readiness` and `/peers` for a Bee node, and nothing is checked
-  while it is closed. Add source sits under the list.
+  while it is closed. A gateway that refuses `/soc` is asked it once while My Swarm stays open, and its later checks
+  read the entry by its chunk address. Add source sits under the list.
 - **Use for.** All features reads the video, the stream list, the previews and the chat history from the one source
   picked. Per feature picks a source each for Video, Stream list, Previews and Chat history. While the event pays, chat
   messages are sent to `chat.writeUrl`, whichever source reads the chat history. On the viewer's own stamp they go
