@@ -160,6 +160,7 @@ fails with those words.
 | `fail-copies on` or `off`                        | the actor's browser refuses every copy into their own feed, until off, after a copy was given up                                                             |
 | `sync`                                           | Sync in My stamp's own feed line, until it says what was copied                                                                                              |
 | `reload`                                         | the viewer's page loaded again                                                                                                                               |
+| `wait <seconds>`                                 | nothing, for that many seconds. After a `reload`, Swarm ID's frame checks the restored sign-in a few seconds later                                           |
 | `read-details "text"`                            | a message's details opened from its badge                                                                                                                    |
 | `expect frames-partitioned <actor>`              | Swarm ID's frame in the viewer is kept apart from Swarm ID's own storage                                                                                     |
 | `expect outside-blocked <actor>`                 | the browser guard's control, above                                                                                                                           |

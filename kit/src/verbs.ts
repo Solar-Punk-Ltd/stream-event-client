@@ -52,6 +52,16 @@ async function takeStandingDrive(run: Run, actor: Actor): Promise<void> {
 
 const verbs: Record<string, Verb> = {
   /**
+   * `wait <seconds>`: the actor does nothing for that long, as a person leaving a page open does, so work the page or
+   * Swarm ID's frame finishes in the background has landed before the next step looks.
+   */
+  async wait(_run, step) {
+    const seconds = Number(step.args[0]);
+    if (!Number.isFinite(seconds) || seconds <= 0) throw new Error('wait takes a number of seconds');
+    await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+  },
+
+  /**
    * `send "text" [--stamp mine]`: types and sends a chat message, and waits until the chat has read it back from the
    * feed, which is when the page stops saying Sending.
    */
