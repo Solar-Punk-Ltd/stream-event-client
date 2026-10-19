@@ -1,3 +1,4 @@
+import { startHasPassed } from '@/features/catalog/scheduledStart';
 import { StreamPreview } from '@/features/catalog/StreamPreview/StreamPreview';
 import type { Stream } from '@/features/catalog/stream';
 import { cardDateLabel, streamLabel } from '@/features/catalog/streamLabels';
@@ -8,13 +9,15 @@ import { CardDescription } from './CardDescription';
 import './StreamCard.scss';
 
 /** A card in the upcoming or past section: its label and date, the title, the thumbnail, the call to watch, the description. */
-export function StreamCard({ stream }: { stream: Stream }) {
+export function StreamCard({ stream, now }: { stream: Stream; now: number }) {
   const date = cardDateLabel(stream);
 
   return (
     <article className="stream-card">
       <div className="stream-card-header">
-        <span className="stream-card-label">{streamLabel(stream.state)}</span>
+        <span className="stream-card-label">
+          {streamLabel(stream.state, startHasPassed(stream.scheduledStartTime, now))}
+        </span>
         {date && <span className="stream-card-date">{date}</span>}
       </div>
       <h3 className="stream-card-title">{stream.title}</h3>

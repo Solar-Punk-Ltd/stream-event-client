@@ -29,7 +29,9 @@ export function FeaturedStream({ stream, now }: FeaturedStreamProps) {
   return (
     <div className="featured-stream">
       <div className="featured-stream-body">
-        <span className={`featured-stream-badge${isLive ? ' live' : ''}`}>{streamLabel(stream.state)}</span>
+        <span className={`featured-stream-badge${isLive ? ' live' : ''}`}>
+          {streamLabel(stream.state, start !== null && start < now)}
+        </span>
         {!isLive && start !== null && <p className="featured-stream-date">{startDateTimeLabel(start)}</p>}
         <h3 className="featured-stream-title">{stream.title}</h3>
         {stream.description && <p className="featured-stream-description">{stream.description}</p>}

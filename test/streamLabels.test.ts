@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { startHasPassed } from '../src/features/catalog/scheduledStart';
 import { callToAction, cardDateLabel, startDateTimeLabel, streamLabel } from '../src/features/catalog/streamLabels';
 import { STREAM_STATUS_LIVE, STREAM_STATUS_SCHEDULED, STREAM_STATUS_VOD } from '../src/features/catalog/stream';
 
@@ -12,6 +13,20 @@ describe('the words on a stream card', () => {
     expect(streamLabel(STREAM_STATUS_SCHEDULED)).toBe('Upcoming');
     expect(streamLabel(STREAM_STATUS_VOD)).toBe('Recording');
     expect(streamLabel('archived')).toBe('Recording');
+  });
+
+  it('says an upcoming stream whose start has passed is past its start time, and changes no other label', () => {
+    expect(streamLabel(STREAM_STATUS_SCHEDULED, true)).toBe('Start time passed');
+    expect(streamLabel(STREAM_STATUS_LIVE, true)).toBe('Live');
+    expect(streamLabel(STREAM_STATUS_VOD, true)).toBe('Recording');
+  });
+
+  it('counts a start as passed only once the clock is beyond it', () => {
+    expect(startHasPassed('2026-09-30T18:45:00Z', HELD + 1)).toBe(true);
+    expect(startHasPassed('2026-09-30T18:45:00Z', HELD)).toBe(false);
+    expect(startHasPassed('2026-09-30T18:45:00Z', HELD - 1)).toBe(false);
+    expect(startHasPassed(null, HELD)).toBe(false);
+    expect(startHasPassed('not a time', HELD)).toBe(false);
   });
 
   it('offers to join a live or upcoming stream, and to watch a recording', () => {

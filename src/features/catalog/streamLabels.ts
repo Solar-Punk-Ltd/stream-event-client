@@ -4,12 +4,20 @@ import { type Stream, STREAM_STATUS_LIVE, STREAM_STATUS_SCHEDULED, type StreamSt
 /**
  * The words a stream's card and featured block carry, as msrs-client writes them. A state this has
  * never heard of reads as a recording, the same way `streamGroups` files it with the finished streams.
+ * An upcoming stream whose start has passed says so, because the publisher has not started it yet and
+ * "Upcoming" on a date in the past reads as wrong.
  */
-export function streamLabel(state: StreamState | undefined): 'Live' | 'Upcoming' | 'Recording' {
+export function streamLabel(
+  state: StreamState | undefined,
+  startPassed = false,
+): 'Live' | 'Upcoming' | 'Start time passed' | 'Recording' {
   if (state === STREAM_STATUS_LIVE) {
     return 'Live';
   }
-  return state === STREAM_STATUS_SCHEDULED ? 'Upcoming' : 'Recording';
+  if (state === STREAM_STATUS_SCHEDULED) {
+    return startPassed ? 'Start time passed' : 'Upcoming';
+  }
+  return 'Recording';
 }
 
 export function callToAction(state: StreamState | undefined): string {

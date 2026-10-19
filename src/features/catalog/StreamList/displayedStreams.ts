@@ -22,17 +22,38 @@ function newestFirst(a: Ordered, b: Ordered): number {
   return (b.index ?? 0) - (a.index ?? 0);
 }
 
-/** Soonest start first. An entry with no usable start time cannot be placed in time, so it goes last. */
-function soonestFirst(a: Ordered, b: Ordered): number {
-  const aStart = scheduledStartMs(a.scheduledStartTime);
-  const bStart = scheduledStartMs(b.scheduledStartTime);
-  if (aStart !== null && bStart !== null && aStart !== bStart) {
-    return aStart - bStart;
+/** Where an upcoming stream sorts: its start still ahead, its start passed, or no usable start. */
+const enum StartPlace {
+  Ahead,
+  Passed,
+  Unknown,
+}
+
+function startPlace(startMs: number | null, now: number): StartPlace {
+  if (startMs === null) {
+    return StartPlace.Unknown;
   }
-  if ((aStart === null) !== (bStart === null)) {
-    return aStart === null ? 1 : -1;
-  }
-  return newestFirst(a, b);
+  return startMs >= now ? StartPlace.Ahead : StartPlace.Passed;
+}
+
+/**
+ * The streams still ahead first, soonest first, then the ones whose start has passed and that the
+ * publisher has not started, the most recently passed first, then the ones with no usable start.
+ */
+function upcomingOrder(now: number): (a: Ordered, b: Ordered) => number {
+  return (a, b) => {
+    const aStart = scheduledStartMs(a.scheduledStartTime);
+    const bStart = scheduledStartMs(b.scheduledStartTime);
+    const aPlace = startPlace(aStart, now);
+    const bPlace = startPlace(bStart, now);
+    if (aPlace !== bPlace) {
+      return aPlace - bPlace;
+    }
+    if (aStart !== null && bStart !== null && aStart !== bStart) {
+      return aPlace === StartPlace.Ahead ? aStart - bStart : bStart - aStart;
+    }
+    return newestFirst(a, b);
+  };
 }
 
 /**
@@ -41,7 +62,7 @@ function soonestFirst(a: Ordered, b: Ordered): number {
  * A state this has never heard of is filed as finished, so a status a publisher adds later lands
  * among the recordings rather than above a broadcast that is actually running.
  */
-export function streamGroups(streamList: readonly Stream[]): StreamGroups {
+export function streamGroups(streamList: readonly Stream[], now: number): StreamGroups {
   const groups: StreamGroups = { live: [], upcoming: [], finished: [] };
   for (const stream of streamList) {
     if (stream.state === STREAM_STATUS_LIVE) {
@@ -53,14 +74,14 @@ export function streamGroups(streamList: readonly Stream[]): StreamGroups {
     }
   }
   groups.live.sort(newestFirst);
-  groups.upcoming.sort(soonestFirst);
+  groups.upcoming.sort(upcomingOrder(now));
   groups.finished.sort(newestFirst);
   return groups;
 }
 
 /** Every stream on the catalog, in the order the browse page shows them. */
-export function displayedStreams(streamList: readonly Stream[]): Stream[] {
-  const { live, upcoming, finished } = streamGroups(streamList);
+export function displayedStreams(streamList: readonly Stream[], now: number): Stream[] {
+  const { live, upcoming, finished } = streamGroups(streamList, now);
   return [...live, ...upcoming, ...finished];
 }
 
@@ -78,18 +99,12 @@ export interface BrowseSections {
 
 /**
  * Features the soonest upcoming stream whose start is still ahead of `now`, as msrs-client does, so a
- * page left open moves the feature on once a start time passes. When no start is ahead, the first
- * upcoming stream is featured anyway, because an announcement that is late to go live is still the
- * next thing to watch.
+ * page left open moves the feature on once a start time passes. When no start is ahead, the one whose
+ * start passed most recently is featured, because an announcement that is late to go live is still the
+ * next thing to watch. Both are simply the first in the upcoming order.
  */
 export function browseSections(streamList: readonly Stream[], now: number): BrowseSections {
-  const { live, upcoming, finished } = streamGroups(streamList);
-  const next =
-    upcoming.find((stream) => {
-      const start = scheduledStartMs(stream.scheduledStartTime);
-      return start !== null && start >= now;
-    }) ??
-    upcoming[0] ??
-    null;
-  return { live, next, upcoming: upcoming.filter((stream) => stream !== next), past: finished };
+  const { live, upcoming, finished } = streamGroups(streamList, now);
+  const next = upcoming[0] ?? null;
+  return { live, next, upcoming: upcoming.slice(1), past: finished };
 }
