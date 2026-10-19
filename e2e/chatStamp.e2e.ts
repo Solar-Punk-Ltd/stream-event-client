@@ -29,8 +29,8 @@ import {
  * routes: its reads replay the recording, and its writes are recorded and taken. A message on the stamp is stamped by
  * the fake Swarm ID and posted to that node, never to the event gateway, and its copy in the viewer's own feed after it.
  * A stamp that ran out holds the message field with a way to let the gateway pay. With Weeb3, a fake of the node in
- * this browser, picked for the chat history instead, the chat reads through it and a message on the stamp is pushed
- * through it, to no Bee node and not to the gateway.
+ * this browser, as the only node in the list, the event gateway reads the chat and a message on the stamp is pushed
+ * through Weeb3, to no Bee node and not to the gateway.
  */
 
 const MY_BEE_NODE = 'http://localhost:1633';
