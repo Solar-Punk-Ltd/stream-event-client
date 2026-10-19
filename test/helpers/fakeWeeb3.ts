@@ -1,4 +1,4 @@
-import type { HlsStart, Weeb3Node, Weeb3Package } from '../../src/swarm/providers/weeb-3/weeb3Package';
+import type { HlsStart, StreamQuality, Weeb3Node, Weeb3Package } from '../../src/swarm/providers/weeb-3/weeb3Package';
 
 /** One node the fake package made, with what the page asked of it. */
 interface FakeWeeb3Node extends Weeb3Node {
@@ -6,6 +6,9 @@ interface FakeWeeb3Node extends Weeb3Node {
   started: number;
   peers: number;
   freed: boolean;
+  /** What `streamQuality` answers, and what `setStreamQuality` asked for. */
+  quality: StreamQuality;
+  readonly held: number[];
   readonly attached: { media: HTMLMediaElement; owner: string; topic: string; start: HlsStart }[];
   readonly pushed: { data: Uint8Array; soc: boolean; chunkAddress: Uint8Array; stamp: Uint8Array }[];
 }
@@ -35,6 +38,8 @@ export function fakeWeeb3Package(options: FakeWeeb3Options = {}): FakeWeeb3 {
     started = 0;
     peers = 0;
     freed = false;
+    quality: StreamQuality = { levels: [], selectedLevel: -1, currentLevel: -1 };
+    readonly held: number[] = [];
     readonly attached: FakeWeeb3Node['attached'] = [];
     readonly pushed: FakeWeeb3Node['pushed'] = [];
 
@@ -56,7 +61,13 @@ export function fakeWeeb3Package(options: FakeWeeb3Options = {}): FakeWeeb3 {
       await options.onAttach?.(media);
     }
 
-    setStreamQuality(): void {}
+    streamQuality(): StreamQuality {
+      return this.quality;
+    }
+
+    setStreamQuality(_media: HTMLMediaElement, level: number): void {
+      this.held.push(level);
+    }
 
     async postPushChunk(data: Uint8Array, soc: boolean, chunkAddress: Uint8Array, stamp: Uint8Array): Promise<string> {
       this.pushed.push({ data, soc, chunkAddress, stamp });

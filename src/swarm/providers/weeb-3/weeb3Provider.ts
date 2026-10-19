@@ -75,31 +75,6 @@ function isContentAddressedAt(bytes: Uint8Array, address: string): boolean {
   }
 }
 
-/** weeb-3's level that lets its player choose the quality itself. */
-const AUTO_QUALITY = -1;
-
-/**
- * Lets weeb-3's player choose its quality, now if the stream's qualities have loaded, and otherwise once the video
- * knows its first quality, by which time they have.
- */
-function chooseQualityItself(node: Weeb3Node, video: HTMLMediaElement): void {
-  try {
-    node.setStreamQuality(video, AUTO_QUALITY);
-  } catch {
-    video.addEventListener(
-      'loadedmetadata',
-      () => {
-        try {
-          node.setStreamQuality(video, AUTO_QUALITY);
-        } catch (error) {
-          console.warn("weeb-3's player stays on its highest quality, it would not choose its own:", error);
-        }
-      },
-      { once: true },
-    );
-  }
-}
-
 /**
  * Swarm read through the node running in this browser, weeb-3, over the routes its service worker
  * answers on this page. A missing chunk is a 404 there, after weeb-3 has asked the network for about
@@ -220,9 +195,9 @@ export class Weeb3Provider implements SwarmProvider {
 
   /**
    * weeb-3 plays a stream with its own player on the page's node. Loading it holds the node, starting it
-   * if nothing has, and answers once the node is ready. The page shows no quality menu, so the player is
-   * set to choose its quality itself, as the app's own player does. Letting it go stops weeb-3's player for the video it
-   * attached, which weeb-3 would otherwise keep loading segments for.
+   * if nothing has, and answers once the node is ready. Its qualities are read and switched through weeb-3, and the
+   * page picks among them (`useOwnPlayerQuality`). Letting it go stops weeb-3's player for the video it attached, which
+   * weeb-3 would otherwise keep loading segments for.
    */
   readonly ownPlayer = async (): Promise<OwnPlayer> => {
     const { runtime } = this;
@@ -241,7 +216,22 @@ export class Weeb3Provider implements SwarmProvider {
         attached = video;
         allowOwnPlayback(video);
         await node.attachStream(video, owner, topic, from);
-        chooseQualityItself(node, video);
+      },
+      quality: () => {
+        if (attached === null) {
+          return null;
+        }
+        try {
+          const quality = node.streamQuality(attached);
+          return quality.levels.length === 0 ? null : quality;
+        } catch {
+          return null;
+        }
+      },
+      holdQuality: (level) => {
+        if (attached !== null) {
+          node.setStreamQuality(attached, level);
+        }
       },
       detach: () => {
         if (attached !== null) {
