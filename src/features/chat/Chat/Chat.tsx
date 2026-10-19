@@ -44,9 +44,9 @@ type PendingReactions = Record<string, string>;
 export function Chat({ chat, topic, reads, source = null }: ChatProps) {
   const { session } = useChatUser();
   const { open: openConnect } = useConnect();
-  const { sending, ownStamp, warning } = useChatStamp();
+  const { sending, ownStamp, warning, noRouteLine } = useChatStamp();
   const settings = useMemo(() => chatSettings(chat, topic, session, sending), [chat, topic, session, sending]);
-  const isSendingHeld = warning?.blocksSending ?? false;
+  const isSendingHeld = noRouteLine !== null || (warning?.blocksSending ?? false);
   const ownFeedSource = useMemo(
     () => ({ reads, chatTopic: settings.infra.chatTopic, chatOwner: settings.infra.chatAddress }),
     [reads, settings.infra.chatTopic, settings.infra.chatAddress],

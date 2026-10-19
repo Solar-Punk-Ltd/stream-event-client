@@ -14,7 +14,12 @@ import { daysLeftText, SITE_STAMP_RAN_OUT, type SiteStamp } from '@/features/cha
 import { ButtonVariant } from '@/shared/components/Button/Button';
 import { OwnStampIcon } from '@/shared/components/Icons/OwnStampIcon';
 
-import { OWN_FEED_COPY, OWN_STAMP_NEEDS_SIGN_IN, OWN_STAMP_NEEDS_SOURCE } from './connectWords';
+import {
+  OWN_FEED_COPY,
+  OWN_STAMP_NEEDS_SIGN_IN,
+  OWN_STAMP_NEEDS_SIGN_IN_AND_SOURCE,
+  OWN_STAMP_NEEDS_SOURCE,
+} from './connectWords';
 import { OwnFeedSync } from './OwnFeedSync';
 
 const CHANGE_STAMP = 'Change stamp in Swarm ID';
@@ -28,16 +33,18 @@ const SENDS_THROUGH = {
 
 /**
  * Who pays for the viewer's chat messages, between ID and Swarm access in Connect. The gateway pays by default, and
- * once signed in with Swarm ID the viewer may pick the stamp Swarm ID gives this site, which the chat's source must be
- * able to send. Choosing and managing that stamp happen in Swarm ID, and the viewer only shows how it stands.
+ * once signed in with Swarm ID the viewer may pick the stamp Swarm ID gives this site, which needs a Bee node of their
+ * own or Weeb3 in their list to send it. Choosing and managing that stamp happen in Swarm ID, and the viewer only shows how it stands.
  */
 export function ChatStampSection() {
   const { canUseOwnStamp, choice, choosePayWith, route } = useChatStamp();
   const name = useId();
   const ownStampPays = choice.payWith === MessageVia.OWN_STAMP;
-  const canPickOwnStamp = canUseOwnStamp && (route.ok || ownStampPays);
+  const canPickOwnStamp = canUseOwnStamp && route.ok;
   const ownStampLine = !canUseOwnStamp
-    ? OWN_STAMP_NEEDS_SIGN_IN
+    ? route.ok
+      ? OWN_STAMP_NEEDS_SIGN_IN
+      : OWN_STAMP_NEEDS_SIGN_IN_AND_SOURCE
     : route.ok
       ? `The stamp Swarm ID gives this site. Your messages go out through ${SENDS_THROUGH[route.through]}, without the event's gateway deciding.`
       : OWN_STAMP_NEEDS_SOURCE;
