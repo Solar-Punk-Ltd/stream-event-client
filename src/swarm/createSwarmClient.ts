@@ -6,7 +6,7 @@ import type { ProviderKindName } from './providerKinds';
 export interface CreateSwarmClientOptions {
   /**
    * The viewer's choice: the id of a gateway the settings offer, or a gateway of the viewer's own such
-   * as a node on their machine. Absent, or an id no longer offered, means the default.
+   * as a node on their machine. Absent, or an id the settings do not offer, means the default.
    */
   readonly choice?: string | GatewaySetting;
   /** A gateway of its own for a feature. Every other feature reads from the viewer's choice. */

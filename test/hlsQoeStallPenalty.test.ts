@@ -221,9 +221,8 @@ describe('switch frequency is a rate over elapsed time, not over playback time',
  * of anything, and a session that stalled longer than it played read above 100% on the overlay,
  * which does not clamp.
  *
- * Reported by a cross-provider review on 2026-09-15. The same error was found and fixed for the
- * quality switch rate, in the line directly below this one, and the ratio was left on the old
- * denominator.
+ * Reported by a cross-provider review on 2026-09-15. The quality switch rate, in the line directly
+ * below this one, has the same share-of-playback denominator.
  */
 describe('the rebuffering ratio is a share of the time the viewer sat there', () => {
   it('divides by watched time, so a session that stalled more than it played stays under 100%', () => {
@@ -295,13 +294,13 @@ describe('the rebuffering ratio is a share of the time the viewer sat there', ()
 });
 
 /**
- * Both halves of the ratio used to freeze for exactly as long as the viewer did. Stall time was
- * banked only on the `playing` that ended the stall, and playback time stopped accruing at the
- * `waiting` that started it, so a viewer who played a minute and then froze read `Count 1,
- * Duration 0ms, Ratio 0.0%` for the whole freeze. On a broadcast that never came back that was the
+ * Neither half of the ratio may freeze for as long as the viewer does. Banking stall time only on the
+ * `playing` that ends the stall, with playback time stopping at the `waiting` that starts it, would make
+ * a viewer who played a minute and then froze read `Count 1,
+ * Duration 0ms, Ratio 0.0%` for the whole freeze. On a broadcast that never came back that would be the
  * final reading of the run.
  *
- * Playback time already had the answer one field over: its poll adds the open interval to the banked
+ * Playback time has the answer one field over: its poll adds the open interval to the banked
  * total instead of reporting the banked total alone. The open stall is added the same way.
  *
  * Reported by two independent reviewers on 2026-09-15.

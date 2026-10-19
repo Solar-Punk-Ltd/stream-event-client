@@ -1,7 +1,7 @@
 /**
  * How a Bee node answers, fitted to two runs of ten minutes on 2026-10-06: A through the
  * test stack's viewer gateway, B through a local Bee node. Round trips are log-normal with the
- * measured medians. The spreads were then fitted, with the readable lag's jitter, so that today's walk
+ * measured medians. The spreads were then fitted, with the readable lag's jitter, so that the walk
  * reproduces the measured asks per slot (the study report gives the fit), and come out a little
  * narrower than the raw p10 to p90 of the round trips, whose far tails are not log-normal.
  */

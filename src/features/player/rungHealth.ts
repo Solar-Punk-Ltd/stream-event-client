@@ -23,11 +23,11 @@ import { parseSwarmUri } from './playlist';
  * level out and moves the viewer to the sibling.
  *
  * ⛔ **Every announced rung is dropped, however many came before**, until the viewer is on a quality
- * that moves (ruled 2026-10-07). A cap of one per ladder stood here from 2026-09-01,
+ * that moves (ruled 2026-10-07). A cap of one per ladder is not used. It was tried from 2026-09-01,
  * when an uploader dying read as every rung failing in turn and the player took the ladder apart. The
- * poller no longer condemns a rung for being quiet alone. It fails over only to a sibling it watched
+ * poller does not condemn a rung for being quiet alone. It fails over only to a sibling it watched
  * make progress, and a broadcast that stops everywhere shows none, so a cascade has nothing to drive it.
- * What the cap did leave was a viewer stuck on the second quality to die, and a refused switch used it
+ * A cap would leave a viewer stuck on the second quality to die, and a refused switch would use it
  * up before any real failure came. Only the last level hls.js holds is kept, under the stalled overlay.
  */
 
@@ -158,11 +158,11 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
   return feedHealth.onRungStopped((rungTopicId, detail) => {
     const index = levelIndexOfRung(hls, rungTopicId);
     if (index < 0) {
-      // ⛔ Silent until 2026-09-01, and it shares its silence with "the rung was never reported
-      // stopped at all". A live test went red that day having logged NOTHING: no drop, no refusal, no
-      // detection, so the two had to be told apart by reasoning rather than by reading. Most
-      // announcements really are another ladder's and this is the right answer for them, which is
-      // why it says which ladder rather than warning.
+      // ⛔ This line is what tells another ladder's announcement apart from "the rung was never
+      // reported stopped at all". Without it a live test went red on 2026-09-01 having logged NOTHING:
+      // no drop, no refusal, no detection, so the two had to be told apart by reasoning rather than by
+      // reading. Most announcements really are another ladder's and this is the right answer for them,
+      // which is why it says which ladder rather than warning.
       console.debug(
         `[SwarmHls] rung ${rungTopicId} was reported stopped and is not one of this player's ` +
           `${hls.levels.length} level(s), so there is nothing to drop`,

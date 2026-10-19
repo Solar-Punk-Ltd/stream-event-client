@@ -94,7 +94,7 @@ interface QoeOverlayProps {
 
 /**
  * The toggle button and, below it, the metrics panel, which resizes from every edge and corner like a
- * desktop window. Ported from Nandor Komlodi's panel in the streaming monorepo's client. It lives in
+ * desktop window. Ported from the panel in the streaming monorepo's client. It lives in
  * the browser window rather than in the player: fixed to the viewport, rendered in the page's body or
  * the element in full screen, and drawn in the top layer (see qoeFullscreen.ts). All of the geometry,
  * one panel rectangle in viewport px with the button on its top-right corner, kept inside the window,

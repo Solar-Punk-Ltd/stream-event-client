@@ -6,6 +6,9 @@
  * its snippets beside it, and the WebAssembly module. So the build copies them out of the installed package, and the
  * dev and preview servers serve the service worker with the header that lets it control the whole site.
  *
+ * Two rewrites happen while the bundler reads the package. The default WebAssembly path of its page-side module
+ * points at the served copy, and its `import("hls.js")` loads the app's own stoppable hls.js.
+ *
  * A build without the package installed copies nothing and says so once.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';

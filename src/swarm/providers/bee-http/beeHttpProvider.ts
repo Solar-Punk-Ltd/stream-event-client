@@ -65,7 +65,7 @@ function currentPageOrigin(): string {
 }
 
 /**
- * A Bee node's HTTP API, the way the app has always read the event gateway: the same paths, so a
+ * A Bee node's HTTP API, the way the app reads the event gateway: the same paths, so a
  * recorded replay of the app's traffic still matches. A 404 is content that is not there and a 429 is
  * the node asking to be left alone. Any other status that is not a success is a fault of the node,
  * a 500 included, because Bee answers 500 for a chunk it failed to fetch from the network as well as

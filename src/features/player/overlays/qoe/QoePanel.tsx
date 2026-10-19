@@ -20,7 +20,7 @@ const NOTICE_MS = { copied: 2_000, refused: 8_000 } as const;
 /**
  * The panel: the content `qoeContent` builds, top to bottom, and in its header Copy and Save, which export that same
  * content as JSON. `release` is the viewer's build label, and `topic` names the stream in the saved file's name.
- * Ported from Nandor Komlodi's panel in the streaming monorepo's client.
+ * Ported from the panel in the streaming monorepo's client.
  */
 export const QoePanel: React.FC<{ metrics: QoeMetrics; release: string | null; topic?: string }> = ({
   metrics,

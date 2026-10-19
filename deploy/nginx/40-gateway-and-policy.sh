@@ -1,8 +1,8 @@
 #!/bin/sh
 # Run by nginx's image entrypoint before nginx starts. It turns the image's settings into three files the server
 # includes: how /bee reaches the gateway, the headers every page answer carries, its content security policy among
-# them, and who else may fetch the page's font files. A setting that is missing or malformed stops the container here, with the reason, rather than serving a page
-# that cannot load its streams.
+# them, and who else may fetch the page's font files. A setting that is missing or malformed stops the container
+# here, with the reason, rather than serving a page that cannot load its streams.
 #
 # The page decides which kinds of source a viewer may add, and the policy allows every one of them whatever the
 # deployment: any gateway at an https address, a Bee node on the viewer's own machine or at an https address, and the

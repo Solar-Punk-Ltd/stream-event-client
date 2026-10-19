@@ -9,7 +9,7 @@ import { docker, ownContainerId } from './docker';
  * gateway does. No real BZZ is spent. The settings are fdp-play 3.3.0's own, as the chat aggregator's live test bed
  * carries them (its test/live/cluster.mjs). That bed runs three nodes with a Bee built from source so chunks travel
  * between them. One node pushes to nobody, so the released Bee program serves here, swapped into fdp-play's funded
- * queen image.
+ * queen image. That image's tag, 2.6.0, is a version of its own and not the 3.3.0 of the settings.
  */
 const BEE_VERSION = '2.8.3';
 const FDP_PLAY_TAG = '2.6.0';
@@ -56,7 +56,7 @@ const beeOptions = (chainRpc: string): Record<string, string> => ({
   'api-addr': '0.0.0.0:1633',
   'cors-allowed-origins': '*',
   'allow-private-cidrs': 'true',
-  // Bee 2.8 no longer looks the token up on a chain it does not know, and fdp-play's settings predate that.
+  // Bee 2.8 does not look the token up on a chain it does not know, so its address is given.
   'bzz-token-address': '0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab',
 });
 

@@ -1,7 +1,7 @@
 /**
  * Where the QoE panel sits and how big it is. Pure: no React, no DOM.
  *
- * Ported from Nandor Komlodi's panel in the streaming monorepo's client, with one change of frame:
+ * Ported from the panel in the streaming monorepo's client, with one change of frame:
  * there the panel was positioned inside the player and its bounds were the window seen from the
  * player, here it is fixed to the browser window itself, so every rectangle is in viewport px and
  * the bounds are the viewport (`viewportBounds`). A scroll does not move it, and the player, which

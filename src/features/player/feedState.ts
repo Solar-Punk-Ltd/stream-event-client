@@ -17,10 +17,10 @@ export const FEED_STATE_DEGRADED = 'degraded';
  * The broadcaster ended the stream. The other three describe something still being retried, and this
  * one describes there being nothing left to retry, so nothing a gateway does moves a feed out of it.
  *
- * ⛔ **Not terminal, although it was written as terminal until 2026-09-24.** A declared stream's feeds
- * outlive its session: a broadcaster who stops and comes back continues the same feeds at the next
- * index, and the admin accepts `live` after `vod`. A viewer who had watched such a broadcast end was
- * still being told it had ended fifteen minutes after it came back. So the followers keep a slow watch
+ * ⛔ **Not terminal, although it reads as terminal.** A declared stream's feeds outlive its session:
+ * a broadcaster who stops and comes back continues the same feeds at the next index, and the admin
+ * accepts `live` after `vod`. A viewer who watched such a broadcast end would still be told it had
+ * ended fifteen minutes after it came back. So the followers keep a slow watch
  * on the slot after a finished playlist, and {@link FeedHealthTracker.recordFeedResumed} is what takes
  * a topic back out of this state when that slot is served a playlist that is still open.
  */
@@ -60,7 +60,7 @@ const MANIFEST_RETRY_BASE_MS = 2_000;
  * The longest gap between attempts on a failing gateway, which is also the longest a viewer whose
  * gateway has come back can sit in front of a frozen picture without anything finding out.
  *
- * ⛔ **This was thirty seconds, and thirty seconds was measured to be most of the freeze.** Three
+ * ⛔ **A thirty second ceiling was measured to be most of the freeze.** Three
  * unrelated faults injected under a watching viewer on the four rung ABR ladder, 2026-08-29, live,
  * in a real browser: killing the uploader process froze the picture **59.0s**, pausing the writer
  * bee node for **eight seconds** froze it **58.9s**, and a writer bee outage froze it **58.5s**.
@@ -79,7 +79,7 @@ const MANIFEST_RETRY_BASE_MS = 2_000;
  * of them must not cost more to recover than the one-rung case a ladder is built out of.
  *
  * It is also where this client already draws the line for itself. {@link UNSERVED_SLOT_STALL_MS}
- * is eight seconds, which its own note puts as what its old count of thirty polls meant while healthy,
+ * is eight seconds, which its own note puts as what a count of thirty polls meant while healthy,
  * so eight seconds is the interval at which the player decides a quiet feed is worth telling a viewer
  * about. A retry ceiling longer than that is a client complaining about a fault it has stopped
  * looking for.
@@ -92,7 +92,7 @@ const MANIFEST_RETRY_BASE_MS = 2_000;
  * about four. That is still a **10.7x** reduction against the flood, and one request every eight
  * seconds is not what tips a gateway that is already struggling.
  *
- * The ceiling is also no longer the only thing shortening a recovery. A rung is released the moment
+ * The ceiling is not the only thing shortening a recovery. A rung is released the moment
  * a rung beside it is served (see {@link FeedHealthTracker.recordGatewayReachable}), so this bounds
  * the case where *nothing* is getting through, which is the only case where holding off is the
  * right answer.
@@ -103,7 +103,7 @@ export const MANIFEST_RETRY_CAP_MS = 8_000;
  * How long a feed may sit on a slot the gateway answered for, but had nothing in, before the feed
  * is called stalled.
  *
- * ⛔⛔⛔ **This was a POLL COUNT, and the poll rate is not a constant.** It collapses during exactly
+ * ⛔⛔⛔ **A POLL COUNT would not do, because the poll rate is not a constant.** It collapses during exactly
  * the stall it counts. Measured on two recorded uploader crashes, feed reads went from a 264ms gap
  * before the crash to 1064ms during the freeze, because each read takes about three times as long
  * and the client also spaces unserved reads about four times wider. So thirty polls was about eight
@@ -111,9 +111,9 @@ export const MANIFEST_RETRY_CAP_MS = 8_000;
  * by-product rather than a decision. A 12.4 second freeze accumulated 13 polls, never reached the
  * threshold, and that viewer watched a dead picture for twelve seconds and was told nothing.
  *
- * ⭐ **Eight is what the old count meant while healthy**, so a viewer at the live edge is no more
- * likely to see the overlay than they were. Only the stall case moves, which is the case that was
- * wrong. It is also {@link MANIFEST_RETRY_CAP_MS}, already this client's answer to how long a quiet
+ * ⭐ **Eight is what a thirty poll count meant while healthy**, so a viewer at the live edge is no
+ * more likely to see the overlay than with a count. Only the stall case differs, which is the case
+ * a count got wrong. It is also {@link MANIFEST_RETRY_CAP_MS}, already this client's answer to how long a quiet
  * feed may go unmentioned, reached there from two independent directions.
  *
  * A viewer who has merely caught up with the publisher cannot reach this. A segment lands every 0.5
@@ -125,7 +125,7 @@ export const UNSERVED_SLOT_STALL_MS = 8_000;
 /**
  * How many consecutive unserved polls the walk keeps probing past a refusal for.
  *
- * ⚠️ **Not what decides the overlay any more.** That is {@link UNSERVED_SLOT_STALL_MS}. This bounds
+ * ⚠️ **Not what decides the overlay.** That is {@link UNSERVED_SLOT_STALL_MS}. This bounds
  * only the extra request the ladder walk makes to ask what is behind a refused slot: below
  * `UNSERVED_POLLS_BEFORE_PROBE` a refusal is too likely to be the publisher's own head to be worth
  * asking about, and above this the walk has asked on every poll and found nothing every time, so
@@ -549,8 +549,8 @@ export class FeedHealthTracker {
    * How long a run of unserved polls a topic is currently riding.
    *
    * Read by tests only, and there because a walk that never records one is indistinguishable from a
-   * walk whose feed is advancing. That was the whole of the ladder fault: `recordUnservedSlot` was
-   * never called from `LadderFeedPoller`, so the state it feeds could not fire and nothing failed.
+   * walk whose feed is advancing. A walk that never calls `recordUnservedSlot` is such a walk: the
+   * state it feeds cannot fire and nothing fails.
    */
   unservedPollsRecorded(topicId: string): number {
     return this.topics.get(topicId)?.unservedSlotPolls ?? 0;
@@ -699,7 +699,7 @@ export class FeedHealthTracker {
    *
    * Guarded rather than written unconditionally, because this runs for every held topic on every
    * successful read. An unguarded write would rewrite an entry that did not change, which moves it
-   * to the end of the eviction order and makes the least recently *updated* topic no longer the one
+   * to the end of the eviction order and makes the least recently *updated* topic stop being the one
    * furthest from being watched.
    */
   private endHold(topicId: string): void {

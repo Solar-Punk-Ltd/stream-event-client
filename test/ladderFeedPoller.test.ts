@@ -1120,9 +1120,8 @@ describe('LadderFeedPoller telling the viewer the gateway is gone', () => {
 });
 
 /**
- * ⛔⛔⛔ **`stalled` was dead code on every ladder broadcast.** `recordUnservedSlot` appeared zero
- * times in this file until 2026-08-29, so the counter the state reads was permanently zero and no
- * threshold could have made it fire. Sibling of the `reconnecting` fault in `feedState.test.ts`:
+ * ⛔⛔⛔ **`stalled` is dead code on a ladder unless the poller calls `recordUnservedSlot`.** Never calling it
+ * (found 2026-08-29) leaves the counter the state reads permanently zero, so no threshold can make it fire. Sibling of the `reconnecting` fault in `feedState.test.ts`:
  * that one recorded the right thing under a name nobody read, this one never recorded it at all.
  *
  * The two are the whole difference between the faults measured live on 2026-08-29. When the

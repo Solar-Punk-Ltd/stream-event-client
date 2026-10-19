@@ -1,7 +1,7 @@
 /**
- * The browse page read only `data` off SWR and dropped `error` and `isLoading`, so a gateway nobody
- * could reach rendered as a catalog with no streams in it. A viewer whose gateway was down and a
- * viewer who was early to an event saw the same screen.
+ * The browse page reads `data`, `error` and `isLoading` off SWR. Dropping the last two would render a
+ * gateway nobody can reach as a catalog with no streams in it, and a viewer whose gateway is down
+ * would see the same screen as one who is early to an event.
  */
 
 import assert from 'node:assert/strict';

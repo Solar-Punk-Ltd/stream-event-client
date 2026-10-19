@@ -55,8 +55,7 @@ export function parseSwarmUri(url: string): { owner: string; topic: string } {
  *
  * ⛔ **One definition, because there are two producers.** The uploader publishes the master to a
  * feed of its own and the client builds the same text locally as a fallback for catalog entries
- * written before masters were published. Both used to carry their own copy of this function, each
- * with a comment saying the two had to keep producing identical text. One definition keeps a viewer
+ * written before masters were published. Two copies would have to keep producing identical text. One definition keeps a viewer
  * who switches between the published master and the synthesised one mid-session from seeing the
  * ladder change shape.
  *

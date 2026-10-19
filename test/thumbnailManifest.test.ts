@@ -63,8 +63,8 @@ describe('readPreviewPlaylist', () => {
   /**
    * The catalog is JSON off the network. Every one of these throws inside `BigInt()` or addresses a
    * slot that cannot exist, and the failure would land in a React effect during render rather than
-   * anywhere a reader would look. The old code ignored the field entirely, so falling back to the
-   * search is the behaviour that was already shipping.
+   * anywhere a reader would look. Ignoring the field and falling back to the
+   * search is the behaviour.
    */
   it.each([
     ['negative', -1],
@@ -87,15 +87,15 @@ describe('readPreviewPlaylist', () => {
  * line is not merely awkward downstream, it is unrecoverable, and this is the last place that knows
  * which gateway was meant.
  *
- * The rooted case is the one that used to be passed through untouched, and `MANIFEST_ACCESS_URL` set
+ * The rooted case is the one a viewer may pass through untouched, and `MANIFEST_ACCESS_URL` set
  * to a path rather than a full URL is what produces it. No example configuration does that,
- * which is why it went unnoticed.
+ * which is why it is easy to miss.
  */
 describe('previewSegmentUrl', () => {
   const PAGE_ORIGIN = 'http://viewer.example:10064';
 
   /**
-   * The gateway every deployed viewer is handed, and the case these tests used to miss.
+   * The gateway every deployed viewer is handed, and the case a test with a full-URL gateway misses.
    *
    * A deployed viewer may reach Bee through a proxy on its own origin, so the gateway a card holds
    * is a rooted path, not a URL. Joined onto a media line as it was, every card asked hls.js for
@@ -135,9 +135,9 @@ describe('previewSegmentUrl', () => {
   });
 
   /**
-   * The old condition was `startsWith('http')`, which is true of any reference whose hex happens to
+   * A `startsWith('http')` condition is true of any reference whose hex happens to
    * begin with those four characters. Swarm references are hex, so `http` cannot occur in one, but
-   * the check was reading as a scheme test while only testing a prefix.
+   * that check reads as a scheme test while only testing a prefix.
    */
   it('does not mistake a reference beginning with the letters http for an absolute url', () => {
     expect(previewSegmentUrl('httpabc123', urlsOf(GATEWAY))).toBe(`${GATEWAY}/bytes/httpabc123`);

@@ -3,7 +3,7 @@ import type { QoeContent } from './qoeContent';
 /**
  * The JSON that the panel's Copy and Save buttons export: the panel top to bottom, every string as it prints it,
  * and nothing it does not show. `build` is there only when the panel shows the build line, and a row is its label
- * and value alone, since the colour of a bad value is the panel's and no string. Ported from Nandor Komlodi's panel in
+ * and value alone, since the colour of a bad value is the panel's and no string. Ported from the panel in
  * the streaming monorepo's client.
  */
 export function qoeExportJson(content: QoeContent): string {

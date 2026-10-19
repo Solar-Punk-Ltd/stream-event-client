@@ -1,7 +1,7 @@
 /**
- * The player used to call `hls.recoverMediaError()` on every fatal media error with no window, no
- * escalation and no ending. Recovery re-appends the media that failed, so a broadcast a decoder cannot
- * accept turned into a black player refetching fragments for as long as the tab stayed open.
+ * Calling `hls.recoverMediaError()` on every fatal media error with no window, no escalation and no
+ * ending would loop. Recovery re-appends the media that failed, so a broadcast a decoder cannot
+ * accept would become a black player refetching fragments for as long as the tab stayed open.
  */
 
 import assert from 'node:assert/strict';

@@ -41,10 +41,10 @@ interface CatalogPoll {
  * it in different places. The stack's own uploader removes a changed entry and appends it again, so
  * its changes always land on the last entry. The web2 admin appends an entry when it first publishes
  * it and from then on replaces it where it stands, on go-live, end and every edit, and an unpublish
- * removes an entry without touching any other. This used to compare only the last entries'
- * timestamps, so in admin mode a stream that was not the newest entry could go live, end, be renamed
- * or be unpublished without an open page ever showing it before a reload, and a watch page waiting on
- * a scheduled stream only started for the newest one.
+ * removes an entry without touching any other. Comparing only the last entries'
+ * timestamps would miss this: in admin mode a stream that was not the newest entry could go live, end, be
+ * renamed or be unpublished without an open page showing it before a reload, and a watch page waiting on
+ * a scheduled stream would only start for the newest one.
  *
  * **That includes a catalog that is empty.** Unpublishing the last stream leaves the admin's catalog
  * empty, and only a newer slot can say so: a read that failed or found nothing newer brings no body

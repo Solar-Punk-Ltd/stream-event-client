@@ -11,7 +11,7 @@ import type { SwarmFeature } from './client';
  */
 export const FAILING_AFTER_MS = 10_000;
 
-/** A feature that has read nothing for this long is not failing, since nothing on screen waits on it any more. */
+/** A feature that has read nothing for this long is not failing, since nothing on screen waits on it. */
 export const QUIET_AFTER_MS = 30_000;
 
 /** What the last failing read of a feature ended in. */
