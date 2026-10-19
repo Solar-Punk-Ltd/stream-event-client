@@ -376,8 +376,8 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   stamp, and the page shows that at once without reading. Every sign-in starts that way until the person confirms a
   stamp with Go to app in the Swarm ID window, so My Swarm says "Swarm ID has given this site no stamp yet. Choose
   one and confirm it in the Swarm ID window." and the same button reads Choose a stamp in Swarm ID until it has one.
-- **Warnings above the message field.** At 80% used, or 3 days left, the field says how much is used and when it
-  runs out, offers Change stamp in Swarm ID, Swarm ID's button, and sending goes on. When the stamp ran out or is not
+- **Warnings above the message field.** Only a stamp that stops sending gets one, so a stamp running low shows
+  nothing there, and My Swarm still says how much is used and how many days are left. When the stamp ran out or is not
   usable yet, the field says so, sending is held with what was typed kept, and two buttons offer Change stamp in Swarm
   ID and Let the gateway pay. When Swarm ID gives this site no stamp the first button reads Choose a stamp in Swarm ID. When
   the source picked for Chat history cannot send on the stamp, the field says why, sending is held, and the buttons
