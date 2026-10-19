@@ -5,9 +5,11 @@ import { type OwnFeedChat, useOwnFeedChat } from '@/features/chat/stamp/OwnFeedC
 import type { OwnFeedRecord } from '@/features/chat/stamp/ownFeedComparison';
 import { COPIED } from '@/features/chat/stamp/ownFeedCopies';
 import {
-  COUNTED,
-  COUNTING,
+  CHECKED,
+  CHECKING,
   messagesText,
+  NOT_CHECKED,
+  REFUSED,
   TOO_LARGE,
   useOwnFeedComparison,
 } from '@/features/chat/stamp/useOwnFeedComparison';
@@ -33,7 +35,7 @@ const IDLE: SyncState = { status: NOT_SYNCED };
 /**
  * My messages in the chat on screen against the copies in my own feed, in the My stamp box, with a sync that writes
  * the missing copies with my stamp, one after the other, stopping at the first that fails, and counts again after.
- * Shown only while a chat on my own stamp is on screen.
+ * Shown only while a chat on my own stamp is on screen, and counted when it shows, each count read afresh.
  */
 export function OwnFeedSync() {
   const chat = useOwnFeedChat();
@@ -41,7 +43,10 @@ export function OwnFeedSync() {
 }
 
 function OwnFeedSyncOf({ chat }: { readonly chat: OwnFeedChat }) {
-  const { count, recount, refresh } = useOwnFeedComparison(chat.source, chat.sender);
+  const { state: count, check } = useOwnFeedComparison(chat.source, chat.sender);
+  const recount = useCallback(() => check(), [check]);
+  /** Counts anew behind the count on screen, which stays until the new one is made. */
+  const refresh = useCallback(() => check(true), [check]);
   const [sync, setSync] = useState<SyncState>(IDLE);
   const isShown = useRef(true);
   useEffect(() => {
@@ -51,6 +56,7 @@ function OwnFeedSyncOf({ chat }: { readonly chat: OwnFeedChat }) {
     };
   }, []);
 
+  useEffect(recount, [recount]);
   useEffect(() => chat.onSendSettled(refresh), [chat, refresh]);
 
   const copyAll = useCallback(
@@ -75,7 +81,7 @@ function OwnFeedSyncOf({ chat }: { readonly chat: OwnFeedChat }) {
     [chat, recount],
   );
 
-  if (count.status === COUNTING) {
+  if (count.status === CHECKING || count.status === NOT_CHECKED) {
     return (
       <div className="connect-own-feed" aria-label={OWN_FEED_GROUP} role="group">
         <span className="connect-ex">Counting…</span>
@@ -89,7 +95,14 @@ function OwnFeedSyncOf({ chat }: { readonly chat: OwnFeedChat }) {
       </div>
     );
   }
-  if (count.status !== COUNTED) {
+  if (count.status === REFUSED) {
+    return (
+      <div className="connect-own-feed" aria-label={OWN_FEED_GROUP} role="group">
+        <span className="connect-ex">This source does not serve your own feed, so it cannot be counted here.</span>
+      </div>
+    );
+  }
+  if (count.status !== CHECKED) {
     return (
       <div className="connect-own-feed" aria-label={OWN_FEED_GROUP} role="group">
         <span className="connect-ex">Your own feed could not be counted.</span>

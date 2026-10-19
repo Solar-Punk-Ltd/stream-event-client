@@ -47,3 +47,22 @@
   font: inherit;
   cursor: pointer;
 }
+
+.own-feed-address,
+.own-feed-progress {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2xs) var(--spacing-xs);
+  min-width: 0;
+}
+
+.own-feed-address-value {
+  font-family: var(--font-family-mono);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.own-feed-verify {
+  justify-self: start;
+}

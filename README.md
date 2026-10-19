@@ -176,14 +176,23 @@ public chat address, a check mark for a signature that matches the text, for a S
 who paid for the write (Event gateway or Own stamp). An address shows short, `0x0d7f…ab12`, and a press shows it in
 full with a Copy button beside it, which reads Copied for three seconds after a copy, and a screen reader hears that the
 copy worked. A press on the check mark shows the signature the same way. For a message sent with its sender's own
-stamp, the details also compare the sender's own feed, `ownFeedTopic(chatTopic)` under their chat address, with the
-chat: **Own feed: N messages**, **Chat feed: N messages on their own stamp**, a tick and In their own feed when this
-message has its copy there or Not in their own feed when it has none, and, when the two differ, which messages are
-missing from their own feed and which from the chat feed, five of each at most, newest first. Only the sender's
-messages on their own stamp count, since a message the gateway paid for never gets a copy. They say Counting… while
-they read, No own feed found when none is found, since copies that have not reached Swarm yet look the same as none, Their own feed could not be counted with Try again when a read
-fails, and Their own feed is too large to count when it names more entries than the sender's messages in the chat
-and 25 more, or more than 1,000. Both are read through the source picked for Chat history: the chat feed from its
+stamp, the details also show the sender's own feed, `ownFeedTopic(chatTopic)` under their chat address, as **Own
+feed: a1b2…c3d4/5e6f…7a8b**, its owner and topic short, with a Copy button that copies both in full as `owner/topic`.
+Opening the details reads nothing more. A **Verify** button compares the own feed with the chat only when pressed,
+and says **Checked 12 of 40** while it reads, counting the entries of the chat feed and of the own feed, with a
+**Stop** button. It then says how many messages from the sender the chat holds and whether every signature is valid,
+naming the ones that fail. It splits them by who paid, as each message's signed `via` says: **X on their own stamp,
+all X in their own feed**, or how many of those are missing from their own feed, and **Y paid by the gateway, which
+have no own-feed copy**, since a message the gateway paid for never gets a copy and so is never missing. It lists the
+messages missing from their own feed and the copies in their own feed that are missing from the chat feed, five of
+each at most, newest first, and says whether this message is in their own feed. It says no own feed found when none
+is found, since copies that have not reached Swarm yet look the same as none, Their own feed could not be read when a
+read fails, and Their own feed is too large to check when it names more entries than the sender's messages in the
+chat and 25 more, or more than 1,000. When the source answers the chat but turns away the sender's own feed, as an
+event gateway that serves only the chat server's feeds does, it says in one line that this source does not serve
+their own feed. Every press reads the whole chat and the whole own feed afresh, and nothing is kept from an earlier
+press, because a chat read before the own feed would lack messages the own feed already holds and call them missing
+from the chat feed. Both are read through the source picked for Chat history: the chat feed from its
 newest entry back through its history files, each file older than the one before and 50 at most, and each entry no
 file holds read by its own index, 500 at most, then the own feed from its first entry to its newest. Past those
 limits the chat is not counted. An entry the source answers is not there counts as missing, by the rule the chat
@@ -192,10 +201,9 @@ makes the count fail rather than call a message missing. Each copy is read by it
 own single-owner chunk, and every copy and every chat message must pass the same check as a message shown in the
 chat and be for this chat, the copies also the sender's, or it is not counted. A copy and a chat message are the same
 message when their signatures are: a message has one valid signature, over every field it says, so a copy with the
-same signature is the message the chat feed shows, as far as the chat server that writes the feed is trusted. One
-walk of the chat is shared by every details card and My stamp while a chat is on screen, a finished count is shown
-again for three minutes, at most 32 are kept, and closing the details stops their reads. The comparison only reads
-(`src/features/chat/stamp/ownFeedComparison.ts`, `src/features/chat/stamp/ownFeedCounter.ts`).
+same signature is the message the chat feed shows, as far as the chat server that writes the feed is trusted.
+Stopping, pressing Verify again and closing the details each end the reads of the check running. The comparison only
+reads (`src/features/chat/stamp/ownFeedComparison.ts`).
 
 ### Signing in with Swarm ID
 
@@ -406,7 +414,9 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   47 copied. It stops at the first copy that fails, since every later copy would try that one again first, and says
   how many were not copied, that one and the rest, with Try again. Once a sync ends it counts again, and so it does
   after each message the viewer sends, once it is read back and its copy written or given up, behind the count on
-  screen. It says Counting… while it first reads, and Your own feed is too large to count past the limits.
+  screen. Each count reads the chat and the own feed afresh, as Verify in the details does. It says Counting…
+  while it first reads, Your own feed is too large to count past the limits, and that the source does not serve
+  your own feed when the source turns that feed away.
   **A known limit.** The next index is counted from one read of the feed's newest entry each time the chat starts,
   so a chat started again seconds after a send, before that entry can be read back, or another device writing the
   same feed at once, can write a copy at an index already used.
