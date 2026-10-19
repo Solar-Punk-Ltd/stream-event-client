@@ -121,6 +121,15 @@ describe('My Swarm', () => {
     expect(dialog()?.textContent?.split('Ada')).toHaveLength(2);
   });
 
+  it('asks a guest for a name with advice under it, then a beta note before Swarm ID', async () => {
+    await openConnect();
+    const id = section('ID')!;
+
+    expect(id.textContent).toContain('For the smoothest experience, go with the defaults and a simple name.');
+    expect(id.querySelector('.connect-beta')?.textContent).toContain('Beta: Swarm ID and your own way into Swarm');
+    expect(button('Chat as guest').classList.contains('connect-small')).toBe(false);
+  });
+
   it('has no ID on a site with no chat', async () => {
     await openConnect(minimalConfig());
 
@@ -367,6 +376,16 @@ describe('use for', () => {
     expect(labels).toEqual(['Video', 'Stream list', 'Previews', 'Chat history']);
     expect(text()).not.toContain('Event chat service');
     expect(text()).not.toContain('Same as video');
+  });
+
+  it('shows the default gateway for all features saved on the node in this browser', async () => {
+    await openConnect();
+    const id = seen.app!.addSource({ type: 'weeb-3', name: '', url: '' });
+    seen.app!.setRouting({ ...seen.app!.routing, source: id });
+    await settle();
+    const [all] = [...section('Use for')!.querySelectorAll('select')];
+
+    expect(all.selectedOptions[0]?.textContent).toBe('Event gateway');
   });
 
   it('offers the node in this browser for the video alone, and says what it is used for', async () => {
