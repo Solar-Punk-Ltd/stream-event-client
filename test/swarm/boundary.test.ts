@@ -55,8 +55,10 @@ describe('the Swarm layer', () => {
  * The modules of the Swarm layer the features and the app may import: the client and what it reads in,
  * and three that make no requests, which network an address is on, the sources a viewer reads from, and
  * which part reads from which.
- * A provider's own files and the registry of kinds stay behind it, so a new kind of provider changes
- * nothing outside `src/swarm`.
+ * A provider's own files and the registry of kinds stay behind it, so a new kind of provider reaches every
+ * part through the client without a feature importing it. What a new kind or source type still touches outside
+ * `src/swarm`, the panel's words and tiles, the checks and the chat's own-stamp route, is listed in
+ * `docs/extending-providers.md`.
  */
 const PUBLIC_SURFACE = [
   'client',
