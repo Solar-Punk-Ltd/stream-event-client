@@ -23,7 +23,7 @@ describe("the checks' lines", () => {
     ]);
     expect(CHECK_STEPS['weeb-3'].map((step) => checkLine('weeb-3', step))).toEqual([
       'Node started',
-      'Connected to 20 peers',
+      'Connected to a peer',
       'Reads a chunk',
       'Reads bytes',
       "Reads this event's stream list",
@@ -53,7 +53,7 @@ describe('what a failure says', () => {
     words.NOT_THE_STREAM_LIST,
     words.NOTHING_TO_READ,
     words.NODE_FAILED,
-    words.tooFewPeers(7, 60_000),
+    words.noPeers(60_000),
   ];
 
   it.each(failures.map((failure) => [failure.reason, failure]))(

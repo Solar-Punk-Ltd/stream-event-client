@@ -33,7 +33,7 @@ Two services, set up apart from this app:
 - **The chat aggregator**, on swarm-chat-js 9, which listens on the shared address the key and topic above name, and
   appends each message to the stream's chat feed, `chat-<stream topic>` under `chat.feedOwner`. Opening a chat reads
   the newest history file the chat feed points to, then the entries after it. When the feed's newest entry is not found
-  in time, as through Weeb3 where every entry not there costs a long wait, the library opens the chat empty and reads on
+  in time, the library opens the chat empty and reads on
   from its first entry, and the chat says "Loading the chat…" until that read answers. "No messages yet." shows only
   once it found nothing. The endpoint viewers write through must be a different Bee node from the one the aggregator
   listens on, because Bee hands a message on to a listener only when it arrives from another node.

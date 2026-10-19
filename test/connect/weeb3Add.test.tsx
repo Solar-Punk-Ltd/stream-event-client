@@ -114,12 +114,13 @@ describe('adding the node in this browser', () => {
     expect(dialog()?.querySelector('h2')?.textContent).toBe('Add Weeb3');
     expect(text()).toContain('Downloading the node');
     const node = await waitFor(() => fakeWeeb3.current!.nodes[0]);
-    node.peers = 7;
-    await waitFor(() => (text().includes('7 of 200') ? true : null), 100);
-    expect(text()).toContain('200 is the healthy target. Playback can start before that.');
+    await waitFor(
+      () => (text().includes('200 is the healthy target. Playback can start before that.') ? true : null),
+      100,
+    );
     expect(button('Add Weeb3').disabled).toBe(true);
 
-    node.peers = 25;
+    node.peers = 1;
     await waitFor(() => (button('Add Weeb3').disabled ? null : true), 200);
     expect([...document.querySelectorAll('[data-check]')].map((line) => line.getAttribute('data-state'))).toEqual([
       'passed',

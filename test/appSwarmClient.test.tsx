@@ -260,7 +260,7 @@ describe("the app's Swarm client", () => {
     ).toEqual([id]);
   });
 
-  it('reads every part from the node in this browser where the saved settings put it, and holds the node meanwhile', async () => {
+  it('reads only the video from the node in this browser when the saved settings put every part on it, and holds the node', async () => {
     const node = { id: 'added-1', type: 'weeb-3', name: 'Node in this browser', url: '' };
     localStorage.setItem('swarm-sources', JSON.stringify([node]));
     localStorage.setItem(
@@ -268,7 +268,7 @@ describe("the app's Swarm client", () => {
       JSON.stringify({
         mode: 'per-part',
         source: 'event',
-        parts: { player: 'event', 'stream-list': 'added-1', previews: 'added-1', chat: 'added-1' },
+        parts: { player: 'added-1', 'stream-list': 'added-1', previews: 'added-1', chat: 'added-1' },
       }),
     );
 
@@ -276,13 +276,13 @@ describe("the app's Swarm client", () => {
     await settle();
 
     expect(current().parts).toEqual({
-      player: 'event',
-      'stream-list': 'added-1',
-      previews: 'added-1',
-      chat: 'added-1',
+      player: 'added-1',
+      'stream-list': 'event',
+      previews: 'event',
+      chat: 'event',
     });
-    expect(current().chatHistoryBeeUrl).toBeNull();
-    expect(sharedWeeb3Runtime().status().state, 'the node starts for the parts that read from it').not.toBe('stopped');
+    expect(current().chatHistoryBeeUrl).toBe(CHAT_READ);
+    expect(sharedWeeb3Runtime().status().state, 'the node starts for the video that reads from it').not.toBe('stopped');
   });
 
   it("reads the event gateway's chat history at the chat read address, where it serves the chat's paths", async () => {

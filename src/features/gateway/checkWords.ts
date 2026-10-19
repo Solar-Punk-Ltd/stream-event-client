@@ -18,8 +18,8 @@ export const CHECK_STEPS: Readonly<Record<SourceType, readonly CheckStep[]>> = {
   'weeb-3': ['start', 'peers', 'chunk', 'bytes', 'feed'],
 };
 
-/** How many peers the node in this browser connects to before its reads are checked. */
-export const WEEB3_CHECK_PEERS = 20;
+/** The node in this browser's reads are checked from its first peer, since a read needs only one. */
+export const WEEB3_CHECK_PEERS = 1;
 
 const LINES: Readonly<Record<CheckStep, string>> = {
   https: 'Answers over https',
@@ -30,7 +30,7 @@ const LINES: Readonly<Record<CheckStep, string>> = {
   bytes: 'Reads bytes',
   feed: "Reads this event's stream list",
   start: 'Node started',
-  peers: `Connected to ${WEEB3_CHECK_PEERS} peers`,
+  peers: 'Connected to a peer',
 };
 
 /** A check's line as the list shows it. A Bee node of the viewer's own must also be ready, which a gateway is not asked. */
@@ -158,7 +158,7 @@ export const NODE_FAILED: CheckFailure = {
   fix: 'Test again to start it once more.',
 };
 
-export const tooFewPeers = (peers: number, ms: number): CheckFailure => ({
-  reason: `${peers} of ${WEEB3_CHECK_PEERS} peers after ${seconds(ms)} s.`,
+export const noPeers = (ms: number): CheckFailure => ({
+  reason: `No peers after ${seconds(ms)} s.`,
   fix: 'Check your network, then test again.',
 });

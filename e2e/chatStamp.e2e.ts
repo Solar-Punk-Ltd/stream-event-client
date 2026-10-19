@@ -29,8 +29,8 @@ import {
  * routes: its reads replay the recording, and its writes are recorded and taken. A message on the stamp is stamped by
  * the fake Swarm ID and posted to that node, never to the event gateway, and its copy in the viewer's own feed after it.
  * A stamp that ran out holds the message field with a way to let the gateway pay. With Weeb3, a fake of the node in
- * this browser, picked for the chat history instead, the chat reads through it and a message on the stamp is pushed
- * through it, to no Bee node and not to the gateway.
+ * this browser, as the only node in the list, the event gateway reads the chat and a message on the stamp is pushed
+ * through Weeb3, to no Bee node and not to the gateway.
  */
 
 const MY_BEE_NODE = 'http://localhost:1633';
@@ -58,9 +58,10 @@ interface Written {
 type ChatSource = 'bee-node' | 'weeb-3';
 
 /**
- * The deployment as recorded, with Swarm ID offered, and the viewer's own Bee node or Weeb3 added and picked for the
- * chat history while everything else reads the event gateway, as a browser that chose so before keeps it. Weeb3's
- * chat reads find nothing, so its chat opens empty.
+ * The deployment as recorded, with Swarm ID offered, and the viewer's own Bee node or Weeb3 added and saved for the
+ * chat history while everything else reads the event gateway, as a browser that chose so before keeps it. Weeb3 does
+ * not serve the chat history, so with Weeb3 the event gateway reads it, and its own feed, which the recording does
+ * not hold, answers as not found.
  */
 async function deployment(
   page: Page,
@@ -110,6 +111,9 @@ async function deployment(
     return route.fallback({ url: `${PREVIEW_ORIGIN}${GATEWAY_PATH}${pathname}${search}` });
   });
   if (chatSource === 'weeb-3') {
+    await page.route(`**/feeds/${CHAT_ADDRESS}/**`, (route) =>
+      route.fulfill({ status: 404, contentType: 'application/json', body: '{"message":"Not Found","code":404}' }),
+    );
     await claimServiceWorkerControl(page);
     await serveFakeWeeb3(page, FAKE_WEEB3);
     await page.route(`${PREVIEW_ORIGIN}/weeb-3/chunks/**`, (route) =>
@@ -240,7 +244,7 @@ test('a stamp that ran out holds the message, and the viewer may let the gateway
   expect(check.ok && check.message).toMatchObject({ text: 'waiting for a stamp', via: MessageVia.GATEWAY });
 });
 
-test('a message on my own stamp with Weeb3 reading the chat is pushed through Weeb3, never to a Bee node or the gateway', async ({
+test('a message on my own stamp with Weeb3 and no Bee node in the list is pushed through Weeb3, never to the gateway', async ({
   page,
 }) => {
   const { chat, toGateway, toMyNode, swarmId } = await deployment(page, () => SITE_STAMP, 'weeb-3');

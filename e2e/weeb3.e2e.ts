@@ -9,8 +9,8 @@ import { LadderGateway } from './ladderGateway';
  * module of the package's shape, and its WebAssembly module with a few bytes. The page is told a service worker
  * controls it, which the real package's worker would, so the node can be ready. A viewer who added it before picks it
  * for the video in Connect, where its row shows how far the node has got, and on the watch page it plays bare in its
- * own player once the node is ready. A node that fails says so and nothing takes its place. Picked for all features,
- * it reads the stream list through its own route and the gateway is never asked for it. Adding it, which reads real
+ * own player once the node is ready. A node that fails says so and nothing takes its place. It serves the video alone,
+ * so All features does not offer it, and a routing saved on it reads the stream list from the gateway. Adding it, which reads real
  * chunks through it, is the unit suite's, since a fake package serves none. The real package and the network are never
  * reached.
  */
@@ -30,8 +30,8 @@ async function pickNodeInThisBrowser(page: Page, rowSays: string): Promise<void>
   const useFor = connect.getByRole('region', { name: 'Use for' });
   await expect(
     useFor.getByLabel('All features', { exact: true }).locator('option', { hasText: 'Weeb3' }),
-    'it can be the one source for all features, as any source',
-  ).toBeEnabled();
+    'it is not offered for all features, since it serves the video alone',
+  ).toHaveCount(0);
   await useFor.getByRole('button', { name: 'Per feature', exact: true }).click();
   await useFor.getByLabel('Video', { exact: true }).selectOption({ label: 'Weeb3' });
   const row = connect.locator('[data-source-row]', { hasText: 'Weeb3' });
@@ -80,7 +80,7 @@ test('a weeb-3 node that fails says so on the watch page, and the video stays on
   await expect(page.locator('.swarm-hls-player-wrapper'), "the app's player never takes its place").toHaveCount(0);
 });
 
-test('weeb-3 picked for all features reads the stream list through the node, and the gateway is never asked for it', async ({
+test('a routing saved with weeb-3 for all features reads the stream list from the gateway, never through the node', async ({
   page,
 }) => {
   const gateway = new LadderGateway({ servesMaster: true });
@@ -109,6 +109,6 @@ test('weeb-3 picked for all features reads the stream list through the node, and
   await page.goto('/');
 
   await expect(page.getByText('Ladder test stream').first()).toBeVisible({ timeout: 60_000 });
-  expect(gateway.count('weeb3Catalog'), 'the list came through the node').toBeGreaterThan(0);
-  expect(gateway.count('catalog'), 'the gateway was never asked for the list').toBe(0);
+  expect(gateway.count('catalog'), 'the list came from the gateway').toBeGreaterThan(0);
+  expect(gateway.count('weeb3Catalog'), 'the node was never asked for the list').toBe(0);
 });

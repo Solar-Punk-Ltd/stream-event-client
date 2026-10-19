@@ -22,6 +22,7 @@ import {
   LOCAL_NETWORK_BLOCKED,
   MIXED_CONTENT_BLOCKED,
   NODE_FAILED,
+  noPeers,
   noAnswerFor,
   NOT_BEE,
   NOT_HTTPS,
@@ -30,7 +31,6 @@ import {
   NOTHING_TO_READ,
   notReady,
   readFailure,
-  tooFewPeers,
   VERSION_NOT_STATED,
   WEEB3_CHECK_PEERS,
 } from './checkWords';
@@ -104,7 +104,7 @@ export function firstFailure(results: readonly StepState[]): CheckFailure | null
 
 /** How long the node in this browser may take to download and start, its own two deadlines together. */
 const WEEB3_START_WAIT_MS = 90_000;
-/** How long it may take to reach the peers the checks wait for, once started. */
+/** How long it may take to reach its first peer, once started. */
 const WEEB3_PEERS_WAIT_MS = 60_000;
 /** How often the node's state is read while the checks wait on it. */
 const WEEB3_POLL_MS = 500;
@@ -442,7 +442,7 @@ class CheckRun {
       }
       const waitedMs = this.now() - startedAtMs;
       if (waitedMs >= WEEB3_PEERS_WAIT_MS) {
-        return fail(tooFewPeers(peers, waitedMs));
+        return fail(noPeers(waitedMs));
       }
       if (this.context.signal?.aborted) {
         return fail(STOPPED);

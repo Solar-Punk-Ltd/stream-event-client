@@ -43,8 +43,8 @@ describe('which source a message on my own stamp goes out through', () => {
     });
   });
 
-  it('is Weeb3 when Weeb3 is picked for Chat history, even with a Bee node in the list', () => {
-    expect(ownStampRoute([EVENT, NODE_A, WEEB3], WEEB3.id)).toEqual({ ok: true, through: 'weeb-3' });
+  it('is Weeb3 while the event gateway reads the chat history and the list has no Bee node', () => {
+    expect(ownStampRoute([EVENT, WEEB3], EVENT.id)).toEqual({ ok: true, through: 'weeb-3' });
   });
 
   it('is the Bee node picked for Chat history over an earlier Bee node in the list', () => {

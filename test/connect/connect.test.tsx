@@ -16,6 +16,7 @@ import {
   type,
   waitFor,
 } from '../helpers/dom';
+import { WEEB3_PARTS_NOTE } from '../../src/features/connect/connectWords';
 import { chatConfig, connectPage, seen } from '../helpers/connectPage';
 import { minimalConfig } from '../helpers/themeChoice';
 
@@ -118,6 +119,15 @@ describe('My Swarm', () => {
 
     expect(dialog()?.querySelector('h2')?.textContent).toBe('My Swarm');
     expect(dialog()?.textContent?.split('Ada')).toHaveLength(2);
+  });
+
+  it('asks a guest for a name with advice under it, then a beta note before Swarm ID', async () => {
+    await openConnect();
+    const id = section('ID')!;
+
+    expect(id.textContent).toContain('For the smoothest experience, go with the defaults and a simple name.');
+    expect(id.querySelector('.connect-beta')?.textContent).toContain('Beta: Swarm ID and your own way into Swarm');
+    expect(button('Chat as guest').classList.contains('connect-small')).toBe(false);
   });
 
   it('has no ID on a site with no chat', async () => {
@@ -368,20 +378,38 @@ describe('use for', () => {
     expect(text()).not.toContain('Same as video');
   });
 
-  it('offers the node in this browser for every part and for all features', async () => {
+  it('shows the default gateway for all features saved on the node in this browser', async () => {
+    await openConnect();
+    const id = seen.app!.addSource({ type: 'weeb-3', name: '', url: '' });
+    seen.app!.setRouting({ ...seen.app!.routing, source: id });
+    await settle();
+    const [all] = [...section('Use for')!.querySelectorAll('select')];
+
+    expect(all.selectedOptions[0]?.textContent).toBe('Event gateway');
+  });
+
+  it('offers the node in this browser for the video alone, and says what it is used for', async () => {
     await openConnect();
     seen.app!.addSource({ type: 'weeb-3', name: '', url: '' });
     await settle();
+    const weeb3In = (select: HTMLSelectElement) =>
+      [...select.options].some(({ textContent }) => textContent === 'Weeb3');
     const [all] = [...section('Use for')!.querySelectorAll('select')];
-    expect([...all.options].find((option) => option.textContent === 'Weeb3')?.disabled).toBe(false);
+    expect(weeb3In(all)).toBe(false);
+    expect(section('Use for')!.textContent).toContain(WEEB3_PARTS_NOTE);
     click(button('Per feature'));
     await settle();
 
-    for (const select of section('Use for')!.querySelectorAll('select')) {
-      const node = [...select.options].find((option) => option.value.startsWith('added-'));
-      expect(node?.textContent).toBe('Weeb3');
-      expect(node?.disabled).toBe(false);
-    }
+    const offered = [...section('Use for')!.querySelectorAll('label')].map((label) => [
+      label.textContent,
+      weeb3In(section('Use for')!.querySelector<HTMLSelectElement>(`#${CSS.escape(label.htmlFor)}`)!),
+    ]);
+    expect(offered).toEqual([
+      ['Video', true],
+      ['Stream list', false],
+      ['Previews', false],
+      ['Chat history', false],
+    ]);
   });
 });
 

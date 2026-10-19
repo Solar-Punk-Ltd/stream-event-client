@@ -9,7 +9,7 @@ import {
   NOTHING_TO_READ,
   notReady,
   readFailure,
-  tooFewPeers,
+  noPeers,
   VERSION_NOT_STATED,
 } from '../../src/features/gateway/checkWords';
 import {
@@ -373,12 +373,21 @@ describe('the checks before the node in this browser is added', () => {
     expect(results[0]).toMatchObject({ state: 'failed', failure: NODE_FAILED });
   });
 
-  it('fail a node that found too few peers in its minute', async () => {
+  it('fail a node that found no peer in its minute', async () => {
     const { source, context, target } = world('weeb-3', '');
-    source.current = { state: 'ready', peers: 7 };
+    source.current = { state: 'ready', peers: 0 };
     const results = await runSourceChecks(target, context);
 
     expect(results[1].state).toBe('failed');
-    expect(results[1].state === 'failed' && results[1].failure.reason).toBe(tooFewPeers(7, 60_000).reason);
+    expect(results[1].state === 'failed' && results[1].failure.reason).toBe(noPeers(60_000).reason);
+  });
+
+  it('check the reads of a node from its first peer', async () => {
+    const { source, context, target } = world('weeb-3', '');
+    source.current = { state: 'starting', peers: 1 };
+    const results = await runSourceChecks(target, context);
+
+    expect(results[1]).toMatchObject({ step: 'peers', state: 'passed' });
+    expect(results.at(-1)).toMatchObject({ step: 'feed', state: 'passed' });
   });
 });

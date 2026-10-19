@@ -3,6 +3,7 @@
  * Pure, so the app keeps it in the browser and Connect shows it.
  */
 import { SWARM_FEATURES, type SwarmFeature } from './client';
+import type { Source, SourceType } from './sources';
 
 const ROUTING_MODES = ['one', 'per-part'] as const;
 
@@ -18,6 +19,27 @@ export interface Routing {
   /** Each part's own source in {@link RoutingMode} `per-part`. */
   readonly parts: PartSources;
 }
+
+/**
+ * The parts a kind of source may be picked for. Weeb3 serves the video alone: its newest-entry search makes the
+ * stream list, the previews and the chat history slow. A message on the viewer's own stamp can still be sent through
+ * it, which Use for does not decide.
+ */
+const SERVED_PARTS: Readonly<Record<SourceType, readonly SwarmFeature[]>> = {
+  gateway: SWARM_FEATURES,
+  'bee-node': SWARM_FEATURES,
+  'weeb-3': ['player'],
+};
+
+export function servesPart(type: SourceType, feature: SwarmFeature): boolean {
+  return SERVED_PARTS[type].includes(feature);
+}
+
+export function servesEveryPart(type: SourceType): boolean {
+  return SWARM_FEATURES.every((feature) => servesPart(type, feature));
+}
+
+type RoutedSource = Pick<Source, 'id' | 'type'>;
 
 function partsFrom(source: string): PartSources {
   return Object.fromEntries(SWARM_FEATURES.map((feature) => [feature, source])) as unknown as PartSources;
@@ -59,19 +81,26 @@ export function withoutSource(routing: Routing, id: string, defaultId: string): 
 }
 
 /**
- * The source each part reads from now. A source no longer known reads from the default gateway, so a
- * removed source or a stale saved routing never leaves a part reading from nowhere.
+ * The source each part reads from now. A source no longer known, or one that may not serve that part, reads from the
+ * default gateway, so a removed source or a stale saved routing never leaves a part reading from nowhere. In
+ * {@link RoutingMode} `one` a source that cannot serve every part is passed over whole.
  */
-export function resolveRouting(routing: Routing, knownIds: readonly string[], defaultId: string): PartSources {
-  const known = (id: string) => (knownIds.includes(id) ? id : defaultId);
+export function resolveRouting(routing: Routing, sources: readonly RoutedSource[], defaultId: string): PartSources {
+  const typeOf = (id: string) => sources.find((source) => source.id === id)?.type;
   if (routing.mode === 'one') {
-    return partsFrom(known(routing.source));
+    const type = typeOf(routing.source);
+    return partsFrom(type !== undefined && servesEveryPart(type) ? routing.source : defaultId);
   }
+  const served = (feature: SwarmFeature) => {
+    const id = routing.parts[feature];
+    const type = typeOf(id);
+    return type !== undefined && servesPart(type, feature) ? id : defaultId;
+  };
   return {
-    player: known(routing.parts.player),
-    'stream-list': known(routing.parts['stream-list']),
-    previews: known(routing.parts.previews),
-    chat: known(routing.parts.chat),
+    player: served('player'),
+    'stream-list': served('stream-list'),
+    previews: served('previews'),
+    chat: served('chat'),
   };
 }
 
