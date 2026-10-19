@@ -54,7 +54,6 @@ export interface ProviderStatus {
 /** Where a player starts a stream: at its newest entry, or at the first it can rebuild. */
 export type PlaybackStart = 'live' | 'beginning';
 
-/** A player a provider brings with it, which plays a stream into a video element the page owns. */
 /** One quality of a stream an own player plays, by the level the player knows it as. */
 export interface PlayerLevel {
   readonly level: number;
@@ -69,6 +68,7 @@ export interface PlayerQuality {
   readonly currentLevel: number;
 }
 
+/** A player a provider brings with it, which plays a stream into a video element the page owns. */
 export interface OwnPlayer {
   attach(video: HTMLVideoElement, owner: string, topic: string, from: PlaybackStart): Promise<void>;
   /** The attached stream's qualities, or null before they have loaded. Absent for a player that offers no choice. */
