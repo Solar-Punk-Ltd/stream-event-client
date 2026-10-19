@@ -104,6 +104,8 @@ export function SwarmIdButton({
       button.unmount();
       setIsRefused(false);
       setIsShown(false);
+      // A window the old frame opened never reports to the new one, so its spinner must not outlive it.
+      setWindowState(null);
     };
   }, [canMount, mountSwarmIdButton, attempt]);
 

@@ -290,6 +290,21 @@ describe('the Swarm ID button in My Swarm', () => {
     expect(swarmId.client().disconnectCalls).toBe(0);
   });
 
+  it('spins over the button only while the window it opened is signing in', async () => {
+    const swarmId = await fakeSwarmId();
+    await header(swarmId);
+    click(button('My Swarm'));
+    const working = () => dialog()?.querySelector('.swarm-id-button-working .spinner');
+
+    expect(working(), 'no spinner before the click').toBeFalsy();
+    click(swarmIdButton('Sign in with Swarm ID'));
+    await settle();
+    expect(working(), 'a spinner while the window is open').toBeTruthy();
+    swarmId.client().closeWindow();
+    await settle();
+    expect(working(), 'gone once the window closed').toBeFalsy();
+  });
+
   it('says when the browser blocked the window, honestly: only the button opens it, so the line says what to allow', async () => {
     const swarmId = await fakeSwarmId({}, (client) => {
       client.nextWindow = 'blocked';
