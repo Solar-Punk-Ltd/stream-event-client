@@ -121,6 +121,7 @@ defaults for that visit:
 | `stream-event-client:chat-session`         | A guest's chat login: the display name, the chat key this browser made for them, and its address             | `src/features/chat/auth/persistence.ts`               |
 | `stream-event-client:chat-stamp:<address>` | Per account, by its chat address on this site: whether the gateway or their own stamp pays                   | `src/features/chat/stamp/chatStampChoice.ts`          |
 | `stream-event-client:qoe-panel.v1`         | Where the playback quality panel (`?qoe=1`) sits, its size, and whether it is open                           | `src/features/player/overlays/qoe/qoePanelStorage.ts` |
+| `stream-event-client:own-player-quality`   | The Weeb3 player's quality: `by-peers`, or the height held, such as `720`                                    | `src/features/player/qualityChoice.ts`                |
 
 The Swarm ID sign-in is not among these. The Swarm ID library keeps what it needs for it, which this list does not
 cover. Only viewer-added sources are stored: the offered gateways come from `config.json` on every load.
