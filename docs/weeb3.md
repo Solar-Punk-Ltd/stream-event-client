@@ -39,14 +39,23 @@ worker controls the page, and counts as failed when it is not ready after 30 s (
 - **The video, in weeb-3's own player.** With weeb-3 as the video's source the watch page plays the stream with
   weeb-3's player (`src/features/player/OwnPlayerStage.tsx`, through the provider's `ownPlayer`), bare: a video element
   with the browser's controls, from the newest entry for a live stream and the beginning for a finished one, and none
-  of this app's overlays or `?level=`. The quality menu weeb-3 adds beside its video is hidden, and its player, which
-  starts held at the highest quality, is set to choose its quality itself once the stream is attached, as this app's
-  own player does (`weeb3Provider.ts`). One quiet line under the player, never over the video, shows the download,
+  of this app's overlays or `?level=`. The quality menu weeb-3 adds beside its video is hidden. One quiet line under the player, never over the video, shows the download,
   then the peers out of 200 with the same note under 200, until the node is ready, and says so again if it loses its
   peers. The stream is attached once the node is ready. Nothing replaces weeb-3's player: one whose node fails, or that
   cannot attach, says "The Swarm node in this browser could not play this stream." and stays. weeb-3's limits are its
   own: it plays about 16 s behind live, does not leave a quality that stopped, does not notice a broadcast that
   returns, and plays one stream across the browser's tabs.
+- **Its quality.** While the video plays, a line under it says the node's peers and the height playing, such as
+  "88 peers · 720p", with a Quality picker beside it: By peers, then each height the stream has, highest first
+  (`OwnPlayerStage.tsx`, `useOwnPlayerQuality.ts`). It shows once the stream's qualities have loaded, which weeb-3's
+  `streamQuality` reports. By peers is the rule from weeb-3's own HLS example page (`qualityByPeers.ts`): the highest
+  from 90 peers, and one height lower below each of 90, 60 and 30, never below the lowest the stream has. It applies
+  as soon as a quality plays, then looks at the peer count again every 5 s while the video plays, and switches through
+  weeb-3's `setStreamQuality` only when another height is due and no earlier switch is still taking effect. A height
+  picked is held whatever the peers, and a stream without it plays the nearest lower one, which the picker then shows. A switch weeb-3 refuses, as
+  during a seek back, is tried again a second later. The pick is kept in this browser, so the next stream starts at it,
+  and By peers is where a viewer starts who never picked. By peers waits while the video is paused. It changes the quality inside weeb-3 and nothing else: no
+  read and no part moves to another source.
 - **Leaving weeb-3's player stops it.** weeb-3 names no way to stop its player, which is hls.js underneath and would
   keep loading segments, up to three minutes ahead for a finished stream, for a video the viewer has left. So the build
   hands weeb-3's own import of hls.js the app's copy with its player class made stoppable (`weeb3Hls.ts` and

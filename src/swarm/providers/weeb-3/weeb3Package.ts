@@ -7,6 +7,13 @@
 /** Where `attachStream` starts: the feed's newest entry, or the earliest it can rebuild. */
 export type HlsStart = 'beginning' | 'live';
 
+/** An attached stream's qualities, the level asked for and the level playing, -1 for Auto and for none playing. */
+export interface StreamQuality {
+  levels: { level: number; width: number; height: number; bitrate: number }[];
+  selectedLevel: number;
+  currentLevel: number;
+}
+
 /** A node running in this tab, as `new Weeb3No103(...)` makes it. */
 export interface Weeb3Node {
   /** Joins the network. Without options it dials the package's built-in mainnet bootnodes. */
@@ -15,9 +22,11 @@ export interface Weeb3Node {
   connectionCount(): Promise<number>;
   /** Plays a stream into a media element the page owns, with the package's own player. */
   attachStream(media: HTMLMediaElement, owner: string, topic: string, start: HlsStart): Promise<void>;
+  /** The attached stream's qualities. They are there once its master playlist has loaded. */
+  streamQuality(media: HTMLMediaElement): StreamQuality;
   /**
    * Holds an attached stream at one quality, by its level, or lets the player choose with -1, Auto. The player starts
-   * held at the highest. Throws until the stream's master playlist has loaded its qualities.
+   * held at the highest. Throws until the stream's master playlist has loaded its qualities, and during a seek back.
    */
   setStreamQuality(media: HTMLMediaElement, level: number): void;
   /**

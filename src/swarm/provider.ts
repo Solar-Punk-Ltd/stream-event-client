@@ -54,9 +54,27 @@ export interface ProviderStatus {
 /** Where a player starts a stream: at its newest entry, or at the first it can rebuild. */
 export type PlaybackStart = 'live' | 'beginning';
 
+/** One quality of a stream an own player plays, by the level the player knows it as. */
+export interface PlayerLevel {
+  readonly level: number;
+  readonly height: number;
+  readonly bitrate: number;
+}
+
+/** The qualities of the stream an own player plays, the one asked for and the one playing, -1 for none. */
+export interface PlayerQuality {
+  readonly levels: readonly PlayerLevel[];
+  readonly selectedLevel: number;
+  readonly currentLevel: number;
+}
+
 /** A player a provider brings with it, which plays a stream into a video element the page owns. */
 export interface OwnPlayer {
   attach(video: HTMLVideoElement, owner: string, topic: string, from: PlaybackStart): Promise<void>;
+  /** The attached stream's qualities, or null before they have loaded. Absent for a player that offers no choice. */
+  readonly quality?: () => PlayerQuality | null;
+  /** Switches the attached stream to one level. Throws while the player cannot switch, as during a seek. */
+  readonly holdQuality?: (level: number) => void;
   /**
    * Stops the player loading for the video it attached, and lets go of what it held, such as a node in the tab, which
    * stops once nothing holds it.

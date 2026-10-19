@@ -5,7 +5,7 @@ import { makeFeedIdentifier } from '../../src/shared/feedFollow';
 import { MAX_CHUNK_PAYLOAD, singleOwnerChunkAddress } from '../../src/swarm/singleOwnerChunk';
 import { CatalogFeedReader } from '../../src/features/catalog/catalogFeed';
 import { Weeb3Provider, type Weeb3RuntimeView } from '../../src/swarm/providers/weeb-3/weeb3Provider';
-import type { Weeb3Node } from '../../src/swarm/providers/weeb-3/weeb3Package';
+import type { StreamQuality, Weeb3Node } from '../../src/swarm/providers/weeb-3/weeb3Package';
 import type { Weeb3Status } from '../../src/swarm/providers/weeb-3/weeb3Runtime';
 import { type AskedLog, answeringFetch, faultyFetch, silentFetch } from '../helpers/recordedBeeGateway';
 import { type ContractHarness, describeProviderContract } from './providerContract';
@@ -172,8 +172,8 @@ type FakeRuntime = Weeb3RuntimeView & {
   readonly attached: unknown[][];
   /** Every quality the player was set to, -1 being Auto. */
   readonly qualities: number[];
-  /** How many calls to set the quality throw first, as weeb-3's does before the stream's qualities have loaded. */
-  qualityRefusals: number;
+  /** What weeb-3 answers when asked for the stream's qualities, or that it throws. */
+  streamQuality: StreamQuality | 'throws';
   /** Settles the node's readiness, as the real runtime's peer watch would. */
   settle(ready: boolean): void;
 };
@@ -181,18 +181,20 @@ type FakeRuntime = Weeb3RuntimeView & {
 function runtimeAt(status: Weeb3Status): FakeRuntime {
   const attached: unknown[][] = [];
   const qualities: number[] = [];
-  const quality = { refusals: 0 };
+  const answers: { streamQuality: StreamQuality | 'throws' } = {
+    streamQuality: { levels: [], selectedLevel: -1, currentLevel: -1 },
+  };
   const node: Weeb3Node = {
     start: () => undefined,
     connectionCount: async () => status.peers,
     attachStream: async (...args) => void attached.push(args),
-    setStreamQuality: (_media, level) => {
-      if (quality.refusals > 0) {
-        quality.refusals -= 1;
-        throw new Error('no qualities yet');
+    streamQuality: () => {
+      if (answers.streamQuality === 'throws') {
+        throw new Error('no stream attached');
       }
-      qualities.push(level);
+      return answers.streamQuality;
     },
+    setStreamQuality: (_media, level) => void qualities.push(level),
     free: () => undefined,
   };
   let settle: (ready: boolean) => void = () => undefined;
@@ -203,11 +205,11 @@ function runtimeAt(status: Weeb3Status): FakeRuntime {
     holds: 0,
     attached,
     qualities,
-    get qualityRefusals() {
-      return quality.refusals;
+    get streamQuality() {
+      return answers.streamQuality;
     },
-    set qualityRefusals(count: number) {
-      quality.refusals = count;
+    set streamQuality(answer: StreamQuality | 'throws') {
+      answers.streamQuality = answer;
     },
     settle: (ready) => settle(ready),
     status: () => status,
@@ -612,26 +614,32 @@ describe('the weeb-3 provider', () => {
     expect(runtime.holds).toBe(0);
   });
 
-  it("sets weeb-3's player to choose its quality itself once the stream is attached, as it starts on the highest", async () => {
+  it('sets no quality by itself on attach, and reports none before the stream has qualities', async () => {
     const { provider, runtime } = weeb3(servedFetch());
-    const video = new EventTarget() as HTMLVideoElement;
+    const player = await provider.ownPlayer();
+    expect(player.quality!(), 'nothing attached yet').toBeNull();
 
-    await (await provider.ownPlayer()).attach(video, OWNER, 'a-topic', 'live');
+    await player.attach(new EventTarget() as HTMLVideoElement, OWNER, 'a-topic', 'live');
 
-    expect(runtime.qualities).toEqual([-1]);
+    expect(runtime.qualities).toEqual([]);
+    expect(player.quality!()).toBeNull();
+    runtime.streamQuality = 'throws';
+    expect(player.quality!()).toBeNull();
   });
 
-  it("sets it once the video's metadata has loaded when weeb-3 has no qualities yet at attach", async () => {
+  it("reports the attached stream's qualities and holds a level through weeb-3", async () => {
     const { provider, runtime } = weeb3(servedFetch());
-    runtime.qualityRefusals = 1;
-    const video = new EventTarget() as HTMLVideoElement;
+    const levels = [
+      { level: 0, width: 640, height: 360, bitrate: 800_000 },
+      { level: 1, width: 1280, height: 720, bitrate: 2_500_000 },
+    ];
+    runtime.streamQuality = { levels, selectedLevel: 1, currentLevel: 1 };
+    const player = await provider.ownPlayer();
+    await player.attach(new EventTarget() as HTMLVideoElement, OWNER, 'a-topic', 'live');
 
-    await (await provider.ownPlayer()).attach(video, OWNER, 'a-topic', 'live');
-    expect(runtime.qualities).toEqual([]);
-
-    video.dispatchEvent(new Event('loadedmetadata'));
-    video.dispatchEvent(new Event('loadedmetadata'));
-    expect(runtime.qualities).toEqual([-1]);
+    expect(player.quality!()).toEqual({ levels, selectedLevel: 1, currentLevel: 1 });
+    player.holdQuality!(0);
+    expect(runtime.qualities).toEqual([0]);
   });
 
   it('lets go of the node when it fails before the player could attach', async () => {

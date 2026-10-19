@@ -1,9 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
-import { healthyPeersNote, useNodeStatus, weeb3StatusLine, weeb3StatusWords } from '@/shared/nodeInTabStatus';
-import type { OwnPlayer, PlaybackStart, ProviderStatus } from '@/swarm/provider';
+import {
+  healthyPeersNote,
+  peerCountWords,
+  useNodeStatus,
+  weeb3StatusLine,
+  weeb3StatusWords,
+} from '@/shared/nodeInTabStatus';
+import type { OwnPlayer, PlaybackStart, PlayerQuality, ProviderStatus } from '@/swarm/provider';
 
 import { followPlace, moveToPlace, type StreamPlace } from './placeAcrossSwap';
+import { BY_PEERS, levelForHeight, type QualityChoice, qualitySteps } from './qualityByPeers';
+import { useOwnPlayerQuality } from './useOwnPlayerQuality';
 
 import './OwnPlayerStage.scss';
 
@@ -12,6 +20,9 @@ export const PLAY_FAILED = 'The Swarm node in this browser could not play this s
 
 /** What a viewer reads while a recording's video is held still until it can go to where they were. */
 export const MOVING_TO_PLACE = 'Going to where you were in the recording';
+
+/** The quality picker's first choice, which follows the node's peer count. */
+export const BY_PEERS_LABEL = 'By peers';
 
 interface OwnPlayerStageProps {
   readonly load: () => Promise<OwnPlayer>;
@@ -31,7 +42,8 @@ interface OwnPlayerStageProps {
 /**
  * A source's own player, bare: a video element it plays into with the browser's controls, and none of
  * the app's overlays. One quiet line under it says how far the node has got until it is ready, and
- * again when it is lost. A viewer who picked this source watches through it alone, so a player that
+ * again when it is lost. While it plays, the line says the node's peers and the height playing, with a
+ * quality picker where the player offers one. A viewer who picked this source watches through it alone, so a player that
  * cannot play says so and nothing takes its place.
  */
 export function OwnPlayerStage({ load, status, owner, topic, from, place }: OwnPlayerStageProps) {
@@ -39,7 +51,9 @@ export function OwnPlayerStage({ load, status, owner, topic, from, place }: OwnP
   const [failed, setFailed] = useState(false);
   const [startFrom] = useState(from);
   const [isMovingToPlace, setIsMovingToPlace] = useState(false);
+  const [attached, setAttached] = useState<OwnPlayer | null>(null);
   const node = useNodeStatus(status);
+  const { quality, choice, pick } = useOwnPlayerQuality(attached, videoRef.current, node.peers ?? 0);
   const placeRef = useRef(place);
   placeRef.current = place;
 
@@ -67,6 +81,7 @@ export function OwnPlayerStage({ load, status, owner, topic, from, place }: OwnP
         })
       : () => undefined;
     setFailed(false);
+    setAttached(null);
     load()
       .then(async (loaded) => {
         if (!current) {
@@ -75,6 +90,9 @@ export function OwnPlayerStage({ load, status, owner, topic, from, place }: OwnP
         }
         player = loaded;
         await loaded.attach(video, owner, topic, startFrom);
+        if (current) {
+          setAttached(loaded);
+        }
       })
       .catch((error: unknown) => {
         console.warn("The source's own player could not play the stream:", error);
@@ -116,6 +134,48 @@ export function OwnPlayerStage({ load, status, owner, topic, from, place }: OwnP
           {note !== null && <span className="own-player-hint">{note}</span>}
         </p>
       )}
+      {playing && quality !== null && (
+        <QualityLine quality={quality} peers={node.peers ?? 0} choice={choice} onPick={pick} />
+      )}
+    </div>
+  );
+}
+
+interface QualityLineProps {
+  readonly quality: PlayerQuality;
+  readonly peers: number;
+  readonly choice: QualityChoice;
+  readonly onPick: (choice: QualityChoice) => void;
+}
+
+const heightWords = (height: number) => `${height}p`;
+
+/** The node's peers and the height playing, such as "88 peers · 720p", and the picker: By peers, or a height held. */
+function QualityLine({ quality, peers, choice, onPick }: QualityLineProps) {
+  const pickerId = useId();
+  const steps = qualitySteps(quality.levels);
+  const playing = quality.levels.find(({ level }) => level === quality.currentLevel);
+  const shown = [peerCountWords(peers), playing ? heightWords(playing.height) : null].filter(Boolean).join(' · ');
+  // A held height this stream lacks plays the nearest lower one, which the picker shows.
+  const picked = choice === BY_PEERS ? BY_PEERS : String(levelForHeight(steps, choice)?.height ?? choice);
+  return (
+    <div className="own-player-quality">
+      <span className="own-player-playing">{shown}</span>
+      <label className="own-player-picker" htmlFor={pickerId}>
+        Quality
+        <select
+          id={pickerId}
+          value={picked}
+          onChange={(event) => onPick(event.target.value === BY_PEERS ? BY_PEERS : Number(event.target.value))}
+        >
+          <option value={BY_PEERS}>{BY_PEERS_LABEL}</option>
+          {steps.map(({ height }) => (
+            <option key={height} value={String(height)}>
+              {heightWords(height)}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

@@ -10,7 +10,8 @@ interface FakeWeeb3Push {
 
 /**
  * A fake of the weeb-3 package: a node with three peers, a player that marks the video it was handed so a journey can
- * see what was attached, and a push that keeps what it was handed in `window.weeb3Pushes` and answers success.
+ * see what was attached, with three qualities playing the highest until one is held, and the level held marked on the
+ * video, and a push that keeps what it was handed in `window.weeb3Pushes` and answers success.
  */
 export const FAKE_WEEB3 = `
 const hex = (bytes) => Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -19,6 +20,18 @@ export class Weeb3No103 {
   start() {}
   async connectionCount() { return 3; }
   async attachStream(media, owner, topic, start) { media.dataset.weeb3 = [owner, topic, start].join('/'); }
+  streamQuality(media) {
+    const level = Number(media.dataset.weeb3Quality ?? 2);
+    return {
+      levels: [
+        { level: 0, width: 640, height: 360, bitrate: 800000 },
+        { level: 1, width: 1280, height: 720, bitrate: 2500000 },
+        { level: 2, width: 1920, height: 1080, bitrate: 5000000 },
+      ],
+      selectedLevel: level,
+      currentLevel: level,
+    };
+  }
   setStreamQuality(media, level) { media.dataset.weeb3Quality = String(level); }
   async postPushChunk(data, soc, address, stamp) {
     (window.weeb3Pushes ??= []).push({ data: hex(data), soc, address: hex(address), stamp: hex(stamp) });
