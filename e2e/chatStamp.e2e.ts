@@ -321,6 +321,8 @@ test("Swarm ID's button shows a placeholder of itself in its own place until its
 
   await expect(placeholder).toBeVisible();
   await expect(placeholder).toHaveText('Sign in with Swarm ID');
+  await expect(placeholder, 'a loading button shimmers rather than spins').toHaveClass(/\bloading\b/);
+  await expect(placeholder.locator('.spinner'), 'no spinner while Swarm ID loads').toHaveCount(0);
   await expect(dialog.getByRole('status').filter({ hasText: 'Connecting to Swarm ID' })).toBeAttached();
   await expect(frame).toBeAttached();
   const held = await placeholder.boundingBox();
@@ -342,7 +344,30 @@ test("Swarm ID's button shows a placeholder of itself in its own place until its
   await expect(swarmIdButton(dialog, 'Sign in with Swarm ID')).toBeVisible();
 });
 
-test("a guest's Show it's really you row holds Swarm ID's button beside its words at phone width", async ({ page }) => {
+test("Swarm ID's button spins only while the window it opened is still signing in", async ({ page }) => {
+  const { swarmId } = await deployment(
+    page,
+    () => SITE_STAMP,
+    'bee-node',
+    () => {},
+    false,
+  );
+  swarmId.holdWindow();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const button = swarmIdButton(dialog, 'Sign in with Swarm ID');
+  const working = dialog.locator('.swarm-id-button-working');
+  await expect(button).toBeVisible();
+  await expect(working, 'no spinner before the click').toHaveCount(0);
+
+  await button.click();
+  await expect(working.locator('.spinner'), 'a spinner while the window signs in').toBeVisible();
+
+  swarmId.releaseWindow();
+  await expect(working, 'gone once the window closed').toHaveCount(0);
+});
+
+test("a guest's Swarm ID row holds Swarm ID's button beside its words at phone width", async ({ page }) => {
   await page.setViewportSize(PHONE);
   await deployment(
     page,
@@ -360,7 +385,7 @@ test("a guest's Show it's really you row holds Swarm ID's button beside its word
   }
   await expect(swarmIdButton(dialog, 'Sign in with Swarm ID')).toBeVisible();
 
-  const words = await dialog.getByText("Show it's really you", { exact: true }).boundingBox();
+  const words = await dialog.locator('.swarm-id-hint', { hasText: /^Swarm ID$/ }).boundingBox();
   const frame = await dialog.locator('iframe[title="Swarm ID"]').boundingBox();
   const panel = await dialog.boundingBox();
   expect(words && frame && panel, 'the words, the frame and the panel are on screen').toBeTruthy();

@@ -27,6 +27,7 @@ const SLOW_TEXT = 'Swarm ID is taking longer than usual.';
 /** How long the button may wait for Swarm ID before the page says, in words anyone sees, that it is slow. */
 const SLOW_AFTER_MS = 30_000;
 const WINDOW_BLOCKED = 'blocked';
+const WINDOW_OPEN = 'open';
 const SWARM_ID_NAME = 'Swarm ID';
 const PUBLIC_ADDRESS_LABEL = 'public address';
 const ACCOUNT_LABEL = 'Swarm ID account';
@@ -103,6 +104,8 @@ export function SwarmIdButton({
       button.unmount();
       setIsRefused(false);
       setIsShown(false);
+      // A window the old frame opened never reports to the new one, so its spinner must not outlive it.
+      setWindowState(null);
     };
   }, [canMount, mountSwarmIdButton, attempt]);
 
@@ -130,10 +133,14 @@ export function SwarmIdButton({
     };
   }, [isWaiting]);
 
+  const isWorking = isShown && windowState === WINDOW_OPEN;
+
   // The slot stays while the hints show, so the button's place does not jump while Swarm ID starts, and a refused
   // frame is taken away by its own unmount rather than with a container React removed under it. Until the frame
-  // shows its button, a placeholder in the page's own look of that button stands over it. An unseen copy of the label
-  // keeps the slot at least as wide as the label, since the frame and the placeholder over it give the slot no width.
+  // shows its button, a placeholder in the page's own look of that button stands over it, shimmering. While the window
+  // it opened is still signing in, a spinner in that look stands over it, and lets clicks through to the frame. An
+  // unseen copy of the label keeps the slot at least as wide as the label, since the frame and the placeholder over it
+  // give the slot no width.
   return (
     <span className="swarm-id-button">
       <span className={`swarm-id-button-slot ${size}`} hidden={isUnavailable || isRefused}>
@@ -142,7 +149,16 @@ export function SwarmIdButton({
         </span>
         <span ref={container} className="swarm-id-button-frame" aria-hidden={canMount ? undefined : true} />
         {isWaiting && (
-          <span className={`button ${variant} swarm-id-button-placeholder`} role="img" aria-labelledby={startingId}>
+          <span
+            className={`button ${variant} swarm-id-button-placeholder loading`}
+            role="img"
+            aria-labelledby={startingId}
+          >
+            {text}
+          </span>
+        )}
+        {isWorking && (
+          <span className={`button ${variant} swarm-id-button-placeholder swarm-id-button-working`} aria-hidden="true">
             <Spinner />
             {text}
           </span>
@@ -274,7 +290,7 @@ export function SwarmIdYou({ onLeave }: { onLeave: () => void }) {
       </div>
       {canSignIn && (
         <div className="swarm-id-row">
-          <span className="swarm-id-hint">Show it&apos;s really you</span>
+          <span className="swarm-id-hint">{SWARM_ID_NAME}</span>
           <SwarmIdButton
             action="sign-in"
             text={SIGN_IN_LABEL}

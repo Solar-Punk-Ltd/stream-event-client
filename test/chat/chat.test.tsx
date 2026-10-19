@@ -228,6 +228,14 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
+/** Whether the page answers as a touch screen, which has no hover, or as a mouse, which has. */
+function pointerIs(kind: 'touch' | 'mouse') {
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: query === '(hover: none)' && kind === 'touch' }));
+}
+
+beforeEach(() => pointerIs('touch'));
+afterEach(() => vi.unstubAllGlobals());
+
 describe('the chat on a watch page', () => {
   it('reads the stream chat feed that the aggregator writes, by polling at the configured interval', async () => {
     await open();
@@ -997,7 +1005,17 @@ describe('reactions', () => {
     expect(document.activeElement).toBe(picker.querySelector('input'));
   });
 
-  it('show their actions on a click of the message and hide them on another', async () => {
+  it('with a mouse, never keep their actions on a click of the message or of its sender line', async () => {
+    pointerIs('mouse');
+    await open();
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
+    click(document.querySelector('.chat-message .message')!);
+    expect(document.querySelector('.message-actions.visible')).toBeNull();
+    click(document.querySelector('.chat-message .sender-badge')!);
+    expect(document.querySelector('.message-actions.visible')).toBeNull();
+  });
+
+  it('on a touch screen, show their actions on a tap of the message and hide them on another', async () => {
     await open();
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'm' }));
     const bubble = document.querySelector('.chat-message .message')!;

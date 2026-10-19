@@ -171,6 +171,12 @@ async function badgesAndDetails(chat: Locator, published: Published): Promise<vo
   await swarmId.getByRole('button', { name: 'Swarm ID, show details', exact: true }).click();
   const details = swarmId.getByRole('region', { name: 'Details for this message', exact: true });
   await expect(details, 'the badge opens the details').toBeVisible();
+  await chat.page().mouse.move(0, 0);
+  await expect
+    .poll(() => swarmId.locator('.message-actions').evaluate((bar) => getComputedStyle(bar).opacity), {
+      message: "a click on the badge does not keep the message's actions once the pointer leaves",
+    })
+    .toBe('0');
   await expect(details).toContainText('Swarm ID');
   await details.getByRole('button', { name: shortAddress(published.chat.swarmId.account), exact: true }).click();
   await expect(details, 'the account expands to its full address').toContainText(published.chat.swarmId.account);

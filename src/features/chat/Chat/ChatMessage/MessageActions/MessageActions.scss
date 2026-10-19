@@ -9,8 +9,9 @@
 // Slides in from the row's edge on the side the bubble leaves empty: the right for everyone else's
 // messages, the left for the viewer's own. It is unveiled rather than moved in from outside the row,
 // because anything past the row's edge widens the list, which a focused button then scrolls sideways.
-// Hidden, the buttons still take keyboard focus, and focus anywhere in the message brings the bar in with it, as the
-// pointer over the message does where there is one. A touch screen has no hover and shows it on a tap instead.
+// Hidden, the buttons still take keyboard focus, and keyboard focus anywhere in the message brings the bar in with it,
+// as the pointer over the message does where there is one. A mouse click focuses without showing focus, so it never
+// keeps the bar. A touch screen has no hover and shows it on a tap instead.
 .message-actions {
   position: absolute;
   top: var(--spacing-xs);
@@ -34,7 +35,7 @@
   }
 
   &.visible,
-  .chat-message:focus-within > & {
+  .chat-message:has(:focus-visible) > & {
     @include shown;
   }
 

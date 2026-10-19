@@ -205,7 +205,8 @@ describe('a guest beside Swarm ID', () => {
 
     click(button(/^Ada/));
     expect(text()).toContain('Guest');
-    expect(text()).toContain("Show it's really you");
+    expect(text()).not.toContain("Show it's really you");
+    expect(document.querySelector('.swarm-id-row .swarm-id-hint')?.textContent).toBe('Swarm ID');
     click(swarmIdButton('Sign in with Swarm ID'));
     swarmId.client().handOver(SIGNED_IN);
     await signedIn();
@@ -287,6 +288,21 @@ describe('the Swarm ID button in My Swarm', () => {
     await settle();
     expect(chatsAs()?.username, 'closing My Swarm signs nobody out').toBe('Ida');
     expect(swarmId.client().disconnectCalls).toBe(0);
+  });
+
+  it('spins over the button only while the window it opened is signing in', async () => {
+    const swarmId = await fakeSwarmId();
+    await header(swarmId);
+    click(button('My Swarm'));
+    const working = () => dialog()?.querySelector('.swarm-id-button-working .spinner');
+
+    expect(working(), 'no spinner before the click').toBeFalsy();
+    click(swarmIdButton('Sign in with Swarm ID'));
+    await settle();
+    expect(working(), 'a spinner while the window is open').toBeTruthy();
+    swarmId.client().closeWindow();
+    await settle();
+    expect(working(), 'gone once the window closed').toBeFalsy();
   });
 
   it('says when the browser blocked the window, honestly: only the button opens it, so the line says what to allow', async () => {
@@ -407,7 +423,7 @@ describe("the Swarm ID button's placeholder", () => {
     client.buttonWaits = true;
   };
 
-  it("stands in the button's place, in its look and label with a loader, while Swarm ID starts", async () => {
+  it("stands in the button's place, in its look and label, shimmering and with no spinner, while Swarm ID starts", async () => {
     await header(
       await fakeSwarmId({}, (client) => {
         client.initializeHangs = true;
@@ -419,7 +435,8 @@ describe("the Swarm ID button's placeholder", () => {
     expect(shown?.textContent).toBe('Sign in with Swarm ID');
     expect(shown?.classList.contains('button'), "the page's own button look").toBe(true);
     expect(shown?.classList.contains('primary')).toBe(true);
-    expect(shown?.querySelector('.spinner'), 'a loader inside').toBeTruthy();
+    expect(shown?.classList.contains('loading'), 'shimmers as it loads').toBe(true);
+    expect(shown?.querySelector('.spinner'), 'no spinner until the window it opens is signing in').toBeNull();
     expect(dialog()?.querySelector('[role="status"]')?.textContent).toBe('Connecting to Swarm ID');
   });
 

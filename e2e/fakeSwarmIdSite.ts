@@ -202,8 +202,12 @@ export async function serveFakeSwarmIdSite(
     const stamp = siteStamp();
     return stamp ? batchIdOf(stamp) : null;
   });
-  await page.exposeFunction('fakeSwarmIdConnect', () => {
+  const heldWindow = { isHolding: false, waiting: [] as Array<() => void> };
+  await page.exposeFunction('fakeSwarmIdConnect', async () => {
     windows.opened += 1;
+    if (heldWindow.isHolding) {
+      await new Promise<void>((resolve) => heldWindow.waiting.push(resolve));
+    }
     pickStamp();
   });
   await page.exposeFunction('fakeSwarmIdButton', (action: string, config: Record<string, unknown>) => {
@@ -239,6 +243,16 @@ export async function serveFakeSwarmIdSite(
     releaseButtons: () => {
       held.isHolding = false;
       for (const release of held.waiting.splice(0)) {
+        release();
+      }
+    },
+    /** A Swarm ID window opened from now on stays open, its sign-in unfinished, until released. */
+    holdWindow: () => {
+      heldWindow.isHolding = true;
+    },
+    releaseWindow: () => {
+      heldWindow.isHolding = false;
+      for (const release of heldWindow.waiting.splice(0)) {
         release();
       }
     },

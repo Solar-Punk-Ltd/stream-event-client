@@ -114,7 +114,8 @@ as one. There is no
 password, wallet or account. A deployment that names a Swarm ID site in `swarmId.url` also offers
 signing in with Swarm ID, described [below](#signing-in-with-swarm-id). A viewer can send a message, react with an emoji, reply in a thread,
 load older messages, and retry a message that did not send. A message lights up under the pointer and shows its
-reaction and reply buttons there, as focus inside it does, and on a touch screen a tap shows them. The emoji bar's
+reaction and reply buttons there, as keyboard focus inside it does, and on a touch screen a tap shows them. A mouse
+click never keeps them, so a click on the sender's badge opens the details and nothing else. The emoji bar's
 last button opens every emoji above the field, with its close button above the picker. The chat and its library are a file of
 the bundle of their own, fetched as the watch page opens, beside the video rather than after it, and
 the emoji picker is fetched the first time one is drawn: the emoji bar above the message field, or a
@@ -180,7 +181,7 @@ chat: **Own feed: N messages**, **Chat feed: N messages on their own stamp**, a 
 message has its copy there or Not in their own feed when it has none, and, when the two differ, which messages are
 missing from their own feed and which from the chat feed, five of each at most, newest first. Only the sender's
 messages on their own stamp count, since a message the gateway paid for never gets a copy. They say Counting… while
-they read, No own feed when the sender keeps none, Their own feed could not be counted with Try again when a read
+they read, No own feed found when none is found, since copies that have not reached Swarm yet look the same as none, Their own feed could not be counted with Try again when a read
 fails, and Their own feed is too large to count when it names more entries than the sender's messages in the chat
 and 25 more, or more than 1,000. Both are read through the source picked for Chat history: the chat feed from its
 newest entry back through its history files, each file older than the one before and 50 at most, and each entry no
@@ -236,8 +237,7 @@ stamps them, unless the person picks their own stamp, as the next section says.
   the setting off or on while signed in reaches the very next message, one already typed among them. Swarm ID reports
   the change at once to an open page, and on its next load to a page that was closed. Messages already sent keep the
   link they carried.
-- **A guest can sign in later.** The menu of a guest says "Show it's really you" beside Sign in with
-  Swarm ID. Signing in keeps the guest's name and key in this browser, and signing out chats as that
+- **A guest can sign in later.** The menu of a guest says "Swarm ID" beside Sign in with Swarm ID. Signing in keeps the guest's name and key in this browser, and signing out chats as that
   guest again. Leave forgets the guest.
 - **What stays in memory only.** The chat key, the binding and who is signed in are never written to
   storage. A reload asks the Swarm ID library, whose frame keeps its own session for this site and
@@ -264,12 +264,14 @@ stamps them, unless the person picks their own stamp, as the next section says.
 - **The button is mounted once for as long as it is shown.** Closing My Swarm takes it away and leaves the session as
   it is.
   Until Swarm ID's frame shows its button, a placeholder stands in its place: the page's own button of the same look
-  and size, with its label and a small loader, which takes no click and no focus. To a screen reader it is a picture
+  and size, with its label and a light band crossing it from left to right, which takes no click and no focus. A
+  spinner shows on the button only while the Swarm ID window it opened is still signing in, and lets clicks through to
+  the button under it. To a screen reader the placeholder is a picture
   named "Connecting to Swarm ID", and a status that stays in place says the same. The frame then shows the button
   in the same place, so nothing moves. When the wait passes 30 seconds, a line under it says "Swarm ID is taking
   longer than usual." in that same status. That place is
-  never narrower than the label with its loader, so the smaller button beside other words, as in Show it's really
-  you, shows its whole label down to a 320 px wide screen. A Try again shows
+  never narrower than the label with a spinner, so the smaller button beside other words, as in a guest's Swarm ID
+  row, shows its whole label down to a 320 px wide screen. A Try again shows
   the placeholder again until the new button is ready. When Swarm ID refuses the
   button, or it does not answer within the library's 30 seconds, its place says "Swarm ID cannot be reached right
   now." with Try again, which takes that button away and mounts a new one, and the console warns once as for a Swarm
@@ -376,8 +378,8 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   stamp, and the page shows that at once without reading. Every sign-in starts that way until the person confirms a
   stamp with Go to app in the Swarm ID window, so My Swarm says "Swarm ID has given this site no stamp yet. Choose
   one and confirm it in the Swarm ID window." and the same button reads Choose a stamp in Swarm ID until it has one.
-- **Warnings above the message field.** At 80% used, or 3 days left, the field says how much is used and when it
-  runs out, offers Change stamp in Swarm ID, Swarm ID's button, and sending goes on. When the stamp ran out or is not
+- **Warnings above the message field.** Only a stamp that stops sending gets one, so a stamp running low shows
+  nothing there, and My Swarm still says how much is used and how many days are left. When the stamp ran out or is not
   usable yet, the field says so, sending is held with what was typed kept, and two buttons offer Change stamp in Swarm
   ID and Let the gateway pay. When Swarm ID gives this site no stamp the first button reads Choose a stamp in Swarm ID. When
   the source picked for Chat history cannot send on the stamp, the field says why, sending is held, and the buttons

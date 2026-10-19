@@ -95,9 +95,16 @@ function useDetailsCard(onHeightChange?: () => void) {
   return { isShown, toggle, close };
 }
 
+/** A touch screen, which has no hover, so a tap is the only way to show a message's actions there. */
+function hasNoHover(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(hover: none)').matches;
+}
+
 /**
  * One message as the design draws it: the sender line above a bubble, the viewer's own on the right. The pointer over
- * the message or focus inside it shows what can be done with it, and so does a click, which the next click folds away.
+ * the message shows what can be done with it, and so does keyboard focus inside it. A mouse click never keeps them,
+ * since a click on the sender's badge opens the details and nothing else. On a touch screen a tap shows them and the
+ * next tap folds them away.
  */
 export function ChatMessage({
   message,
@@ -134,7 +141,7 @@ export function ChatMessage({
     .join(' ');
 
   return (
-    <li className={classes} onClick={() => canAct && setAreActionsShown((shown) => !shown)}>
+    <li className={classes} onClick={() => canAct && hasNoHover() && setAreActionsShown((shown) => !shown)}>
       <div className="chat-message-text">
         <SenderLine
           name={ensName ?? message.username}

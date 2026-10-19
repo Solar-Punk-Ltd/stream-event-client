@@ -1,15 +1,10 @@
 import type { SwarmIdPostageBatch } from '../swarmId/swarmIdClient';
 
 export const SITE_STAMP_OK = 'ok';
-export const SITE_STAMP_LOW = 'low';
 export const SITE_STAMP_RAN_OUT = 'ran-out';
 export const SITE_STAMP_NOT_USABLE = 'not-usable';
 
-type SiteStampState =
-  | typeof SITE_STAMP_OK
-  | typeof SITE_STAMP_LOW
-  | typeof SITE_STAMP_RAN_OUT
-  | typeof SITE_STAMP_NOT_USABLE;
+type SiteStampState = typeof SITE_STAMP_OK | typeof SITE_STAMP_RAN_OUT | typeof SITE_STAMP_NOT_USABLE;
 
 /** The stamp Swarm ID gives this site, in the terms the viewer shows it. */
 export interface SiteStamp {
@@ -24,8 +19,6 @@ export interface SiteStamp {
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
 const PERCENT = 100;
-const LOW_PERCENT_USED = 80;
-const LOW_DAYS_LEFT = 3;
 
 /** Rounded as Swarm ID's own screens round it, so 99.8% used reads 99% until the stamp is really full. */
 function percentUsedOf(utilization: number): number {
@@ -33,22 +26,20 @@ function percentUsedOf(utilization: number): number {
   return percent === PERCENT && utilization < 1 ? PERCENT - 1 : percent;
 }
 
-function stateOf(batch: SwarmIdPostageBatch, percentUsed: number, daysLeft: number | null): SiteStampState {
+function stateOf(batch: SwarmIdPostageBatch): SiteStampState {
   if (!batch.exists || batch.utilization >= 1 || (batch.batchTTL !== undefined && batch.batchTTL <= 0)) {
     return SITE_STAMP_RAN_OUT;
   }
   if (!batch.usable) {
     return SITE_STAMP_NOT_USABLE;
   }
-  return percentUsed >= LOW_PERCENT_USED || (daysLeft !== null && daysLeft <= LOW_DAYS_LEFT)
-    ? SITE_STAMP_LOW
-    : SITE_STAMP_OK;
+  return SITE_STAMP_OK;
 }
 
 export function siteStampOf(batch: SwarmIdPostageBatch): SiteStamp {
   const percentUsed = percentUsedOf(batch.utilization);
   const daysLeft = batch.batchTTL === undefined ? null : Math.max(0, Math.floor(batch.batchTTL / SECONDS_PER_DAY));
-  return { label: batch.label.trim() || null, percentUsed, daysLeft, state: stateOf(batch, percentUsed, daysLeft) };
+  return { label: batch.label.trim() || null, percentUsed, daysLeft, state: stateOf(batch) };
 }
 
 /** A line above the chat's message field, and whether a message on this stamp can be sent at all. */
@@ -88,15 +79,6 @@ export function stampWarning(stamp: SiteStamp | null): StampWarning | null {
         title: 'Your stamp is not usable yet.',
         detail: 'A new stamp takes a minute or two. Wait, or let the gateway pay.',
         blocksSending: true,
-      };
-    case SITE_STAMP_LOW:
-      return {
-        title: `${stamp.percentUsed}% of your stamp is used.`,
-        detail:
-          stamp.daysLeft === null
-            ? 'Change it in Swarm ID before it runs out.'
-            : `It runs out in about ${plural(stamp.daysLeft, 'day')}.`,
-        blocksSending: false,
       };
   }
 }

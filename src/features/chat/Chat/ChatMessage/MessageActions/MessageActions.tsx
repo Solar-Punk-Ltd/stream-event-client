@@ -5,7 +5,7 @@ import { EmojiPickerPopover } from '../../EmojiPicker/EmojiPickerPopover';
 import './MessageActions.scss';
 
 interface MessageActionsProps {
-  /** Shown once the message is clicked, folded away on the next click. */
+  /** Shown once the message is tapped on a touch screen, folded away on the next tap. */
   visible: boolean;
   ownMessage: boolean;
   onReact: (emoji: string) => void;

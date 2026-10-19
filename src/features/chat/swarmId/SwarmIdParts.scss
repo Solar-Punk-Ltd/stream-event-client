@@ -87,6 +87,34 @@
     border-top-color: currentColor;
     border-right-color: currentColor;
   }
+
+  // Loading, a band in the label's colour crosses the button from left to right, as a skeleton does, so it shows on a
+  // light button as on a dark or orange one. Without motion the band stays as a still tint over the whole button.
+  &.loading::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, currentColor 20%, transparent) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    animation: swarm-id-button-shimmer 1.4s ease-in-out infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+      background: color-mix(in srgb, currentColor 10%, transparent);
+      transform: none;
+      animation: none;
+    }
+  }
+}
+
+@keyframes swarm-id-button-shimmer {
+  to {
+    transform: translateX(100%);
+  }
 }
 
 // The placeholder's width with its loader, kept in the slot's flow, so the slot is never narrower than its label.

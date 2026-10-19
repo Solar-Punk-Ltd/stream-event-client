@@ -331,20 +331,14 @@ describe('a chat paid for with my own stamp', () => {
     expect(posted).toEqual([]);
   });
 
-  it('warns while the stamp runs low, and still sends', async () => {
-    wearThemeCss();
+  it('says nothing while the stamp runs low, and still sends', async () => {
     chatOnMyBeeNode();
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
-    const swarmId = await watchPage({ ...BATCH, utilization: 0.9, batchTTL: 2 * DAY_S });
+    await watchPage({ ...BATCH, utilization: 0.9, batchTTL: 2 * DAY_S });
 
-    expect(chatRegion()?.textContent).toContain('90% of your stamp is used.');
-    expect(chatRegion()?.textContent).toContain('It runs out in about 2 days.');
-    expect(button('Change stamp in Swarm ID')).toBeTruthy();
-    expect(nestedLiveRegions(chatRegion()!), "Swarm ID's button says its own news, outside the warning's").toEqual([]);
-    expect(seen.chatStamp?.warning?.blocksSending).toBe(false);
-    expect(swarmId.client().shownButton().config, "the page's secondary button while sending goes on").toMatchObject({
-      backgroundColor: 'rgba(250,250,250,0.1)',
-    });
+    expect(chatRegion()?.textContent).not.toContain('of your stamp is used');
+    expect(queryButton('Change stamp in Swarm ID')).toBeNull();
+    expect(seen.chatStamp?.warning).toBeNull();
   });
 
   it("opens the Swarm ID window from Swarm ID's button in the warning, says when it was blocked, and lifts the hold once a stamp is picked there", async () => {
@@ -482,11 +476,12 @@ describe("a sender's own feed in the message details", () => {
     release();
   });
 
-  it('says plainly when the sender keeps no own feed', async () => {
+  it('says plainly when no own feed is found, without claiming the sender keeps none', async () => {
     const a = mine('a');
     const section = await openDetails(a, [a], null);
 
-    expect(section.textContent).toContain('No own feed');
+    expect(section.textContent).toContain('No own feed found.');
+    expect(section.textContent).not.toMatch(/keeps (no|none)/);
     expect(section.textContent).toContain('Chat feed: 1 message');
   });
 });
