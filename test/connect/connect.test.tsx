@@ -16,6 +16,7 @@ import {
   type,
   waitFor,
 } from '../helpers/dom';
+import { WEEB3_PARTS_NOTE } from '../../src/features/connect/connectWords';
 import { chatConfig, connectPage, seen } from '../helpers/connectPage';
 import { minimalConfig } from '../helpers/themeChoice';
 
@@ -368,20 +369,28 @@ describe('use for', () => {
     expect(text()).not.toContain('Same as video');
   });
 
-  it('offers the node in this browser for every part and for all features', async () => {
+  it('offers the node in this browser for the video alone, and says what it is used for', async () => {
     await openConnect();
     seen.app!.addSource({ type: 'weeb-3', name: '', url: '' });
     await settle();
+    const weeb3In = (select: HTMLSelectElement) =>
+      [...select.options].some(({ textContent }) => textContent === 'Weeb3');
     const [all] = [...section('Use for')!.querySelectorAll('select')];
-    expect([...all.options].find((option) => option.textContent === 'Weeb3')?.disabled).toBe(false);
+    expect(weeb3In(all)).toBe(false);
+    expect(section('Use for')!.textContent).toContain(WEEB3_PARTS_NOTE);
     click(button('Per feature'));
     await settle();
 
-    for (const select of section('Use for')!.querySelectorAll('select')) {
-      const node = [...select.options].find((option) => option.value.startsWith('added-'));
-      expect(node?.textContent).toBe('Weeb3');
-      expect(node?.disabled).toBe(false);
-    }
+    const offered = [...section('Use for')!.querySelectorAll('label')].map((label) => [
+      label.textContent,
+      weeb3In(section('Use for')!.querySelector<HTMLSelectElement>(`#${CSS.escape(label.htmlFor)}`)!),
+    ]);
+    expect(offered).toEqual([
+      ['Video', true],
+      ['Stream list', false],
+      ['Previews', false],
+      ['Chat history', false],
+    ]);
   });
 });
 

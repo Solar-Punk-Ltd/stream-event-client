@@ -329,9 +329,8 @@ name's own record names the wallet back, and it is already in its ENSIP-15 norma
 My Swarm has a **Chat stamp** group, between ID and Swarm access, once the viewer is chatting. Every message on
 Swarm needs a postage stamp, and the group offers two ways to pay.
 
-- **Gateway pays**, the default for everyone, as before: the message goes to `chat.writeUrl`, which stamps it. That
-  holds with Weeb3 picked for Chat history too: the page holds no stamp, and only the event's write path has one to
-  pay with, so the history is read through Weeb3 and the message is written through the event's gateway.
+- **Gateway pays**, the default for everyone, as before: the message goes to `chat.writeUrl`, which stamps it,
+  whichever source reads the chat history.
 - **My stamp**, offered once signed in with Swarm ID. The stamp is the one Swarm ID gives this site. It is bought,
   topped up, made bigger and chosen for the site in Swarm ID, never in this page, which holds no stamp and no stamp
   key. For each message the page builds the chunk, Swarm ID signs and stamps it in its frame with `stampChunk`,
@@ -344,7 +343,7 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   under a stamp they are handed. The event gateway's chat path stamps every write with the gateway's own batch, a
   `/bee` path on the site passes reads alone, and the page cannot tell what any other gateway does with a stamp, so no
   gateway is ever sent a message on the viewer's stamp. The message goes through the source picked for **Chat
-  history** when that is a Bee node or Weeb3. Otherwise it goes through the first Bee node in the viewer's list of
+  history** when that is a Bee node. Otherwise it goes through the first Bee node in the viewer's list of
   sources, and with no Bee node there, through Weeb3. The chat history is still read from the source picked for it,
   and nothing changes who pays or what Use for says. With neither a Bee node nor Weeb3 in the list, My stamp is greyed
   out and cannot be picked, and its line says "Add your Bee node or Weeb3 in My Swarm to send on your own stamp." A
@@ -745,9 +744,12 @@ once and is kept in the browser, and nothing switches a source by itself.
   while it is closed. A gateway that refuses `/soc` is asked it once while My Swarm stays open, and its later checks
   read the entry by its chunk address. Add source sits under the list.
 - **Use for.** All features reads the video, the stream list, the previews and the chat history from the one source
-  picked. Per feature picks a source each for Video, Stream list, Previews and Chat history. While the event pays, chat
+  picked. Per feature picks a source each for Video, Stream list, Previews and Chat history. Weeb3 is offered for
+  Video alone, so All features does not offer it, and while the list holds it a line under the selects says "Weeb3 is
+  used for the video, and to send chat messages on your own stamp." A part saved on Weeb3 other than the video, or All
+  features saved on it, reads from the deployment's default source. While the event pays, chat
   messages are sent to `chat.writeUrl`, whichever source reads the chat history. On the viewer's own stamp they go
-  through a Bee node of their own or Weeb3, the one picked for Chat history when it is one of them, as
+  through a Bee node of their own or Weeb3, the one picked for Chat history when it is a Bee node, as
   [Who pays for a message](#who-pays-for-a-message) says. The deployment's default gateway reads its chat
   history at `chat.readUrl`, where it serves the chat's paths, and any other source reads the chat at its own address.
   A part saved on a source the deployment no longer offers is read from the deployment's default source when the

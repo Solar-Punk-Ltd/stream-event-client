@@ -124,11 +124,7 @@ function wiringOf(settings: SwarmSettings, choices: SourceChoices): Wiring {
   const sources = allSources(settings, choices.added);
   return {
     sources,
-    parts: resolveRouting(
-      choices.routing,
-      sources.map(({ id }) => id),
-      settings.defaultId,
-    ),
+    parts: resolveRouting(choices.routing, sources, settings.defaultId),
   };
 }
 

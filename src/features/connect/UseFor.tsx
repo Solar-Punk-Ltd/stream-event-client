@@ -1,10 +1,19 @@
 import { useId } from 'react';
 
 import type { SwarmFeature } from '@/swarm/client';
-import { chooseSource, type PartSources, type Routing, type RoutingMode, setMode, setPart } from '@/swarm/routing';
+import {
+  chooseSource,
+  type PartSources,
+  type Routing,
+  type RoutingMode,
+  servesEveryPart,
+  servesPart,
+  setMode,
+  setPart,
+} from '@/swarm/routing';
 import type { Source } from '@/swarm/sources';
 
-import { PART_LABELS } from './connectWords';
+import { PART_LABELS, WEEB3_PARTS_NOTE } from './connectWords';
 
 const MODE_LABELS: Readonly<Record<RoutingMode, string>> = { one: 'All features', 'per-part': 'Per feature' };
 
@@ -19,9 +28,8 @@ interface UseForProps {
 
 /**
  * What each source is used for: one source for all features, the chat history included, or a source each for the
- * video, the stream list, the previews and the chat history. While the event pays, chat messages are sent through
- * the event's chat write address whatever is picked here. On the viewer's own stamp they go out through the source
- * picked for the chat history, which must be a Bee node of their own or the node in this browser.
+ * video, the stream list, the previews and the chat history. Each select offers only the sources that may serve its
+ * part, so Weeb3 is offered for the video alone. Who sends a chat message is not picked here.
  */
 export function UseFor({ sources, routing, parts, hasChat, onChange }: UseForProps) {
   const isOne = routing.mode === 'one';
@@ -49,7 +57,7 @@ export function UseFor({ sources, routing, parts, hasChat, onChange }: UseForPro
         {isOne ? (
           <PartSelect
             label="All features"
-            sources={sources}
+            sources={sources.filter(({ type }) => servesEveryPart(type))}
             value={parts.player}
             onPick={(id) => onChange(chooseSource(routing, id))}
           />
@@ -58,13 +66,14 @@ export function UseFor({ sources, routing, parts, hasChat, onChange }: UseForPro
             <PartSelect
               key={part}
               label={PART_LABELS[part]}
-              sources={sources}
+              sources={sources.filter(({ type }) => servesPart(type, part))}
               value={parts[part]}
               onPick={(id) => onChange(setPart(routing, part, id))}
             />
           ))
         )}
       </div>
+      {sources.some(({ type }) => type === 'weeb-3') && <p className="connect-hint">{WEEB3_PARTS_NOTE}</p>}
     </>
   );
 }

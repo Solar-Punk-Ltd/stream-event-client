@@ -7,12 +7,18 @@ import {
   resolveRouting,
   type Routing,
   serializeRouting,
+  servesEveryPart,
+  servesPart,
   setMode,
   setPart,
   withoutSource,
 } from '../../src/swarm/routing';
 
-const KNOWN = ['event', 'backup', 'added-1'];
+const KNOWN = [
+  { id: 'event', type: 'gateway' },
+  { id: 'backup', type: 'gateway' },
+  { id: 'added-1', type: 'bee-node' },
+] as const;
 const DEFAULT = defaultRouting('event');
 
 describe('the default routing', () => {
@@ -126,29 +132,34 @@ describe('the routing as the browser keeps it', () => {
 });
 
 describe('the node in this browser', () => {
-  const WITH_NODE = [...KNOWN, 'added-2'];
+  const WITH_NODE = [...KNOWN, { id: 'added-2', type: 'weeb-3' }] as const;
 
-  it('can be the one source for everything, as any other source', () => {
-    expect(resolveRouting(chooseSource(DEFAULT, 'added-2'), WITH_NODE, 'event')).toEqual({
-      player: 'added-2',
-      'stream-list': 'added-2',
-      previews: 'added-2',
-      chat: 'added-2',
-    });
+  it('serves the video alone', () => {
+    expect(servesPart('weeb-3', 'player')).toBe(true);
+    for (const part of ['stream-list', 'previews', 'chat'] as const) {
+      expect(servesPart('weeb-3', part)).toBe(false);
+    }
+    expect(servesEveryPart('weeb-3')).toBe(false);
+    expect(servesEveryPart('bee-node')).toBe(true);
   });
 
-  it('reads every part a saved routing put on it', () => {
+  it('reads the video a per-feature routing put on it', () => {
+    const routing = setPart(setMode(DEFAULT, 'per-part'), 'player', 'added-2');
+
+    expect(resolveRouting(routing, WITH_NODE, 'event')).toEqual({ ...DEFAULT.parts, player: 'added-2' });
+  });
+
+  it('reads all features saved on it from the default gateway', () => {
+    expect(resolveRouting(chooseSource(DEFAULT, 'added-2'), WITH_NODE, 'event')).toEqual(DEFAULT.parts);
+  });
+
+  it('reads every other part a saved routing put on it from the default gateway', () => {
     const saved: Routing = {
       mode: 'per-part',
       source: 'event',
-      parts: { player: 'backup', 'stream-list': 'added-2', previews: 'added-2', chat: 'added-2' },
+      parts: { player: 'added-2', 'stream-list': 'added-2', previews: 'added-2', chat: 'added-2' },
     };
 
-    expect(resolveRouting(saved, WITH_NODE, 'event')).toEqual({
-      player: 'backup',
-      'stream-list': 'added-2',
-      previews: 'added-2',
-      chat: 'added-2',
-    });
+    expect(resolveRouting(saved, WITH_NODE, 'event')).toEqual({ ...DEFAULT.parts, player: 'added-2' });
   });
 });

@@ -19,6 +19,9 @@ export const KIND_LABELS: Readonly<Record<SourceType, string>> = {
   'weeb-3': 'Weeb3',
 };
 
+/** Under Use for while the list holds Weeb3, which no select offers but Video's. */
+export const WEEB3_PARTS_NOTE = 'Weeb3 is used for the video, and to send chat messages on your own stamp.';
+
 /** Each tile of Add source: its name, and the line under it. */
 export const ADD_TILES: Readonly<Record<SourceType, { readonly name: string; readonly line: string }>> = {
   gateway: { name: 'Gateway', line: 'A Swarm gateway at an https address' },
