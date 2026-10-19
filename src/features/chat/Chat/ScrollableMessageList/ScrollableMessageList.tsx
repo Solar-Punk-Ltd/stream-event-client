@@ -25,12 +25,14 @@ const NEAR_BOTTOM_PX = 50;
 export function ScrollableMessageList({ items, label, renderItem, isOwn }: ScrollableMessageListProps) {
   const containerRef = useRef<HTMLOListElement>(null);
   const followingRef = useRef(true);
-  const previousNewestRef = useRef<string | null>(null);
+  const seenIdsRef = useRef<ReadonlySet<string>>(new Set());
 
   const scrollToBottom = () => {
     const container = containerRef.current;
     if (container) {
-      container.scrollTop = container.scrollHeight;
+      // Instant, over the list's smooth style: a smooth scroll fires scroll events short of the bottom, which
+      // would read as the viewer leaving it.
+      container.scrollTo({ top: container.scrollHeight, behavior: 'instant' });
     }
   };
 
@@ -48,16 +50,14 @@ export function ScrollableMessageList({ items, label, renderItem, isOwn }: Scrol
   }, []);
 
   useEffect(() => {
-    const newest = items.at(-1);
-    const newestId = newest?.id ?? null;
-    const arrived = newest !== undefined && newestId !== previousNewestRef.current;
-    if (arrived && isOwn?.(newest)) {
+    const arrived = newlyArrived(items, seenIdsRef.current);
+    if (arrived.some((item) => isOwn?.(item))) {
       followingRef.current = true;
     }
-    if (arrived && followingRef.current) {
+    if (arrived.length > 0 && followingRef.current) {
       requestAnimationFrame(scrollToBottom);
     }
-    previousNewestRef.current = newestId;
+    seenIdsRef.current = new Set(items.map((item) => item.id));
   }, [items, isOwn]);
 
   return (
@@ -65,4 +65,15 @@ export function ScrollableMessageList({ items, label, renderItem, isOwn }: Scrol
       {items.map((item) => renderItem(item, handleHeightChange))}
     </ol>
   );
+}
+
+/**
+ * The messages that are new since the last render and below the oldest one already shown. Older history
+ * loaded above is left out, and a message that lands above the viewer's pending one, which the chat keeps
+ * last until it is read back, still counts.
+ */
+function newlyArrived(items: readonly VisibleMessage[], seen: ReadonlySet<string>): VisibleMessage[] {
+  const firstSeen = items.findIndex((item) => seen.has(item.id));
+  const from = firstSeen === -1 ? 0 : firstSeen + 1;
+  return items.slice(from).filter((item) => !seen.has(item.id));
 }

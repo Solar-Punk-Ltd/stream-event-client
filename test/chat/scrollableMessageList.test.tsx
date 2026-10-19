@@ -40,11 +40,12 @@ function list(): HTMLOListElement {
   return element;
 }
 
+/** Set up in beforeEach: the viewer moving the list, which a browser does at once. */
+let userScroll: (top: number) => void;
+const tops = new WeakMap<HTMLOListElement, number>();
+
 function scrollTo(top: number) {
-  act(() => {
-    list().scrollTop = top;
-    list().dispatchEvent(new Event('scroll'));
-  });
+  act(() => userScroll(top));
 }
 
 function atBottom(): boolean {
@@ -65,17 +66,35 @@ beforeEach(() => {
     },
   });
   Object.defineProperty(HTMLOListElement.prototype, 'clientHeight', { configurable: true, get: () => WINDOW_PX });
-  const tops = new WeakMap<HTMLOListElement, number>();
+  const place = (list: HTMLOListElement, top: number) =>
+    tops.set(list, Math.max(0, Math.min(top, list.scrollHeight - WINDOW_PX)));
   Object.defineProperty(HTMLOListElement.prototype, 'scrollTop', {
     configurable: true,
     get(this: HTMLOListElement) {
       return tops.get(this) ?? 0;
     },
-    // A browser stops a list at its last screenful, which jsdom does not.
+    // The list is styled with smooth scrolling, so a browser animates a write here and fires scroll events
+    // short of the end. Half way stands for the first of them.
     set(this: HTMLOListElement, top: number) {
-      tops.set(this, Math.max(0, Math.min(top, this.scrollHeight - WINDOW_PX)));
+      place(this, ((tops.get(this) ?? 0) + top) / 2);
+      this.dispatchEvent(new Event('scroll'));
     },
   });
+  Object.defineProperty(HTMLOListElement.prototype, 'scrollTo', {
+    configurable: true,
+    value(this: HTMLOListElement, options: ScrollToOptions) {
+      if (options.behavior !== 'instant') {
+        this.scrollTop = options.top ?? 0;
+        return;
+      }
+      place(this, options.top ?? 0);
+      this.dispatchEvent(new Event('scroll'));
+    },
+  });
+  userScroll = (top: number) => {
+    place(list(), top);
+    list().dispatchEvent(new Event('scroll'));
+  };
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
@@ -116,6 +135,27 @@ describe('the chat list follows the newest messages', () => {
     scrollTo(200);
 
     render([...history, message(11, ME)]);
+
+    expect(atBottom()).toBe(true);
+  });
+
+  it('keeps a viewer at the bottom through a burst of messages', () => {
+    render(history);
+    const burst = [...history];
+
+    for (const id of [11, 12, 13]) {
+      burst.push(message(id, OTHER));
+      render([...burst]);
+    }
+
+    expect(atBottom()).toBe(true);
+  });
+
+  it('follows a message from someone else that lands above the viewer own pending one', () => {
+    const pending = message(99, ME);
+    render([...history, pending]);
+
+    render([...history, message(11, OTHER), pending]);
 
     expect(atBottom()).toBe(true);
   });
