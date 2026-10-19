@@ -59,14 +59,14 @@ function MessageList({ label, records }: { readonly label: string; readonly reco
 function OwnFeedAddress({ sender, chatTopic }: { readonly sender: string; readonly chatTopic: string }) {
   const { owner, topic } = ownFeedAddress(sender, chatTopic);
   const shown = useRef<HTMLSpanElement>(null);
-  const { isCopied, copy } = useClipboardCopy(shown);
+  const { isCopied, isRefused, copy } = useClipboardCopy(shown);
   const full = `${owner}/${topic}`;
   return (
     <span className="own-feed-address">
       <span>
         Own feed:{' '}
         <span ref={shown} className="own-feed-address-value" title={full}>
-          {shortHex(owner)}/{shortHex(topic)}
+          {isRefused ? full : `${shortHex(owner)}/${shortHex(topic)}`}
         </span>
       </span>
       <button type="button" className="short-address-copy" aria-label={COPY_LABEL} onClick={() => copy(full)}>

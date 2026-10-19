@@ -451,6 +451,20 @@ describe("a sender's own feed in the message details", () => {
     expect(written).toEqual([`${owner}/${OWN_TOPIC}`]);
   });
 
+  it('selects the full own feed address for copying by hand when the browser refuses the clipboard', async () => {
+    const a = mine('a');
+    await openDetails(a, [a], [a]);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async () => Promise.reject(new Error('refused')) },
+    });
+
+    click(button('Copy the own feed address'));
+    await settle();
+
+    expect(window.getSelection()?.toString()).toBe(`${addressOf(SENDER_KEY)}/${OWN_TOPIC}`);
+  });
+
   it('says how many messages are in the chat and that every one on their own stamp is in their own feed', async () => {
     const [a, b] = [mine('a'), mine('b')];
     await openDetails(b, [a, b], [a, b]);
