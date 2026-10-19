@@ -408,6 +408,22 @@ describe("comparing a sender's own feed with the chat", () => {
     await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedUnreadableError);
   });
 
+  it('reads the chat afresh on every call, so messages that reached it since the last call are not missing', async () => {
+    const [a, b, c] = [message('a'), message('b'), message('c')];
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a]);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a]);
+    await compare(feeds);
+
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b, c]);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a, b, c]);
+    const comparison = await compare(feeds);
+
+    expect(ids(comparison.chatOnOwnStamp)).toEqual([idOf('c'), idOf('b'), idOf('a')]);
+    expect(comparison.missingFromOwnFeed).toEqual([]);
+    expect(comparison.missingFromChat).toEqual([]);
+  });
+
   it('says how many entries it will look at and how many it has, across the chat and the own feed', async () => {
     const [a, b, c] = [message('a'), message('b'), message('c')];
     const feeds = servedFeeds();
