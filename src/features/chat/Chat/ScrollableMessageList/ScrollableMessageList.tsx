@@ -8,6 +8,8 @@ interface ScrollableMessageListProps {
   items: VisibleMessage[];
   label: string;
   renderItem: (item: VisibleMessage, onHeightChange: () => void) => ReactNode;
+  /** Whether the viewer wrote this message, which brings the list down to it wherever the viewer was. */
+  isOwn?: (item: VisibleMessage) => boolean;
 }
 
 /** How near the bottom, in pixels, still counts as reading the newest messages. */
@@ -15,11 +17,15 @@ const NEAR_BOTTOM_PX = 50;
 
 /**
  * Follows new messages while the viewer is at the bottom, and leaves them where they are when they have
- * scrolled up to read.
+ * scrolled up to read. A message the viewer sends always brings the list down to it.
+ *
+ * Whether the viewer is following is read when they scroll, never after a message is drawn: a new
+ * message taller than the slack would otherwise read as the viewer having scrolled away.
  */
-export function ScrollableMessageList({ items, label, renderItem }: ScrollableMessageListProps) {
+export function ScrollableMessageList({ items, label, renderItem, isOwn }: ScrollableMessageListProps) {
   const containerRef = useRef<HTMLOListElement>(null);
-  const previousCountRef = useRef(0);
+  const followingRef = useRef(true);
+  const previousNewestRef = useRef<string | null>(null);
 
   const scrollToBottom = () => {
     const container = containerRef.current;
@@ -28,31 +34,34 @@ export function ScrollableMessageList({ items, label, renderItem }: ScrollableMe
     }
   };
 
-  const isNearBottom = () => {
+  const handleScroll = () => {
     const container = containerRef.current;
-    if (!container) {
-      return true;
+    if (container) {
+      followingRef.current = container.scrollTop + container.clientHeight >= container.scrollHeight - NEAR_BOTTOM_PX;
     }
-    return container.scrollTop + container.clientHeight >= container.scrollHeight - NEAR_BOTTOM_PX;
   };
 
   const handleHeightChange = useCallback(() => {
-    if (isNearBottom()) {
+    if (followingRef.current) {
       requestAnimationFrame(scrollToBottom);
     }
   }, []);
 
   useEffect(() => {
-    const count = items.length;
-    const isFirstFill = previousCountRef.current === 0 && count > 0;
-    if (isFirstFill || (count > previousCountRef.current && isNearBottom())) {
+    const newest = items.at(-1);
+    const newestId = newest?.id ?? null;
+    const arrived = newest !== undefined && newestId !== previousNewestRef.current;
+    if (arrived && isOwn?.(newest)) {
+      followingRef.current = true;
+    }
+    if (arrived && followingRef.current) {
       requestAnimationFrame(scrollToBottom);
     }
-    previousCountRef.current = count;
-  }, [items]);
+    previousNewestRef.current = newestId;
+  }, [items, isOwn]);
 
   return (
-    <ol className="chat-messages-container" ref={containerRef} aria-label={label}>
+    <ol className="chat-messages-container" ref={containerRef} aria-label={label} onScroll={handleScroll}>
       {items.map((item) => renderItem(item, handleHeightChange))}
     </ol>
   );
