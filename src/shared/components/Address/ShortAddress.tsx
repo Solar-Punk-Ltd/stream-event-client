@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { fullAddress, shortAddress } from './addressText';
+import { useClipboardCopy } from './useClipboardCopy';
 
 import './ShortAddress.scss';
 
 const COPY_TEXT = 'Copy';
 const COPIED_TEXT = 'Copied';
-const COPIED_SHOWN_MS = 3_000;
 
 interface ShortAddressProps {
   /** The hex value, with or without its `0x`. */
@@ -15,47 +15,15 @@ interface ShortAddressProps {
   readonly label: string;
 }
 
-/** Selects the whole text of an element, so a viewer whose browser refused the clipboard can copy it by hand. */
-function selectText(element: HTMLElement | null) {
-  const selection = window.getSelection();
-  if (!element || !selection) {
-    return;
-  }
-  const range = document.createRange();
-  range.selectNodeContents(element);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
 /**
  * A hex value in its short form, which a press expands to the full value with a copy button beside it, and a second
  * press folds back.
  */
 export function ShortAddress({ value, label }: ShortAddressProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
   const valueRef = useRef<HTMLSpanElement>(null);
+  const { isCopied, copy, forget } = useClipboardCopy(valueRef);
   const full = fullAddress(value);
-
-  useEffect(() => {
-    if (!isCopied) {
-      return;
-    }
-    const timer = setTimeout(() => setIsCopied(false), COPIED_SHOWN_MS);
-    return () => clearTimeout(timer);
-  }, [isCopied]);
-
-  const copy = () => {
-    // The clipboard is asked inside the click, the one moment a browser lets a page write to it.
-    const written = navigator.clipboard?.writeText(full) ?? Promise.reject(new Error('no clipboard'));
-    written.then(
-      () => setIsCopied(true),
-      () => {
-        setIsCopied(false);
-        selectText(valueRef.current);
-      },
-    );
-  };
 
   return (
     <span className={isExpanded ? 'short-address expanded' : 'short-address'}>
@@ -66,7 +34,7 @@ export function ShortAddress({ value, label }: ShortAddressProps) {
         title={isExpanded ? `Show the short ${label}` : `Show the full ${label}`}
         onClick={() => {
           setIsExpanded((expanded) => !expanded);
-          setIsCopied(false);
+          forget();
         }}
       >
         <span ref={valueRef} className="short-address-value">
@@ -74,7 +42,12 @@ export function ShortAddress({ value, label }: ShortAddressProps) {
         </span>
       </button>
       {isExpanded && (
-        <button type="button" className="short-address-copy" aria-label={`Copy the ${label}`} onClick={copy}>
+        <button
+          type="button"
+          className="short-address-copy"
+          aria-label={`Copy the ${label}`}
+          onClick={() => copy(full)}
+        >
           {isCopied ? COPIED_TEXT : COPY_TEXT}
         </button>
       )}
