@@ -23,7 +23,8 @@ It is a static page: one build serves every deployment, and everything a deploym
   your own Bee node or Weeb3, with a copy in your own feed that anyone can check against the chat.
 - **My Swarm**: every source you can read Swarm through, each checked before it is added, and Use for, which says
   which source each part reads from. Nothing ever switches source by itself.
-- **Weeb3**, a whole Swarm node in the tab, as a source for any part, with its own player for the video.
+- **Weeb3**, a whole Swarm node in the tab, as the source of the video with its own player, and a way to send chat
+  messages on your own stamp.
 - **Two themes**, `swarm` and `web3privacy`, with a switcher for viewers in the chat.
 
 ## Quick start

@@ -11,8 +11,11 @@ browser, and nothing switches a source by itself.
 
 ## The sections
 
-- **ID** (`IdSection.tsx`). On a site with chat. Not chatting: a guest name with Chat as guest, and Sign in with Swarm
-  ID where the deployment offers it, as [the chat](chat.md) and [Swarm ID](swarm-id.md) describe. Chatting: the name
+- **ID** (`IdSection.tsx`). On a site with chat. Not chatting: a guest name with Chat as guest, the button as tall as
+  the field, and under it "For the smoothest experience, go with the defaults and a simple name." Below a rule, a short
+  beta note says the settings that follow, Sign in with Swarm ID and the sources, are an experiment the viewer can help
+  test, and asks for feedback in the chat. Then Sign in with Swarm ID where the deployment offers it, as
+  [the chat](chat.md) and [Swarm ID](swarm-id.md) describe. Chatting: the name
   with its badge and Leave for a guest, or the Swarm ID account with Sign out, and the theme switcher where the
   deployment allows it (`ThemeOptions.tsx`). Leave asks first, since it forgets the name. The chat's own join button
   opens My Swarm too.
@@ -26,9 +29,13 @@ browser, and nothing switches a source by itself.
   refuses `/soc` is asked it once while My Swarm stays open, and its later checks read the entry by its chunk address.
   Add source sits under the list.
 - **Use for** (`UseFor.tsx`). All features reads the video, the stream list, the previews and the chat history from the
-  one source picked. Per feature picks a source each for Video, Stream list, Previews and Chat history. While the event
-  pays, chat messages are sent to `chat.writeUrl`, whichever source reads the chat history. On the viewer's own stamp
-  they go through a Bee node of their own or Weeb3, the one picked for Chat history when it is one of them, as
+  one source picked. Per feature picks a source each for Video, Stream list, Previews and Chat history. Weeb3 is
+  offered for Video alone (`servesPart` in `src/swarm/routing.ts`), so All features does not offer it, and while the
+  list holds it a line under the selects says "Weeb3 is used for the video, and to send chat messages on your own
+  stamp." A part saved on Weeb3 other than the video, or All features saved on it, reads from the deployment's default
+  source. While the event pays, chat messages are sent to `chat.writeUrl`, whichever source reads the chat history. On
+  the viewer's own stamp they go through a Bee node of their own or Weeb3, the one picked for Chat history when it is a
+  Bee node, as
   [who pays for a message](own-stamp.md) says. The deployment's default gateway reads its chat history at
   `chat.readUrl`, where it serves the chat's paths, and any other source reads the chat at its own address. A part
   saved on a source the deployment no longer offers is read from the deployment's default source when the page loads,
@@ -45,11 +52,9 @@ it under Use for.
 
 **Weeb3.** Opening its tile starts the node and shows its download, against the 2.2 MB module, and its peers out of
 200, the healthy target, with "Playback can start before that." Its checks run at once, and Add Weeb3 waits for them.
-When they did not pass, Test again runs them once more, and starts the node again first if it failed. Use for offers it
-for all features and for every part, as any other source: the video, the stream list, the previews and the chat
-history then read through it and through nothing else. While a part waits for it to start, the browse page under
-"Looking for streams..." and the chat under "Loading the chat…" say how far it has got, in the words its row uses. Its
-row shows how far the node has got: the download, then "Starting", "Connecting, N of 200 peers", and once ready "N of
+Its reads are checked from its first peer, so it can be added without waiting for more. When they did not pass, Test
+again runs them once more, and starts the node again first if it failed. Use for offers it for Video alone, and the
+video then reads through it and through nothing else. Its row shows how far the node has got: the download, then "Starting", "Connecting, N of 200 peers", and once ready "N of
 200 peers", or "Failed to start". Everything else about it is in [the node in this browser](weeb3.md).
 
 ## The checks
@@ -68,7 +73,7 @@ of the browser's local network question (`src/features/gateway/sourceChecks.ts`,
 | Bee 2.6 or later                                 | gateway      | `/health`'s version. A gateway that does not state one passes with "not stated", one that states an older release fails  |
 | Bee 2.6 or later, ready                          | Bee node     | `/health`'s version, `/readiness` and `/peers`, so a node still starting or with no peers fails                          |
 | Node started                                     | Weeb3        | Its module downloaded and the node running, waited for as long as its own deadlines allow                                |
-| Connected to 20 peers                            | Weeb3        | Its peer count, waited for up to a minute                                                                                |
+| Connected to a peer                              | Weeb3        | Its first peer, waited for up to a minute                                                                                |
 | Reads a chunk                                    | every type   | The root chunk of a segment of this event's video, read the way the chat history reads its slots, through its chat route |
 | Reads bytes                                      | every type   | The same segment's bytes, read the way the player reads it                                                               |
 | Reads this event's stream list                   | every type   | The feed's head, parsed as a stream list, then its entry by index, as the player reads a playlist. Weeb3 below           |

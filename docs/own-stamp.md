@@ -4,9 +4,8 @@ Every message on Swarm needs a postage stamp. My Swarm has a **Chat stamp** grou
 the viewer is chatting, and it offers two ways to pay. The code is `src/features/chat/stamp/` and
 `src/features/connect/ChatStampSection.tsx`.
 
-- **Gateway pays**, the default for everyone: the message goes to `chat.writeUrl`, which stamps it. That holds with
-  Weeb3 picked for Chat history too: the page holds no stamp, and only the event's write path has one to pay with, so
-  the history is read through Weeb3 and the message is written through the event's gateway.
+- **Gateway pays**, the default for everyone: the message goes to `chat.writeUrl`, which stamps it, whichever source
+  reads the chat history.
 - **My stamp**, offered once signed in with Swarm ID. The stamp is the one Swarm ID gives this site. It is bought,
   topped up, made bigger and chosen for the site in Swarm ID, never in this page, which holds no stamp and no stamp
   key. For each message the page builds the chunk, Swarm ID signs and stamps it in its frame with `stampChunk`, and
@@ -22,7 +21,7 @@ the viewer is chatting, and it offers two ways to pay. The code is `src/features
 Only a Bee node of the viewer's own and Weeb3, the node in this browser, send a chunk under a stamp they are handed.
 The event gateway's chat path stamps every write with the gateway's own batch, a `/bee` path on the site passes reads
 alone, and the page cannot tell what any other gateway does with a stamp, so no gateway is ever sent a message on the
-viewer's stamp. The message goes through the source picked for **Chat history** when that is a Bee node or Weeb3.
+viewer's stamp. The message goes through the source picked for **Chat history** when that is a Bee node.
 Otherwise it goes through the first Bee node in the viewer's list of sources, and with no Bee node there, through
 Weeb3 (`ownStampRoute.ts`). The chat history is still read from the source picked for it, and nothing changes who
 pays or what Use for says.

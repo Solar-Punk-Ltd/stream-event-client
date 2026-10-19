@@ -36,7 +36,7 @@ still name the path and commit they were copied from.
 | Swarm ID                          | A separate site, framed by the page          | Holds the viewer's accounts, gives the page a chat key and a binding, stamps a message on the viewer's own stamp ([Swarm ID](../swarm-id.md))  |
 | An ENS endpoint                   | An Ethereum JSON-RPC service, optional       | Resolves a sender's wallet to an ENS name                                                                                                      |
 | A Bee node of the viewer's        | The viewer's own machine or server           | Any part may read from it instead of the gateway, and it can send a message on the viewer's own stamp                                          |
-| weeb-3                            | Inside the browser tab, as WebAssembly       | A whole Swarm node, with a service worker and a shared worker, that any part may read from ([weeb-3](../weeb3.md))                             |
+| weeb-3                            | Inside the browser tab, as WebAssembly       | A whole Swarm node, with a service worker and a shared worker, that plays the video and sends on the viewer's stamp ([weeb-3](../weeb3.md))    |
 | The image                         | nginx in a container                         | Serves the page, proxies `/bee`, writes the content security policy from its settings ([the image](../image.md))                               |
 
 ## How a request flows

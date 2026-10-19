@@ -24,9 +24,7 @@ What the browse page and the watch page do, and how the player reads Swarm. The 
   that matches nothing says so.
 - **Previews.** The entry's uploaded thumbnail when it has one, otherwise a frame decoded from the stream's first
   segment, with a live badge and the duration (`StreamPreview/`). A picture that failed to load from one source is
-  asked again when Previews move to another. With Weeb3 a card waits with its loading indicator until the node is
-  ready, and an announced stream's watch page shows its countdown without the picture until then, as
-  [the node in this browser](weeb3.md) says.
+  asked again when Previews move to another.
 - **Scheduled streams.** An entry whose state is `scheduled` has been announced and not yet broadcast. Its watch page
   says the stream has not started and reads the broadcast's ladder markers, each period's marker once, about 4 seconds
   into the period (`StreamWatcher/useListReadAtMarkers.ts`). Each marker found prompts one read of the stream list,
