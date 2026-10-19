@@ -200,19 +200,31 @@ describe("a source's own player's quality", () => {
     { level: 2, height: 1080, bitrate: 5_000_000 },
   ];
 
-  /** A player whose stream plays `playing` until a level is held, which then plays at once. */
-  function qualityPlayer(playing = 2) {
+  interface QualityPlayerOptions {
+    readonly levels?: PlayerLevel[];
+    readonly paused?: boolean;
+    /** How many switches the player refuses first, as weeb-3 does during a seek back. */
+    readonly refusals?: number;
+  }
+
+  /** A player whose stream plays its highest level until a level is held, which then plays at once. */
+  function qualityPlayer({ levels = LEVELS, paused = false, refusals = 0 }: QualityPlayerOptions = {}) {
     const held: number[] = [];
-    let current = playing;
+    let current = Math.max(...levels.map(({ level }) => level));
+    let refused = refusals;
     let video: HTMLVideoElement | null = null;
     const own: OwnPlayer = {
       attach: async (attachedTo) => {
         video = attachedTo;
-        Object.defineProperty(attachedTo, 'paused', { configurable: true, get: () => false });
+        Object.defineProperty(attachedTo, 'paused', { configurable: true, get: () => paused });
       },
       detach: () => {},
-      quality: () => (video === null ? null : { levels: LEVELS, selectedLevel: current, currentLevel: current }),
+      quality: () => (video === null ? null : { levels, selectedLevel: current, currentLevel: current }),
       holdQuality: (level) => {
+        if (refused > 0) {
+          refused -= 1;
+          throw new Error('cannot switch during a seek back');
+        }
         held.push(level);
         current = level;
       },
@@ -280,6 +292,36 @@ describe("a source's own player's quality", () => {
     await wait(1_000);
     expect(picker()!.value).toBe('720');
     expect(next.held).toEqual([1]);
+  });
+
+  it('tries a refused switch again a second later', async () => {
+    nodeStatus = { state: 'ready', peers: 40, healthyPeers: 200 };
+    const { held, load } = qualityPlayer({ refusals: 1 });
+    render(load);
+    await wait(0);
+    expect(held).toEqual([]);
+
+    await wait(1_000);
+    expect(held).toEqual([0]);
+  });
+
+  it('waits while the video is paused when By peers', async () => {
+    nodeStatus = { state: 'ready', peers: 10, healthyPeers: 200 };
+    const { held, load } = qualityPlayer({ paused: true });
+    render(load);
+    await wait(10_000);
+
+    expect(held).toEqual([]);
+  });
+
+  it('shows the nearest lower height as picked when the stream lacks the one held', async () => {
+    localStorage.setItem('stream-event-client:own-player-quality', '1080');
+    const { held, load } = qualityPlayer({ levels: LEVELS.filter(({ height }) => height < 1080) });
+    render(load);
+    await wait(0);
+
+    expect(picker()!.value).toBe('720');
+    expect(held, 'it already plays 720p').toEqual([]);
   });
 
   it('shows no quality line for a player that offers no choice', async () => {

@@ -10,7 +10,7 @@ import {
 import type { OwnPlayer, PlaybackStart, PlayerQuality, ProviderStatus } from '@/swarm/provider';
 
 import { followPlace, moveToPlace, type StreamPlace } from './placeAcrossSwap';
-import { BY_PEERS, type QualityChoice, qualitySteps } from './qualityByPeers';
+import { BY_PEERS, levelForHeight, type QualityChoice, qualitySteps } from './qualityByPeers';
 import { useOwnPlayerQuality } from './useOwnPlayerQuality';
 
 import './OwnPlayerStage.scss';
@@ -156,6 +156,8 @@ function QualityLine({ quality, peers, choice, onPick }: QualityLineProps) {
   const steps = qualitySteps(quality.levels);
   const playing = quality.levels.find(({ level }) => level === quality.currentLevel);
   const shown = [peerCountWords(peers), playing ? heightWords(playing.height) : null].filter(Boolean).join(' · ');
+  // A held height this stream lacks plays the nearest lower one, which the picker shows.
+  const picked = choice === BY_PEERS ? BY_PEERS : String(levelForHeight(steps, choice)?.height ?? choice);
   return (
     <div className="own-player-quality">
       <span className="own-player-playing">{shown}</span>
@@ -163,7 +165,7 @@ function QualityLine({ quality, peers, choice, onPick }: QualityLineProps) {
         Quality
         <select
           id={pickerId}
-          value={String(choice)}
+          value={picked}
           onChange={(event) => onPick(event.target.value === BY_PEERS ? BY_PEERS : Number(event.target.value))}
         >
           <option value={BY_PEERS}>{BY_PEERS_LABEL}</option>

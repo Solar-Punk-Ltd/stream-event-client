@@ -52,9 +52,9 @@ worker controls the page, and counts as failed when it is not ready after 30 s (
   from 90 peers, and one height lower below each of 90, 60 and 30, never below the lowest the stream has. It applies
   as soon as a quality plays, then looks at the peer count again every 5 s while the video plays, and switches through
   weeb-3's `setStreamQuality` only when another height is due and no earlier switch is still taking effect. A height
-  picked is held whatever the peers, and a stream without it plays the nearest lower one. A switch weeb-3 refuses, as
+  picked is held whatever the peers, and a stream without it plays the nearest lower one, which the picker then shows. A switch weeb-3 refuses, as
   during a seek back, is tried again a second later. The pick is kept in this browser, so the next stream starts at it,
-  and By peers is where a viewer starts who never picked. It changes the quality inside weeb-3 and nothing else: no
+  and By peers is where a viewer starts who never picked. By peers waits while the video is paused. It changes the quality inside weeb-3 and nothing else: no
   read and no part moves to another source.
 - **Leaving weeb-3's player stops it.** weeb-3 names no way to stop its player, which is hls.js underneath and would
   keep loading segments, up to three minutes ahead for a finished stream, for a video the viewer has left. So the build
