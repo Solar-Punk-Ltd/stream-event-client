@@ -87,6 +87,8 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
   const [isFolded, setIsFolded] = useState(false);
   const bodyId = useId();
 
+  const isOwn = useCallback((message: VisibleMessage) => message.address === ownAddress, [ownAddress]);
+
   const askForName = openConnect;
   /** Before the library has reported a state nothing has gone wrong, so that counts as live. */
   const isFeedLive = feedStatus === null || feedStatus === FeedStatus.LIVE;
@@ -168,6 +170,7 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
           original={renderMessage(threadParent, undefined, true)}
           replies={repliesTo(threadParent.id)}
           renderReply={(reply, onHeightChange) => renderMessage(reply, onHeightChange, true)}
+          isOwn={isOwn}
           onBack={() => setThreadId(null)}
           composer={
             session ? (
@@ -206,6 +209,7 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
           <ScrollableMessageList
             items={messages}
             label="Messages"
+            isOwn={isOwn}
             renderItem={(message, onHeightChange) => renderMessage(message, onHeightChange)}
           />
         ) : isFindingNewest ? (

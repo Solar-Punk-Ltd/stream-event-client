@@ -10,12 +10,14 @@ interface ThreadViewProps {
   original: ReactNode;
   replies: VisibleMessage[];
   renderReply: (reply: VisibleMessage, onHeightChange: () => void) => ReactNode;
+  /** Whether the viewer wrote this reply, which brings the replies down to it. */
+  isOwn: (reply: VisibleMessage) => boolean;
   /** The field to reply with, or the offer to join when the viewer has no name. */
   composer: ReactNode;
   onBack: () => void;
 }
 
-export function ThreadView({ original, replies, renderReply, composer, onBack }: ThreadViewProps) {
+export function ThreadView({ original, replies, renderReply, isOwn, composer, onBack }: ThreadViewProps) {
   return (
     <div className="thread-view">
       <div className="thread-header">
@@ -30,7 +32,7 @@ export function ThreadView({ original, replies, renderReply, composer, onBack }:
       </ol>
 
       {replies.length > 0 ? (
-        <ScrollableMessageList items={replies} label="Replies" renderItem={renderReply} />
+        <ScrollableMessageList items={replies} label="Replies" renderItem={renderReply} isOwn={isOwn} />
       ) : (
         <p className="thread-empty">No replies yet.</p>
       )}

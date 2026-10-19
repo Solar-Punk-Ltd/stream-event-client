@@ -12,6 +12,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    setupFiles: ['test/setup/elementScrollTo.ts'],
     // A backstop against a hang rather than a margin anything relies on: the slowest case runs in
     // well under a second.
     testTimeout: 30_000,
