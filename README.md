@@ -236,8 +236,7 @@ stamps them, unless the person picks their own stamp, as the next section says.
   the setting off or on while signed in reaches the very next message, one already typed among them. Swarm ID reports
   the change at once to an open page, and on its next load to a page that was closed. Messages already sent keep the
   link they carried.
-- **A guest can sign in later.** The menu of a guest says "Show it's really you" beside Sign in with
-  Swarm ID. Signing in keeps the guest's name and key in this browser, and signing out chats as that
+- **A guest can sign in later.** The menu of a guest says "Swarm ID" beside Sign in with Swarm ID. Signing in keeps the guest's name and key in this browser, and signing out chats as that
   guest again. Leave forgets the guest.
 - **What stays in memory only.** The chat key, the binding and who is signed in are never written to
   storage. A reload asks the Swarm ID library, whose frame keeps its own session for this site and

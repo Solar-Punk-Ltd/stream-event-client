@@ -342,7 +342,7 @@ test("Swarm ID's button shows a placeholder of itself in its own place until its
   await expect(swarmIdButton(dialog, 'Sign in with Swarm ID')).toBeVisible();
 });
 
-test("a guest's Show it's really you row holds Swarm ID's button beside its words at phone width", async ({ page }) => {
+test("a guest's Swarm ID row holds Swarm ID's button beside its words at phone width", async ({ page }) => {
   await page.setViewportSize(PHONE);
   await deployment(
     page,
@@ -360,7 +360,7 @@ test("a guest's Show it's really you row holds Swarm ID's button beside its word
   }
   await expect(swarmIdButton(dialog, 'Sign in with Swarm ID')).toBeVisible();
 
-  const words = await dialog.getByText("Show it's really you", { exact: true }).boundingBox();
+  const words = await dialog.locator('.swarm-id-hint', { hasText: /^Swarm ID$/ }).boundingBox();
   const frame = await dialog.locator('iframe[title="Swarm ID"]').boundingBox();
   const panel = await dialog.boundingBox();
   expect(words && frame && panel, 'the words, the frame and the panel are on screen').toBeTruthy();

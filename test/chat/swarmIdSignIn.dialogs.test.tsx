@@ -205,7 +205,8 @@ describe('a guest beside Swarm ID', () => {
 
     click(button(/^Ada/));
     expect(text()).toContain('Guest');
-    expect(text()).toContain("Show it's really you");
+    expect(text()).not.toContain("Show it's really you");
+    expect(document.querySelector('.swarm-id-row .swarm-id-hint')?.textContent).toBe('Swarm ID');
     click(swarmIdButton('Sign in with Swarm ID'));
     swarmId.client().handOver(SIGNED_IN);
     await signedIn();

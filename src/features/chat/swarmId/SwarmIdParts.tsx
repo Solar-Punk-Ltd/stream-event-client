@@ -274,7 +274,7 @@ export function SwarmIdYou({ onLeave }: { onLeave: () => void }) {
       </div>
       {canSignIn && (
         <div className="swarm-id-row">
-          <span className="swarm-id-hint">Show it&apos;s really you</span>
+          <span className="swarm-id-hint">{SWARM_ID_NAME}</span>
           <SwarmIdButton
             action="sign-in"
             text={SIGN_IN_LABEL}
