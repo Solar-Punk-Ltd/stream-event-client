@@ -10,9 +10,9 @@ import { OPEN_MY_SWARM } from '@/shared/mySwarmPanel';
 import './StampWarningBar.scss';
 
 /**
- * The line above the message field while the viewer's own stamp pays and something about it needs their eye: the
- * chat's source cannot send on it, Swarm ID gives this site no stamp, it ran out, or it runs low. Every way out is a
- * button the viewer presses. Nothing here moves a message to the gateway by itself.
+ * The line above the message field while the viewer's own stamp pays and something about it holds sending: the
+ * chat's source cannot send on it, Swarm ID gives this site no stamp, it ran out, or it is not usable yet. Every way
+ * out is a button the viewer presses. Nothing here moves a message to the gateway by itself.
  */
 export function StampWarningBar() {
   const { warning, route, siteStamp, canUseOwnStamp, choosePayWith } = useChatStamp();

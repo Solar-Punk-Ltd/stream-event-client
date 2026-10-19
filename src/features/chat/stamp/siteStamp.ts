@@ -4,10 +4,7 @@ export const SITE_STAMP_OK = 'ok';
 export const SITE_STAMP_RAN_OUT = 'ran-out';
 export const SITE_STAMP_NOT_USABLE = 'not-usable';
 
-type SiteStampState =
-  | typeof SITE_STAMP_OK
-  | typeof SITE_STAMP_RAN_OUT
-  | typeof SITE_STAMP_NOT_USABLE;
+type SiteStampState = typeof SITE_STAMP_OK | typeof SITE_STAMP_RAN_OUT | typeof SITE_STAMP_NOT_USABLE;
 
 /** The stamp Swarm ID gives this site, in the terms the viewer shows it. */
 export interface SiteStamp {
