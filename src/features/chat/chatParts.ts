@@ -175,7 +175,7 @@ const NOTHING_REFUSED = () => {};
  * The two parts swarm-chat-js takes in place of reaching Bee itself: its reads, through the Swarm client's chat
  * reader, and its one write. While the event pays, a message goes to the event's chat write address, which stamps it,
  * through the library's own write, unchanged. On the viewer's own stamp it is stamped by Swarm ID and goes to their Bee
- * node at `writeUrl`, or through the node in this browser where the chat reads from it, and never anywhere else, and
+ * node at `writeUrl`, or through the node in this browser, whichever `ownStampRoute` picks, and never anywhere else, and
  * its copy goes into the sender's own feed beside it. With neither it is refused.
  *
  * @param reads The client's chat reader as it is now, see {@link ChatSourceOptions.reads}.

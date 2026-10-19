@@ -3,20 +3,25 @@ import { MessageVia } from '@solarpunkltd/swarm-chat-js/message';
 import { SITE_STAMP_NONE, useChatStamp } from '@/features/chat/stamp/ChatStamp';
 import { SwarmIdButton } from '@/features/chat/swarmId/SwarmIdParts';
 import { SWARM_ID_BUTTON_COMPACT } from '@/features/chat/swarmId/swarmIdButtonLook';
-import { useConnect } from '@/features/connect/ConnectContext';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
-import { OPEN_MY_SWARM } from '@/shared/mySwarmPanel';
 
 import './StampWarningBar.scss';
 
 /**
- * The line above the message field while the viewer's own stamp pays and something about it holds sending: the
- * chat's source cannot send on it, Swarm ID gives this site no stamp, it ran out, or it is not usable yet. Every way
- * out is a button the viewer presses. Nothing here moves a message to the gateway by itself.
+ * The line above the message field while the viewer's own stamp pays and something about it holds sending. With no
+ * Bee node and no Weeb3 in the viewer's list it is one plain line saying what to add. Otherwise it is a bar: Swarm ID
+ * gives this site no stamp, it ran out, or it is not usable yet, and every way out is a button the viewer presses.
+ * Nothing here moves a message to the gateway by itself.
  */
 export function StampWarningBar() {
-  const { warning, route, siteStamp, canUseOwnStamp, choosePayWith } = useChatStamp();
-  const { open: openConnect } = useConnect();
+  const { warning, noRouteLine, siteStamp, canUseOwnStamp, choosePayWith } = useChatStamp();
+  if (noRouteLine) {
+    return (
+      <p className="stamp-no-route" role="status">
+        {noRouteLine}
+      </p>
+    );
+  }
   if (!warning) {
     return null;
   }
@@ -27,19 +32,13 @@ export function StampWarningBar() {
         <strong>{warning.title}</strong> {warning.detail}
       </span>
       <div className="stamp-warning-actions">
-        {!route.ok ? (
-          <Button variant={ButtonVariant.SECONDARY} className="stamp-warning-button" onClick={openConnect}>
-            {OPEN_MY_SWARM}
-          </Button>
-        ) : (
-          canUseOwnStamp && (
-            <SwarmIdButton
-              action="change-stamp"
-              text={siteStamp.status === SITE_STAMP_NONE ? 'Choose a stamp in Swarm ID' : 'Change stamp in Swarm ID'}
-              variant={warning.blocksSending ? ButtonVariant.PRIMARY : ButtonVariant.SECONDARY}
-              size={SWARM_ID_BUTTON_COMPACT}
-            />
-          )
+        {canUseOwnStamp && (
+          <SwarmIdButton
+            action="change-stamp"
+            text={siteStamp.status === SITE_STAMP_NONE ? 'Choose a stamp in Swarm ID' : 'Change stamp in Swarm ID'}
+            variant={warning.blocksSending ? ButtonVariant.PRIMARY : ButtonVariant.SECONDARY}
+            size={SWARM_ID_BUTTON_COMPACT}
+          />
         )}
         {warning.blocksSending && (
           <Button

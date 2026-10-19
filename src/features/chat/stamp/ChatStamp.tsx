@@ -4,6 +4,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { useAppContext } from '@/app/AppProvider';
 import { pushStampedSocThroughWeeb3 } from '@/swarm/providers/weeb-3/weeb3Push';
 import { useConnect } from '@/features/connect/ConnectContext';
+import { OWN_STAMP_NEEDS_SOURCE } from '@/features/connect/connectWords';
 
 import { useChatUser } from '../User';
 import type { OwnStampSetup } from '../useSwarmChat';
@@ -35,8 +36,10 @@ interface ChatStampValue {
   /** Who pays, as the viewer picked. Always the gateway for a viewer who is not signed in with Swarm ID. */
   readonly choice: ChatStampChoice;
   readonly choosePayWith: (payWith: MessageVia) => void;
-  /** Where a message on the viewer's own stamp goes out, or why the chat's source cannot send one. */
+  /** Where a message on the viewer's own stamp goes out, or that no source in the viewer's list can send one. */
   readonly route: OwnStampRoute;
+  /** The one line in the send area while the viewer's own stamp pays and nothing can send on it, or null. */
+  readonly noRouteLine: string | null;
   readonly siteStamp: SiteStampRead;
   /** The warning above the message field while the viewer's own stamp pays, or null. */
   readonly warning: StampWarning | null;
@@ -50,7 +53,8 @@ const GATEWAY_ONLY: ChatStampValue = {
   canUseOwnStamp: false,
   choice: GATEWAY_PAYS,
   choosePayWith: () => {},
-  route: { ok: false, reason: '', hint: '' },
+  route: { ok: false },
+  noRouteLine: null,
   siteStamp: { status: SITE_STAMP_NONE },
   warning: null,
   sending: GATEWAY_SENDING,
@@ -76,7 +80,7 @@ const READ_AFTER_SEND_MS = 15_000;
  * here switches who pays by itself.
  */
 export function ChatStampProvider({ children }: { readonly children: ReactNode }) {
-  const { sources, parts, swarmSettings } = useAppContext();
+  const { sources, parts } = useAppContext();
   const { swarmIdSession, getSiteStamp, getSiteStampId, onSwarmIdConnectionChange, stampChunk } = useChatUser();
   const { isOpen } = useConnect();
 
@@ -105,14 +109,8 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
   );
   const choosePayWith = useCallback((payWith: MessageVia) => pick({ payWith }), [pick]);
 
-  const chatSource = sources.find(({ id }) => id === parts.chat) ?? null;
-  const route: OwnStampRoute = useMemo(
-    () =>
-      chatSource
-        ? ownStampRoute(chatSource, swarmSettings.defaultId)
-        : { ok: false, reason: 'The chat has no source.', hint: '' },
-    [chatSource, swarmSettings.defaultId],
-  );
+  const route: OwnStampRoute = useMemo(() => ownStampRoute(sources, parts.chat), [sources, parts.chat]);
+  const noRouteLine = ownStampPays && !route.ok ? OWN_STAMP_NEEDS_SOURCE : null;
 
   const readGeneration = useRef(0);
   const lastReadAt = useRef(0);
@@ -200,11 +198,8 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
   }, []);
 
   const warning: StampWarning | null = useMemo(() => {
-    if (!ownStampPays) {
+    if (!ownStampPays || !route.ok) {
       return null;
-    }
-    if (!route.ok) {
-      return { title: route.reason, detail: `${route.hint} Or let the gateway pay.`, blocksSending: true };
     }
     switch (siteStamp.status) {
       case SITE_STAMP_NONE:
@@ -218,6 +213,8 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
 
   const warningRef = useRef(warning);
   warningRef.current = warning;
+  const noRouteLineRef = useRef(noRouteLine);
+  noRouteLineRef.current = noRouteLine;
   const stampChunkRef = useRef(stampChunk);
   stampChunkRef.current = stampChunk;
   const signedInRef = useRef(canUseOwnStamp);
@@ -243,7 +240,7 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
             stamper: () => (signedInRef.current ? { stampChunk: (chunk) => stampChunkRef.current(chunk) } : null),
             refusal: () => {
               const current = warningRef.current;
-              return current?.blocksSending ? current.title : null;
+              return noRouteLineRef.current ?? (current?.blocksSending ? current.title : null);
             },
             onSent: readAfterSend,
             onProblem: noteSendProblem,
@@ -262,12 +259,13 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
       choice,
       choosePayWith,
       route,
+      noRouteLine,
       siteStamp,
       warning,
       sending,
       ownStamp,
     }),
-    [canUseOwnStamp, choice, choosePayWith, route, siteStamp, warning, sending, ownStamp],
+    [canUseOwnStamp, choice, choosePayWith, route, noRouteLine, siteStamp, warning, sending, ownStamp],
   );
 
   return (

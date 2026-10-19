@@ -39,12 +39,12 @@ export interface OwnStampWriteOptions {
   readonly url: string | null;
   /**
    * Read at every write: how a stamped chunk goes out when it does not go to {@link url}, which is through the node in
-   * this browser, or null while the chat's source is not that node.
+   * this browser, or null while that node is not the one to send through.
    */
   readonly push?: () => StampedPush | null;
   /**
-   * Read at every write: why the page cannot send on the viewer's stamp now, such as a chat source that cannot take
-   * a stamped message or a stamp that ran out, or null when it can.
+   * Read at every write: why the page cannot send on the viewer's stamp now, such as no Bee node and no Weeb3 to send
+   * through or a stamp that ran out, or null when it can.
    */
   readonly refusal?: () => string | null;
   /** The mined key every sender signs inbox writes with, 64 hex digits. */

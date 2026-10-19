@@ -10,6 +10,7 @@ import { loadChatStampChoice, saveChatStampChoice } from '../../src/features/cha
 import {
   OWN_FEED_COPY,
   OWN_STAMP_NEEDS_SIGN_IN,
+  OWN_STAMP_NEEDS_SIGN_IN_AND_SOURCE,
   OWN_STAMP_NEEDS_SOURCE,
 } from '../../src/features/connect/connectWords';
 import type { SwarmIdPostageBatch } from '../../src/features/chat/swarmId/swarmIdClient';
@@ -91,16 +92,43 @@ describe('the chat stamp in My Swarm', () => {
 
     expect(radio('Gateway pays')?.checked).toBe(true);
     expect(radio('My stamp')?.disabled).toBe(true);
-    expect(radio('My stamp')?.closest('label')?.textContent).toContain(OWN_STAMP_NEEDS_SIGN_IN);
+    expect(radio('My stamp')?.closest('label')?.querySelector('small')?.textContent).toBe(
+      OWN_STAMP_NEEDS_SIGN_IN_AND_SOURCE,
+    );
   });
 
-  it('says my stamp needs Weeb3 or my own Bee node for the chat history, and keeps the gateway paying', async () => {
+  it('asks a guest with a Bee node in the list only to sign in with Swarm ID for their own stamp', async () => {
+    persistUserSession(nicknameLogin('Ada'));
+    saveAddedSources([{ id: 'added-1', type: 'bee-node', name: 'My Bee node', url: 'http://localhost:1633' }]);
+    await openConnect(BATCH, false);
+
+    expect(radio('My stamp')?.disabled).toBe(true);
+    expect(radio('My stamp')?.closest('label')?.querySelector('small')?.textContent).toBe(OWN_STAMP_NEEDS_SIGN_IN);
+  });
+
+  it('greys out my stamp with one line on what to add while the list has no Bee node and no Weeb3', async () => {
+    saveAddedSources([{ id: 'added-1', type: 'gateway', name: 'My gateway', url: 'https://gw.example.org' }]);
     await openConnect();
 
     expect(radio('Gateway pays')?.checked).toBe(true);
     expect(radio('My stamp')?.disabled).toBe(true);
+    expect(radio('My stamp')?.closest('label')?.classList.contains('off')).toBe(true);
     const line = radio('My stamp')?.closest('label')?.querySelector('small')?.textContent;
     expect(line).toBe(OWN_STAMP_NEEDS_SOURCE);
+    expect(OWN_STAMP_NEEDS_SOURCE).toBe('Add your Bee node or Weeb3 in My Swarm to send on your own stamp.');
+  });
+
+  it('offers my stamp through my Bee node while the event gateway reads the chat history', async () => {
+    saveAddedSources([{ id: 'added-1', type: 'bee-node', name: 'My Bee node', url: 'http://localhost:1633' }]);
+    await openConnect();
+
+    expect(radio('My stamp')?.disabled).toBe(false);
+    click(radio('My stamp')!);
+    await settle();
+
+    expect(seen.app?.parts.chat).toBe('event');
+    expect(seen.chatStamp?.sending).toEqual({ via: MessageVia.OWN_STAMP, url: 'http://localhost:1633' });
+    expect(radio('My stamp')?.closest('label')?.textContent).toContain('go out through your own Bee node');
   });
 
   it('shows how full the stamp Swarm ID gives this site is and its days left, once my stamp pays', async () => {

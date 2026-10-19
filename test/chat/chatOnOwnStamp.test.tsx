@@ -18,13 +18,24 @@ import type { ChatReads } from '../../src/features/chat/chatParts';
 import { saveChatStampChoice } from '../../src/features/chat/stamp/chatStampChoice';
 import { OWN_COPY_RETRY_MS } from '../../src/features/chat/stamp/ownFeedCopies';
 import { STAMP_RAN_OUT } from '../../src/features/chat/stamp/stampProblems';
+import { OWN_STAMP_NEEDS_SOURCE } from '../../src/features/connect/connectWords';
 import type { SwarmIdPostageBatch } from '../../src/features/chat/swarmId/swarmIdClient';
 import { makeFeedIdentifier } from '../../src/shared/feedFollow';
 import type { SwarmAnswer } from '../../src/swarm/answers';
 import { chooseSource, defaultRouting } from '../../src/swarm/routing';
 import { CHAT, connectPage, seen } from '../helpers/connectPage';
 import { wearThemeCss } from '../helpers/themeCss';
-import { button, click, nestedLiveRegions, queryButton, settle, type Mounted, waitFor } from '../helpers/dom';
+import {
+  button,
+  click,
+  input,
+  nestedLiveRegions,
+  queryButton,
+  settle,
+  type,
+  type Mounted,
+  waitFor,
+} from '../helpers/dom';
 import { FakeSwarmChat } from '../helpers/fakeSwarmChat';
 import { servedFeeds } from '../helpers/chatFeed';
 import { type FakeSwarmId, fakeSwarmId, SIGNED_IN } from '../helpers/fakeSwarmId';
@@ -314,14 +325,57 @@ describe('a chat paid for with my own stamp', () => {
     expect(queryButton('Let the gateway pay')).toBeNull();
   });
 
-  it('warns when the chat source cannot send on my stamp, and never sends through the gateway in its place', async () => {
+  it('sends through my Bee node from the list while the event gateway reads the chat history', async () => {
+    saveAddedSources([{ id: 'added-1', type: 'bee-node', name: 'My Bee node', url: NODE }]);
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    await watchPage();
+
+    expect(seen.app?.parts.chat, 'the chat history stays on the event gateway').toBe('event');
+    const chat = FakeSwarmChat.latest();
+    expect(chat.settings.infra).toMatchObject({ via: MessageVia.OWN_STAMP, writeUrl: NODE });
+    expect(seen.chatStamp?.warning).toBeNull();
+    type(input('Message'), 'through my node');
+    expect(button('Send').disabled).toBe(false);
+    await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(signedMessage('through my node'))));
+    await waitFor(() => (posted.length === 2 ? true : null));
+
+    for (const chunk of posted) {
+      expect(chunk.url.startsWith(`${NODE}/soc/`)).toBe(true);
+    }
+    expect(seen.app?.parts.chat).toBe('event');
+    expect(seen.chatStamp?.choice.payWith).toBe(MessageVia.OWN_STAMP);
+  });
+
+  it('pushes through Weeb3 from the list while a gateway reads the chat history and there is no Bee node', async () => {
+    saveAddedSources([{ id: 'added-1', type: 'weeb-3', name: 'Weeb3', url: '' }]);
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     await watchPage();
 
     const chat = FakeSwarmChat.latest();
     expect(chat.settings.infra.via).toBe(MessageVia.OWN_STAMP);
     expect(chat.settings.infra).not.toHaveProperty('writeUrl');
-    expect(chatRegion()?.textContent).toContain('The event gateway stamps every chat message');
+    await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(signedMessage('through weeb-3'))));
+    await waitFor(() => (weeb3Pushes.pushed.length === 2 ? true : null));
+
+    expect(posted).toEqual([]);
+    expect(seen.app?.parts.chat).toBe('event');
+  });
+
+  it('holds sending with one plain line when there is no Bee node and no Weeb3, and sends nothing to a gateway', async () => {
+    saveAddedSources([{ id: 'added-1', type: 'gateway', name: 'My gateway', url: 'https://gw.example.org' }]);
+    saveRouting(chooseSource(defaultRouting('event'), 'added-1'));
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    await watchPage();
+
+    const chat = FakeSwarmChat.latest();
+    expect(chat.settings.infra.via).toBe(MessageVia.OWN_STAMP);
+    expect(chat.settings.infra).not.toHaveProperty('writeUrl');
+    expect(chatRegion()?.textContent).toContain(OWN_STAMP_NEEDS_SOURCE);
+    expect(chatRegion()?.querySelector('.stamp-warning')).toBeNull();
+    expect(queryButton('Let the gateway pay')).toBeNull();
+    expect(queryButton('Open My Swarm')).toBeNull();
+    type(input('Message'), 'held');
+    expect(button('Send').disabled).toBe(true);
     const reaction = signedMessage('reaction', {
       type: MessageType.REACTION,
       target: idOf('someone'),
@@ -329,6 +383,30 @@ describe('a chat paid for with my own stamp', () => {
       via: MessageVia.OWN_STAMP,
     });
     await expect(chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(reaction)))).rejects.toThrow();
+    expect(posted).toEqual([]);
+    expect(weeb3Pushes.pushed).toEqual([]);
+  });
+
+  it('holds sending with the same line once the last Bee node is removed, keeping my stamp picked', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    await watchPage();
+    type(input('Message'), 'kept while held');
+    expect(button('Send').disabled).toBe(false);
+
+    await act(async () => seen.app?.removeSource('added-1'));
+    await settle();
+
+    expect(seen.chatStamp?.choice.payWith).toBe(MessageVia.OWN_STAMP);
+    expect(chatRegion()?.textContent).toContain(OWN_STAMP_NEEDS_SOURCE);
+    expect(chatRegion()?.querySelector('.stamp-warning')).toBeNull();
+    expect(input('Message').value, 'what was typed is kept').toBe('kept while held');
+    expect(button('Send').disabled).toBe(true);
+    const chat = FakeSwarmChat.latest();
+    expect(chat.settings.infra).not.toHaveProperty('writeUrl');
+    await expect(
+      chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(signedMessage('nowhere to go')))),
+    ).rejects.toThrow();
     expect(posted).toEqual([]);
   });
 
