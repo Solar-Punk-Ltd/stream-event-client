@@ -9,7 +9,7 @@ import { type BrowserStorage, browserStorage, readStored, writeStored } from './
 
 export const THEME_CHOICE_STORAGE_KEY = 'viewer-theme';
 
-/** The look this browser picked before, or null when it picked none or the build no longer carries it. */
+/** The look this browser picked before, or null when it picked none or the build does not carry it. */
 export function loadThemeChoice(storage: BrowserStorage | null = browserStorage()): ThemeName | null {
   const saved = readStored(storage, THEME_CHOICE_STORAGE_KEY);
   return isThemeName(saved) ? saved : null;

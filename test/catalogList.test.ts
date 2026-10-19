@@ -172,10 +172,10 @@ describe('the catalog a poll leaves on screen', () => {
 });
 
 /**
- * ⛔ The web2 admin changes an entry where it stands, and the old rule only ever looked at the end.
+ * ⛔ The web2 admin changes an entry where it stands, and a rule that compares only the end misses it.
  *
  * The stack's own uploader removes a changed entry and appends it again, so every change it makes
- * reached the last entry, which is all the old rule compared. The admin appends an entry when it
+ * reached the last entry, which is all such a rule compares. The admin appends an entry when it
  * first publishes it and from then on replaces it where it stands, and an unpublish removes an entry
  * without touching any other. Seen live on 2026-09-25: an entry renamed in place was never shown by an
  * open, polling viewer in 180 s, while a fresh page load showed it at once.

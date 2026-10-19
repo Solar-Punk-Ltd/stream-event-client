@@ -200,7 +200,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
   /**
    * Take the viewer's new choices, remember them, and point every later read where they say.
    *
-   * ⛔ **The stream list is not cleared here, and that is the fix rather than an omission.** What a
+   * ⛔ **The stream list is not cleared here, on purpose.** What a
    * switch changes is whose answer the list is, which the source held beside it already records, so
    * the browse page stops showing it from this moment without anything being thrown away. Clearing
    * it would reach the watch page too, where a player is mounted on a ladder read out of it and
@@ -273,8 +273,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
 
   /**
    * Kept in a ref rather than rebuilt per call, because its whole value is the position it remembers
-   * between polls. A reader recreated on each render would resolve the head every time, which is the
-   * cost this replaces.
+   * between polls. A reader recreated on each render would resolve the head every time.
    */
   const catalogReader = useRef(new CatalogFeedReader(config.catalog.owner, Topic.fromString(config.catalog.topic)));
 

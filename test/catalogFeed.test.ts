@@ -405,7 +405,7 @@ describe('CatalogFeedReader', () => {
 });
 
 /**
- * ⛔ A gateway switch resets this reader, and a poll in flight when it lands used to undo the reset.
+ * ⛔ A gateway switch resets this reader, and a poll in flight when it lands must not undo the reset.
  *
  * The position is written after an await, so the read against the node the viewer just left finished
  * and wrote that node's slot number back. Every poll after it asked the new node for the slot after

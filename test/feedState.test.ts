@@ -34,7 +34,7 @@ function makeClock() {
  *
  * Two polls and a clock, never a loop over the constant. Looping `UNSERVED_SLOT_STALL_MS` times
  * against an implementation that compares to `UNSERVED_SLOT_STALL_MS` compares the constant only to
- * itself, which is how the old poll-count version stayed green at any value including ten minutes.
+ * itself, which is how a poll-count threshold stays green at any value including ten minutes.
  */
 function unservedPastWindow(tracker: FeedHealthTracker, clock: { advance: (by: number) => void }): void {
   tracker.recordUnservedSlot(TOPIC);
@@ -63,9 +63,9 @@ describe('FeedHealthTracker backoff schedule', () => {
   });
 
   /**
-   * The sibling constant, pinned the same way and for the same reason. Every test that exercised the
-   * unserved run used to loop the threshold's own value against an implementation comparing to that
-   * same value, so the constant was only ever compared to itself: raising it to 600 left all 18 tests
+   * The sibling constant, pinned the same way and for the same reason. A test that exercises the
+   * unserved run by looping the threshold's own value runs against an implementation comparing to that
+   * same value, so the constant is only ever compared to itself: raising it to 600 leaves such tests
    * green, and 600 polls is ten minutes of a dead feed before a viewer is told anything.
    *
    * ⛔ **Polls were the wrong unit, which is why this is now milliseconds.** The poll rate collapses

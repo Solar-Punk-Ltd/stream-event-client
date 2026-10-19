@@ -68,7 +68,7 @@ export interface LadderRung {
 /** What a level request finds once it has waited for a rung. */
 type RungReadiness = 'ready' | 'refused' | 'inactive' | 'unregistered';
 
-/** The seams the walk is built from. Every one has a default that is today's behaviour. */
+/** The seams the walk is built from. Every one has a default that is the shipped behaviour. */
 export interface LadderFeedPollerOptions {
   readonly finder?: NewestIndexFinder;
   /**
@@ -166,11 +166,11 @@ interface LadderEntry {
  * asks for the next slot when the next playlist is due rather than as often as it can, and looks one
  * slot past a slot that is late. The loader serves hls.js's level reloads out of what it has read.
  *
- * ⭐ **One rung at a time** (Levi, 2026-10-07: "only one quality request at the time. Not 4! We only
+ * ⭐ **One rung at a time** (the owner's ruling, 2026-10-07: "only one quality request at the time. Not 4! We only
  * request what we watch."). Every rung of the ladder is registered, and only the playing rung is
- * walked, plus the one being switched to while a switch is under way. Walking all four used to make a
+ * walked, plus the one being switched to while a switch is under way. Walking all four would make a
  * switch free, at up to about 320 requests a minute, half of them for an index not written yet. A
- * switch now pays the {@link NewestIndexFinder}'s reads for the new rung while hls.js plays the old one
+ * switch instead pays the {@link NewestIndexFinder}'s reads for the new rung while hls.js plays the old one
  * from its buffer.
  */
 export class LadderFeedPoller {
@@ -508,8 +508,8 @@ export class LadderFeedPoller {
 
   /**
    * The rung's markers, where a marker that shows the rung no further on counts as a slot unserved, so
-   * the feed health and the stall rule see a quiet rung the follower no longer asks as they saw one
-   * it did. A turn with no marker asks the slot itself, which counts through the reader.
+   * the feed health and the stall rule see a quiet rung the follower leaves unasked as they see one
+   * it asked. A turn with no marker asks the slot itself, which counts through the reader.
    */
   private countedMarkers(entry: RungEntry, walk: Walk, clock: FollowClock): HeadMarkers | undefined {
     const markers = this.headMarkers(feedRungOf(entry), clock);
@@ -553,8 +553,8 @@ export class LadderFeedPoller {
   /**
    * The backoff the shared tracker has set for this rung's gateway, waited out interruptibly.
    *
-   * ⛔ **Waited out in slices rather than in one committed timer.** A rung at the cap used to schedule
-   * one timer for the whole of it, so it could not find out the fault was over. Measured 2026-08-29:
+   * ⛔ **Waited out in slices rather than in one committed timer.** A single timer for the whole of a rung's
+   * backoff at the cap could not find out the fault was over. Measured 2026-08-29:
    * three unrelated faults each froze the picture for 58.5 to 59.0 seconds, an eight second
    * writer-bee pause included. A slice is the poll interval, and each slice asks the unjittered
    * question of whether the hold still stands, because what `backoffMs` returns is a fresh jittered

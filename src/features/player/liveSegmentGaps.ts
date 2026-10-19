@@ -88,8 +88,8 @@ export interface GapPlayer {
  *
  * "Given up on" is read from what hls.js has already done by the time the player's own listener runs,
  * since its error controller and stream controller subscribed first. A fatal network error is the
- * case that used to end in a restart: hls.js has stopped loading, so the fragment it holds is marked a gap the
- * way a `GAP` tag would have marked it, and loading is started again from the playhead. A non-fatal
+ * case that would otherwise end in a restart: hls.js has stopped loading, so the fragment it holds is marked a
+ * gap the way a `GAP` tag would mark it, and loading is started again from the playhead. A non-fatal
  * error on a fragment hls.js has set `gap` on is one it skipped by itself: after its retries with no
  * other level left to try, or at once for a fragment it found no media in (`base-stream-controller.ts`,
  * `treatAsGap`, called from `onFragmentOrKeyLoadError` and from `updateLevelTiming`). hls.js does that

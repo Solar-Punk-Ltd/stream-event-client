@@ -173,8 +173,8 @@ describe('dropping a rung that has stopped being produced', () => {
   /**
    * ⛔⛔ **Any number of drops, until the viewer is on a quality that moves** (ruled 2026-10-07).
    *
-   * A cap of one used to stand here, bought by a live test on 2026-09-01 where an uploader dying read as
-   * every rung failing in turn. The poller no longer announces a rung for being quiet alone: it fails
+   * A cap of one would fail here: a live test on 2026-09-01 showed an uploader dying read as
+   * every rung failing in turn. The poller does not announce a rung for being quiet alone, it fails
    * over only to a sibling it watched make progress, and a broadcast that stops everywhere shows no such
    * sibling. So every announcement names a rung that stopped while another carries on, and a cap only
    * left a viewer stuck on the second one to die.

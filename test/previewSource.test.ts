@@ -1,8 +1,8 @@
 /**
- * A preview card used to spin forever whenever its manifest produced no segments, which included the
- * case where the gateway had answered 404: `res.ok` was never read, the 404 body went into
- * `parseManifest`, and the empty result it returned took an early return that was the one exit not
- * clearing the loading flag. Failure and "still working on it" were the same pixels, permanently.
+ * A preview card must not spin forever when its manifest produces no segments, which includes the
+ * case where the gateway answers 404: the status has to be read, because a 404 body parsed as a
+ * manifest gives an empty result, and every exit has to clear the loading flag. Failure and "still
+ * working on it" must not be the same pixels.
  */
 
 import assert from 'node:assert/strict';

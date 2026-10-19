@@ -24,9 +24,8 @@ export interface SwarmSettings {
 export const SINGLE_GATEWAY_ID = 'gateway';
 
 /**
- * The settings a config describes. A config written before `providers` existed names one gateway,
- * `gatewayUrl`, and that is read as the only gateway offered and the default, so a deployment needs no
- * change to its settings.
+ * The settings a config describes. A config that names only `gatewayUrl`, one gateway, is read as the only gateway
+ * offered and the default.
  */
 export function swarmSettingsFrom(config: Pick<RuntimeConfig, 'gatewayUrl' | 'providers'>): SwarmSettings {
   const { providers, gatewayUrl } = config;

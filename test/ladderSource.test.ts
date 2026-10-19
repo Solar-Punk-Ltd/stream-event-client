@@ -159,7 +159,7 @@ describe('the ladder entry points', () => {
     });
 
     /**
-     * Only the quality hls.js plays is read (Levi, 2026-10-07). A level request starts that rung, a
+     * Only the quality hls.js plays is read (the owner's ruling, 2026-10-07). A level request starts that rung, a
      * second one starts the rung switched to, and the switch reported by hls.js stops the first.
      * Counted on the requests a real fetch makes, by the rung each one names.
      */

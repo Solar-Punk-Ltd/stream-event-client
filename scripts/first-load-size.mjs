@@ -1,5 +1,7 @@
 // Prints what the first page load downloads in script and style, read from the built index.html,
-// so a pull request can say how heavy the page is. It reports and never fails a build.
+// so a pull request can say how heavy the page is, and appends the same table to the GitHub step summary when
+// GITHUB_STEP_SUMMARY is set. It reports and never fails a build on size, but it throws when the folder has no
+// index.html.
 import { appendFileSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';

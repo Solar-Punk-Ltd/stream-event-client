@@ -29,7 +29,6 @@ import './SwarmHlsPlayer.scss';
 /** Pins playback to a named rung, `AUTO_LEVEL` hands the choice back to hls.js's ABR. */
 const AUTO_LEVEL = 'auto';
 
-// TODO Consider switching to React.MediaHTMLAttributes<HTMLMediaElement> to support <audio> as well
 /**
  * The settings this component lets a caller retune.
  *
@@ -80,12 +79,7 @@ interface HlsTuning {
  * three-segment target.
  */
 const DEFAULT_HLS_TUNING: Readonly<HlsTuning> = Object.freeze({
-  // Spread rather than restated. These are the buffering and latency numbers of
-  // {@link HLS_TUNING}, each derived from a measurement recorded beside it, and a second copy here
-  // is a second place for them to be wrong: the copy this replaces had drifted back to
-  // `liveSyncDuration: 10` and `liveMaxLatencyDuration: 30`, which is the pair `playerConfig.ts`
-  // named as leaving a viewer between the end of catch-up and the start of the seek with neither
-  // running, and it omitted `maxLiveSyncPlaybackRate` altogether.
+  // Spread rather than restated, so the numbers have one home.
   ...HLS_TUNING,
 
   // --- ABR ---
@@ -255,6 +249,7 @@ function levelIndexByName(hls: Hls, level: string): number {
   return hls.levels.findIndex((candidate) => candidate.height === height);
 }
 
+// TODO Consider switching to React.MediaHTMLAttributes<HTMLMediaElement> to support <audio> as well
 interface HlsPlayerProps extends React.VideoHTMLAttributes<HTMLVideoElement> {
   owner: string;
   topicString: string;
@@ -262,7 +257,7 @@ interface HlsPlayerProps extends React.VideoHTMLAttributes<HTMLVideoElement> {
   enableQoeOverlay?: boolean;
   /**
    * The stream's ABR ladder. Absent or empty, the player reads `topicString` as a single media
-   * playlist exactly as it always has.
+   * playlist on its own.
    */
   renditions?: Rendition[];
   /**
@@ -518,7 +513,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
           case ErrorTypes.MEDIA_ERROR: {
             // ⛔ Recovery re-appends the media that just failed, so calling it on every fatal media
             // error with no window and no ending is an unbounded loop that refetches fragments each
-            // turn. A broadcast whose opening media a decoder will not accept used to leave a viewer
+            // turn. A broadcast whose opening media a decoder will not accept would leave a viewer
             // on a black player pulling media for as long as the tab stayed open.
             const decision = nextMediaErrorAction(mediaErrors, performance.now());
             mediaErrors = decision.state;

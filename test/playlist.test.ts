@@ -33,7 +33,7 @@ const rendition = (name: string, width: number, height: number, bandwidth: numbe
  * promising to match.
  *
  * Identity rather than a re-assertion of the output. Re-checking the text would pass just as well
- * against a fresh local copy, which is exactly the arrangement this replaced.
+ * against a fresh local copy.
  */
 describe('the shared playlist contract', () => {
   it('re-exports the shared builder and URI helpers rather than copies of them', () => {

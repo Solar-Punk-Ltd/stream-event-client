@@ -52,8 +52,8 @@ export const FIRST_LOAD_RETRY_MS = 5_000;
  *
  * ⛔ **Never a backoff.** SWR skips its refresh timer while its cache holds an error and leaves the next
  * read to `onErrorRetry`, whose default waits longer after every failure, from 5 to 10 s after one up
- * to minutes after a few in a row. One slow or refused read used to hold an open page that far behind,
- * so a stream published or gone live reached it only after a reload. A retry due while the page is
+ * to minutes after a few in a row. One slow or refused read would hold an open page that far behind,
+ * so a stream published or gone live would reach it only after a reload. A retry due while the page is
  * hidden is dropped, since SWR reads again when the page is shown.
  *
  * @param pollMs The page's poll interval, or null for a page that does not poll, which retries nothing.

@@ -1,4 +1,4 @@
-// The playback quality panel, ported from Nandor Komlodi's panel in the streaming monorepo's client and
+// The playback quality panel, ported from the panel in the streaming monorepo's client and
 // drawn in this viewer's tokens. The overlay element is the toggle button's 32 px box, fixed to the
 // browser window at the place qoeGeometry.ts computes, and a manual popover, so the browser's own
 // popover rules are undone here: it would otherwise be centred, padded, bordered and painted.

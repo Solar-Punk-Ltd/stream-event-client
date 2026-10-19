@@ -48,8 +48,8 @@ interface FeedStateOverlayProps {
  *
  * Deliberately not an error and not dismissable. The stream is not over and there is nothing for the
  * viewer to do: attempts continue on a backoff and the overlay goes away on its own when one
- * succeeds. Before this, the only thing a viewer saw was the picture freezing and then a decoder
- * error once the buffer ran dry, which points at the wrong thing entirely.
+ * succeeds. Without it the only thing a viewer sees is the picture freezing and then a decoder
+ * error once the buffer runs dry, which points at the wrong thing entirely.
  */
 export const FeedStateOverlay: React.FC<FeedStateOverlayProps> = ({ state, waitingOnSlowSource = false }) => {
   if (state === FEED_STATE_LIVE) {

@@ -35,7 +35,7 @@
  *
  * The mechanism, its configurability and its tests all stay, because an operator with evidence for a
  * regime this was not measured in can turn it on. 0 runs every staggered task synchronously, which is
- * exactly what happened before any of this existed rather than approximately.
+ * exactly the behaviour of no stagger at all rather than approximately.
  */
 export const GATEWAY_REQUEST_JITTER_MS = 0;
 
@@ -50,10 +50,10 @@ export const GATEWAY_REQUEST_JITTER_MS = 0;
  * Proportional rather than absolute because the point of doubling a backoff is that later attempts
  * spread wider, and a fixed 60ms on top of a multi-second wait would not.
  *
- * ⚠️ **This stays on where the stagger above was turned off, and the difference is scale.** A quarter
- * of a 2 to 8 second backoff is 0.5 to 2 seconds of separation, which is the order that was measured
- * to work, where 60ms is the order that was measured not to. ⬅ **Not itself measured**, and kept as
- * standard practice for a retry storm rather than as a measured result.
+ * ⚠️ **This stays on where the stagger above is off, and the difference is scale.** A quarter of a
+ * 2 to 8 second backoff is 0.5 to 2 seconds of separation, where the 60ms stagger was measured to do
+ * nothing. ⬅ **The quarter fraction itself is not measured.** It is standard practice for a retry
+ * storm, not a measured result.
  */
 export const MANIFEST_BACKOFF_JITTER_FRACTION = 0.25;
 
@@ -65,7 +65,7 @@ export interface StaggeredTask {
 /**
  * Puts a bounded random delay in front of work that is about to touch the gateway.
  *
- * Injectable rather than a free function because two of the three call sites need to cancel a task
+ * Injectable rather than a free function because both call sites need to cancel a task
  * that has not fired yet, and because a test that waited out a real stagger would be a test that
  * sleeps.
  */

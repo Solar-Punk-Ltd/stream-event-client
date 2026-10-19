@@ -209,8 +209,8 @@ export class CatalogFeedReader {
       }
       const body = contentText(answer);
       // ⛔ The body is checked before the position moves. The caller parses it after this returns, so
-      // a body that arrived cut short used to fail that poll with the position already past it, and
-      // every later poll asked for the slot after it. A change announced only in that slot never
+      // a body that arrived cut short would fail that poll with the position already past it, and
+      // every later poll would ask for the slot after it. A change announced only in that slot never
       // reached the page. The walk stops here and this slot is asked for again on the next poll.
       if (!isJson(body)) {
         return newest;

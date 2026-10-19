@@ -1,0 +1,117 @@
+# Specs
+
+The behaviour the app guarantees, as present-tense statements, each with the file that enforces it and the test that
+covers it where one exists. The pages under `docs/` carry the full detail behind each line.
+
+## The stream list
+
+| Behaviour                                                                                                  | Enforced in                                                        | Covered by                                                                           |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| The list is read from the feed `catalog.owner`/`catalog.topic` by slot, through `reader('stream-list')`    | `features/catalog/catalogFeed.ts`                                  | `test/catalogFeed.test.ts`, `test/catalogReaderParity.test.ts`                       |
+| It is read again once a minute, and after a failed first read after 5 s, never on a longer backoff         | `features/catalog/catalogPoll.ts`                                  | `test/catalogPoll.test.ts`, `test/browsePagePoll.test.tsx`                           |
+| A read from a newer slot replaces the list whatever changed, and a slot that does not parse is asked again | `features/catalog/catalogList.ts`                                  | `test/catalogList.test.ts`                                                           |
+| Live streams are featured, then the next upcoming with a countdown, then upcoming, then past, eight a page | `features/catalog/StreamList/displayedStreams.ts`, `pagination.ts` | `test/displayedStreams.test.ts`, `test/pagination.test.ts`, `test/countdown.test.ts` |
+| Search matches title, description and tags, as one flat paged list                                         | `features/catalog/StreamList/streamSearch.ts`                      | `test/streamSearch.test.ts`                                                          |
+| A scheduled stream's watch page waits, reads ladder markers, and starts once the list says live            | `features/player/StreamWatcher/useListReadAtMarkers.ts`            | `test/waitingPageMarkers.test.tsx`, `test/scheduledCountdown.test.ts`                |
+| The list is not cleared on a source switch, and a stale list is shown as from its old source               | `app/AppProvider.tsx`                                              | `test/appCatalog.test.ts`, `test/appSwarmClient.test.tsx`                            |
+| A list that cannot be read names its source on the browse page                                             | `features/catalog/StreamBrowser/catalogView.ts`                    | `test/catalogView.test.ts`, `test/browsePageUnreachable.test.tsx`                    |
+
+## The player
+
+| Behaviour                                                                                                    | Enforced in                                                 | Covered by                                                              |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------- |
+| The player reads only the feed of the quality it plays, plus the one it is switching to                      | `features/player/LadderFeedPoller.ts`                       | `test/oneQualityFollow.test.ts`, `test/ladderFeedPoller.test.ts`        |
+| The master playlist is built from the list's renditions, and feed URIs are `swarm://<owner>/<topic>`         | `shared/masterPlaylist.ts`                                  | `test/shared/masterPlaylist.test.ts`, `test/ladderMasterFetch.test.ts`  |
+| The newest playlist is found from the ladder's time markers, with a slot search as the fallback              | `features/player/markerFinder.ts`, `newestIndexFinder.ts`   | `test/following/markerFinder.test.ts`, `test/following/finders.test.ts` |
+| A marker address found missing is never asked again                                                          | `features/player/ladderMarkerReads.ts`                      | `test/following/markerFinder.test.ts`                                   |
+| A marker naming a quality the entry lacks prompts one read of the list's next slot                           | `features/player/ladderCompletionWatch.ts`                  | `test/ladderCompletionWatch.test.ts`                                    |
+| The next playlist is asked when due, learned from the player's own reads, about one ask in four too early    | `features/player/following/followPredicted.ts`              | `test/following/followers.test.ts`, `test/rungFollowing.test.ts`        |
+| The live target is three segments and never under 12 s                                                       | `features/player/playerConfig.ts`, `liveSyncLength.ts`      | `test/playerConfig.test.ts`, `test/segmentLengthTuning.test.ts`         |
+| A quality is judged by its own progress, a stopped one is left for the next lower, the last is never dropped | `features/player/rungHealth.ts`, `SwarmHlsPlayer.tsx`       | `test/rungHealth.test.ts`, `test/rungDropKeepsPlaying.test.ts`          |
+| A quality's first playlist is waited 20 s, then that quality is failed                                       | `features/player/ManifestManagement.ts`                     | `test/rungReadyDeadline.test.ts`                                        |
+| A segment hls.js gives up on among the three newest is marked `#EXT-X-GAP`, four in five minutes at most     | `features/player/liveSegmentGaps.ts`                        | `test/liveSegmentGaps.test.ts`, `test/qoeSkippedSegments.test.ts`       |
+| A finished feed is watched for its return every ~30 s, and the player rejoins live                           | `features/player/feedReturn.ts`, `returningBroadcast.ts`    | `test/feedReturn.test.ts`, `test/returningBroadcast.test.ts`            |
+| A live stream paused by a hidden page resumes when the page is visible again                                 | `features/player/resumeOnReturn.ts`                         | `test/resumeOnReturn.test.ts`                                           |
+| A restart resumes a recording at the viewer's place                                                          | `features/player/restartResume.ts`, `mediaErrorRecovery.ts` | `test/restartKeepsPosition.test.tsx`, `test/mediaErrorRecovery.test.ts` |
+| A source switch keeps the place in a recording, across a player swap too                                     | `features/player/placeAcrossSwap.ts`                        | `test/positionAcrossPlayerSwap.test.tsx`, `test/moveToPlace.test.ts`    |
+| A slow source gets longer read windows and the player waits, it never switches source                        | `features/player/sourceMissCost.ts`                         | `test/sourceMissCost.test.ts`, `test/rungBudgetForSlowSources.test.ts`  |
+| Segments are loaded from URLs the current source gives, named again at a switch                              | `features/player/CustomManifestLoader.ts`                   | `test/CustomFragmentLoader.test.ts`, `test/playerThroughClient.test.ts` |
+| With Weeb3 as the video's source, weeb-3's own player plays and nothing replaces it                          | `features/player/OwnPlayerStage.tsx`                        | `test/ownPlayerStage.test.tsx`                                          |
+| `?qoe=1` shows the quality panel, movable, resizable, remembered, usable in full screen                      | `features/player/overlays/qoe/`                             | `test/qoe*.test.ts(x)`                                                  |
+
+## The chat
+
+| Behaviour                                                                                                                         | Enforced in                                            | Covered by                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Without a `chat` block, or with `enabled` false, there is no chat anywhere                                                        | `config/runtimeConfig.ts` (`enabledChat`)              | `test/runtimeConfig.test.ts`, `test/watchPage.test.tsx`                       |
+| A guest name is 1 to 20 characters, no control or formatting characters, never ending in .eth                                     | `features/chat/auth/login.ts`                          | `test/chat/login.test.ts`                                                     |
+| A guest's name, key and address are kept under `stream-event-client:chat-session`                                                 | `features/chat/auth/persistence.ts`                    | `test/chat/persistence.test.ts`                                               |
+| Every message is verified before it is shown, in a worker with a fallback to the page's thread                                    | `features/chat/verify/messageVerifier.ts`              | `test/chat/messageVerifier.test.ts`                                           |
+| The library reads through the client's chat reader and writes to `chat.writeUrl` while the gateway pays                           | `features/chat/chatParts.ts`, `chatSettings.ts`        | `test/chat/chatParts.test.ts`, `test/chat/chatSettings.test.ts`               |
+| Signing in with Swarm ID is the library's own button, and a binding the chat would refuse is refused at sign-in                   | `features/chat/swarmId/swarmIdSignIn.ts`               | `test/chat/swarmIdSignIn.test.ts`, `test/chat/swarmIdSignIn.dialogs.test.tsx` |
+| Only a wallet link that names the signed-in account is sent, and the newest session's setting wins                                | `features/chat/swarmId/`, `useSwarmChat.ts`            | `test/chat/walletLink.test.ts`, `test/chat/walletLinkChange.test.tsx`         |
+| An ENS name shows only when both records agree, after the message is drawn, four lookups at once, kept 10 min                     | `features/chat/ens/ensLookup.ts`                       | `test/chat/ensLookup.test.ts`, `test/chat/ensNamesDisplay.test.tsx`           |
+| My stamp sends through the Chat history source if it is a Bee node or Weeb3, else the first Bee node, else Weeb3, never a gateway | `features/chat/stamp/ownStampRoute.ts`                 | `test/chat/ownStampRoute.test.ts`                                             |
+| A message on the viewer's stamp is never resent through the gateway, and Retry uses the same route                                | `features/chat/stamp/ChatStamp.tsx`, `useSwarmChat.ts` | `test/chat/chatOnOwnStamp.test.tsx`, `test/connect/chatStamp.test.tsx`        |
+| A push through Weeb3 has a minute, and a stamp that is not 113 bytes never reaches it                                             | `swarm/providers/weeb-3/weeb3Push.ts`                  | `test/swarm/weeb3Push.test.ts`                                                |
+| A message on the viewer's stamp gets a copy in their own feed, tried three times, never failing the message                       | `features/chat/stamp/ownFeedCopies.ts`                 | `test/chat/ownFeedCopies.test.ts`                                             |
+| Verify compares the own feed with the chat only when pressed, within its limits, and only reads                                   | `features/chat/stamp/ownFeedComparison.ts`             | `test/chat/ownFeedComparison.test.ts`                                         |
+| The pay choice is kept per account under `stream-event-client:chat-stamp:<address>`                                               | `features/chat/stamp/chatStampChoice.ts`               | `test/chat/chatStampChoice.test.ts`                                           |
+
+## My Swarm, sources and Use for
+
+| Behaviour                                                                                                           | Enforced in                                                    | Covered by                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| A part reads from the source picked for it and from nothing else, whatever that source answers                      | `swarm/client.ts`, `swarm/createSwarmClient.ts`                | `test/swarm/settings.test.ts`, `test/swarm/swarmClient.test.ts`                                      |
+| Use for is one source for all features or one per part, and an unknown id resolves to the default                   | `swarm/routing.ts`                                             | `test/swarm/routing.test.ts`                                                                         |
+| Added sources and routing survive a reload, and a bad entry is dropped rather than trusted                          | `swarm/sources.ts`, `app/sourceStorage.ts`                     | `test/swarm/sources.test.ts`, `test/sourceStorage.test.ts`                                           |
+| The client is rebuilt only when a part's source or address changes                                                  | `app/AppProvider.tsx`                                          | `test/appSwarmClient.test.tsx`                                                                       |
+| A source is added only after every check passed for the address in the field                                        | `features/connect/AddSourceViews.tsx`                          | `test/connect/connect.test.tsx`, `test/connect/weeb3Add.test.tsx`                                    |
+| Each type runs its own checks in order, and the first failure stops the rest with a reason and a fix                | `features/gateway/sourceChecks.ts`, `checkWords.ts`            | `test/gateway/sourceChecks.test.ts`, `test/gateway/checkWords.test.ts`                               |
+| A gateway that refused `/soc` is remembered and read by chunk address afterwards                                    | `swarm/providers/bee-http/beeHttpProvider.ts`                  | `test/swarm/beeHttpProvider.test.ts`, `test/gateway/sourceChecksRememberRefusal.test.tsx`            |
+| The light status is checked every 10 s while the panel is open                                                      | `features/gateway/sourceStatus.ts`, `useSourceStatuses.ts`     | `test/gateway/sourceStatus.test.ts`                                                                  |
+| A Bee node address is on this computer or https, `[::1]` is refused with what to type instead                       | `features/gateway/gatewayProbe.ts`                             | `test/ownNodeAddress.test.ts`, `test/gateway/nodeAddressLevels.test.ts`, `test/gatewayProbe.test.ts` |
+| A part with no usable answer for 10 s shows a failure bar, gone at the next answer or 30 s after it stopped reading | `swarm/featureFailures.ts`, `features/connect/FailureBars.tsx` | `test/swarm/featureFailures.test.ts`, `test/connect/failureBar.test.tsx`                             |
+| Copy diagnostics holds no address but the checked source's                                                          | `features/gateway/report.ts`                                   | `test/gateway/report.test.ts`                                                                        |
+
+## The node in this browser
+
+| Behaviour                                                                                                            | Enforced in                                                                             | Covered by                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| weeb-3 is loaded only when picked, and its files are served under `/weeb-3/`                                         | `swarm/providers/weeb-3/weeb3Module.ts`, `scripts/weeb3-files.mjs`                      | `test/weeb3Files.test.ts`                                                                                  |
+| The node runs while something holds it, is ready at its first peer, failed after 30 s, lost after 20 s without peers | `swarm/providers/weeb-3/weeb3Runtime.ts`                                                | `test/swarm/weeb3Runtime.test.ts`, `test/weeb3Lifecycle.test.tsx`                                          |
+| Every read through it gets a 30 s window, a feed head is found by index search, spans are taken off                  | `swarm/providers/weeb-3/weeb3Provider.ts`, `newestEntrySearch.ts`, `swarm/chunkSpan.ts` | `test/swarm/weeb3Provider.test.ts`, `test/swarm/newestEntrySearch.test.ts`, `test/swarm/chunkSpan.test.ts` |
+| Leaving weeb-3's player stops it                                                                                     | `swarm/providers/weeb-3/weeb3Hls.ts`, `weeb3Playback.ts`                                | `test/swarm/weeb3Hls.test.ts`, `test/swarm/weeb3Playback.test.ts`                                          |
+| A card's picture is given to weeb-3 only once the node is ready                                                      | `features/catalog/StreamPreview/StreamPreview.tsx`                                      | `test/previewPictureSource.test.tsx`, `test/scheduledPosterSource.test.tsx`                                |
+
+## Themes and configuration
+
+| Behaviour                                                                                                                                                                               | Enforced in                            | Covered by                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------- |
+| A config with a placeholder, with both or neither of `gatewayUrl` and `providers`, a missing chat field, `chat.beeUrl`, or a kind other than `bee-http` is refused with the field named | `config/runtimeConfig.ts`              | `test/runtimeConfig.test.ts`                       |
+| The deployment's theme decides the look and the content, and a logged-in viewer may switch the look only                                                                                | `app/themeChoice.ts`, `design/look.ts` | `test/themeChoice.test.tsx`, `test/themes.test.ts` |
+| Every theme defines every variable, no raw colour outside `src/design`, text contrast at least 4.5:1                                                                                    | `src/design/`                          | `test/designTokens.test.ts`                        |
+
+## The boundary and the ratchets
+
+| Behaviour                                                                                                  | Enforced in                       | Covered by                                                               |
+| ---------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------ |
+| `src/swarm` imports nothing from `src/app` or `src/features`, and they reach Swarm only through the client | `test/swarm/boundary.test.ts`     | the same                                                                 |
+| Every provider kind passes the provider contract                                                           | `test/swarm/providerContract.ts`  | `test/swarm/beeHttpProvider.test.ts`, `test/swarm/weeb3Provider.test.ts` |
+| The count of exports nothing imports never rises above the baseline                                        | `scripts/unused-exports.mjs`      | `test/unusedExports.test.ts`                                             |
+| The emitted bundle honours the declared browser target: no media-query range syntax, parses at es2020      | `vite.config.js` (`build.target`) | `test/bundle.test.ts`                                                    |
+
+## What the page may reach
+
+| Behaviour                                                                                                                                                   | Enforced in                             | Covered by                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------- |
+| The policy allows every https address, the viewer's own machine at any port over http, `wss:` and WebAssembly for weeb-3, and frames only the Swarm ID site | `deploy/nginx/40-gateway-and-policy.sh` | `test/image.test.ts`, `test/docker/image.docker.mjs` |
+| A missing or malformed image setting stops the container with the setting named                                                                             | `deploy/nginx/40-gateway-and-policy.sh` | `test/image.test.ts`                                 |
+| `/bee` passes reads only                                                                                                                                    | `deploy/nginx/40-gateway-and-policy.sh` | `test/docker/image.docker.mjs`                       |
+
+## Out of scope
+
+Staying out unless the owner says otherwise (`AGENTS.md`): admin sign-in, the page holding wallets or stamp keys,
+buying or managing stamps, uploads beyond chat messages, creating or managing streams, and any theme beyond `swarm` and
+`web3privacy`. The page never switches a source by itself, never falls back from one source to another, and never
+asserts a timing in a test.
