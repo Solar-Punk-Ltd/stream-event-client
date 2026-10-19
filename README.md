@@ -131,7 +131,7 @@ reaction's picker beside a message.
 - **The chat aggregator**, on swarm-chat-js 9, which listens on the shared address the key and topic above name, and
   appends each message to the stream's chat feed, `chat-<stream topic>` under `chat.feedOwner`.
   Opening a chat reads the newest history file the chat feed points to, then the entries after it. When the feed's
-  newest entry is not found in time, as through Weeb3 where every entry not there costs a long wait, the library
+  newest entry is not found in time, the library
   opens the chat empty and reads on from its first entry, and the chat says "Loading the chat…" until that read
   answers. "No messages yet." shows only once it found nothing. The endpoint viewers write
   through must be a different Bee node from the one the aggregator listens on, because Bee hands a
@@ -592,9 +592,7 @@ records the browser smoke test's answers, which is what a job with a Docker daem
   matches nothing says so.
 - **Previews.** The entry's uploaded thumbnail when it has one, otherwise a frame decoded from the
   stream's first segment, with a live badge and the duration. A picture that failed to load from one
-  source is asked again when Previews move to another. With Weeb3 a card waits with its loading
-  indicator until the node is ready, and an announced stream's watch page shows its countdown without
-  the picture until then, as [the node in this browser](#the-node-in-this-browser-weeb-3) says.
+  source is asked again when Previews move to another.
 - **Scheduled streams.** An entry whose state is `scheduled` has been announced and not yet
   broadcast. Its watch page says the stream has not started and reads the broadcast's ladder markers,
   each period's marker once, about 4 seconds into the period. Each marker found prompts one read of the
@@ -830,8 +828,10 @@ cover.
 
 ## The node in this browser (weeb-3)
 
-weeb-3 (`@lat-murmeldjur/weeb_3`) is a Swarm node compiled to WebAssembly that runs inside the viewer's tab, so a
-viewer can watch, browse and read the chat without any gateway. A page runs one node, behind a shared worker, and everything that uses weeb-3
+weeb-3 (`@lat-murmeldjur/weeb_3`) is a Swarm node compiled to WebAssembly that runs inside the viewer's tab. The
+viewer uses it for two things: playing the video, when Use for picks it for Video, and sending chat messages on the
+viewer's own stamp. Use for offers it for nothing else. The provider can still read the stream list, the previews and
+the chat history, and the points below that describe those reads describe code no part reaches. A page runs one node, behind a shared worker, and everything that uses weeb-3
 shares it (`src/swarm/providers/weeb-3/weeb3Runtime.ts`). It is ready once it has a peer and its service worker
 controls the page, and counts as failed when it is not ready after 30 s.
 
@@ -839,7 +839,7 @@ controls the page, and counts as failed when it is not ready after 30 s.
   so the first page load carries none of it. The build copies the package's browser files, its service worker,
   shared worker and WebAssembly module, to `/weeb-3/` (`scripts/weeb3-files.mjs`). The bundle carries no copy of
   the module of its own.
-- **When it runs.** The node runs while something holds it: every part while weeb-3 is that part's source, the watch
+- **When it runs.** The node runs while something holds it: the video while weeb-3 is its source, the watch
   page's player while it shows, My Swarm from adding it until My Swarm closes, or a source's settings while it is
   checked there, and every read through it while that read runs. A read made while the node is starting waits for it to be
   ready, and one made while it is stopped starts it first, so a part never gets an early answer from a node that is
@@ -887,8 +887,7 @@ controls the page, and counts as failed when it is not ready after 30 s.
 - **No switching.** A part that reads from weeb-3 reads from it alone, as every part reads from its own source alone.
   None of its reads is handed to another source whatever it answers. Every read through it gets weeb-3's
   own 30 s budget rather than the client's 10 s, so a missing chunk, which weeb-3 gives up on after about 17 s, ends
-  as not found rather than cut short. A stream list that cannot be read names its source on the browse page, as
-  every source's does: "Stream list cannot load from Weeb3. Open My Swarm to check it, or pick another source."
+  as not found rather than cut short.
 - **Reads.** weeb-3 reads through its service worker's routes: `/weeb-3/chunks/` for a chunk, a feed entry or a
   single-owner chunk, `/weeb-3/bytes/` for bytes, and segment URLs on its caching route `/weeb-3/hls/bytes/`. weeb-3
   puts a chunk's 8-byte span before bytes and before a single-owner chunk's payload, which Bee leaves out, so it is
