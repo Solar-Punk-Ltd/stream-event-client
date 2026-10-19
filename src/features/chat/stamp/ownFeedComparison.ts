@@ -100,7 +100,7 @@ function ownFeedCap(sentInChat: number): number {
  * Told how many feed entries a check will look at, each time a feed's newest index becomes known, and how many more it
  * has looked at, so a viewer can watch a check that takes many reads.
  */
-export interface CheckProgress {
+interface CheckProgress {
   readonly planned: (entries: number) => void;
   readonly checked: (entries: number) => void;
 }
