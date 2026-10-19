@@ -732,8 +732,10 @@ one, as the address of a gateway or a Bee node, and to its title otherwise. Clos
 added asks first, since closing stops that node, with Keep adding and Stop and close. Every change applies at
 once and is kept in the browser, and nothing switches a source by itself.
 
-- **ID.** On a site with chat. Not chatting: a guest name with Chat as guest, and Sign in with Swarm ID where the
-  deployment offers it, as [The chat](#the-chat) describes. Chatting: the name with its badge and Leave for a guest,
+- **ID.** On a site with chat. Not chatting: a guest name with Chat as guest, the button as tall as the field, and
+  under it "For the smoothest experience, go with the defaults and a simple name." Below a rule, a short beta note
+  says the settings that follow, Sign in with Swarm ID and the sources, are an experiment the viewer can help test.
+  Then Sign in with Swarm ID where the deployment offers it, as [The chat](#the-chat) describes. Chatting: the name with its badge and Leave for a guest,
   or the Swarm ID account with Sign out, and the theme switcher where the deployment allows it. Leave asks first,
   since it forgets the name. The chat's own join button opens My Swarm too.
 - **Swarm access.** One list of every source: the gateways `config.json` offers, marked Offered, then the ones the

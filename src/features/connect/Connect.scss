@@ -114,9 +114,32 @@
   gap: var(--spacing-sm);
 }
 
-.connect-guest .connect-input {
-  flex: 1;
-  min-width: 0;
+.connect-guest {
+  flex-wrap: nowrap;
+  align-items: stretch;
+
+  .connect-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .button {
+    flex: none;
+    min-height: var(--size-dialog-button-height);
+  }
+}
+
+// The beta part of the ID group: a rule above it, as between groups.
+.connect-beta {
+  display: grid;
+  gap: var(--spacing-xs-sm);
+  padding-top: var(--spacing-base);
+  border-top: 1px solid var(--color-border);
+}
+
+.connect-beta-title {
+  margin: 0;
+  font-weight: 600;
 }
 
 .connect-parts {

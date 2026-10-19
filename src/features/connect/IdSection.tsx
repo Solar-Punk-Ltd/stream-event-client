@@ -9,6 +9,8 @@ import { ThemeOptions } from './ThemeOptions';
 
 const KEY_ENTER = 'Enter';
 
+const GUEST_ADVICE = 'For the smoothest experience, go with the defaults and a simple name.';
+
 interface IdSectionProps {
   /** Asks the viewer to confirm before a guest leaves, which forgets the name. */
   readonly onLeave: () => void;
@@ -26,6 +28,7 @@ export function IdSection({ onLeave }: IdSectionProps) {
     return (
       <>
         <GuestForm />
+        <BetaIntro />
         <SwarmIdOffer />
       </>
     );
@@ -44,6 +47,7 @@ function GuestForm() {
   const [name, setName] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const hintId = useId();
+  const adviceId = useId();
   const problemId = useId();
 
   const join = () => {
@@ -70,7 +74,7 @@ function GuestForm() {
           value={name}
           placeholder="Your name"
           aria-label="Your name"
-          aria-describedby={`${hintId} ${problemId}`}
+          aria-describedby={`${hintId} ${adviceId} ${problemId}`}
           aria-invalid={problem !== null}
           autoComplete="nickname"
           onChange={(event) => {
@@ -79,12 +83,33 @@ function GuestForm() {
           }}
           onKeyDown={onKeyDown}
         />
-        <Button variant={ButtonVariant.SECONDARY} className="connect-small" onClick={join}>
+        <Button variant={ButtonVariant.SECONDARY} onClick={join}>
           Chat as guest
         </Button>
       </div>
+      <p className="connect-hint" id={adviceId}>
+        {GUEST_ADVICE}
+      </p>
       <p className="connect-problem" id={problemId} role="alert">
         {problem}
+      </p>
+    </div>
+  );
+}
+
+/** Above Swarm ID and the sources: the settings below it are a beta test, and a guest with the defaults needs none of them. */
+function BetaIntro() {
+  return (
+    <div className="connect-beta">
+      <p className="connect-beta-title">Beta: Swarm ID and your own way into Swarm</p>
+      <p className="connect-hint">
+        Want to help us test Swarm ID and choosing how you reach the Swarm network? The settings below are for you.
+      </p>
+      <p className="connect-hint">
+        This part is an experiment. You sign in with an identity you hold yourself, and you pick where the stream and
+        the chat come from: the event&apos;s gateway, your own Bee node, or Weeb3, a Swarm node running in this tab.
+        Some of it may be slow, and some of it may break. Every try helps build apps that run fully on Swarm and give
+        you back control of your identity and your access. Thank you for being part of it.
       </p>
     </div>
   );
