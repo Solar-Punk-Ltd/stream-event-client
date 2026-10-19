@@ -175,6 +175,7 @@ export function namedAddresses(live: LiveDeployment): string[] {
     live.ensRpc,
     ...live.target.alsoAllowed.map((allowed) => allowed.origin),
     ...Object.values(live.ownNodes),
+    ...(live.swarmIdBee ? [live.swarmIdBee] : []),
   ];
 }
 

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createRequire } from 'node:module';
 
 import installBrowser from '../../e2e/installBrowser.ts';
-import { type Actor, startActor, type WalletSetup } from './actors.ts';
+import { type Actor, startActor, SWARM_ID_DEFAULT_GNOSIS_RPC, type WalletSetup } from './actors.ts';
 import { addressesFor } from './addresses.ts';
 import { healthStatus, json } from './bee.ts';
 import { launchForProfile } from './browser.ts';
@@ -208,6 +208,9 @@ export async function execute(
       guard: mode.guard,
       local: mode.local?.addresses ?? null,
       wallet: mode.wallet,
+      swarmIdNetwork: mode.live?.swarmIdBee
+        ? { beeNodeUrl: `${mode.live.swarmIdBee}/`, gnosisRpcUrl: SWARM_ID_DEFAULT_GNOSIS_RPC }
+        : null,
       swarmIdFetchedByKit: mode.live ? { origin: mode.live.swarmId, pacer: new SwarmIdPacer() } : null,
       ownNode: (actorName: string) =>
         mode.local?.addresses.worker2 ??

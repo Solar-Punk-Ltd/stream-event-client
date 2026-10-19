@@ -208,6 +208,7 @@ export async function runLive(scenario: Scenario, target: Target, runId = newRun
         ...(target.ens ? { ens: target.ens } : {}),
         ...(target.chatHealth ? { chatHealth: target.chatHealth } : {}),
         ...(Object.keys(target.ownNodes).length ? { ownNodes: target.ownNodes } : {}),
+        ...(target.swarmIdBee ? { swarmIdBee: target.swarmIdBee } : {}),
         ...(target.standing.length ? { standing: target.standing } : {}),
       },
       config: read.config,

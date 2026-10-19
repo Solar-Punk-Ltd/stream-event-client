@@ -80,10 +80,10 @@ const PREPARED = '__flowKitPrepared';
 async function prepareSwarmIdDocuments(
   context: BrowserContext,
   swarmId: string,
-  local: Addresses | null,
+  network: SwarmIdNetwork | null,
   walletScript: string,
 ) {
-  const settings = local && JSON.stringify({ beeNodeUrl: `${local.queen}/`, gnosisRpcUrl: local.chain });
+  const settings = network && JSON.stringify(network);
   const script = `if (location.origin === ${JSON.stringify(swarmId)}) {
     ${settings ? `localStorage.setItem('swarm-id-network-settings', ${JSON.stringify(settings)});` : ''}
     window.${PREPARED} = true;
@@ -106,6 +106,15 @@ async function prepareSwarmIdDocuments(
   });
 }
 
+/** Swarm ID's network settings, as its network settings dialog saves them: the gateway and the Gnosis endpoint. */
+export interface SwarmIdNetwork {
+  beeNodeUrl: string;
+  gnosisRpcUrl: string;
+}
+
+/** Swarm ID's own default Gnosis endpoint, kept when a live run points Swarm ID at another gateway, so only that changes. */
+export const SWARM_ID_DEFAULT_GNOSIS_RPC = 'https://xdai.fairdatasociety.org/';
+
 /**
  * Where the kit's wallet is offered: Swarm ID's origin, whose top-level pages get it, and the Ethereum endpoint it
  * sends every call but a signature to.
@@ -119,14 +128,16 @@ export interface WalletSetup {
  * Where an actor's browser is pointed: the viewer, the guard that decides what it may reach, the local stack's
  * addresses, or null against a real deployment, where the kit's wallet is offered, or null for none, and the Swarm ID
  * site whose files the kit fetches itself, or null for the browser to fetch them. Against a real deployment nothing of
- * the local network is put into Swarm ID's pages, so Swarm ID runs with its own settings, as a visitor's does, and a
- * wallet is offered only to a scenario that signs with one.
+ * the local network is put into Swarm ID's pages, so Swarm ID runs with its own settings, as a visitor's does, unless
+ * the target names a gateway for it, and a wallet is offered only to a scenario that signs with one.
  */
 export interface ActorEnvironment {
   viewer: string;
   guard: Guard;
   local: Addresses | null;
   wallet: WalletSetup | null;
+  /** Live, the network settings put into Swarm ID's pages when the target names a gateway for it, or null. */
+  swarmIdNetwork: SwarmIdNetwork | null;
   swarmIdFetchedByKit: { origin: string; pacer: SwarmIdPacer } | null;
   /** The actor's own Bee node, the local stack's worker-2 locally, live the tunnel the target names, or null. */
   ownNode(actor: string): string | null;
@@ -164,7 +175,8 @@ export async function startActor(
   let wallet: TestWallet | null = null;
   if (walletAt) {
     const walletScript = await exposeWallet(context, walletAt.swarmId, walletAt.rpc, () => wallet);
-    await prepareSwarmIdDocuments(context, walletAt.swarmId, local, walletScript);
+    const network = local ? { beeNodeUrl: `${local.queen}/`, gnosisRpcUrl: local.chain } : environment.swarmIdNetwork;
+    await prepareSwarmIdDocuments(context, walletAt.swarmId, network, walletScript);
   }
   // Registered before the guard's route, so it runs after the guard (Playwright tries the newest route first) and only
   // for a request the guard let through.

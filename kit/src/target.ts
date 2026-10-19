@@ -55,6 +55,14 @@ const targetSchema = z.strictObject({
     )
     .default([]),
   /**
+   * The Swarm gateway Swarm ID is set to read and write through in every page of the run, as a person sets it in Swarm
+   * ID's network settings. Without it Swarm ID uses its own default. An https origin, which the guard then allows.
+   */
+  swarmIdBee: z
+    .string()
+    .regex(/^https:\/\/[A-Za-z0-9.-]+(:[0-9]{1,5})?$/, { message: 'must be an https origin, with no path' })
+    .optional(),
+  /**
    * The local end of the operator's SSH tunnel to the chat server's `/health`, which answers only on the deployment's
    * own machine. The scenarios that read the server's counts refuse to start without it.
    */
@@ -131,6 +139,8 @@ export interface LiveDeployment {
   chatHealth: string | null;
   /** The local end of the tunnel to each actor's own Bee node, by actor. */
   ownNodes: Record<string, string>;
+  /** The gateway Swarm ID is set to, null for Swarm ID's own default. */
+  swarmIdBee: string | null;
   /** The chat inbox's key and identifier, public in the config, which every sender signs its inbox writes with. */
   inbox: { key: string; identifier: string };
   catalog: { owner: string; topic: string };
@@ -179,6 +189,7 @@ export function liveDeployment(target: Target, rawConfig: unknown): LiveDeployme
     ensRpc: parts.ensRpc,
     chatHealth: target.chatHealth ?? null,
     ownNodes: target.ownNodes,
+    swarmIdBee: target.swarmIdBee ?? null,
     inbox: { key: bare(chat.gsocResourceId), identifier: chat.gsocTopic },
     catalog: { owner: config.catalog.owner, topic: config.catalog.topic },
     deployment: {

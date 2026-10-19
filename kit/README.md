@@ -271,6 +271,7 @@ it. `targets/example.json` shows its shape with placeholders:
 | `chatHealth`  | optional, the local end of the tunnel to the chat server's `/health`, such as `http://127.0.0.1:4997`  |
 | `standing`    | optional, standing Swarm ID accounts, each an `actor`, its account `address` and its `drives` in order |
 | `ownNodes`    | optional, by actor, the local end of the tunnel to the Bee node that is that actor's own node          |
+| `swarmIdBee`  | optional, an https origin: the gateway Swarm ID is set to in every page, as its network settings would |
 
 Everything else is read from the viewer's public `config.json` at the start of each run: the gateway, the chat's read
 and write addresses, the chat inbox key, the feed owner, the Swarm ID site and the ENS endpoint. An address given as a
