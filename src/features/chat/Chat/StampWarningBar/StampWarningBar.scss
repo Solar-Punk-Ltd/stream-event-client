@@ -21,6 +21,12 @@
   }
 }
 
+.stamp-no-route {
+  margin: var(--spacing-sm) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
 .stamp-warning-actions {
   display: flex;
   flex-wrap: wrap;

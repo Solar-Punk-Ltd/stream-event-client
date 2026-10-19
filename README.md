@@ -324,17 +324,21 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
 - **My stamp**, offered once signed in with Swarm ID. The stamp is the one Swarm ID gives this site. It is bought,
   topped up, made bigger and chosen for the site in Swarm ID, never in this page, which holds no stamp and no stamp
   key. For each message the page builds the chunk, Swarm ID signs and stamps it in its frame with `stampChunk`,
-  and the page sends the stamped chunk itself through the source picked for **Chat history** in Use for: to a Bee
+  and the page sends the stamped chunk itself through a source of the viewer's that can carry it: to a Bee
   node as `POST /soc/<owner>/<id>?sig=...` with the stamp in Bee's `swarm-postage-stamp` header, or through Weeb3
   with weeb-3's `postPushChunk`, the whole chunk at its address with the stamp's 113 bytes. Every message says
   `via: "own-stamp"`. The chat's inbox is one single-owner chunk address, which Swarm ID stamps again in the slot
   it already holds, so a busy chat costs one slot of the stamp rather than one per message.
-- **Which source can send it.** Only a Bee node of the viewer's own and Weeb3, the node in this browser, send a chunk
-  under a stamp they are handed, so My stamp needs one of them picked for Chat history. The event gateway's chat path
-  stamps every write with the gateway's own batch, a `/bee` path on the site passes reads alone, and the page cannot
-  tell what any other gateway does with a stamp. So while My stamp cannot be picked, its line says what it needs,
-  "Needs Weeb3 or your own Bee node for Chat history.", with a Swarm ID sign-in named first for a viewer who is not
-  signed in. The warning above the message field still says why the gateway picked cannot send. The Bee node must allow this site's origin
+- **Which source sends it.** Only a Bee node of the viewer's own and Weeb3, the node in this browser, send a chunk
+  under a stamp they are handed. The event gateway's chat path stamps every write with the gateway's own batch, a
+  `/bee` path on the site passes reads alone, and the page cannot tell what any other gateway does with a stamp, so no
+  gateway is ever sent a message on the viewer's stamp. The message goes through the source picked for **Chat
+  history** when that is a Bee node or Weeb3. Otherwise it goes through the first Bee node in the viewer's list of
+  sources, and with no Bee node there, through Weeb3. The chat history is still read from the source picked for it,
+  and nothing changes who pays or what Use for says. With neither a Bee node nor Weeb3 in the list, My stamp is greyed
+  out and cannot be picked, and its line says "Add your Bee node or Weeb3 in My Swarm to send on your own stamp." A
+  viewer who is not signed in reads "Needs a Swarm ID sign-in.", with "and your Bee node or Weeb3 in My Swarm" added
+  when the list has neither. The Bee node must allow this site's origin
   (`cors-allowed-origins`) for the write as for its reads, and needs the stamp's chain to check it, so a light
   node or a full one, not an ultra-light one.
 - **Nothing switches by itself.** A message Swarm ID will not stamp, or the node refuses, shows "Not sent." with
@@ -344,9 +348,10 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   it has given this site no stamp, which since Swarm ID 0.10.0 is every site until the person picks one there, the
   message reads "Not sent. Swarm ID has given this site no stamp. Choose one in Swarm ID." and the field above the
   message box shows No stamp for this site with Choose a stamp in Swarm ID at once, even when the stamp read last
-  named one. When the source
-  picked for Chat history changes to one that cannot send on the stamp, the choice stays, sending is held with
-  the reason, and the viewer picks a Bee node or Weeb3 again or presses Let the gateway pay. Retry resends only
+  named one. When the last
+  Bee node or Weeb3 leaves the list while My stamp is picked, the choice stays, and the send area shows that same one
+  line, "Add your Bee node or Weeb3 in My Swarm to send on your own stamp.", with the Send button off and what was
+  typed kept, until the viewer adds one or picks Gateway pays. Retry resends only
   through the sender that took the message. After the viewer changes who pays, the source, the sign-in or the own
   feed, or restarts the chat, that sender is gone, so Retry marks the message "Not sent. The way messages are sent
   changed, so write it again." and takes its Retry button away, never resending it through the new route.
@@ -381,9 +386,7 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
 - **Warnings above the message field.** Only a stamp that stops sending gets one, so a stamp running low shows
   nothing there, and My Swarm still says how much is used and how many days are left. When the stamp ran out or is not
   usable yet, the field says so, sending is held with what was typed kept, and two buttons offer Change stamp in Swarm
-  ID and Let the gateway pay. When Swarm ID gives this site no stamp the first button reads Choose a stamp in Swarm ID. When
-  the source picked for Chat history cannot send on the stamp, the field says why, sending is held, and the buttons
-  are Open My Swarm and Let the gateway pay. A Swarm ID window the browser blocked adds its own line under Swarm ID's
+  ID and Let the gateway pay. When Swarm ID gives this site no stamp the first button reads Choose a stamp in Swarm ID. A Swarm ID window the browser blocked adds its own line under Swarm ID's
   button there.
 - **The copy in the viewer's own feed.** Always on with My stamp, with no setting to turn it off, and the My stamp
   box says so. Once the viewer's node took a message, a copy of it goes into the sender's own feed,
@@ -729,7 +732,8 @@ once and is kept in the browser, and nothing switches a source by itself.
 - **Use for.** All features reads the video, the stream list, the previews and the chat history from the one source
   picked. Per feature picks a source each for Video, Stream list, Previews and Chat history. While the event pays, chat
   messages are sent to `chat.writeUrl`, whichever source reads the chat history. On the viewer's own stamp they go
-  through the source picked for Chat history, a Bee node of their own or Weeb3. The deployment's default gateway reads its chat
+  through a Bee node of their own or Weeb3, the one picked for Chat history when it is one of them, as
+  [Who pays for a message](#who-pays-for-a-message) says. The deployment's default gateway reads its chat
   history at `chat.readUrl`, where it serves the chat's paths, and any other source reads the chat at its own address.
   A part saved on a source the deployment no longer offers is read from the deployment's default source when the
   page loads, and so is one saved on a source the viewer removed.
@@ -998,7 +1002,7 @@ Weeb3 (`providers/weeb-3/weeb3Push`) in `ChatStamp.tsx`, and the errors of both,
   files as bytes. A 404 and a 500 both mean a chunk is
   not there, as the library rules. While the event pays, a message is written exactly as the library writes it,
   to `chat.writeUrl`, whose gateway stamps it. On the viewer's own stamp, Swarm ID stamps it and the page sends it
-  through the source picked for Chat history, the viewer's Bee node or Weeb3, as
+  through the viewer's Bee node or Weeb3, as
   [Who pays for a message](#who-pays-for-a-message) says.
 
 - **A provider** is one way of reaching Swarm (`src/swarm/provider.ts`), holding only what the app reads:

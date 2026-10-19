@@ -1,58 +1,92 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  EVENT_GATEWAY_STAMPS_ITSELF,
-  GATEWAY_STAMPS_ITSELF,
-  ownStampRoute,
-  PICK_A_SOURCE_THAT_SENDS,
-} from '../../src/features/chat/stamp/ownStampRoute';
+import { ownStampRoute } from '../../src/features/chat/stamp/ownStampRoute';
 import type { Source } from '../../src/swarm/sources';
 
-const source = (extra: Partial<Source>): Source => ({
+const EVENT: Source = { id: 'event', type: 'gateway', name: 'Event gateway', url: '/bee', offered: true };
+const BACKUP: Source = {
+  id: 'backup',
+  type: 'gateway',
+  name: 'Backup gateway',
+  url: 'https://backup.example.com',
+  offered: true,
+};
+const MY_GATEWAY: Source = {
+  id: 'added-9',
+  type: 'gateway',
+  name: 'My gateway',
+  url: 'https://gw.example.org',
+  offered: false,
+};
+const NODE_A: Source = {
   id: 'added-1',
   type: 'bee-node',
-  name: 'My Bee node',
-  url: 'http://localhost:1633',
+  name: 'Node A',
+  url: 'http://localhost:1633/',
   offered: false,
-  ...extra,
-});
+};
+const NODE_B: Source = {
+  id: 'added-2',
+  type: 'bee-node',
+  name: 'Node B',
+  url: 'https://bee.example.com',
+  offered: false,
+};
+const WEEB3: Source = { id: 'added-3', type: 'weeb-3', name: 'Weeb3', url: '', offered: false };
 
 describe('which source a message on my own stamp goes out through', () => {
-  it("is the viewer's own Bee node, which stores a chunk under the stamp it carries", () => {
-    expect(ownStampRoute(source({}), 'event')).toEqual({ ok: true, through: 'bee-node', url: 'http://localhost:1633' });
-    expect(ownStampRoute(source({ url: 'https://bee.example.com/' }), 'event')).toEqual({
+  it('is the Bee node picked for Chat history, at its address without a trailing slash', () => {
+    expect(ownStampRoute([EVENT, NODE_A], NODE_A.id)).toEqual({
+      ok: true,
+      through: 'bee-node',
+      url: 'http://localhost:1633',
+    });
+  });
+
+  it('is Weeb3 when Weeb3 is picked for Chat history, even with a Bee node in the list', () => {
+    expect(ownStampRoute([EVENT, NODE_A, WEEB3], WEEB3.id)).toEqual({ ok: true, through: 'weeb-3' });
+  });
+
+  it('is the Bee node picked for Chat history over an earlier Bee node in the list', () => {
+    expect(ownStampRoute([EVENT, NODE_A, NODE_B], NODE_B.id)).toEqual({
       ok: true,
       through: 'bee-node',
       url: 'https://bee.example.com',
     });
   });
 
-  it('is never the event gateway, which stamps every chat message with its own stamp', () => {
-    expect(ownStampRoute(source({ id: 'event', type: 'gateway', offered: true, url: '/bee' }), 'event')).toEqual({
-      ok: false,
-      reason: EVENT_GATEWAY_STAMPS_ITSELF,
-      hint: PICK_A_SOURCE_THAT_SENDS,
+  it('is a Bee node from the list while a gateway reads the chat history', () => {
+    expect(ownStampRoute([EVENT, BACKUP, NODE_A], EVENT.id)).toEqual({
+      ok: true,
+      through: 'bee-node',
+      url: 'http://localhost:1633',
     });
   });
 
-  it('is never another gateway, offered or added, which may stamp with its own or take no writes', () => {
-    for (const gateway of [
-      source({ id: 'backup', type: 'gateway', offered: true, url: 'https://backup.example.com' }),
-      source({ type: 'gateway', url: 'https://gw.example.org' }),
-    ]) {
-      expect(ownStampRoute(gateway, 'event')).toEqual({
-        ok: false,
-        reason: GATEWAY_STAMPS_ITSELF,
-        hint: PICK_A_SOURCE_THAT_SENDS,
-      });
+  it('is the first Bee node in the list, before Weeb3 added earlier, while a gateway reads the chat history', () => {
+    expect(ownStampRoute([EVENT, WEEB3, NODE_B, NODE_A], EVENT.id)).toEqual({
+      ok: true,
+      through: 'bee-node',
+      url: 'https://bee.example.com',
+    });
+  });
+
+  it('is Weeb3 from the list while a gateway reads the chat history and there is no Bee node', () => {
+    expect(ownStampRoute([EVENT, MY_GATEWAY, WEEB3], MY_GATEWAY.id)).toEqual({ ok: true, through: 'weeb-3' });
+  });
+
+  it('is taken from the list when the chat history names a source that is gone', () => {
+    expect(ownStampRoute([EVENT, NODE_A], 'added-removed')).toEqual({
+      ok: true,
+      through: 'bee-node',
+      url: 'http://localhost:1633',
+    });
+  });
+
+  it('is never a gateway, offered or added, so with only gateways there is none', () => {
+    for (const chatSource of [EVENT, BACKUP, MY_GATEWAY]) {
+      expect(ownStampRoute([EVENT, BACKUP, MY_GATEWAY], chatSource.id)).toEqual({ ok: false });
     }
-  });
-
-  it('is the node in this browser, which pushes a chunk under the stamp it is handed', () => {
-    expect(ownStampRoute(source({ type: 'weeb-3', url: '' }), 'event')).toEqual({ ok: true, through: 'weeb-3' });
-  });
-
-  it('names both sources that can send it when a gateway is picked', () => {
-    expect(PICK_A_SOURCE_THAT_SENDS).toBe('Pick your Bee node or Weeb3 for Chat history in Use for.');
+    expect(ownStampRoute([], EVENT.id)).toEqual({ ok: false });
   });
 });
