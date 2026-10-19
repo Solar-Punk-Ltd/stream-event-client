@@ -149,7 +149,7 @@ export class ManifestStateManager {
     //
     // Kept exactly as the uploader wrote them rather than renumbered. The header that matters is
     // EXT-X-MEDIA-SEQUENCE, the sequence the publisher gave the oldest segment in this first
-    // playlist. It used to be rewritten to zero, which reads fine for one playlist on its own but is
+    // playlist. Rewriting it to zero reads fine for one playlist on its own but is
     // wrong across a ladder: the publisher derives that number and each segment's
     // EXT-X-PROGRAM-DATE-TIME from one anchor the whole ladder shares, so a viewer renumbering its
     // own copy per rung puts four rungs back into disagreement about the same media. A viewer who
@@ -487,7 +487,7 @@ interface SlotRead {
  * ## Why the search's deadline and five seconds
  *
  * A rung's first playlist arrives with its search, so the wait has to outlast the longest search
- * the poller allows, its `candidateFindDeadlineMs`. A fixed 15 s used to equal it, so a slow
+ * the poller allows, its `candidateFindDeadlineMs`. A fixed 15 s would equal it, so a slow
  * search that would have succeeded had its level failed at the same moment. The margin is the time a
  * search that ends at its deadline still needs for its playlist to be folded in and handed on, a few
  * polls, and with the shipped 15 s it makes 20 s, the time hls.js itself allows a playlist load
@@ -513,7 +513,7 @@ const SEARCH_ROUNDS_IN_A_ROW = 8;
  * {@link RUNG_READY_MARGIN_MS}, or on a slow source {@link SEARCH_ROUNDS_IN_A_ROW} of its rounds and
  * the margin when that is longer.
  *
- * ⛔ **A slow source is waited for, never switched away from** (Levi's ruling: a part reads from the
+ * ⛔ **A slow source is waited for, never switched away from** (the owner's ruling: a part reads from the
  * source picked for it alone). Measured 2026-10-17 and 18 on a freshly started light Bee 2.8.3 with no
  * blockchain: a miss took 6 to 10 s, a search took about a minute, every quality failed at 20 s, and
  * the player restarted in a loop and never showed a frame, while a full node at 1.3 to 1.6 s a miss
@@ -547,7 +547,7 @@ export class RungNotReadyError extends Error {
 /**
  * A level request for a rung the poller refused at the switch, because it had clearly stopped. The
  * player has already been told to take the level out, so the playlist loader leaves the request
- * unanswered rather than handing hls.js an error for a level it no longer holds. See
+ * unanswered rather than handing hls.js an error for a level it has taken out. See
  * `CustomManifestLoader`.
  */
 export class RungRefusedError extends Error {
@@ -992,7 +992,7 @@ export class ManifestFetcher {
    *
    * A teardown during the wait ends it rather than being caught by it. `LadderFeedPoller.stop`
    * resolves `ready` for every rung it stops, so the wait returns and this topic's cleared state
-   * serializes exactly as it did before there was a deadline. Nothing is left holding the rung: the
+   * serializes exactly as it would with no deadline. Nothing is left holding the rung: the
    * expiry's own timer fires into a race that has already settled and resolves a value nobody reads.
    */
   private async awaitRungReady(hexTopic: string): Promise<void> {
@@ -1179,7 +1179,7 @@ export class ManifestFetcher {
    * @param fromIndex The newest slot already read, taken by the caller in the same tick that routed
    *   here rather than read again inside the walk. Two walks that each advance from whatever index
    *   they find advance twice for one slot fetched, and the slot in between is never requested at
-   *   all, so its segments never reach the viewer. The second one used to get that far rather than
+   *   all, so its segments never reach the viewer. The second one gets that far rather than
    *   stopping short, because `updateManifest` answers `true` to a duplicate parse, where "nothing
    *   new, keep polling" and "this slot was consumed" are the same value read two ways.
    */
@@ -1218,15 +1218,15 @@ export class ManifestFetcher {
    *
    * ## Why a walk and not a single read
    *
-   * This used to consume exactly one slot per call, and hls.js reloads a live playlist about once
-   * per segment duration plus the round trip it just measured. So the media a viewer could play
-   * advanced at `duration / (duration + roundTrip)` of real time, and the rest of the wall clock was
+   * Consuming exactly one slot per call is too slow, because hls.js reloads a live playlist about once
+   * per segment duration plus the round trip it just measured. So the media a viewer can play
+   * advances at `duration / (duration + roundTrip)` of real time, and the rest of the wall clock is
    * spent frozen. Watched in a real browser on 2026-08-05, over 897 logged requests: **0.82x at a
    * 0.25s segment with 17.3% of the clock frozen, 0.90x at 0.5s, 0.98x at 1.0s**, each within 0.02
    * of that ratio. Shorter segments made it worse rather than better, because a shorter segment does
    * not make the client faster, it makes it ask more often at a fixed cost per ask.
    *
-   * Asking more often was the wrong fix: the cadence belongs to hls.js, and a poll loop of this
+   * Asking more often is not the answer: the cadence belongs to hls.js, and a poll loop of this
    * side's own would be a second thing to tear down and a second thing to get wrong. Reading every
    * slot the publisher has written costs one extra request per poll, the 404 that says there is
    * nothing more, and makes the rate a viewer can sustain independent of how finely the stream is

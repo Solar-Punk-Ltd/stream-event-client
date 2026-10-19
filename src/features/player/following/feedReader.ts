@@ -6,7 +6,7 @@
 
 /**
  * The most reads a search keeps open at once. Eight is what Bee's own lookup opens per round, so a
- * search here never asks more of a node at one moment than the lookup it replaces did.
+ * search here never asks more of a node at one moment than Bee's own lookup does.
  */
 export const MAX_PARALLEL_READS = 8;
 

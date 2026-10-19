@@ -3,8 +3,8 @@ import type { Topic } from '@ethersphere/bee-js';
 import type { SwarmAnswer } from './answers';
 
 /**
- * How long a read may take, headers and body together, when its caller names no window. The same
- * ten seconds the app's own bounded fetch has always used.
+ * How long a read may take, headers and body together, when its caller names no window. The app's
+ * own bounded fetch uses the same ten seconds.
  */
 export const DEFAULT_READ_TIMEOUT_MS = 10_000;
 

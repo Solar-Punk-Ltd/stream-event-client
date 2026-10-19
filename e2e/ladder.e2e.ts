@@ -250,7 +250,7 @@ test('a switch asked before hls.js reports the starting quality reads the new qu
 }) => {
   // Found by this journey on 2026-10-07. hls.js reports the quality it started on with LEVEL_SWITCHED once that
   // quality's first fragment plays. A switch asked before then is under way when the report arrives, so the poller is
-  // told the level hls.js is loading as well and keeps following it. Before that it stopped the target and searched for
+  // told the level hls.js is loading as well and keeps following it. Otherwise it would stop the target and search for
   // it again when hls.js next asked. Asked here at the first buffered fragment, so the order is the same every run. On
   // a live stream the same order arises when ABR moves off the starting quality before its first fragment plays.
   // The viewer is a segment behind the target's newest window here, so the switch reads back one slot, and in about

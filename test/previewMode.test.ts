@@ -1,9 +1,9 @@
 /**
- * Every preview card used to take its frame by fetching the stream's manifest feed and decoding the
- * first segment it found. A scheduled entry has no manifest feed: the topic is an announcement, and
- * nothing is written under it until the broadcast starts, so that fetch was a guaranteed miss that
- * cost a slot on a queue of concurrency 1, and on the deployed build left the card spinning for good.
- * The image the broadcaster had uploaded went unread either way.
+ * A preview card can take its frame by fetching the stream's manifest feed and decoding the first
+ * segment it finds, or from the image the broadcaster uploaded. A scheduled entry has no manifest
+ * feed: the topic is an announcement, and nothing is written under it until the broadcast starts, so
+ * that fetch is a guaranteed miss that costs a slot on a queue of concurrency 1 and leaves the card
+ * spinning for good. Such a card reads its image and never probes the manifest.
  */
 
 import assert from 'node:assert/strict';

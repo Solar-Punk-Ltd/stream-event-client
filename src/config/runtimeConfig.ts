@@ -46,7 +46,7 @@ const enabledChatSchema = z.object({
   readUrl: chatEndpoint,
   /** Where messages are written, a gateway that stamps each write, apart from the one that reads. */
   writeUrl: chatEndpoint,
-  /** The one endpoint of before, refused by name so a config written for it says what replaced it. */
+  /** Not a setting: refused by name so a config that carries it is told to use `readUrl` and `writeUrl`. */
   beeUrl: z.undefined({ message: 'is replaced by chat.readUrl and chat.writeUrl' }).optional(),
   /**
    * A private key every viewer receives, so it is configuration and not a secret: the GSOC address it
@@ -65,7 +65,7 @@ const disabledChatSchema = z.looseObject({ enabled: z.literal(false) });
 
 const chatSchema = z.discriminatedUnion('enabled', [enabledChatSchema, disabledChatSchema]);
 
-/** A Bee node's HTTP API, the way the event gateway has always been read. */
+/** A Bee node's HTTP API, the way the event gateway is read. */
 const beeHttpGatewaySchema = z.object({
   /** What the default and a viewer's saved choice name it by. */
   id: notEmpty,
@@ -152,7 +152,7 @@ const runtimeConfigSchema = z
     theme: z.enum(THEME_NAMES, { message: `must be one of ${THEME_NAMES.join(', ')}` }).optional(),
     /** Whether a viewer logged in to the chat may switch the look between the build's themes. On unless set. */
     themeSwitcher: z.boolean({ message: 'must be true or false' }).optional(),
-    /** The one Bee gateway of before `providers`, still read as the only gateway and the default. */
+    /** One Bee gateway, read as the only gateway offered and the default. `providers` is the other way to name them. */
     gatewayUrl: gatewayUrlSchema.optional(),
     providers: providersSchema.optional(),
     catalog: catalogSchema,

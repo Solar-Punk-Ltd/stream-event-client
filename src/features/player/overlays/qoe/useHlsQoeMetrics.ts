@@ -295,8 +295,8 @@ export const attachQoeTracking = (
   };
 
   const onHlsError = (_event: unknown, data: { fatal: boolean; type: string; details?: string }) => {
-    // Counted above the fatal guard, not below it. A stall is never fatal, so everything this
-    // function used to do skipped the one error that permanently costs the viewer latency.
+    // Counted above the fatal guard, not below it. A stall is never fatal, so a count behind
+    // a fatal guard would skip the one error that permanently costs the viewer latency.
     if (data.details === ErrorDetails.BUFFER_STALLED_ERROR) {
       metrics.bufferStallCount += 1;
       flush();

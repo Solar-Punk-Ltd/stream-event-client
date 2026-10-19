@@ -223,7 +223,7 @@ export class Weeb3Runtime {
 
   /**
    * The WebAssembly module, fetched here rather than by the package so a viewer can be shown how much
-   * of its 2 MB has arrived.
+   * of its 2.2 MB has arrived.
    */
   private async download(generation: number): Promise<Uint8Array<ArrayBuffer>> {
     const progress = (receivedBytes: number, totalBytes: number | null) => {

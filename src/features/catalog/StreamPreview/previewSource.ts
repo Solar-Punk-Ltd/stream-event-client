@@ -2,8 +2,8 @@
  * What a preview card should do with the manifest it just asked for.
  *
  * Extracted from the component so the decision can be tested without a DOM. The card itself has no
- * test at all, and the bug this replaced was entirely in the branching rather than in the rendering:
- * one early return covered three different situations and left the spinner up for two of them.
+ * test at all, and the risk is in the branching rather than in the rendering: one early return
+ * covering three different situations would leave the spinner up for two of them.
  */
 
 import type { Segment } from '@/shared/manifest';

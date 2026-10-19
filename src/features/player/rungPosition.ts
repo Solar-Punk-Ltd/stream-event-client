@@ -3,9 +3,9 @@ import { programDateTimeMs, type Segment } from '@/shared/manifest';
 import { isKnownSegmentMs, LIVE_SYNC_SEGMENTS } from './playerConfig';
 
 /**
- * The least time a rung has to show a new index. Six seconds, which was the live target's floor until
- * that rose to twelve on 2026-10-12. A dead rung is still found as fast as before, because how long
- * the player waits behind live says nothing about how long a rung may go without progress.
+ * The least time a rung has to show a new index. Six seconds, independent of the live target's floor
+ * of twelve, because how long the player waits behind live says nothing about how long a rung may go
+ * without progress.
  */
 const RUNG_PROGRESS_FLOOR_MS = 6_000;
 

@@ -50,7 +50,7 @@ const EXTINF_DECIMALS = 6;
  * Formatted rather than interpolated, because `String(0.0000001)` is `"1e-7"` and RFC 8216 does not
  * allow exponent notation. hls.js reads such a line with `/(\d*(?:\.\d+)?)/`, which captures the `1`
  * and plays the segment as **one second** instead of a ten-millionth of one. The uploader accepts
- * that duration today: `isUsableDuration` only asks for a finite number in `[0, 3600]`.
+ * that duration: `isUsableDuration` only asks for a finite number in `[0, 3600]`.
  */
 export function buildExtinf(duration: number): string {
   const fixed = duration.toFixed(EXTINF_DECIMALS).replace(/\.?0+$/, '');

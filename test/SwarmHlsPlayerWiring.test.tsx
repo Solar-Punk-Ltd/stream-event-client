@@ -181,7 +181,7 @@ describe('the player component is wired to the feed state tracker', () => {
 });
 
 /**
- * Architecture review 2026-10-08, P2 #7. A viewer who joined while only some qualities had reported
+ * A viewer who joined while only some qualities had reported
  * holds a short entry, and the player builds its master from it once. The player watches the ladder's
  * markers and says when one names a rung the entry lacks, so the page can read the list's next slot,
  * and the fuller entry rebuilds the player with every quality.

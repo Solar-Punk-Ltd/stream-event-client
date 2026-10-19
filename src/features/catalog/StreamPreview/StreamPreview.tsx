@@ -120,7 +120,7 @@ export const StreamPreview = ({
   useEffect(() => {
     // The card already knows what it is showing, so nothing is fetched and no queue slot is taken.
     // This is the whole saving for a scheduled stream: its manifest feed does not exist, and ten
-    // announced broadcasts used to mean ten serial misses before a live card could get its frame.
+    // announced broadcasts would mean ten serial misses before a live card could get its frame.
     if (mode !== 'probe') {
       setIsLoading(false);
       return;
@@ -143,8 +143,8 @@ export const StreamPreview = ({
           abort.signal,
         );
 
-        // Split from the check below, because the two used to share an early return and only one of
-        // them is a reason to leave the spinner up. An aborted card is being unmounted and nobody is
+        // Kept apart from the check below, because only one of
+        // the two is a reason to leave the spinner up. An aborted card is being unmounted and nobody is
         // looking at it. A card with nothing to show is on screen and has to say so.
         if (abort.signal.aborted) {
           return;

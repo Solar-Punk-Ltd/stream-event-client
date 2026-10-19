@@ -8,7 +8,7 @@
  * ## What it counts, and what it deliberately does not
  *
  * An export is "unreferenced" when its name appears in no file other than the ones that declare it.
- * That is not the same as dead code. Most of the current entries are symbols exported for a reader's
+ * That is not the same as dead code. Most entries are symbols exported for a reader's
  * benefit and then only used inside their own module, which costs nothing at runtime and everything
  * in API surface: every exported name is a promise that something may import it.
  *
@@ -18,7 +18,7 @@
  *
  * ## Why a ratchet rather than a threshold
  *
- * The baseline file beside this script holds today's count, and fixing them is not this gate's job.
+ * The baseline file beside this script holds the accepted count, and fixing those exports is not this gate's job.
  * A number written down is not a control, so this exits non-zero the moment the count rises above
  * the recorded baseline, which is the one moment the information is cheap to act on. Lowering the
  * baseline is a normal part of removing an export, and the gate prints the exact command.

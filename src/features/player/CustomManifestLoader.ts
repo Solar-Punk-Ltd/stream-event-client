@@ -52,7 +52,7 @@ export class CustomManifestLoader extends PlaylistLoader {
         // error fatal, and the player restarts from the beginning: a recording viewer 2100 s in was sent
         // back to 0 on 2026-10-15. hls.js's playlist loader passes no abort callback, so the request
         // cannot be answered as cancelled either. hls.js cancels it itself: in 1.7.3, when its level list
-        // changes, it aborts a pending level request whose level is no longer in the list
+        // changes, it aborts a pending level request whose level has left the list
         // (`onLevelsUpdated` in its playlist loader), and nothing waits on this answer after that.
         if (error instanceof RungRefusedError) {
           return;
@@ -72,7 +72,7 @@ export class CustomFragmentLoader extends FragmentLoader {
    *
    * ⛔ Held so {@link abort} and {@link destroy} can cancel it. hls.js abandons in-flight fragments
    * routinely, on a level switch, a seek and every teardown, and a stagger that fired anyway would
-   * start a transfer for a fragment nobody is waiting for any more, against the loader hls.js has
+   * start a transfer for a fragment nobody is waiting for, against the loader hls.js has
    * already finished with. That is a request the gateway pays for and nothing consumes.
    */
   private pendingStagger: StaggeredTask | null = null;
@@ -111,7 +111,7 @@ export class CustomFragmentLoader extends FragmentLoader {
   }
 
   /**
-   * The one place segment bytes are fetched, today from the gateway through hls.js's own loader.
+   * The one place segment bytes are fetched, from the gateway through hls.js's own loader.
    * Another source of segment bytes, such as a Swarm node in the tab, plugs in here.
    *
    * Asked of the source the player reads from when the request goes out rather than of the one that

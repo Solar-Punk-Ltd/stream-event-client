@@ -48,7 +48,7 @@ describe('when the watch page reads the catalog again', () => {
 /**
  * ⛔ SWR skips its refresh timer while its cache holds an error and leaves the next read to
  * `onErrorRetry`, whose default waits longer after every failure, from 5 to 10 s after one up to
- * minutes after a few in a row. One slow or refused read used to hold an open page that far behind.
+ * minutes after a few in a row. One slow or refused read would hold an open page that far behind.
  */
 describe('after a failed catalog read', () => {
   afterEach(() => {
@@ -184,12 +184,12 @@ function listedAnnounced(catalog: StreamCatalog): Stream | undefined {
  * ⛔ The watch page's path from a poll to its decision, for a scheduled stream that is not the newest.
  *
  * The web2 admin turns an announced stream live by replacing its entry where it stands, so the last
- * entry of the catalog stays the same. The stream list used to compare only the last entries, so this
- * page started a scheduled stream only when it was the newest in the catalog, and showed "This stream
+ * entry of the catalog stays the same. A stream list that compared only the last entries would start a
+ * scheduled stream only when it was the newest in the catalog, and show "This stream
  * has not started yet" for any other until the viewer reloaded.
  *
  * Driven through the catalog reader and the read it hands the list, rather than through the list's
- * rule alone, so that a slot lost anywhere on the way fails here instead of falling back to the old
+ * rule alone, so that a slot lost anywhere on the way fails here instead of falling back to the last-entry
  * ordering without a sound.
  */
 describe('when a scheduled stream that is not the newest entry goes live in place', () => {
@@ -217,7 +217,7 @@ describe('when a scheduled stream that is not the newest entry goes live in plac
 /**
  * ⛔ The same path, for a scheduled stream the web2 admin unpublishes, which removes its entry and
  * touches no other. Once the list follows every catalog change, the entry leaves the page's list on the
- * next poll, and the page used to answer that by mounting the player on a feed nobody had written.
+ * next poll, and the page must not answer that by mounting the player on a feed nobody had written.
  *
  * The page's memory is carried from poll to poll here the way the page carries it, through
  * `isWaitingForStart`, because the list alone cannot tell a stream that was unpublished from one the

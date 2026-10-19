@@ -7,7 +7,7 @@ const MB = 1024 * 1024;
  *
  * Every segment here is fetched from Swarm rather than from an origin next to the viewer, so the
  * budget covers a feed lookup plus a chunk download, not one HTTP round trip. It is the largest
- * client-side latency lever there is. It was 10 until 2026-08-03, 6 until 2026-10-12, and is 12 now.
+ * client-side latency lever there is. It has been 12 since 2026-10-12, 6 from 2026-08-03 before that, and 10 before that.
  *
  * Behind-live is not the total plus this buffer. The total is anchored on a segment's first frame
  * and the buffer is measured back from the live edge, which is that same segment's last, so adding
@@ -22,7 +22,7 @@ const MB = 1024 * 1024;
  * ## Why twelve, 2026-10-12
  *
  * Six was derived on 2026-08-05 from arrivals at 0.25 s and 0.5 s segments on a gateway beside the
- * stage. The event runs 2 s segments, and on the swarm-dev gateway on 2026-10-12 a 2 s segment
+ * stage. The event runs 2 s segments, and on the event's development gateway on 2026-10-12 a 2 s segment
  * became fetchable 7 to 9 s after it was filmed, past six. Over SRT the shipped player stalled about
  * 30 times per 15 minutes at six and about 9 times at fourteen, on the same broadcast and gateway.
  * Twelve sits in the 10 to 14 s range the product owner chose, and with catch-up switched off (see
@@ -93,13 +93,13 @@ export function liveLatencyFor(segmentMs: number | null | undefined): LiveLatenc
 /**
  * The playback rate a live viewer is held at: normal speed, always.
  *
- * hls.js reads exactly 1 as "never adapt" and then leaves the playback rate alone entirely. Until
- * 2026-10-12 this was 1.1, so a viewer who fell behind the target was played up to 10% fast until
- * they caught up. The product owner ruled that viewers see the stream at normal speed. A stall now
- * leaves the viewer that much further behind, inside the room {@link LIVE_SYNC_DURATION_S} gives,
- * and only past {@link LIVE_MAX_LATENCY_DURATION_S} does hls.js jump them forward to the target.
+ * hls.js reads exactly 1 as "never adapt" and then leaves the playback rate alone entirely. The
+ * product owner ruled on 2026-10-12 that viewers see the stream at normal speed, so a viewer who
+ * falls behind the target is not played faster to catch up. A stall leaves the viewer that much
+ * further behind, inside the room {@link LIVE_SYNC_DURATION_S} gives, and only past
+ * {@link LIVE_MAX_LATENCY_DURATION_S} does hls.js jump them forward to the target.
  *
- * Since hls.js no longer writes the rate, a speed the viewer picks from the native controls stays
+ * Because hls.js never writes the rate, a speed the viewer picks from the native controls stays
  * theirs without any guard.
  */
 const LIVE_SYNC_PLAYBACK_RATE = 1;

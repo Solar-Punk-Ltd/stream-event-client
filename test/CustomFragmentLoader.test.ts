@@ -124,9 +124,9 @@ describe('CustomFragmentLoader reporting the gateway it just reached', () => {
  * from, measured on 2026-08-07: the page origin and the blob id are both consumed, leaving a url
  * that names no host at all.
  *
- * This used to be rebuilt against `window.location.origin` and handed to the transport. That is the
- * client, whose host proxies `/bee/` and not `/bytes/`, so the fragment 404'd at a host that never
- * held it and no message connected the failure to the fallback.
+ * Rebuilding it against `window.location.origin` and handing it to the transport would name the
+ * client, whose host proxies `/bee/` and not `/bytes/`, so the fragment would 404 at a host that never
+ * held it and no message would connect the failure to the fallback.
  */
 describe('CustomFragmentLoader meeting a url that names no gateway', () => {
   const UNRESOLVABLE = 'blob:http:/bytes/abc123';

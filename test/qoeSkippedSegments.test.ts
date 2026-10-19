@@ -1,7 +1,7 @@
 /**
  * A live segment the player plays past as a gap is a moment of lost picture, not a failure of the
- * session. The overlay used to count the fatal error hls.js raised for it as one, with a reconnect
- * attempt beside it, so a viewer whose picture only skipped read as a viewer whose picture stopped.
+ * session. The overlay must not count the fatal error hls.js raises for it as one, with a reconnect
+ * attempt beside it, or a viewer whose picture only skipped would read as a viewer whose picture stopped.
  */
 
 import assert from 'node:assert/strict';

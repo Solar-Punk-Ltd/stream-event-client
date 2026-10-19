@@ -1,10 +1,9 @@
 /**
  * What the browse page should show, given what the catalog fetch has managed so far.
  *
- * The page used to read only `data` off SWR and drop `error` and `isLoading` on the floor, so a
- * gateway nobody could reach rendered as a catalog with no streams in it. A viewer whose gateway is
- * down and a viewer who is early to an event saw identical pixels, and only one of them could act on
- * what they were seeing.
+ * Reading only `data` off SWR and dropping `error` and `isLoading` would render a gateway nobody can
+ * reach as a catalog with no streams in it. A viewer whose gateway is down and a viewer who is early to
+ * an event would see identical pixels, and only one of them could act on what they were seeing.
  *
  * Pure, so the rule is tested without rendering the page.
  */

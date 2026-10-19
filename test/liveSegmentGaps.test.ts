@@ -1,7 +1,7 @@
 /**
- * A live segment hls.js could not load used to end one of two ways: hls.js gave it up as a gap it
- * forgot on the next reload, or, at the live edge with its retries spent, a fatal error the player
- * answered by restarting. The player now marks it `#EXT-X-GAP` in the playlist it serves hls.js and
+ * A live segment hls.js cannot load would otherwise end one of two ways: hls.js gives it up as a gap it
+ * forgets on the next reload, or, at the live edge with its retries spent, raises a fatal error the player
+ * answers by restarting. The player marks it `#EXT-X-GAP` in the playlist it serves hls.js and
  * plays past it, within a budget, and leaves anything older than the newest few segments alone.
  */
 
