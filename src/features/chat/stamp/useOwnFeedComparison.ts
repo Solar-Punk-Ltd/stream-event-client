@@ -3,8 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { ChatReads } from '../chatParts';
 import { chatVerifier } from '../verify/chatVerifier';
 
-import { type OwnFeedComparison, OwnFeedTooLargeError } from './ownFeedComparison';
-import { createOwnFeedCounter, type OwnFeedCounter } from './ownFeedCounter';
+import { compareOwnFeed, type OwnFeedComparison, OwnFeedRefusedError, OwnFeedTooLargeError } from './ownFeedComparison';
 
 /** Where a sender's own feed and the chat are read: the chat's reader on the chat history's source. */
 export interface OwnFeedSource {
@@ -26,62 +25,84 @@ export function useOwnFeedSource(): OwnFeedSource | null {
 /** A whole chat and a whole own feed take many reads, so each one is given longer than a message read. */
 const READ_TIMEOUT_MS = 15_000;
 
-export const COUNTING = 'counting';
-export const COUNTED = 'counted';
-export const UNCOUNTABLE = 'uncountable';
+export const NOT_CHECKED = 'not-checked';
+export const CHECKING = 'checking';
+export const CHECKED = 'checked';
+export const UNREADABLE = 'unreadable';
 export const TOO_LARGE = 'too-large';
+export const REFUSED = 'refused';
 
-type OwnFeedCount =
-  | { readonly status: typeof COUNTING }
-  | { readonly status: typeof COUNTED; readonly comparison: OwnFeedComparison }
-  | { readonly status: typeof UNCOUNTABLE }
-  | { readonly status: typeof TOO_LARGE };
+type OwnFeedCheck =
+  | { readonly status: typeof NOT_CHECKED }
+  | { readonly status: typeof CHECKING; readonly checked: number; readonly planned: number }
+  | { readonly status: typeof CHECKED; readonly comparison: OwnFeedComparison }
+  | { readonly status: typeof UNREADABLE }
+  | { readonly status: typeof TOO_LARGE }
+  | { readonly status: typeof REFUSED };
 
-const counters = new WeakMap<OwnFeedSource, OwnFeedCounter>();
+const NOTHING_CHECKED: OwnFeedCheck = { status: NOT_CHECKED };
 
-/** The one counter of a chat on screen, so every details card and My stamp share its walk of the chat. */
-function counterOf(source: OwnFeedSource): OwnFeedCounter {
-  let counter = counters.get(source);
-  if (!counter) {
-    counter = createOwnFeedCounter(source, { verify: chatVerifier(), timeoutMs: READ_TIMEOUT_MS });
-    counters.set(source, counter);
+function failedCheck(error: unknown): OwnFeedCheck {
+  if (error instanceof OwnFeedRefusedError) {
+    return { status: REFUSED };
   }
-  return counter;
+  return { status: error instanceof OwnFeedTooLargeError ? TOO_LARGE : UNREADABLE };
 }
 
 /**
- * The sender's messages in the whole chat against the copies in their own feed, read when shown, answered from a count
- * made a moment ago where there is one, and read anew on `recount`, or on `refresh` without showing Counting…. Every read stops when it is hidden or recounted.
- * Reads only.
+ * The sender's messages in the whole chat against the copies in their own feed, read only when `check` is called and
+ * then read whole and afresh, nothing kept from an earlier check. A check shows how far it has got, unless it is quiet,
+ * which keeps the last result on screen until the new one is made. `stop`, a new check and leaving the screen each end
+ * the reads of the one running. Reads only.
  */
 export function useOwnFeedComparison(source: OwnFeedSource | null, sender: string) {
-  const [count, setCount] = useState<OwnFeedCount>({ status: COUNTING });
-  const reading = useRef<AbortController | null>(null);
+  const [state, setState] = useState<OwnFeedCheck>(NOTHING_CHECKED);
+  const running = useRef<AbortController | null>(null);
 
-  const start = useCallback(
-    (isFresh: boolean, isQuiet = false) => {
+  const check = useCallback(
+    (isQuiet = false) => {
       if (!source) {
         return;
       }
-      reading.current?.abort();
+      running.current?.abort();
       const controller = new AbortController();
-      reading.current = controller;
-      const counter = counterOf(source);
-      if (isFresh) {
-        counter.forget(sender);
-      }
-      if (!isQuiet) {
-        setCount({ status: COUNTING });
-      }
-      counter.count(sender, controller.signal).then(
+      running.current = controller;
+      const isCurrent = () => !controller.signal.aborted;
+      let planned = 0;
+      let checked = 0;
+      const showProgress = () => {
+        if (!isQuiet && isCurrent()) {
+          setState({ status: CHECKING, checked: Math.min(checked, planned), planned });
+        }
+      };
+      showProgress();
+      compareOwnFeed({
+        reads: source.reads,
+        verify: chatVerifier(),
+        chatOwner: source.chatOwner,
+        chatTopic: source.chatTopic,
+        sender,
+        timeoutMs: READ_TIMEOUT_MS,
+        signal: controller.signal,
+        progress: {
+          planned: (entries) => {
+            planned += entries;
+            showProgress();
+          },
+          checked: (entries) => {
+            checked += entries;
+            showProgress();
+          },
+        },
+      }).then(
         (comparison) => {
-          if (!controller.signal.aborted) {
-            setCount({ status: COUNTED, comparison });
+          if (isCurrent()) {
+            setState({ status: CHECKED, comparison });
           }
         },
         (error: unknown) => {
-          if (!controller.signal.aborted) {
-            setCount({ status: error instanceof OwnFeedTooLargeError ? TOO_LARGE : UNCOUNTABLE });
+          if (isCurrent()) {
+            setState(failedCheck(error));
           }
         },
       );
@@ -89,16 +110,15 @@ export function useOwnFeedComparison(source: OwnFeedSource | null, sender: strin
     [source, sender],
   );
 
-  const recount = useCallback(() => start(true), [start]);
-  /** Counts anew behind the count on screen, which stays until the new one is made. */
-  const refresh = useCallback(() => start(true, true), [start]);
+  const stop = useCallback(() => {
+    running.current?.abort();
+    running.current = null;
+    setState(NOTHING_CHECKED);
+  }, []);
 
-  useEffect(() => {
-    start(false);
-    return () => reading.current?.abort();
-  }, [start]);
+  useEffect(() => () => running.current?.abort(), [source, sender]);
 
-  return { count, recount, refresh };
+  return { state, check, stop };
 }
 
 /** "1 message" or "N messages". */

@@ -9,6 +9,7 @@ import {
 } from '@solarpunkltd/swarm-chat-js/message';
 
 import { makeFeedIdentifier } from '@/shared/feedFollow';
+import type { SwarmAnswer } from '@/swarm/answers';
 import type { ReadOptions } from '@/swarm/provider';
 
 import { type ChatReads, isAbsent } from '../chatParts';
@@ -23,11 +24,17 @@ export interface OwnFeedRecord {
 }
 
 export interface OwnFeedComparison {
+  /** The sender's messages in the whole chat feed whose signature is valid, newest first, whoever paid for them. */
+  readonly inChat: readonly OwnFeedRecord[];
+  /** Messages in the chat feed that name the sender but whose signature does not match them, newest first. */
+  readonly badSignatures: readonly OwnFeedRecord[];
   /**
-   * The sender's messages in the whole chat feed that they paid for with their own stamp, newest first. A message the
-   * gateway paid for gets no copy, so it is neither counted nor missing.
+   * The sender's messages in the whole chat feed that they paid for with their own stamp, by the `via` they signed,
+   * newest first.
    */
   readonly chatOnOwnStamp: readonly OwnFeedRecord[];
+  /** The sender's messages the gateway paid for, newest first. Such a message gets no copy, so it is never missing. */
+  readonly byGateway: readonly OwnFeedRecord[];
   /** The copies in the sender's own feed, newest first, or null when they keep no own feed. */
   readonly own: readonly OwnFeedRecord[] | null;
   /** Their messages on their own stamp in the chat with no copy in their own feed, newest first. */
@@ -38,9 +45,25 @@ export interface OwnFeedComparison {
 
 /** A feed's newest entry, one of its entries or a history file could not be read, which says nothing about the copies. */
 export class OwnFeedUnreadableError extends Error {
-  constructor(what: string) {
+  constructor(
+    what: string,
+    /** The source's answer, where a feed's newest entry could not be read. */
+    readonly answer: SwarmAnswer | null = null,
+  ) {
     super(`${what} could not be read`);
     this.name = 'OwnFeedUnreadableError';
+  }
+}
+
+/**
+ * The source answered the chat feed but turned away the sender's own feed. A gateway that serves only the chat
+ * server's feeds answers anyone else's with a refusal, which a browser sees as a network failure when the refusal
+ * carries no CORS headers. It says nothing about what the own feed holds.
+ */
+export class OwnFeedRefusedError extends Error {
+  constructor() {
+    super("the source does not serve the sender's own feed");
+    this.name = 'OwnFeedRefusedError';
   }
 }
 
@@ -73,6 +96,15 @@ function ownFeedCap(sentInChat: number): number {
   return Math.min(sentInChat + OWN_FEED_MARGIN, MAX_OWN_FEED_ENTRIES);
 }
 
+/**
+ * Told how many feed entries a check will look at, each time a feed's newest index becomes known, and how many more it
+ * has looked at, so a viewer can watch a check that takes many reads.
+ */
+interface CheckProgress {
+  readonly planned: (entries: number) => void;
+  readonly checked: (entries: number) => void;
+}
+
 /** Where the chat is read, and how each read is bounded. */
 interface ChatWalkOptions {
   /** The chat's reader, on the source the viewer picked for the chat history. */
@@ -84,16 +116,18 @@ interface ChatWalkOptions {
   readonly timeoutMs: number;
   /** Ends every read the walk makes, and the walk with them. */
   readonly signal?: AbortSignal;
+  readonly progress?: CheckProgress;
 }
 
-/** Every message of the chat that passed the page's check, by its feed index. */
-export type WholeChat = ReadonlyMap<number, ChatMessage>;
+/** The messages of the whole chat by their feed index: those that pass the page's check, and those whose signature fails it. */
+interface WholeChat {
+  readonly checked: ReadonlyMap<number, ChatMessage>;
+  readonly badSignatures: ReadonlyMap<number, ChatMessage>;
+}
 
 interface CompareOwnFeedOptions extends ChatWalkOptions {
   /** The sender's chat address, 40 hex digits, which owns their own feed. */
   readonly sender: string;
-  /** The chat as {@link readWholeChat} read it, for a caller that shares one walk between senders. Read here if absent. */
-  readonly wholeChat?: Promise<WholeChat>;
 }
 
 const windowOf = ({ timeoutMs, signal }: ChatWalkOptions): ReadOptions => ({ timeoutMs, signal });
@@ -113,9 +147,29 @@ async function newestIndex(reads: ChatReads, owner: string, topic: Topic, window
     return null;
   }
   if (head.kind !== 'content' || head.feedIndex === null) {
-    throw new OwnFeedUnreadableError(what);
+    throw new OwnFeedUnreadableError(what, head);
   }
   return { index: head.feedIndex, payload: head.bytes };
+}
+
+const REFUSED = 'refused';
+/** A network failure is how a refusal without CORS headers reads, and also how a dropped connection reads. */
+const MAYBE_REFUSED = 'maybe-refused';
+
+/** Whether a failed feed head read is the source turning the read away, may be, or is not. */
+function refusalOf(error: unknown): typeof REFUSED | typeof MAYBE_REFUSED | null {
+  const answer = error instanceof OwnFeedUnreadableError ? error.answer : null;
+  if (answer?.kind === 'unsupported') {
+    return REFUSED;
+  }
+  if (answer?.kind !== 'unavailable') {
+    return null;
+  }
+  const { cause } = answer;
+  if (cause.kind === 'network') {
+    return MAYBE_REFUSED;
+  }
+  return cause.kind === 'status' && cause.status >= 400 && cause.status < 500 ? REFUSED : null;
 }
 
 /** Reads `indices` a few at a time, in order, with `read`, and starts no batch once `signal` is aborted. */
@@ -208,7 +262,7 @@ function indicesOutside(held: readonly SeqRange[], end: number, limit: number): 
  * no history file holds, read by its own index. An entry or a row that fails the library's check, or the check a
  * message passes on this page, is left out.
  */
-export async function readWholeChat(options: ChatWalkOptions): Promise<WholeChat> {
+async function readWholeChat(options: ChatWalkOptions): Promise<WholeChat> {
   const { chatTopic } = options;
   const window = windowOf(options);
   const reads = options.reads();
@@ -217,8 +271,11 @@ export async function readWholeChat(options: ChatWalkOptions): Promise<WholeChat
   const messages = new Map<number, ChatMessage>();
   const head = await newestIndex(reads, owner, topic, window, 'the chat feed');
   if (head === null) {
-    return messages;
+    return { checked: messages, badSignatures: new Map() };
   }
+  const { progress } = options;
+  progress?.planned(head.index + 1);
+  progress?.checked(1);
 
   const held: SeqRange[] = [];
   const entry = parseFeedEntry(head.payload, head.index, chatTopic);
@@ -240,6 +297,7 @@ export async function readWholeChat(options: ChatWalkOptions): Promise<WholeChat
       break;
     }
     held.push({ from: file.value.fromSeq, to: file.value.toSeq });
+    progress?.checked(file.value.toSeq - file.value.fromSeq + 1);
     for (const row of file.value.rows) {
       messages.set(row.seq, row.msg);
     }
@@ -252,7 +310,15 @@ export async function readWholeChat(options: ChatWalkOptions): Promise<WholeChat
   if (unheld === null) {
     throw new OwnFeedUnreadableError(`the chat's entries past ${MAX_ENTRIES_READ_ALONE} outside its history files`);
   }
-  const payloads = await inBatches(unheld, (index) => readEntry(reads, owner, topic, index, window), options.signal);
+  const payloads = await inBatches(
+    unheld,
+    async (index) => {
+      const payload = await readEntry(reads, owner, topic, index, window);
+      progress?.checked(1);
+      return payload;
+    },
+    options.signal,
+  );
   unheld.forEach((index, at) => {
     const payload = payloads[at];
     const read = payload ? parseFeedEntry(payload, index, chatTopic) : null;
@@ -264,23 +330,32 @@ export async function readWholeChat(options: ChatWalkOptions): Promise<WholeChat
 }
 
 /**
- * The messages that pass the check a chat message passes on this page, for this chat, each as the check read it. The
- * chat server checked them before it published them, and a gateway serving the chat could still change one.
+ * The messages that pass the check a chat message passes on this page, for this chat, each as the check read it, and
+ * those that fail it, as the feed holds them. The chat server checked them before it published them, and a gateway
+ * serving the chat could still change one.
  */
 async function checkedMessages(
   messages: ReadonlyMap<number, ChatMessage>,
   { verify, chatTopic }: ChatWalkOptions,
-): Promise<Map<number, ChatMessage>> {
+): Promise<WholeChat> {
   const verdicts = await Promise.all(
-    [...messages].map(async ([index, message]) => ({ index, verdict: await verify.verify(message) })),
+    [...messages].map(async ([index, message]) => ({ index, message, verdict: await verify.verify(message) })),
   );
   const checked = new Map<number, ChatMessage>();
-  for (const { index, verdict } of verdicts) {
-    if (verdict.ok && verdict.message.topic === chatTopic) {
+  const badSignatures = new Map<number, ChatMessage>();
+  for (const { index, message, verdict } of verdicts) {
+    if (!verdict.ok) {
+      badSignatures.set(index, message);
+    } else if (verdict.message.topic === chatTopic) {
       checked.set(index, verdict.message);
     }
   }
-  return checked;
+  return { checked, badSignatures };
+}
+
+/** The sender's own feed for this chat, its owner and its topic, both as bare hex, as a feed read names them. */
+export function ownFeedAddress(sender: string, chatTopic: string): { readonly owner: string; readonly topic: string } {
+  return { owner: bareHex(sender), topic: Topic.fromString(ownFeedTopic(chatTopic)).toHex() };
 }
 
 /** The own feed's newest entry, or null when the sender keeps no own feed. */
@@ -290,20 +365,76 @@ function ownFeedHead(options: CompareOwnFeedOptions) {
 }
 
 /**
- * The copies in the sender's own feed at indices 0 to `newest`, each checked as a chat message is, the sender's, and
- * for this chat, or left out.
+ * The own feed's newest entry, read a second time after a network failure, which is called a refusal only when the
+ * second read fails the same way, so one dropped connection is not.
+ *
+ * @throws OwnFeedRefusedError when the source turned the read away.
  */
-async function readOwnFeed(options: CompareOwnFeedOptions, newest: number): Promise<OwnFeedRecord[]> {
+async function judgedOwnFeedHead(options: CompareOwnFeedOptions) {
+  try {
+    return await ownFeedHead(options);
+  } catch (error) {
+    const refusal = refusalOf(error);
+    if (refusal === REFUSED) {
+      throw new OwnFeedRefusedError();
+    }
+    if (refusal !== MAYBE_REFUSED) {
+      throw error;
+    }
+  }
+  try {
+    return await ownFeedHead(options);
+  } catch (error) {
+    throw refusalOf(error) === null ? error : new OwnFeedRefusedError();
+  }
+}
+
+/**
+ * The copies in the sender's own feed, each checked as a chat message is, the sender's, and for this chat, or left
+ * out, or null when the feed has no entry. Indices 0 to `newest` are read, then each index after it until one is not
+ * there, since a gateway may serve a head seconds old and a copy written since then would otherwise count as missing.
+ *
+ * @throws OwnFeedTooLargeError when an entry is found at or past `cap`.
+ */
+async function readOwnFeed(
+  options: CompareOwnFeedOptions,
+  newest: number | null,
+  cap: number,
+): Promise<OwnFeedRecord[] | null> {
   const window = windowOf(options);
-  const { chatTopic, verify } = options;
+  const { chatTopic, verify, progress } = options;
   const reads = options.reads();
   const sender = bareHex(options.sender);
   const topic = Topic.fromString(ownFeedTopic(chatTopic));
-  const indices = Array.from({ length: newest + 1 }, (_, index) => index);
-  const copies = await inBatches(
-    indices,
-    async (index): Promise<OwnFeedRecord | null> => {
-      const payload = await readEntry(reads, sender, topic, index, window);
+  const readCounted = async (index: number) => {
+    const payload = await readEntry(reads, sender, topic, index, window);
+    progress?.checked(1);
+    return payload;
+  };
+  const known = newest === null ? 0 : newest + 1;
+  progress?.planned(known);
+  const payloads = await inBatches(
+    Array.from({ length: known }, (_, index) => index),
+    readCounted,
+    options.signal,
+  );
+  for (let index = known; ; index++) {
+    options.signal?.throwIfAborted();
+    progress?.planned(1);
+    const payload = await readCounted(index);
+    if (payload === null) {
+      break;
+    }
+    if (index >= cap) {
+      throw new OwnFeedTooLargeError(index, cap);
+    }
+    payloads.push(payload);
+  }
+  if (payloads.length === 0) {
+    return null;
+  }
+  const copies = await Promise.all(
+    payloads.map(async (payload, index): Promise<OwnFeedRecord | null> => {
       if (!payload) {
         return null;
       }
@@ -318,8 +449,7 @@ async function readOwnFeed(options: CompareOwnFeedOptions, newest: number): Prom
         return null;
       }
       return { index, message: verdict.message };
-    },
-    options.signal,
+    }),
   );
   return copies.filter((copy): copy is OwnFeedRecord => copy !== null);
 }
@@ -331,8 +461,10 @@ function onePerSignature(records: readonly OwnFeedRecord[]): OwnFeedRecord[] {
 }
 
 /**
- * The sender's messages on their own stamp in the whole chat against the copies in their own feed. Both are read
- * through the chat's reader, the whole chat history and the own feed up to {@link ownFeedCap}. A copy and a message
+ * The sender's messages in the whole chat, split by who paid for each as its signed `via` says, against the copies in
+ * their own feed. Both are read afresh through the chat's reader on every call, the whole chat history and the own
+ * feed up to {@link ownFeedCap}, since a chat read earlier than the own feed would lack messages the own feed already
+ * holds and show them as missing from the chat. A copy and a message
  * are the same when their signatures are: a message has one valid signature, over every field it says, and both sides
  * are counted only once they pass the check a chat message passes, so a matching signature means the copy is the
  * message the chat feed shows, which an id, chosen by the sender, would not. That the chat feed shows what the chat
@@ -340,32 +472,45 @@ function onePerSignature(records: readonly OwnFeedRecord[]): OwnFeedRecord[] {
  *
  * @throws OwnFeedUnreadableError when a feed's newest entry, one of its entries or a history file of the chat could not
  *   be read.
+ * @throws OwnFeedRefusedError when the source served the chat but turned away the own feed's newest entry.
  * @throws OwnFeedTooLargeError when the own feed names more entries than {@link ownFeedCap} allows.
  */
 export async function compareOwnFeed(options: CompareOwnFeedOptions): Promise<OwnFeedComparison> {
   const sender = bareHex(options.sender);
-  const [wholeChat, ownHead] = await Promise.all([options.wholeChat ?? readWholeChat(options), ownFeedHead(options)]);
-  const sentInChat = [...wholeChat.values()].filter((message) => message.addr === sender).length;
-  const cap = ownFeedCap(sentInChat);
+  const ownHeadRead = judgedOwnFeedHead(options);
+  // A chat walk that fails is the answer, and the own feed head's own failure is then never read.
+  ownHeadRead.catch(() => {});
+  const wholeChat = await readWholeChat(options);
+  const ownHead = await ownHeadRead;
+  const sent = sendersRecords(wholeChat.checked, sender);
+  const cap = ownFeedCap(sent.length);
   if (ownHead !== null && ownHead.index >= cap) {
     throw new OwnFeedTooLargeError(ownHead.index, cap);
   }
-  const ownFeed = ownHead === null ? null : await readOwnFeed(options, ownHead.index);
+  const ownFeed = await readOwnFeed(options, ownHead?.index ?? null, cap);
 
-  const sent = [...wholeChat]
+  const inChat = onePerSignature(sent);
+  const chatOnOwnStamp = inChat.filter(({ message }) => message.via === MessageVia.OWN_STAMP);
+  const own = ownFeed === null ? null : onePerSignature([...ownFeed].sort(newestFirst));
+  const signedInChat = new Set(sent.map(({ message }) => message.sig));
+  const copied = new Set((own ?? []).map(({ message }) => message.sig));
+  return {
+    inChat,
+    badSignatures: sendersRecords(wholeChat.badSignatures, sender),
+    chatOnOwnStamp,
+    byGateway: inChat.filter(({ message }) => message.via !== MessageVia.OWN_STAMP),
+    own,
+    missingFromOwnFeed: chatOnOwnStamp.filter(({ message }) => !copied.has(message.sig)),
+    missingFromChat: (own ?? []).filter(({ message }) => !signedInChat.has(message.sig)),
+  };
+}
+
+/** The messages that name `sender` as their address, newest first. */
+function sendersRecords(messages: ReadonlyMap<number, ChatMessage>, sender: string): OwnFeedRecord[] {
+  return [...messages]
     .filter(([, message]) => message.addr === sender)
     .map(([index, message]) => ({ index, message }))
     .sort(newestFirst);
-  const chatOnOwnStamp = onePerSignature(sent.filter(({ message }) => message.via === MessageVia.OWN_STAMP));
-  const own = ownFeed === null ? null : onePerSignature([...ownFeed].sort(newestFirst));
-  const inChat = new Set(sent.map(({ message }) => message.sig));
-  const copied = new Set((own ?? []).map(({ message }) => message.sig));
-  return {
-    chatOnOwnStamp,
-    own,
-    missingFromOwnFeed: chatOnOwnStamp.filter(({ message }) => !copied.has(message.sig)),
-    missingFromChat: (own ?? []).filter(({ message }) => !inChat.has(message.sig)),
-  };
 }
 
 /** Whether the message signed `sig` has its copy in the sender's own feed. */

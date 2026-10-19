@@ -16,6 +16,7 @@ import {
   MAX_HISTORY_FILES,
   MAX_OWN_FEED_ENTRIES,
   OWN_FEED_MARGIN,
+  OwnFeedRefusedError,
   OwnFeedTooLargeError,
   OwnFeedUnreadableError,
 } from '../../src/features/chat/stamp/ownFeedComparison';
@@ -359,5 +360,138 @@ describe("comparing a sender's own feed with the chat", () => {
     await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedUnreadableError);
     expect(feeds.asked.filter((read) => read.startsWith('chunk'))).toHaveLength(0);
     expect(MAX_ENTRIES_READ_ALONE).toBe(500);
+  });
+
+  it("splits the sender's messages by the via they signed, and lists those whose signature fails", async () => {
+    const [a, b] = [message('a'), message('b')];
+    const free = message('free', GUEST_KEY, MessageVia.GATEWAY);
+    const forged = { ...message('c'), text: 'changed after signing' };
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, free, forged, b, message('other', SECOND_GUEST_KEY)]);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a, b]);
+
+    const comparison = await compare(feeds);
+
+    expect(ids(comparison.inChat)).toEqual([idOf('b'), idOf('free'), idOf('a')]);
+    expect(ids(comparison.chatOnOwnStamp)).toEqual([idOf('b'), idOf('a')]);
+    expect(ids(comparison.byGateway)).toEqual([idOf('free')]);
+    expect(ids(comparison.badSignatures)).toEqual([idOf('c')]);
+    expect(comparison.missingFromOwnFeed).toEqual([]);
+  });
+
+  it.each([
+    ['a network failure, as a refusal without CORS headers reads', { kind: 'network', error: new TypeError('x') }],
+    ['a 403', { kind: 'status', status: 403 }],
+  ] as const)(
+    'says the source refuses the own feed when its head answers %s while the chat was read',
+    async (_what, cause) => {
+      const feeds = servedFeeds();
+      const owner = feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [message('a')]);
+      feeds.chat(SERVER_KEY, CHAT_TOPIC, [message('a')]);
+      for (const key of [...feeds.heads.keys()].filter((head) => head.startsWith(owner))) {
+        feeds.heads.set(key, { kind: 'unavailable', cause } as SwarmAnswer);
+      }
+
+      await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedRefusedError);
+      const ownHeadReads = feeds.asked.filter((read) => read.startsWith(`head ${owner}`)).length;
+      expect(ownHeadReads, 'a network failure is read twice, a 403 once').toBe(cause.kind === 'network' ? 2 : 1);
+    },
+  );
+
+  it('reads the own feed head again after one network failure, and counts as usual when that read answers', async () => {
+    const a = message('a');
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a]);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a]);
+    const ownTopic = Topic.fromString(ownFeedTopic(CHAT_TOPIC)).toHex();
+    let ownHeadReads = 0;
+    const reads: ChatReads = {
+      ...feeds.reads,
+      readFeedHead: async (owner, topic, options) => {
+        if (topic.toHex() === ownTopic && ++ownHeadReads === 1) {
+          return { kind: 'unavailable', cause: { kind: 'network', error: new TypeError('x') } };
+        }
+        return feeds.reads.readFeedHead(owner, topic, options);
+      },
+    };
+
+    const comparison = await compare(feeds, reads);
+
+    expect(ownHeadReads).toBe(2);
+    expect(ids(comparison.own ?? [])).toEqual([idOf('a')]);
+  });
+
+  it('says the chat could not be read, not that the own feed is refused, when the chat head fails as well', async () => {
+    const feeds = servedFeeds();
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [message('a')]);
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [message('a')]);
+    const down: SwarmAnswer = { kind: 'unavailable', cause: { kind: 'network', error: new TypeError('x') } };
+    for (const key of feeds.heads.keys()) {
+      feeds.heads.set(key, down);
+    }
+
+    await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedUnreadableError);
+  });
+
+  it('reads the chat afresh on every call, so messages that reached it since the last call are not missing', async () => {
+    const [a, b, c] = [message('a'), message('b'), message('c')];
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a]);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a]);
+    await compare(feeds);
+
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b, c]);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a, b, c]);
+    const comparison = await compare(feeds);
+
+    expect(ids(comparison.chatOnOwnStamp)).toEqual([idOf('c'), idOf('b'), idOf('a')]);
+    expect(comparison.missingFromOwnFeed).toEqual([]);
+    expect(comparison.missingFromChat).toEqual([]);
+  });
+
+  it('reads past a head the source serves stale, entry by entry, until an entry is not there', async () => {
+    const [a, b, c] = [message('a'), message('b'), message('c')];
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b, c]);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a, b, c]);
+    feeds.ownFeedHeadAt(GUEST_KEY, CHAT_TOPIC, 1);
+
+    const comparison = await compare(feeds);
+
+    expect(ids(comparison.own ?? [])).toEqual([idOf('c'), idOf('b'), idOf('a')]);
+    expect(comparison.missingFromOwnFeed).toEqual([]);
+  });
+
+  it('finds an own feed whose first copy was written after the source last looked for its head', async () => {
+    const a = message('a');
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a]);
+    const owner = feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a]);
+    for (const key of [...feeds.heads.keys()].filter((head) => head.startsWith(owner))) {
+      feeds.heads.delete(key);
+    }
+
+    const comparison = await compare(feeds);
+
+    expect(ids(comparison.own ?? [])).toEqual([idOf('a')]);
+    expect(comparison.missingFromOwnFeed).toEqual([]);
+  });
+
+  it('says how many entries it will look at and how many it has, across the chat and the own feed', async () => {
+    const [a, b, c] = [message('a'), message('b'), message('c')];
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b, c], { filesThrough: [0] });
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a, b]);
+    let planned = 0;
+    let checked = 0;
+
+    await compareOwnFeed({
+      ...compareOptions(),
+      reads: () => feeds.reads,
+      progress: { planned: (entries) => (planned += entries), checked: (entries) => (checked += entries) },
+    });
+
+    expect(planned, 'three chat entries, two own feed entries and the one past its head').toBe(6);
+    expect(checked).toBe(6);
   });
 });

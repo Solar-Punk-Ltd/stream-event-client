@@ -21,6 +21,7 @@ import { STAMP_RAN_OUT } from '../../src/features/chat/stamp/stampProblems';
 import { OWN_STAMP_NEEDS_SOURCE } from '../../src/features/connect/connectWords';
 import type { SwarmIdPostageBatch } from '../../src/features/chat/swarmId/swarmIdClient';
 import { makeFeedIdentifier } from '../../src/shared/feedFollow';
+import type { SwarmAnswer } from '../../src/swarm/answers';
 import { chooseSource, defaultRouting } from '../../src/swarm/routing';
 import { CHAT, connectPage, seen } from '../helpers/connectPage';
 import { wearThemeCss } from '../helpers/themeCss';
@@ -451,19 +452,38 @@ describe('a chat paid for with my own stamp', () => {
 
 describe("a sender's own feed in the message details", () => {
   const SENDER_KEY = 'a1'.repeat(32);
+  const OTHER_KEY = 'b2'.repeat(32);
   const SERVER_KEY = 'c3'.repeat(32);
   const CHAT_TOPIC = 'chat-stream-one';
   const ON_THIS_SERVER = { ...CHAT, feedOwner: `0x${addressOf(SERVER_KEY)}` };
-  const mine = (label: string) =>
-    createChatMessage(SENDER_KEY, {
+  const OWN_TOPIC = Topic.fromString(ownFeedTopic(CHAT_TOPIC)).toHex();
+  const comparedTopics = [CHAT_TOPIC, ownFeedTopic(CHAT_TOPIC)].map((topic) => Topic.fromString(topic).toHex());
+  const signed = (key: string, label: string, via: MessageVia = MessageVia.OWN_STAMP) =>
+    createChatMessage(key, {
       id: idOf(label),
       topic: CHAT_TOPIC,
       type: MessageType.TEXT,
       text: `text of ${label}`,
       name: 'Bea',
       ts: 1_000,
-      via: MessageVia.OWN_STAMP,
+      via,
     }).message;
+  const mine = (label: string, via?: MessageVia) => signed(SENDER_KEY, label, via);
+  const section = () => document.querySelector<HTMLElement>('[aria-label="Own feed"]');
+  const ownFeedReads = (feeds: ReturnType<typeof servedFeeds>) =>
+    feeds.asked.filter((read) => read.endsWith(OWN_TOPIC) || read.startsWith('chunk')).length;
+  const listed = (label: string) =>
+    [...(section()?.querySelectorAll(`[aria-label="${label}"] li`) ?? [])].map((item) => item.textContent);
+
+  /** The watch page on a chat that `feeds` serves through `pageReads`, with `shown` in it and its details open. */
+  async function openDetailsOn(feeds: ReturnType<typeof servedFeeds>, shown: ChatMessage, pageReads = feeds.reads) {
+    reads = pageReads;
+    await watchPage(BATCH, ON_THIS_SERVER);
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(shown, 0)));
+    await waitFor(() => (chatRegion()?.textContent?.includes(shown.text) ? true : null));
+    click(button('Sent with their own stamp, show details'));
+    return section()!;
+  }
 
   /** Opens the details of `shown`, in a chat holding `chatMessages` and an own feed holding `copies`, or none. */
   async function openDetails(
@@ -478,47 +498,180 @@ describe("a sender's own feed in the message details", () => {
       feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, copies);
     }
     arrange(feeds);
-    reads = feeds.reads;
-    await watchPage(BATCH, ON_THIS_SERVER);
-    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(shown, 0)));
-    await waitFor(() => (chatRegion()?.textContent?.includes(shown.text) ? true : null));
-    click(button('Sent with their own stamp, show details'));
-    const section = () => document.querySelector<HTMLElement>('[aria-label="Own feed"]');
-    expect(section()?.textContent).toContain('Counting…');
-    await waitFor(() => (section()?.textContent?.includes('Counting…') ? null : true));
+    await openDetailsOn(feeds, shown);
+    return feeds;
+  }
+
+  async function verify() {
+    click(button('Verify'));
+    await waitFor(() => (queryButton('Verify') ? true : null));
     return section()!;
   }
 
-  it('says how many messages each feed holds and that this one is in the own feed', async () => {
-    const [a, b] = [mine('a'), mine('b')];
-    const section = await openDetails(b, [a, b], [a, b]);
+  it('opens at once with the own feed address and a copy button, and reads nothing of the own feed', async () => {
+    const a = mine('a');
+    const feeds = await openDetails(a, [a], [a]);
+    const written: string[] = [];
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (text: string) => void written.push(text) },
+    });
 
-    expect(section.textContent).toContain('Own feed: 2 messages');
-    expect(section.textContent).toContain('Chat feed: 2 messages');
-    expect(section.textContent).toContain('In their own feed');
-    expect(section.querySelector('.own-feed-missing')).toBeNull();
+    const owner = addressOf(SENDER_KEY);
+    expect(section()?.textContent).toContain(
+      `Own feed: ${owner.slice(0, 4)}…${owner.slice(-4)}/${OWN_TOPIC.slice(0, 4)}…`,
+    );
+    expect(ownFeedReads(feeds)).toBe(0);
+    expect(section()?.textContent).not.toContain('from them in this chat');
+
+    click(button('Copy the own feed address'));
+    await settle();
+    expect(written).toEqual([`${owner}/${OWN_TOPIC}`]);
+  });
+
+  it('selects the full own feed address for copying by hand when the browser refuses the clipboard', async () => {
+    const a = mine('a');
+    await openDetails(a, [a], [a]);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async () => Promise.reject(new Error('refused')) },
+    });
+
+    click(button('Copy the own feed address'));
+    await settle();
+
+    expect(window.getSelection()?.toString()).toBe(`${addressOf(SENDER_KEY)}/${OWN_TOPIC}`);
+  });
+
+  it('says how many messages are in the chat and that every one on their own stamp is in their own feed', async () => {
+    const [a, b] = [mine('a'), mine('b')];
+    await openDetails(b, [a, b], [a, b]);
+
+    const shown = await verify();
+
+    expect(shown.textContent).toContain('2 messages from them in this chat, all signatures valid');
+    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
+    expect(shown.textContent).toContain('This message is in their own feed');
+    expect(shown.querySelector('.own-feed-missing')).toBeNull();
   });
 
   it('names the messages missing on each side, newest first, when the feeds differ', async () => {
-    const [a, b, c, d] = ['a', 'b', 'c', 'd'].map(mine) as [ChatMessage, ChatMessage, ChatMessage, ChatMessage];
-    const section = await openDetails(c, [a, b, c], [a, d]);
+    const [a, b, c, d] = ['a', 'b', 'c', 'd'].map((label) => mine(label)) as [
+      ChatMessage,
+      ChatMessage,
+      ChatMessage,
+      ChatMessage,
+    ];
+    await openDetails(c, [a, b, c], [a, d]);
 
-    expect(section.textContent).toContain('Own feed: 2 messages');
-    expect(section.textContent).toContain('Chat feed: 3 messages');
-    expect(section.textContent).toContain('Not in their own feed');
-    const missing = (label: string) =>
-      [...section.querySelectorAll(`[aria-label="${label}"] li`)].map((item) => item.textContent);
-    expect(missing('Missing from their own feed')).toEqual([c.text, b.text]);
-    expect(missing('Missing from the chat feed')).toEqual([d.text]);
+    const shown = await verify();
+
+    expect(shown.textContent).toContain('3 messages from them in this chat');
+    expect(shown.textContent).toContain('3 on their own stamp, 2 missing from their own feed');
+    expect(shown.textContent).toContain('This message is not in their own feed');
+    expect(listed('Missing from their own feed')).toEqual([c.text, b.text]);
+    expect(listed('Missing from the chat feed')).toEqual([d.text]);
   });
 
-  it('says the own feed is too large to count when it names far more entries than the sender sent', async () => {
-    const a = mine('a');
-    const section = await openDetails(a, [a], [a], (feeds) =>
-      feeds.ownFeedHeadAt(SENDER_KEY, CHAT_TOPIC, Number.MAX_SAFE_INTEGER),
-    );
+  it('tells messages on their own stamp from those the gateway paid for, and never counts the second missing', async () => {
+    const [a, b] = [mine('a'), mine('b')];
+    const [free, alsoFree] = [mine('free', MessageVia.GATEWAY), mine('also free', MessageVia.GATEWAY)];
+    await openDetails(a, [a, free, b, alsoFree], [a, b]);
 
-    expect(section.textContent).toContain('Their own feed is too large to count.');
+    const shown = await verify();
+
+    expect(shown.textContent).toContain('4 messages from them in this chat, all signatures valid');
+    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
+    expect(shown.textContent).toContain('2 paid by the gateway, which have no own-feed copy');
+    expect(shown.querySelector('[aria-label="Missing from their own feed"]')).toBeNull();
+  });
+
+  it('names the messages in the chat that carry their address but fail the signature check', async () => {
+    const [a, b] = [mine('a'), mine('b')];
+    const forged = { ...b, text: 'changed after signing' };
+    await openDetails(a, [a, forged], [a]);
+
+    const shown = await verify();
+
+    expect(shown.textContent).toContain('2 messages from them in this chat, 1 with a signature that does not match');
+    expect(listed('Signature does not match')).toEqual(['changed after signing']);
+  });
+
+  it('shows how far the check has got, and stops reading when asked', async () => {
+    const messages = ['a', 'b', 'c', 'd'].map((label) => mine(label));
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, messages);
+    feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, messages);
+    const signals: AbortSignal[] = [];
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await openDetailsOn(feeds, messages[0]!, {
+      ...feeds.reads,
+      readChunk: async (address, options) => {
+        if (options?.signal) {
+          signals.push(options.signal);
+        }
+        await held;
+        return feeds.reads.readChunk(address);
+      },
+    });
+
+    click(button('Verify'));
+    await waitFor(() => (/Checked 1 of \d+/.test(section()?.textContent ?? '') ? true : null));
+    expect(section()?.textContent).toMatch(/Checked 1 of (4|8)/);
+
+    click(button('Stop'));
+
+    expect(signals.length).toBeGreaterThan(0);
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
+    expect(queryButton('Verify')).toBeTruthy();
+    expect(section()?.textContent).not.toContain('Checked');
+    release();
+  });
+
+  it('reads the chat and the own feed again on a second click', async () => {
+    const [a, b] = [mine('a'), mine('b')];
+    const feeds = await openDetails(a, [a], [a]);
+    await verify();
+    expect(section()?.textContent).toContain('1 on their own stamp, in their own feed');
+
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b]);
+    feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, [a, b]);
+    const shown = await verify();
+
+    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
+  });
+
+  it('says in one line when the source does not serve their own feed', async () => {
+    const a = mine('a');
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a]);
+    feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, [a]);
+    const refused: SwarmAnswer = {
+      kind: 'unavailable',
+      cause: { kind: 'network', error: new TypeError('Failed to fetch') },
+    };
+    await openDetailsOn(feeds, a, {
+      ...feeds.reads,
+      readFeedHead: async (owner, topic, options) =>
+        topic.toHex() === OWN_TOPIC ? refused : feeds.reads.readFeedHead(owner, topic, options),
+    });
+
+    const shown = await verify();
+
+    expect(shown.textContent).toContain('This source does not serve their own feed, so it cannot be checked here.');
+    expect(shown.textContent).not.toMatch(/Checked|from them in this chat/);
+  });
+
+  it('says the own feed is too large to check when it names far more entries than the sender sent', async () => {
+    const a = mine('a');
+    await openDetails(a, [a], [a], (feeds) => feeds.ownFeedHeadAt(SENDER_KEY, CHAT_TOPIC, Number.MAX_SAFE_INTEGER));
+
+    const shown = await verify();
+
+    expect(shown.textContent).toContain('Their own feed is too large to check.');
   });
 
   it('stops reading the chat and the own feed when the details close', async () => {
@@ -526,13 +679,12 @@ describe("a sender's own feed in the message details", () => {
     const feeds = servedFeeds();
     feeds.chat(SERVER_KEY, CHAT_TOPIC, [a]);
     feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, [a]);
-    const comparedTopics = [CHAT_TOPIC, ownFeedTopic(CHAT_TOPIC)].map((topic) => Topic.fromString(topic).toHex());
     const signals: AbortSignal[] = [];
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
-    reads = {
+    await openDetailsOn(feeds, a, {
       ...feeds.reads,
       readFeedHead: async (owner, topic, options) => {
         if (comparedTopics.includes(topic.toHex()) && options?.signal) {
@@ -541,11 +693,8 @@ describe("a sender's own feed in the message details", () => {
         await held;
         return feeds.reads.readFeedHead(owner, topic);
       },
-    };
-    await watchPage(BATCH, ON_THIS_SERVER);
-    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(a, 0)));
-    await waitFor(() => (chatRegion()?.textContent?.includes(a.text) ? true : null));
-    click(button('Sent with their own stamp, show details'));
+    });
+    click(button('Verify'));
     await waitFor(() => (signals.length === 2 ? true : null));
 
     click(button('Close'));
@@ -554,13 +703,44 @@ describe("a sender's own feed in the message details", () => {
     release();
   });
 
+  it('reads the chat afresh for each check, so messages that reached it since an earlier check are not missing', async () => {
+    const theirs = signed(OTHER_KEY, 'theirs');
+    const [a, b] = [mine('a'), mine('b')];
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [theirs, a]);
+    feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, [a]);
+    feeds.ownFeed(OTHER_KEY, CHAT_TOPIC, [theirs]);
+    reads = feeds.reads;
+    await watchPage(BATCH, ON_THIS_SERVER);
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(theirs, 0)));
+    await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(a, 1)));
+    await waitFor(() => (chatRegion()?.textContent?.includes(a.text) ? true : null));
+    const details = () =>
+      [...document.querySelectorAll('button')].filter(
+        (shown) => shown.getAttribute('aria-label') === 'Sent with their own stamp, show details',
+      );
+
+    click(details()[0]!);
+    await verify();
+    click(button('Close'));
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [theirs, a, b]);
+    feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, [a, b]);
+    click(details()[1]!);
+    const shown = await verify();
+
+    expect(shown.querySelector('[aria-label="Missing from the chat feed"]')).toBeNull();
+    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
+  });
+
   it('says plainly when no own feed is found, without claiming the sender keeps none', async () => {
     const a = mine('a');
-    const section = await openDetails(a, [a], null);
+    await openDetails(a, [a], null);
 
-    expect(section.textContent).toContain('No own feed found.');
-    expect(section.textContent).not.toMatch(/keeps (no|none)/);
-    expect(section.textContent).toContain('Chat feed: 1 message');
+    const shown = await verify();
+
+    expect(shown.textContent).toContain('1 on their own stamp, and no own feed found');
+    expect(shown.textContent).not.toMatch(/keeps (no|none)/);
+    expect(shown.textContent).toContain('1 message from them in this chat');
   });
 });
 
@@ -653,6 +833,45 @@ describe('my own feed in My Swarm', () => {
 
     expect(box()?.textContent).toContain('Your own feed is too large to count.');
     expect(queryButton('Sync')).toBeNull();
+  });
+
+  it('offers no sync for a copy written past the head the source still serves', async () => {
+    const [a, b, c] = await myMessages(['a', 'b', 'c']);
+    const box = await openMySwarm([a!, b!, c!], [a!, b!, c!], (feeds, myKey) =>
+      feeds.ownFeedHeadAt(myKey, CHAT_TOPIC, 1),
+    );
+
+    expect(box()?.textContent).toContain('Own feed: 3 of 3 messages');
+    expect(queryButton('Sync')).toBeNull();
+  });
+
+  it('says so when the source does not serve my own feed, and offers no sync', async () => {
+    const [a] = await myMessages(['a']);
+    const box = await openMySwarm([a!], [a!], (feeds) => {
+      for (const key of [...feeds.heads.keys()].filter((head) => head.endsWith(ownTopic.toHex()))) {
+        feeds.heads.set(key, { kind: 'unavailable', cause: { kind: 'status', status: 403 } });
+      }
+    });
+
+    expect(box()?.textContent).toContain('This source does not serve your own feed, so it cannot be counted here.');
+    expect(queryButton('Sync')).toBeNull();
+  });
+
+  it('reads my own feed again when I press Try again after the source refused it', async () => {
+    const [a] = await myMessages(['a']);
+    let served: ReturnType<typeof servedFeeds> | null = null;
+    const box = await openMySwarm([a!], [a!], (feeds) => {
+      served = feeds;
+      for (const key of [...feeds.heads.keys()].filter((head) => head.endsWith(ownTopic.toHex()))) {
+        feeds.heads.set(key, { kind: 'unavailable', cause: { kind: 'status', status: 403 } });
+      }
+    });
+    expect(box()?.textContent).toContain('does not serve your own feed');
+
+    served!.ownFeed(await chatKeyFor(BOUND_SITE), CHAT_TOPIC, [a!]);
+    click(button('Try again'));
+
+    await waitFor(() => (box()?.textContent?.includes('Own feed: 1 of 1 message') ? true : null));
   });
 
   it('counts only my messages on my own stamp, and syncs none the gateway paid for', async () => {
