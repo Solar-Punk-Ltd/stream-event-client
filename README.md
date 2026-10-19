@@ -263,12 +263,14 @@ stamps them, unless the person picks their own stamp, as the next section says.
 - **The button is mounted once for as long as it is shown.** Closing My Swarm takes it away and leaves the session as
   it is.
   Until Swarm ID's frame shows its button, a placeholder stands in its place: the page's own button of the same look
-  and size, with its label and a small loader, which takes no click and no focus. To a screen reader it is a picture
+  and size, with its label and a light band crossing it from left to right, which takes no click and no focus. A
+  spinner shows on the button only while the Swarm ID window it opened is still signing in, and lets clicks through to
+  the button under it. To a screen reader the placeholder is a picture
   named "Connecting to Swarm ID", and a status that stays in place says the same. The frame then shows the button
   in the same place, so nothing moves. When the wait passes 30 seconds, a line under it says "Swarm ID is taking
   longer than usual." in that same status. That place is
-  never narrower than the label with its loader, so the smaller button beside other words, as in Show it's really
-  you, shows its whole label down to a 320 px wide screen. A Try again shows
+  never narrower than the label with a spinner, so the smaller button beside other words, as in a guest's Swarm ID
+  row, shows its whole label down to a 320 px wide screen. A Try again shows
   the placeholder again until the new button is ready. When Swarm ID refuses the
   button, or it does not answer within the library's 30 seconds, its place says "Swarm ID cannot be reached right
   now." with Try again, which takes that button away and mounts a new one, and the console warns once as for a Swarm

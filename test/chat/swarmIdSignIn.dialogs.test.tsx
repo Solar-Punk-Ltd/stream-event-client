@@ -408,7 +408,7 @@ describe("the Swarm ID button's placeholder", () => {
     client.buttonWaits = true;
   };
 
-  it("stands in the button's place, in its look and label with a loader, while Swarm ID starts", async () => {
+  it("stands in the button's place, in its look and label, shimmering and with no spinner, while Swarm ID starts", async () => {
     await header(
       await fakeSwarmId({}, (client) => {
         client.initializeHangs = true;
@@ -420,7 +420,8 @@ describe("the Swarm ID button's placeholder", () => {
     expect(shown?.textContent).toBe('Sign in with Swarm ID');
     expect(shown?.classList.contains('button'), "the page's own button look").toBe(true);
     expect(shown?.classList.contains('primary')).toBe(true);
-    expect(shown?.querySelector('.spinner'), 'a loader inside').toBeTruthy();
+    expect(shown?.classList.contains('loading'), 'shimmers as it loads').toBe(true);
+    expect(shown?.querySelector('.spinner'), 'no spinner until the window it opens is signing in').toBeNull();
     expect(dialog()?.querySelector('[role="status"]')?.textContent).toBe('Connecting to Swarm ID');
   });
 

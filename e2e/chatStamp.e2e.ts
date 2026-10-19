@@ -321,6 +321,8 @@ test("Swarm ID's button shows a placeholder of itself in its own place until its
 
   await expect(placeholder).toBeVisible();
   await expect(placeholder).toHaveText('Sign in with Swarm ID');
+  await expect(placeholder, 'a loading button shimmers rather than spins').toHaveClass(/\bloading\b/);
+  await expect(placeholder.locator('.spinner'), 'no spinner while Swarm ID loads').toHaveCount(0);
   await expect(dialog.getByRole('status').filter({ hasText: 'Connecting to Swarm ID' })).toBeAttached();
   await expect(frame).toBeAttached();
   const held = await placeholder.boundingBox();
@@ -340,6 +342,29 @@ test("Swarm ID's button shows a placeholder of itself in its own place until its
   const shown = await frame.boundingBox();
   expect(shown, 'the frame stands where the placeholder stood').toEqual(held);
   await expect(swarmIdButton(dialog, 'Sign in with Swarm ID')).toBeVisible();
+});
+
+test("Swarm ID's button spins only while the window it opened is still signing in", async ({ page }) => {
+  const { swarmId } = await deployment(
+    page,
+    () => SITE_STAMP,
+    'bee-node',
+    () => {},
+    false,
+  );
+  swarmId.holdWindow();
+  await page.getByRole('banner').getByRole('button', { name: 'My Swarm', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const button = swarmIdButton(dialog, 'Sign in with Swarm ID');
+  const working = dialog.locator('.swarm-id-button-working');
+  await expect(button).toBeVisible();
+  await expect(working, 'no spinner before the click').toHaveCount(0);
+
+  await button.click();
+  await expect(working.locator('.spinner'), 'a spinner while the window signs in').toBeVisible();
+
+  swarmId.releaseWindow();
+  await expect(working, 'gone once the window closed').toHaveCount(0);
 });
 
 test("a guest's Swarm ID row holds Swarm ID's button beside its words at phone width", async ({ page }) => {
