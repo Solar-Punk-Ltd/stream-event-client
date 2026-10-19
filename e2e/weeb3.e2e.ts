@@ -9,7 +9,7 @@ import { LadderGateway } from './ladderGateway';
  * module of the package's shape, and its WebAssembly module with a few bytes. The page is told a service worker
  * controls it, which the real package's worker would, so the node can be ready. A viewer who added it before picks it
  * for the video in Connect, where its row shows how far the node has got, and on the watch page it plays bare in its
- * own player once the node is ready. A node that fails says so and nothing takes its place. It serves the video alone,
+ * own player once the node is ready, with its peers, the height playing and a quality picker under it. A node that fails says so and nothing takes its place. It serves the video alone,
  * so All features does not offer it, and a routing saved on it reads the stream list from the gateway. Adding it, which reads real
  * chunks through it, is the unit suite's, since a fake package serves none. The real package and the network are never
  * reached.
@@ -60,7 +60,11 @@ test('weeb-3 picked for the video plays the stream in its own player, bare, once
   const video = page.locator('.own-player video');
   const ownerAndTopic = gateway.watchPath().split('/').slice(-2).join('/');
   await expect(video).toHaveAttribute('data-weeb3', `${ownerAndTopic}/live`, { timeout: 20_000 });
-  await expect(video, "weeb-3's player chooses its quality itself").toHaveAttribute('data-weeb3-quality', '-1');
+  const quality = page.locator('.own-player-quality');
+  await expect(quality, 'the peers and the height playing').toContainText('3 peers · 1080p');
+  await quality.getByLabel('Quality').selectOption({ label: '720p' });
+  await expect(video, 'a height picked is held through weeb-3').toHaveAttribute('data-weeb3-quality', '1');
+  await expect(quality).toContainText('3 peers · 720p');
   await expect(page.locator('.own-player-status'), 'nothing under the player once the node is ready').toHaveCount(0);
   await page.locator('.own-player').evaluate((stage) => {
     const menu = document.createElement('select');

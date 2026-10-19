@@ -30,3 +30,29 @@
 .own-player-hint {
   color: var(--color-text-secondary);
 }
+
+.own-player-quality {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-xs) var(--spacing-md);
+  margin-top: var(--spacing-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.own-player-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+
+  select {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-input);
+    color: var(--color-text);
+    font: inherit;
+  }
+}

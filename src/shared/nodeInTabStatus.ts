@@ -12,7 +12,8 @@ import { OPEN_MY_SWARM } from './mySwarmPanel';
 /** How a node that was ready and then had no peers is named, in Connect and on the watch page. */
 export const LOST_WORDS = 'Lost its peers';
 
-const peerCount = (peers: number) => `${peers} ${peers === 1 ? 'peer' : 'peers'}`;
+/** A peer count in words, such as "1 peer" or "88 peers". */
+export const peerCountWords = (peers: number) => `${peers} ${peers === 1 ? 'peer' : 'peers'}`;
 
 const BYTES_PER_MB = 1_000_000;
 
@@ -27,7 +28,7 @@ function downloadWords({ receivedBytes, totalBytes }: DownloadProgress): string 
 
 /** The peers counted against the healthy count where the node names one, such as "88 of 200 peers". */
 function peersWords(peers: number, healthyPeers: number | undefined): string {
-  return healthyPeers === undefined ? peerCount(peers) : `${peers} of ${healthyPeers} peers`;
+  return healthyPeers === undefined ? peerCountWords(peers) : `${peers} of ${healthyPeers} peers`;
 }
 
 /**
