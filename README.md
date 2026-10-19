@@ -190,8 +190,9 @@ is found, since copies that have not reached Swarm yet look the same as none, Th
 read fails, and Their own feed is too large to check when it names more entries than the sender's messages in the
 chat and 25 more, or more than 1,000. When the source answers the chat but turns away the sender's own feed, as an
 event gateway that serves only the chat server's feeds does, it says in one line that this source does not serve
-their own feed. Every press reads the whole chat and the whole own feed afresh, and nothing is kept from an earlier
-press, because a chat read before the own feed would lack messages the own feed already holds and call them missing
+their own feed. A refusal is a 4xx other than 404 and 429, or a network failure on two reads in a row, since
+a refusal without CORS headers reads as one but so does a dropped connection. Every press reads the whole chat and
+the whole own feed afresh, and nothing is kept from an earlier press, because a chat read before the own feed would lack messages the own feed already holds and call them missing
 from the chat feed. Both are read through the source picked for Chat history: the chat feed from its
 newest entry back through its history files, each file older than the one before and 50 at most, and each entry no
 file holds read by its own index, 500 at most, then the own feed from its first entry to its newest, and on past the
@@ -418,7 +419,7 @@ Swarm needs a postage stamp, and the group offers two ways to pay.
   after each message the viewer sends, once it is read back and its copy written or given up, behind the count on
   screen. Each count reads the chat and the own feed afresh, as Verify in the details does. It says Counting…
   while it first reads, Your own feed is too large to count past the limits, and that the source does not serve
-  your own feed when the source turns that feed away.
+  your own feed when the source turns that feed away, with Try again.
   **A known limit.** The next index is counted from one read of the feed's newest entry each time the chat starts,
   so a chat started again seconds after a send, before that entry can be read back, or another device writing the
   same feed at once, can write a copy at an index already used.

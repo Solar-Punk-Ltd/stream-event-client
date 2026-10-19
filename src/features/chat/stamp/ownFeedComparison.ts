@@ -152,16 +152,24 @@ async function newestIndex(reads: ChatReads, owner: string, topic: Topic, window
   return { index: head.feedIndex, payload: head.bytes };
 }
 
-/** Whether an answer is the source turning the read away, rather than running out of time or a server fault. */
-function isRefusal(answer: SwarmAnswer): boolean {
-  if (answer.kind === 'unsupported') {
-    return true;
+const REFUSED = 'refused';
+/** A network failure is how a refusal without CORS headers reads, and also how a dropped connection reads. */
+const MAYBE_REFUSED = 'maybe-refused';
+
+/** Whether a failed feed head read is the source turning the read away, may be, or is not. */
+function refusalOf(error: unknown): typeof REFUSED | typeof MAYBE_REFUSED | null {
+  const answer = error instanceof OwnFeedUnreadableError ? error.answer : null;
+  if (answer?.kind === 'unsupported') {
+    return REFUSED;
   }
-  if (answer.kind !== 'unavailable') {
-    return false;
+  if (answer?.kind !== 'unavailable') {
+    return null;
   }
   const { cause } = answer;
-  return cause.kind === 'network' || (cause.kind === 'status' && cause.status >= 400 && cause.status < 500);
+  if (cause.kind === 'network') {
+    return MAYBE_REFUSED;
+  }
+  return cause.kind === 'status' && cause.status >= 400 && cause.status < 500 ? REFUSED : null;
 }
 
 /** Reads `indices` a few at a time, in order, with `read`, and starts no batch once `signal` is aborted. */
@@ -357,6 +365,31 @@ function ownFeedHead(options: CompareOwnFeedOptions) {
 }
 
 /**
+ * The own feed's newest entry, read a second time after a network failure, which is called a refusal only when the
+ * second read fails the same way, so one dropped connection is not.
+ *
+ * @throws OwnFeedRefusedError when the source turned the read away.
+ */
+async function judgedOwnFeedHead(options: CompareOwnFeedOptions) {
+  try {
+    return await ownFeedHead(options);
+  } catch (error) {
+    const refusal = refusalOf(error);
+    if (refusal === REFUSED) {
+      throw new OwnFeedRefusedError();
+    }
+    if (refusal !== MAYBE_REFUSED) {
+      throw error;
+    }
+  }
+  try {
+    return await ownFeedHead(options);
+  } catch (error) {
+    throw refusalOf(error) === null ? error : new OwnFeedRefusedError();
+  }
+}
+
+/**
  * The copies in the sender's own feed, each checked as a chat message is, the sender's, and for this chat, or left
  * out, or null when the feed has no entry. Indices 0 to `newest` are read, then each index after it until one is not
  * there, since a gateway may serve a head seconds old and a copy written since then would otherwise count as missing.
@@ -444,11 +477,7 @@ function onePerSignature(records: readonly OwnFeedRecord[]): OwnFeedRecord[] {
  */
 export async function compareOwnFeed(options: CompareOwnFeedOptions): Promise<OwnFeedComparison> {
   const sender = bareHex(options.sender);
-  const ownHeadRead = ownFeedHead(options).catch((error: unknown) => {
-    throw error instanceof OwnFeedUnreadableError && error.answer && isRefusal(error.answer)
-      ? new OwnFeedRefusedError()
-      : error;
-  });
+  const ownHeadRead = judgedOwnFeedHead(options);
   // A chat walk that fails is the answer, and the own feed head's own failure is then never read.
   ownHeadRead.catch(() => {});
   const wholeChat = await readWholeChat(options);

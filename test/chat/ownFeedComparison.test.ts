@@ -393,8 +393,33 @@ describe("comparing a sender's own feed with the chat", () => {
       }
 
       await expect(compare(feeds)).rejects.toBeInstanceOf(OwnFeedRefusedError);
+      const ownHeadReads = feeds.asked.filter((read) => read.startsWith(`head ${owner}`)).length;
+      expect(ownHeadReads, 'a network failure is read twice, a 403 once').toBe(cause.kind === 'network' ? 2 : 1);
     },
   );
+
+  it('reads the own feed head again after one network failure, and counts as usual when that read answers', async () => {
+    const a = message('a');
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a]);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a]);
+    const ownTopic = Topic.fromString(ownFeedTopic(CHAT_TOPIC)).toHex();
+    let ownHeadReads = 0;
+    const reads: ChatReads = {
+      ...feeds.reads,
+      readFeedHead: async (owner, topic, options) => {
+        if (topic.toHex() === ownTopic && ++ownHeadReads === 1) {
+          return { kind: 'unavailable', cause: { kind: 'network', error: new TypeError('x') } };
+        }
+        return feeds.reads.readFeedHead(owner, topic, options);
+      },
+    };
+
+    const comparison = await compare(feeds, reads);
+
+    expect(ownHeadReads).toBe(2);
+    expect(ids(comparison.own ?? [])).toEqual([idOf('a')]);
+  });
 
   it('says the chat could not be read, not that the own feed is refused, when the chat head fails as well', async () => {
     const feeds = servedFeeds();

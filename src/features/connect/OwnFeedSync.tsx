@@ -99,6 +99,9 @@ function OwnFeedSyncOf({ chat }: { readonly chat: OwnFeedChat }) {
     return (
       <div className="connect-own-feed" aria-label={OWN_FEED_GROUP} role="group">
         <span className="connect-ex">This source does not serve your own feed, so it cannot be counted here.</span>
+        <Button variant={ButtonVariant.SECONDARY} className="connect-small" onClick={recount}>
+          {TRY_AGAIN}
+        </Button>
       </div>
     );
   }

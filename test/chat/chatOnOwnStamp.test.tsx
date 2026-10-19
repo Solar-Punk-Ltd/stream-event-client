@@ -761,8 +761,25 @@ describe('my own feed in My Swarm', () => {
       }
     });
 
-    expect(box()?.textContent).toBe('This source does not serve your own feed, so it cannot be counted here.');
+    expect(box()?.textContent).toContain('This source does not serve your own feed, so it cannot be counted here.');
     expect(queryButton('Sync')).toBeNull();
+  });
+
+  it('reads my own feed again when I press Try again after the source refused it', async () => {
+    const [a] = await myMessages(['a']);
+    let served: ReturnType<typeof servedFeeds> | null = null;
+    const box = await openMySwarm([a!], [a!], (feeds) => {
+      served = feeds;
+      for (const key of [...feeds.heads.keys()].filter((head) => head.endsWith(ownTopic.toHex()))) {
+        feeds.heads.set(key, { kind: 'unavailable', cause: { kind: 'status', status: 403 } });
+      }
+    });
+    expect(box()?.textContent).toContain('does not serve your own feed');
+
+    served!.ownFeed(await chatKeyFor(BOUND_SITE), CHAT_TOPIC, [a!]);
+    click(button('Try again'));
+
+    await waitFor(() => (box()?.textContent?.includes('Own feed: 1 of 1 message') ? true : null));
   });
 
   it('counts only my messages on my own stamp, and syncs none the gateway paid for', async () => {
