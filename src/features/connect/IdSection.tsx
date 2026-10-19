@@ -108,8 +108,8 @@ function BetaIntro() {
       <p className="connect-hint">
         This part is an experiment. You sign in with an identity you hold yourself, and you pick where the stream and
         the chat come from: the event&apos;s gateway, your own Bee node, or Weeb3, a Swarm node running in this tab.
-        Some of it may be slow, and some of it may break. Every try helps build apps that run fully on Swarm and give
-        you back control of your identity and your access. Thank you for being part of it.
+        Every try helps build apps that run fully on Swarm and give you back control of your identity and your access.
+        We are thankful for any feedback, so please share it in the chat.
       </p>
     </div>
   );
