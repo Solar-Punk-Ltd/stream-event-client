@@ -63,7 +63,8 @@ export function useOwnPlayerQuality(
       try {
         player.holdQuality(level);
       } catch {
-        // The player cannot switch now, as during a seek back. The next check tries again.
+        // The player cannot switch now, as during a seek back. By peers is due again at the next check, a second on.
+        lastByPeersMs.current = null;
       }
     },
     [player, video],
