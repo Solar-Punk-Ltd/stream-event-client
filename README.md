@@ -762,9 +762,9 @@ once and is kept in the browser, and nothing switches a source by itself.
   in use: the viewer picks it under Use for.
 - **Weeb3.** Opening its tile starts the node and shows its download, against the 2.2 MB module, and its peers out of
   200, the healthy target, with "Playback can start before that." Its checks run at once, and Add Weeb3 waits for
-  them. When they did not pass, Test again runs them once more, and starts the node again first if it failed. Use for offers it for all features and for every part, as any
-  other source: the video, the stream list, the previews and the chat history then read through it and through
-  nothing else. While a part waits for it to start, the browse page under "Looking for streams..." and the chat
+  them. Its reads are checked from its first peer, so it can be added without waiting for more. When they did not
+  pass, Test again runs them once more, and starts the node again first if it failed. Use for offers it for Video
+  alone, and the video then reads through it and through nothing else. While a part waits for it to start, the browse page under "Looking for streams..." and the chat
   under "Loading the chat…" say how far it has got, in the words its row uses. Its row shows how far the node has got: the download, then "Starting", "Connecting, N of 200
   peers", and once ready "N of 200 peers", or "Failed to start".
 - **The checks.** Each kind runs its own, in this order, each line with ✓, ✕ or – and its time. The first that fails
@@ -782,7 +782,7 @@ once and is kept in the browser, and nothing switches a source by itself.
   | Bee 2.6 or later                                 | gateway      | `/health`'s version. A gateway that does not state one passes with "not stated", one that states an older release fails  |
   | Bee 2.6 or later, ready                          | Bee node     | `/health`'s version, `/readiness` and `/peers`, so a node still starting or with no peers fails                          |
   | Node started                                     | Weeb3        | Its module downloaded and the node running, waited for as long as its own deadlines allow                                |
-  | Connected to 20 peers                            | Weeb3        | Its peer count, waited for up to a minute                                                                                |
+  | Connected to a peer                              | Weeb3        | Its first peer, waited for up to a minute                                                                                |
   | Reads a chunk                                    | every kind   | The root chunk of a segment of this event's video, read the way the chat history reads its slots, through its chat route |
   | Reads bytes                                      | every kind   | The same segment's bytes, read the way the player reads it                                                               |
   | Reads this event's stream list                   | every kind   | The feed's head, parsed as a stream list, then its entry by index, as the player reads a playlist. Weeb3 below           |
