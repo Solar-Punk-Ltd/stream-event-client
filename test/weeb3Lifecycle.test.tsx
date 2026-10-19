@@ -28,7 +28,7 @@ let context: Context | null = null;
 function Probe() {
   context = useAppContext();
   return createElement(NodeInTabProgress, {
-    source: context.sources.find(({ id }) => id === context!.parts['stream-list']) ?? null,
+    source: context.sources.find(({ id }) => id === context!.parts.player) ?? null,
   });
 }
 
@@ -124,18 +124,17 @@ describe('the node in this browser, over the life of the page', () => {
     expect(fakeWeeb3.current!.nodes[0].freed).toBe(false);
   });
 
-  it('starts for the stream list as for the video, and stops once every part has moved off it', async () => {
+  it('does not start for the stream list, which it does not serve', async () => {
     start();
     await settle();
     const id = await addNode();
     app().setRouting(setPart(setMode(app().routing, 'per-part'), 'stream-list', id));
-    await waitFor(() => (fakeWeeb3.current!.nodes.length === 1 ? true : null));
-    expect(state()).not.toBe('stopped');
+    await settle();
+    await settle();
 
-    app().setRouting(setPart(app().routing, 'stream-list', 'gateway'));
-    await waitFor(() => (state() === 'stopped' ? true : null));
-
-    expect(fakeWeeb3.current!.nodes[0].freed).toBe(true);
+    expect(app().parts['stream-list']).toBe('gateway');
+    expect(state()).toBe('stopped');
+    expect(fakeWeeb3.current!.nodes).toHaveLength(0);
   });
 
   it('says how far the node has got while a part waits for it, and nothing once it is ready', async () => {
@@ -144,8 +143,7 @@ describe('the node in this browser, over the life of the page', () => {
     start();
     await settle();
     expect(text()).toBe('');
-    const id = await addNode();
-    app().setRouting(setPart(setMode(app().routing, 'per-part'), 'stream-list', id));
+    await pickForVideo(await addNode());
     await waitFor(() => (text().includes('Starting') ? true : null));
 
     expect(text()).toBe('The Swarm node in this browser: Starting');
