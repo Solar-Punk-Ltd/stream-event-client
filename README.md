@@ -180,7 +180,7 @@ chat: **Own feed: N messages**, **Chat feed: N messages on their own stamp**, a 
 message has its copy there or Not in their own feed when it has none, and, when the two differ, which messages are
 missing from their own feed and which from the chat feed, five of each at most, newest first. Only the sender's
 messages on their own stamp count, since a message the gateway paid for never gets a copy. They say Counting… while
-they read, No own feed when the sender keeps none, Their own feed could not be counted with Try again when a read
+they read, No own feed found when none is found, since copies that have not reached Swarm yet look the same as none, Their own feed could not be counted with Try again when a read
 fails, and Their own feed is too large to count when it names more entries than the sender's messages in the chat
 and 25 more, or more than 1,000. Both are read through the source picked for Chat history: the chat feed from its
 newest entry back through its history files, each file older than the one before and 50 at most, and each entry no

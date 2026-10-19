@@ -476,11 +476,13 @@ describe("a sender's own feed in the message details", () => {
     release();
   });
 
-  it('says plainly when the sender keeps no own feed', async () => {
+  it('says plainly when no own feed is found, without claiming the sender keeps none', async () => {
     const a = mine('a');
     const section = await openDetails(a, [a], null);
 
-    expect(section.textContent).toContain('No own feed');
+    expect(section.textContent).toContain('No own feed found.');
+    expect(section.textContent).toContain('Its copies may not have reached Swarm yet, or this sender keeps none.');
+    expect(section.textContent).not.toContain('This sender keeps no copies');
     expect(section.textContent).toContain('Chat feed: 1 message');
   });
 });

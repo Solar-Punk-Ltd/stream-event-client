@@ -61,7 +61,7 @@ export function OwnFeedCheck({ sender, signature }: { readonly sender: string; r
       {count.status === COUNTED && (
         <>
           {count.comparison.own === null ? (
-            <span>No own feed. This sender keeps no copies of their messages.</span>
+            <span>No own feed found. Its copies may not have reached Swarm yet, or this sender keeps none.</span>
           ) : (
             <>
               <span>Own feed: {messagesText(count.comparison.own.length)}</span>
