@@ -32,3 +32,9 @@ export function scheduledStartMs(value: string | number | null | undefined): num
   const when = new Date(value).getTime();
   return Number.isNaN(when) ? null : when;
 }
+
+/** Whether an announced start lies behind `now`. A start that is not a time has not passed. */
+export function startHasPassed(value: string | number | null | undefined, now: number): boolean {
+  const when = scheduledStartMs(value);
+  return when !== null && when < now;
+}

@@ -15,7 +15,8 @@ What the browse page and the watch page do, and how the player reads Swarm. The 
   rather than skipped (`catalogFeed.ts`).
 - **What it shows.** Every live stream gets a featured block of its own, then the next upcoming stream, the soonest
   whose start is still ahead, gets one with a countdown in days, hours and minutes. The other upcoming streams follow
-  as cards with the soonest start first, then the past streams newest first, eight to a page
+  as cards: those still ahead with the soonest start first, then those whose start has passed but that have not
+  gone live, labelled "Start time passed", the most recent first, then any with no start time. Past streams follow newest first, eight to a page
   (`StreamList/displayedStreams.ts`, `StreamList/pagination.ts`). The clock is read every 30 seconds, so a page left
   open moves its countdown and its feature on. A read from a newer feed slot replaces the list whatever changed in it,
   so an entry edited, unpublished or gone live in place shows on an open page without a reload.

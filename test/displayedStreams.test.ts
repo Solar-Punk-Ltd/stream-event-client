@@ -21,17 +21,20 @@ function entry(index: number, state: string, timestamp: number, scheduledStartTi
   };
 }
 
+const NOW = Date.parse('2026-11-04T12:00:00Z');
+const BEFORE_EVERY_START = Date.parse('2026-11-01T00:00:00Z');
+
 describe('the streams the browse page shows', () => {
   it('shows every entry of a catalog of twelve', () => {
     const catalog = Array.from({ length: 12 }, (_, i) => entry(i, STREAM_STATUS_VOD, 1_000 + i));
 
-    expect(displayedStreams(catalog)).toHaveLength(12);
+    expect(displayedStreams(catalog, BEFORE_EVERY_START)).toHaveLength(12);
   });
 
   it('keeps the oldest entry of a long catalog', () => {
     const catalog = Array.from({ length: 30 }, (_, i) => entry(i, STREAM_STATUS_VOD, 1_000 + i));
 
-    expect(displayedStreams(catalog).map((stream) => stream.topic)).toContain('topic-0');
+    expect(displayedStreams(catalog, BEFORE_EVERY_START).map((stream) => stream.topic)).toContain('topic-0');
   });
 
   it('puts live streams first, then upcoming soonest first, then finished newest first', () => {
@@ -45,7 +48,7 @@ describe('the streams the browse page shows', () => {
       entry(6, STREAM_STATUS_SCHEDULED, 1_006, '2026-11-04T09:00:00Z'),
     ];
 
-    expect(displayedStreams(catalog).map((stream) => stream.topic)).toEqual([
+    expect(displayedStreams(catalog, BEFORE_EVERY_START).map((stream) => stream.topic)).toEqual([
       'topic-3',
       'topic-1',
       'topic-5',
@@ -63,26 +66,50 @@ describe('the streams the browse page shows', () => {
       entry(2, STREAM_STATUS_SCHEDULED, 1_002, 'not a time'),
     ];
 
-    expect(displayedStreams(catalog).map((stream) => stream.topic)).toEqual(['topic-1', 'topic-2', 'topic-0']);
+    expect(displayedStreams(catalog, BEFORE_EVERY_START).map((stream) => stream.topic)).toEqual([
+      'topic-1',
+      'topic-2',
+      'topic-0',
+    ]);
+  });
+
+  it('puts upcoming streams still ahead first, soonest first, then those past their start, the most recent first, then those with no start', () => {
+    const catalog = [
+      entry(0, STREAM_STATUS_SCHEDULED, 1_000, '2026-11-03T09:00:00Z'),
+      entry(1, STREAM_STATUS_SCHEDULED, 1_001, '2026-11-06T09:00:00Z'),
+      entry(2, STREAM_STATUS_SCHEDULED, 1_002, null),
+      entry(3, STREAM_STATUS_SCHEDULED, 1_003, '2026-11-04T09:00:00Z'),
+      entry(4, STREAM_STATUS_SCHEDULED, 1_004, '2026-11-05T09:00:00Z'),
+    ];
+
+    expect(displayedStreams(catalog, NOW).map((stream) => stream.topic)).toEqual([
+      'topic-4',
+      'topic-1',
+      'topic-3',
+      'topic-0',
+      'topic-2',
+    ]);
   });
 
   it('files a state it does not know with the finished streams', () => {
     const catalog = [entry(0, 'archived', 1_000), entry(1, STREAM_STATUS_SCHEDULED, 1_001, '2026-11-03T09:00:00Z')];
 
-    expect(streamGroups(catalog)).toEqual({ live: [], upcoming: [catalog[1]], finished: [catalog[0]] });
+    expect(streamGroups(catalog, BEFORE_EVERY_START)).toEqual({
+      live: [],
+      upcoming: [catalog[1]],
+      finished: [catalog[0]],
+    });
   });
 
   it('leaves the catalog it was handed as it was', () => {
     const catalog = [entry(0, STREAM_STATUS_VOD, 1_000), entry(1, STREAM_STATUS_LIVE, 1_001)];
     const before = catalog.map((stream) => stream.topic);
 
-    displayedStreams(catalog);
+    displayedStreams(catalog, BEFORE_EVERY_START);
 
     expect(catalog.map((stream) => stream.topic)).toEqual(before);
   });
 });
-
-const NOW = Date.parse('2026-11-04T12:00:00Z');
 
 describe('the sections of the browse page', () => {
   it('features the soonest upcoming stream that has not reached its start time', () => {
@@ -95,7 +122,7 @@ describe('the sections of the browse page', () => {
     const sections = browseSections(catalog, NOW);
 
     expect(sections.next?.topic).toBe('topic-2');
-    expect(sections.upcoming.map((stream) => stream.topic)).toEqual(['topic-0', 'topic-1']);
+    expect(sections.upcoming.map((stream) => stream.topic)).toEqual(['topic-1', 'topic-0']);
   });
 
   it('features the first upcoming stream when every start time has passed or is unknown', () => {
@@ -108,6 +135,19 @@ describe('the sections of the browse page', () => {
 
     expect(sections.next?.topic).toBe('topic-1');
     expect(sections.upcoming.map((stream) => stream.topic)).toEqual(['topic-0']);
+  });
+
+  it('features the stream whose start passed most recently when no start is ahead', () => {
+    const catalog = [
+      entry(0, STREAM_STATUS_SCHEDULED, 1_000, '2026-11-01T09:00:00Z'),
+      entry(1, STREAM_STATUS_SCHEDULED, 1_001, '2026-11-03T09:00:00Z'),
+      entry(2, STREAM_STATUS_SCHEDULED, 1_002, null),
+    ];
+
+    const sections = browseSections(catalog, NOW);
+
+    expect(sections.next?.topic).toBe('topic-1');
+    expect(sections.upcoming.map((stream) => stream.topic)).toEqual(['topic-0', 'topic-2']);
   });
 
   it('features nothing when no stream is upcoming', () => {

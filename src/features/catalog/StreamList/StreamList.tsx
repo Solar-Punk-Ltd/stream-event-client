@@ -29,8 +29,8 @@ export function StreamList() {
   const searching = isSearching(query);
   const sections = useMemo(() => browseSections(streamList, now), [streamList, now]);
   const matches = useMemo(
-    () => (searching ? searchStreams(displayedStreams(streamList), query) : []),
-    [searching, streamList, query],
+    () => (searching ? searchStreams(displayedStreams(streamList, now), query) : []),
+    [searching, streamList, query, now],
   );
 
   const paged = searching ? matches : sections.past;
@@ -62,8 +62,8 @@ export function StreamList() {
                 <FeaturedStream stream={sections.next} now={now} />
               </section>
             )}
-            <CardSection title="Upcoming streams" streams={sections.upcoming} />
-            <CardSection title="Past streams" streams={pageStreams} />
+            <CardSection title="Upcoming streams" streams={sections.upcoming} now={now} />
+            <CardSection title="Past streams" streams={pageStreams} now={now} />
           </div>
         )}
       </div>
@@ -72,7 +72,7 @@ export function StreamList() {
   );
 }
 
-function CardSection({ title, streams }: { title: string; streams: Stream[] }) {
+function CardSection({ title, streams, now }: { title: string; streams: Stream[]; now: number }) {
   if (streams.length === 0) {
     return null;
   }
@@ -83,7 +83,7 @@ function CardSection({ title, streams }: { title: string; streams: Stream[] }) {
       <ul className="stream-section-grid">
         {streams.map((stream) => (
           <li key={stream.topic}>
-            <StreamCard stream={stream} />
+            <StreamCard stream={stream} now={now} />
           </li>
         ))}
       </ul>
