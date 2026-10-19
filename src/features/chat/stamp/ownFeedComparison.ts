@@ -357,21 +357,51 @@ function ownFeedHead(options: CompareOwnFeedOptions) {
 }
 
 /**
- * The copies in the sender's own feed at indices 0 to `newest`, each checked as a chat message is, the sender's, and
- * for this chat, or left out.
+ * The copies in the sender's own feed, each checked as a chat message is, the sender's, and for this chat, or left
+ * out, or null when the feed has no entry. Indices 0 to `newest` are read, then each index after it until one is not
+ * there, since a gateway may serve a head seconds old and a copy written since then would otherwise count as missing.
+ *
+ * @throws OwnFeedTooLargeError when an entry is found at or past `cap`.
  */
-async function readOwnFeed(options: CompareOwnFeedOptions, newest: number): Promise<OwnFeedRecord[]> {
+async function readOwnFeed(
+  options: CompareOwnFeedOptions,
+  newest: number | null,
+  cap: number,
+): Promise<OwnFeedRecord[] | null> {
   const window = windowOf(options);
-  const { chatTopic, verify } = options;
+  const { chatTopic, verify, progress } = options;
   const reads = options.reads();
   const sender = bareHex(options.sender);
   const topic = Topic.fromString(ownFeedTopic(chatTopic));
-  const indices = Array.from({ length: newest + 1 }, (_, index) => index);
-  const copies = await inBatches(
-    indices,
-    async (index): Promise<OwnFeedRecord | null> => {
-      const payload = await readEntry(reads, sender, topic, index, window);
-      options.progress?.checked(1);
+  const readCounted = async (index: number) => {
+    const payload = await readEntry(reads, sender, topic, index, window);
+    progress?.checked(1);
+    return payload;
+  };
+  const known = newest === null ? 0 : newest + 1;
+  progress?.planned(known);
+  const payloads = await inBatches(
+    Array.from({ length: known }, (_, index) => index),
+    readCounted,
+    options.signal,
+  );
+  for (let index = known; ; index++) {
+    options.signal?.throwIfAborted();
+    progress?.planned(1);
+    const payload = await readCounted(index);
+    if (payload === null) {
+      break;
+    }
+    if (index >= cap) {
+      throw new OwnFeedTooLargeError(index, cap);
+    }
+    payloads.push(payload);
+  }
+  if (payloads.length === 0) {
+    return null;
+  }
+  const copies = await Promise.all(
+    payloads.map(async (payload, index): Promise<OwnFeedRecord | null> => {
       if (!payload) {
         return null;
       }
@@ -386,8 +416,7 @@ async function readOwnFeed(options: CompareOwnFeedOptions, newest: number): Prom
         return null;
       }
       return { index, message: verdict.message };
-    },
-    options.signal,
+    }),
   );
   return copies.filter((copy): copy is OwnFeedRecord => copy !== null);
 }
@@ -429,10 +458,7 @@ export async function compareOwnFeed(options: CompareOwnFeedOptions): Promise<Ow
   if (ownHead !== null && ownHead.index >= cap) {
     throw new OwnFeedTooLargeError(ownHead.index, cap);
   }
-  if (ownHead !== null) {
-    options.progress?.planned(ownHead.index + 1);
-  }
-  const ownFeed = ownHead === null ? null : await readOwnFeed(options, ownHead.index);
+  const ownFeed = await readOwnFeed(options, ownHead?.index ?? null, cap);
 
   const inChat = onePerSignature(sent);
   const chatOnOwnStamp = inChat.filter(({ message }) => message.via === MessageVia.OWN_STAMP);

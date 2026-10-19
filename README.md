@@ -194,7 +194,9 @@ their own feed. Every press reads the whole chat and the whole own feed afresh, 
 press, because a chat read before the own feed would lack messages the own feed already holds and call them missing
 from the chat feed. Both are read through the source picked for Chat history: the chat feed from its
 newest entry back through its history files, each file older than the one before and 50 at most, and each entry no
-file holds read by its own index, 500 at most, then the own feed from its first entry to its newest. Past those
+file holds read by its own index, 500 at most, then the own feed from its first entry to its newest, and on past the
+newest by index until an entry is not there, since a gateway may serve a newest entry seconds old and a copy written
+since would otherwise count as missing, and My stamp would offer to copy it again. Past those
 limits the chat is not counted. An entry the source answers is not there counts as missing, by the rule the chat
 reads its slots with, so a 404 or the 500 a Bee 2.6 cluster gives a slot never written, and any other answer
 makes the count fail rather than call a message missing. Each copy is read by its address and must be the sender's

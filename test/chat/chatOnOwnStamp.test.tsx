@@ -743,6 +743,16 @@ describe('my own feed in My Swarm', () => {
     expect(queryButton('Sync')).toBeNull();
   });
 
+  it('offers no sync for a copy written past the head the source still serves', async () => {
+    const [a, b, c] = await myMessages(['a', 'b', 'c']);
+    const box = await openMySwarm([a!, b!, c!], [a!, b!, c!], (feeds, myKey) =>
+      feeds.ownFeedHeadAt(myKey, CHAT_TOPIC, 1),
+    );
+
+    expect(box()?.textContent).toContain('Own feed: 3 of 3 messages');
+    expect(queryButton('Sync')).toBeNull();
+  });
+
   it('says so when the source does not serve my own feed, and offers no sync', async () => {
     const [a] = await myMessages(['a']);
     const box = await openMySwarm([a!], [a!], (feeds) => {

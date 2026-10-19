@@ -424,6 +424,34 @@ describe("comparing a sender's own feed with the chat", () => {
     expect(comparison.missingFromChat).toEqual([]);
   });
 
+  it('reads past a head the source serves stale, entry by entry, until an entry is not there', async () => {
+    const [a, b, c] = [message('a'), message('b'), message('c')];
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b, c]);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a, b, c]);
+    feeds.ownFeedHeadAt(GUEST_KEY, CHAT_TOPIC, 1);
+
+    const comparison = await compare(feeds);
+
+    expect(ids(comparison.own ?? [])).toEqual([idOf('c'), idOf('b'), idOf('a')]);
+    expect(comparison.missingFromOwnFeed).toEqual([]);
+  });
+
+  it('finds an own feed whose first copy was written after the source last looked for its head', async () => {
+    const a = message('a');
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, [a]);
+    const owner = feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a]);
+    for (const key of [...feeds.heads.keys()].filter((head) => head.startsWith(owner))) {
+      feeds.heads.delete(key);
+    }
+
+    const comparison = await compare(feeds);
+
+    expect(ids(comparison.own ?? [])).toEqual([idOf('a')]);
+    expect(comparison.missingFromOwnFeed).toEqual([]);
+  });
+
   it('says how many entries it will look at and how many it has, across the chat and the own feed', async () => {
     const [a, b, c] = [message('a'), message('b'), message('c')];
     const feeds = servedFeeds();
@@ -438,7 +466,7 @@ describe("comparing a sender's own feed with the chat", () => {
       progress: { planned: (entries) => (planned += entries), checked: (entries) => (checked += entries) },
     });
 
-    expect(planned, 'three chat entries and two own feed entries').toBe(5);
-    expect(checked).toBe(5);
+    expect(planned, 'three chat entries, two own feed entries and the one past its head').toBe(6);
+    expect(checked).toBe(6);
   });
 });
