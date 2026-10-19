@@ -121,6 +121,29 @@ describe('parseTarget ownNodes', () => {
   });
 });
 
+describe('parseTarget swarmIdBee', () => {
+  const good = () => JSON.parse(readFileSync(EXAMPLE_TARGET, 'utf8')) as Record<string, unknown>;
+
+  it('takes the gateway Swarm ID is set to read and write through, an https origin, and none when not given', () => {
+    expect(parseTarget({ ...good(), swarmIdBee: 'https://swarmid.example.com' }).swarmIdBee).toBe(
+      'https://swarmid.example.com',
+    );
+    expect(parseTarget(good()).swarmIdBee).toBeUndefined();
+  });
+
+  it('refuses plain http, a path and something that is no origin', () => {
+    expect(() => parseTarget({ ...good(), swarmIdBee: 'http://swarmid.example.com' })).toThrow(/swarmIdBee/);
+    expect(() => parseTarget({ ...good(), swarmIdBee: 'https://swarmid.example.com/bee' })).toThrow(/swarmIdBee/);
+    expect(() => parseTarget({ ...good(), swarmIdBee: 'swarmid' })).toThrow(/swarmIdBee/);
+  });
+
+  it('reaches the deployment, which is null without it', () => {
+    const target = parseTarget({ ...good(), swarmIdBee: 'https://swarmid.example.com' });
+    expect(liveDeployment(target, config()).swarmIdBee).toBe('https://swarmid.example.com');
+    expect(liveDeployment(readTarget(EXAMPLE_TARGET), config()).swarmIdBee).toBeNull();
+  });
+});
+
 describe('liveDeployment', () => {
   const target = readTarget(EXAMPLE_TARGET);
 

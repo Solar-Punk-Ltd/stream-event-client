@@ -110,4 +110,9 @@ describe('namedAddresses', () => {
     const wider = parseTarget({ ...target, alsoAllowed: [{ origin: 'https://swarm.example.net', why: 'its reads' }] });
     expect(namedAddresses(liveDeployment(wider, config))).toContain('https://swarm.example.net');
   });
+
+  it('names the gateway Swarm ID is set to, so its reads and writes pass the guard', () => {
+    const pointed = parseTarget({ ...target, swarmIdBee: 'https://swarmid.example.com' });
+    expect(namedAddresses(liveDeployment(pointed, config))).toContain('https://swarmid.example.com');
+  });
 });
