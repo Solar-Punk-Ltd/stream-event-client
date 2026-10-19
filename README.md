@@ -114,7 +114,8 @@ as one. There is no
 password, wallet or account. A deployment that names a Swarm ID site in `swarmId.url` also offers
 signing in with Swarm ID, described [below](#signing-in-with-swarm-id). A viewer can send a message, react with an emoji, reply in a thread,
 load older messages, and retry a message that did not send. A message lights up under the pointer and shows its
-reaction and reply buttons there, as focus inside it does, and on a touch screen a tap shows them. The emoji bar's
+reaction and reply buttons there, as keyboard focus inside it does, and on a touch screen a tap shows them. A mouse
+click never keeps them, so a click on the sender's badge opens the details and nothing else. The emoji bar's
 last button opens every emoji above the field, with its close button above the picker. The chat and its library are a file of
 the bundle of their own, fetched as the watch page opens, beside the video rather than after it, and
 the emoji picker is fetched the first time one is drawn: the emoji bar above the message field, or a
