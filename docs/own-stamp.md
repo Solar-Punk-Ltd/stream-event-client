@@ -11,8 +11,8 @@ to pay. The code is `src/features/chat/stamp/` and `src/features/connect/ChatSta
 - **Gateway pays**, the default for everyone: the message goes to `chat.writeUrl`, which stamps it, whichever source
   reads the chat history.
 - **My stamp**, offered once signed in with Swarm ID. The stamp is the one Swarm ID gives this site. It is bought,
-  topped up, made bigger and chosen for the site in Swarm ID, never in this page, which holds no stamp and no stamp
-  key.
+  topped up, made bigger and chosen for the site in Swarm ID, never in this page. The page never holds a stamp key or
+  buys a stamp. Swarm ID stamps each message in its frame and the page only carries the finished stamp to the node.
   - For each message the page builds the chunk, Swarm ID signs and stamps it in its frame with `stampChunk`, and the
     page sends the stamped chunk itself through a source of the viewer's that can carry it.
   - To a Bee node it goes as `POST /soc/<owner>/<id>?sig=...` with the stamp in Bee's `swarm-postage-stamp` header

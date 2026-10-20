@@ -1,6 +1,6 @@
 # Swarm ID
 
-Swarm ID lets a viewer sign in and chat under a verified identity instead of as a guest. It is a separate site that
+Swarm ID lets a viewer sign in and chat under an account of their own instead of as a guest. It is a separate site that
 holds a person's accounts and gives each site they sign in to a chat key for one of them. This page says how the
 viewer signs a person in with it, what a reader sees, and what a deployment and the Swarm ID site need for it.
 
@@ -21,8 +21,9 @@ the Swarm ID site draws, not this page. The person picks an account there, or ma
 
 The ID then gives this site its chat key for that account and a chat binding, the account's signed statement that the
 key's address on this site is its own. Every message is signed with that key and carries the binding, so every reader
-shows the Swarm ID badge. The page never connects a wallet and never sees the account's own key. Messages go through
-the event gateway, which stamps them, unless the person picks their own stamp, as
+shows the Swarm ID badge, which means an account signed that statement. The page never connects a wallet and never sees the account's own key. The Swarm ID site
+does, so a person trusts whoever serves it, as [what a viewer has to trust](../README.md#what-a-viewer-has-to-trust)
+says. Messages go through the event gateway, which stamps them, unless the person picks their own stamp, as
 [who pays for a message](own-stamp.md) says.
 
 - **The Bee node Swarm ID uses for this site.** The page hands Swarm ID the address of the source picked for the chat
@@ -149,7 +150,8 @@ at all.
 ## What the Swarm ID site requires
 
 It serves only the sites on its allow list, an ENS text record, and refuses any other: the library cannot start and the
-page offers no sign-in. The list is described in `docs/Site-Allow-List.md` of
+page offers no sign-in. The list is enforced by the Swarm ID site's own code, so it holds as far as whoever serves that
+site is trusted ([what a viewer has to trust](../README.md#what-a-viewer-has-to-trust)). The list is described in `docs/Site-Allow-List.md` of
 [the Solar Punk fork of Swarm ID](https://github.com/Solar-Punk-Ltd/solarpunk-id). A site is added by its exact origin,
 `https://` and the host as the browser reports it. For local work, a development build of the Swarm ID site also serves
 the origins named in its `PUBLIC_SITE_ALLOW_LIST_DEV_ORIGINS`, which may be local http, such as the dev server at

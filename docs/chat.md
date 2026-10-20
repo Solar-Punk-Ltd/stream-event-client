@@ -33,7 +33,7 @@ first time one is drawn: the emoji bar above the message field, or a reaction's 
 Two services, set up apart from this app:
 
 - **Two Bee endpoints for the chat.** `chat.readUrl` serves the chat's feed and history files. `chat.writeUrl` takes
-  the messages and stamps every write, because the page holds no postage stamp. A message costs one stamped chunk, and
+  the messages and stamps every write, because the page holds no stamp key. A message costs one stamped chunk, and
   one more for each resend while it has not been read back. A viewer who pays with their own stamp,
   [who pays for a message](own-stamp.md), sends through their own Bee node or through Weeb3 instead.
 - **The chat aggregator**, on swarm-chat-js 9. It listens on the shared chat address made from `gsocResourceId` and
@@ -96,13 +96,18 @@ long history never holds up the page (`src/features/chat/verify/`).
   start or fails is left, and the same check runs on the page's thread instead, for the messages it held and every
   later one. Nothing is shown unchecked and nothing is left waiting.
 
+A signature stops anyone from forging a message, never from withholding one. The chat server that writes the chat feed
+decides which messages are in it and in what order, and the endpoints the page reads through decide what reaches it.
+Who else a viewer trusts is in [what a viewer has to trust](../README.md#what-a-viewer-has-to-trust).
+
 Above each message is its sender line: the name, the badge, the stamp for a message sent with the sender's own stamp,
 and the time it was published, in hours and minutes on the viewer's clock. There is no initial and nothing floats over
 the row.
 
 - A grey outline hexagon after a name in the plain weight is a guest, told apart only by the key their browser keeps.
 - A filled hexagon with a check after a name in the accent colour is a Swarm ID account, which signed a statement that
-  this chat address on this site is its own.
+  this chat address on this site is its own. The badge shows that an account key signed that statement. Anyone can make
+  such a key, so the badge tells accounts apart and does not vouch for a person or for a genuine Swarm ID account.
 - A stamp after the badge says the sender paid for the write with a stamp of their own. Every message this page sends
   says who paid, the event gateway or the viewer's own stamp.
 
@@ -154,5 +159,5 @@ How the check reads, in `src/features/chat/stamp/ownFeedComparison.ts`, which on
   not counted.
 - A copy and a chat message are the same message when their signatures are. A message has one valid signature, over
   every field it says, so a copy with the same signature is the message the chat feed shows, as far as the chat server
-  that writes the feed is trusted.
+  that writes the feed is trusted ([what a viewer has to trust](../README.md#what-a-viewer-has-to-trust)).
 - Stopping, pressing Verify again and closing the details each end the reads of the check running.
