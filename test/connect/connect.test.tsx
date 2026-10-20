@@ -432,7 +432,9 @@ describe('with the experimental parts turned off', () => {
     expect([...(dialog()?.querySelectorAll('section') ?? [])].map((part) => part.getAttribute('aria-label'))).toEqual([
       'ID',
     ]);
-    expect(section('ID')?.textContent).toContain('For the smoothest experience, go with the defaults and a simple name.');
+    expect(section('ID')?.textContent).toContain(
+      'For the smoothest experience, go with the defaults and a simple name.',
+    );
     expect(section('ID')?.querySelector('.connect-beta')).toBeNull();
     expect(queryButton('Chat as guest')).not.toBeNull();
     expect(queryButton('Sign in with Swarm ID')).toBeNull();
@@ -451,7 +453,7 @@ describe('with the experimental parts turned off', () => {
     expect(section('ID')?.querySelector('[role="radiogroup"][aria-label="Theme"]')).not.toBeNull();
   });
 
-  it("reads every part from the default gateway, as a fresh browser does, whatever this browser saved", async () => {
+  it('reads every part from the default gateway, as a fresh browser does, whatever this browser saved', async () => {
     localStorage.setItem('swarm-sources', SAVED_SOURCES);
     localStorage.setItem('swarm-routing', SAVED_ROUTING);
     mounted = connectPage({ config: off() });

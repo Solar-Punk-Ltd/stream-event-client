@@ -90,7 +90,10 @@ describe('what the browse page shows for a catalog fetch', () => {
       catalogViewMessage('unreachable', null, true),
       'The stream list cannot load. Open My Swarm to pick a source.',
     );
-    assert.equal(catalogViewMessage('unreachable', 'Event gateway', false), 'Stream list cannot load from Event gateway.');
+    assert.equal(
+      catalogViewMessage('unreachable', 'Event gateway', false),
+      'Stream list cannot load from Event gateway.',
+    );
     assert.equal(catalogViewMessage('unreachable', null, false), 'The stream list cannot load.');
   });
 });
