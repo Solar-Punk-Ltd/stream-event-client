@@ -139,7 +139,7 @@ export function Connect() {
                 {chat && (
                   <section className="connect-group" aria-label="ID">
                     <div className="connect-section-label">ID</div>
-                    <IdSection onLeave={() => showView({ kind: 'leave' })} />
+                    <IdSection onLeave={() => showView({ kind: 'leave' })} experimental={experimental} />
                   </section>
                 )}
                 {experimental && chatsAs && <ChatStampSection />}

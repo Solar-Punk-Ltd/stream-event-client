@@ -1,6 +1,5 @@
 import { type KeyboardEvent, useId, useState } from 'react';
 
-import { useAppContext } from '@/app/AppProvider';
 import { useThemeChoice } from '@/app/ThemeChoiceProvider';
 import { SwarmIdOffer, SwarmIdYou } from '@/features/chat/swarmId/SwarmIdParts';
 import { useChatUser } from '@/features/chat/User';
@@ -15,16 +14,17 @@ const GUEST_ADVICE = 'For the smoothest experience, go with the defaults and a s
 interface IdSectionProps {
   /** Asks the viewer to confirm before a guest leaves, which forgets the name. */
   readonly onLeave: () => void;
+  /** Whether the deployment offers the experimental parts, which the beta note introduces. */
+  readonly experimental: boolean;
 }
 
 /**
  * Who the viewer is in the chat. Not chatting: a guest name, and signing in with Swarm ID where the deployment offers
  * it. Chatting: the name with its badge, signing out or leaving, and the theme switcher where the deployment allows it.
  */
-export function IdSection({ onLeave }: IdSectionProps) {
+export function IdSection({ onLeave, experimental }: IdSectionProps) {
   const { session } = useChatUser();
   const { canSwitch } = useThemeChoice();
-  const { experimental } = useAppContext();
 
   if (session === null) {
     return (
