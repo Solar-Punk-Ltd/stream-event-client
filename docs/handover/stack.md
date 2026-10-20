@@ -98,8 +98,8 @@ flowchart LR
   playlist and each chat are feeds.
 - **Slot**: the numbered position of an entry in a feed. The stream list is read by slot, and a chat's slot notes say
   which slots hold a message.
-- **Catalogue**: another name for the stream list feed, used by the streaming-monorepo and, as `catalog`, in the code (`catalog.owner` and `catalog.topic` in
-  `config.json`).
+- **Catalogue**: another name for the stream list feed, used by the streaming-monorepo. The code spells it `catalog`,
+  as in `catalog.owner` and `catalog.topic` in `config.json`.
 - **Single-owner chunk (SOC)**: a chunk only its owner's key can write. A feed entry is one.
 - **GSOC**: a single-owner chunk whose key is shared on purpose, so anyone can write to it and a listener hears each
   write. The chat inbox is one, which is why its key in `config.json` is not a secret ([the chat](../chat.md)).
