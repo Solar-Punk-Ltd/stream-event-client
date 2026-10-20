@@ -1,7 +1,7 @@
 # The whole stack
 
-This viewer is one piece of a larger system, all of it open source. The streaming stack in
-[streaming-monorepo](https://github.com/Solar-Punk-Ltd/streaming-monorepo) puts the streams on Swarm. A few libraries
+This viewer is one piece of a larger system, all of it open source. The stack, in
+[streaming-monorepo](https://github.com/Solar-Punk-Ltd/streaming-monorepo), puts the streams on Swarm. A few libraries
 and services run the chat and hold the viewer's identity. This page names each piece and its repository, then follows
 a live stream and a chat message from start to finish. A [glossary](#words-used-across-these-docs) of the Swarm words
 used across these docs closes the page.
@@ -11,9 +11,9 @@ used across these docs closes the page.
 | Piece               | Repository                                                                                                         | What it is                                                                                                                                         | How this viewer meets it                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | The viewer          | [Solar-Punk-Ltd/stream-event-client](https://github.com/Solar-Punk-Ltd/stream-event-client)                        | This repository: the stream list, the player, the chat and My Swarm, as a static page                                                              | It is the viewer                                                                                   |
-| The streaming stack | [Solar-Punk-Ltd/streaming-monorepo](https://github.com/Solar-Punk-Ltd/streaming-monorepo), `apps/hls-stream`       | Takes a broadcast in, cuts it into HLS segments, and writes the segments and each quality's playlist feed to Swarm (`packages/stream-uploader`)    | The player reads the playlists and segments it wrote                                               |
+| The stack           | [Solar-Punk-Ltd/streaming-monorepo](https://github.com/Solar-Punk-Ltd/streaming-monorepo), `apps/hls-stream`       | Takes a broadcast in, cuts it into HLS segments, and writes the segments and each quality's playlist feed to Swarm (`packages/stream-uploader`)    | The player reads the playlists and segments it wrote                                               |
 | The admin           | streaming-monorepo, `apps/web2-admin`                                                                              | The console where an event's streams are declared and published. It signs the stream list feed, also called the catalogue                          | The browse page reads that stream list                                                             |
-| The infra manager   | streaming-monorepo, `apps/infra-manager`                                                                           | The console that deploys and funds streaming stages                                                                                                | This viewer does not use it                                                                        |
+| The manager         | streaming-monorepo, `apps/infra-manager`                                                                           | The console that deploys and funds streaming stages                                                                                                | This viewer does not use it                                                                        |
 | The ingest server   | [Solar-Punk-Ltd/swarm-srs](https://github.com/Solar-Punk-Ltd/swarm-srs)                                            | A fork of the SRS media server. It takes SRT or RTMP from the broadcaster, cuts HLS and tells the uploader about each segment                      | This viewer does not talk to it. It plays the segments the uploader wrote from its output          |
 | The chat library    | [Solar-Punk-Ltd/swarm-chat-js](https://github.com/Solar-Punk-Ltd/swarm-chat-js), npm `@solarpunkltd/swarm-chat-js` | Signs and sends chat messages, and reads a chat back                                                                                               | The chat runs on it ([the chat](../chat.md))                                                       |
 | The chat aggregator | [Solar-Punk-Ltd/swarm-chat-aggregator-js](https://github.com/Solar-Punk-Ltd/swarm-chat-aggregator-js)              | The chat server. It listens for new messages, checks each one, and publishes it to the stream's chat feed                                          | The chat reads the feed it writes                                                                  |
@@ -44,7 +44,7 @@ flowchart LR
   gateway --> viewer[This viewer]
 ```
 
-1. **The stream is declared.** Someone creates the stream in the admin and publishes it. The streaming stack refuses a
+1. **The stream is declared.** Someone creates the stream in the admin and publishes it. The stack refuses a
    broadcast for a stream that was not published.
 2. **The broadcast comes in.** The broadcaster sends SRT or RTMP to the ingest server, which cuts the video into HLS
    segments, a few seconds each, at several qualities. That set of qualities is the ladder.
