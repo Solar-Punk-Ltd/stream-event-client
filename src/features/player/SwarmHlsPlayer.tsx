@@ -320,9 +320,9 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
   const hlsConfigKey = tuningKey(hlsConfig ?? {});
   const renditionKey = ladderKey(renditions);
 
-  // Read through a ref, not a dependency. The catalog is polled every few seconds and hands back
-  // a fresh array each time, so depending on it directly would tear the player down and rebuild
-  // it on every poll. `renditionKey` is what the effect actually reacts to.
+  // Read through a ref, not a dependency. The list arrives as a fresh array on each catalog read,
+  // and for a recording on every render, so depending on it directly would tear the player down and
+  // rebuild it each time. `renditionKey` is what the effect actually reacts to.
   const renditionsRef = useRef(renditions);
   renditionsRef.current = renditions;
   const onLadderShortRef = useRef(onLadderShort);

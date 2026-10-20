@@ -103,11 +103,11 @@ interface QoeOverlayProps {
  */
 export const QoeOverlay: React.FC<QoeOverlayProps> = ({ metrics, release = BUILD_LABEL, topic, playerRef }) => {
   const [visible, setVisible] = useState(true);
-  // Null until the window has been measured, which a server render never does.
+  // Null until the window has been measured.
   const [rect, setRectState] = useState<Rect | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [resizing, setResizing] = useState<ResizeEdge | null>(null);
-  // Null until mounted: a server render has no document to render into, so it renders in place.
+  // Null until mounted, and until then the overlay renders in place.
   const [host, setHost] = useState<Element | null>(null);
   const [fullscreenChanges, setFullscreenChanges] = useState(0);
 
