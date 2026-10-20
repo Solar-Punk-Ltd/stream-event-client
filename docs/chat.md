@@ -96,6 +96,10 @@ long history never holds up the page (`src/features/chat/verify/`).
   start or fails is left, and the same check runs on the page's thread instead, for the messages it held and every
   later one. Nothing is shown unchecked and nothing is left waiting.
 
+A signature stops anyone from forging a message, never from withholding one. The chat server that writes the chat feed
+decides which messages are in it and in what order, and the endpoints the page reads through decide what reaches it.
+Who else a viewer trusts is in [what a viewer has to trust](../README.md#what-a-viewer-has-to-trust).
+
 Above each message is its sender line: the name, the badge, the stamp for a message sent with the sender's own stamp,
 and the time it was published, in hours and minutes on the viewer's clock. There is no initial and nothing floats over
 the row.
@@ -154,5 +158,5 @@ How the check reads, in `src/features/chat/stamp/ownFeedComparison.ts`, which on
   not counted.
 - A copy and a chat message are the same message when their signatures are. A message has one valid signature, over
   every field it says, so a copy with the same signature is the message the chat feed shows, as far as the chat server
-  that writes the feed is trusted.
+  that writes the feed is trusted ([what a viewer has to trust](../README.md#what-a-viewer-has-to-trust)).
 - Stopping, pressing Verify again and closing the details each end the reads of the check running.

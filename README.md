@@ -20,10 +20,11 @@ The Swarm words these docs use, feed, stamp, gateway, part and the rest, are exp
 - **A player that reads only the quality it plays.** It finds the newest playlist from the markers the uploader
   writes, follows the feed as it grows, skips a segment that will not load, rejoins a broadcast that comes back, and
   keeps your place in a recording when you switch source.
-- **A chat per stream** on `@solarpunkltd/swarm-chat-js`: guests with a display name, Swarm ID sign-in, every message
-  verified before it is shown, reactions, threads, and verified ENS names.
+- **A chat per stream** on `@solarpunkltd/swarm-chat-js`: guests with a display name, Swarm ID sign-in, every message's
+  signature checked before it is shown, reactions, threads, and verified ENS names.
 - **Who pays**: the event gateway stamps each message, or, once signed in with Swarm ID, your own stamp, sent through
-  your own Bee node or Weeb3, with a copy in your own feed that anyone can check against the chat.
+  your own Bee node or Weeb3, with a copy in your own feed that anyone can compare with the chat, as far as the
+  chat feed's writer is trusted ([what a viewer has to trust](#what-a-viewer-has-to-trust)).
 - **My Swarm**: every source you can read Swarm through, each checked before it is added, and Use for, which says
   which source each part reads from. Nothing ever switches source by itself.
 - **Weeb3**, a whole Swarm node in the tab. It is offered for the video, with its own player, and for sending chat
@@ -47,6 +48,27 @@ like anyone else: through the event's gateway, as a guest with a display name.
 
 We offer both to learn how decentralised access and identity hold up with real viewers, and feedback in the chat is
 welcome.
+
+## What a viewer has to trust
+
+Signatures stop anyone from forging a message, but they do not make the page independent of the hosts it is served
+from and reads through. Today a viewer trusts each of these with what passes through it:
+
+- **The host that serves the viewer.** Its code holds the chat keys: a guest's key in local storage and the key Swarm ID
+  gives this site in memory. A changed page could sign messages as the viewer.
+- **The host that serves the Swarm ID site**, today the bzz.link gateway. Its code holds the Swarm ID accounts, the
+  wallet link and the stamp keys. On a deployment that offers Swarm ID its hidden frame loads for every viewer, guests
+  too, and nothing in the browser checks that code against the content hash its ENS name records. So whoever runs that
+  gateway, or controls that name, is trusted with the accounts, the stamps and every sign-in.
+- **The event gateway and the chat endpoints.** They decide what the page is shown, so they can withhold a message or a
+  stream, or serve them out of order. They cannot forge a signature.
+- **The chat server that writes the chat feed.** It decides which messages are in the feed and in what order.
+- **The ENS endpoint**, when `ensRpcUrl` is set. It decides which name is shown beside a wallet and sees every wallet
+  looked up.
+- **The viewer's own Bee node, or the node in the tab**, for whatever is read or sent through it.
+
+The content security policy lets the page connect to every https and wss host, so it does not limit where a changed
+page could send data.
 
 ## Quick start
 
