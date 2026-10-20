@@ -5,8 +5,9 @@
 stream-event-client is a static web page for watching an event's live streams and recordings over
 [Swarm](https://www.ethswarm.org), the decentralised storage network, with a chat beside each stream. It is built with
 React 19, Vite 8 and TypeScript, plays video with hls.js, and reads everything it shows from Swarm through a small
-Swarm client in `src/swarm/`. It holds no keys, no stamps and no accounts: what it needs to pay for or sign is done by
-services outside it, or by Swarm ID in the viewer's browser.
+Swarm client in `src/swarm/`. It holds no wallet, no stamp key and no accounts: a message is stamped by the event's
+chat gateway, or by Swarm ID in the viewer's browser. It does hold chat keys: a guest's key is kept in this browser's
+local storage, and the key Swarm ID gives this site stays in memory.
 
 It was built from the viewer of [streaming-monorepo](https://github.com/Solar-Punk-Ltd/streaming-monorepo) and the
 Swarm design and chat of [msrs-client](https://github.com/Solar-Punk-Ltd/msrs-client). The Swarm words used on this

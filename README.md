@@ -7,7 +7,8 @@ package is weeb-3), and chat as a guest or signed in with Swarm ID, with the eve
 of your own.
 
 It is a static page: one build serves every deployment, and everything a deployment differs by is a setting in
-`config.json`. The page holds no keys and no stamps.
+`config.json`. The page holds no wallet and no stamp key. It does hold chat keys: a guest's key is kept in this
+browser's local storage, and the key Swarm ID gives this site stays in memory.
 
 The Swarm words these docs use, feed, stamp, gateway, part and the rest, are explained in the
 [glossary](docs/handover/stack.md#words-used-across-these-docs).

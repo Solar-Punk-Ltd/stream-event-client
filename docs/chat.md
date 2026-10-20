@@ -33,7 +33,7 @@ first time one is drawn: the emoji bar above the message field, or a reaction's 
 Two services, set up apart from this app:
 
 - **Two Bee endpoints for the chat.** `chat.readUrl` serves the chat's feed and history files. `chat.writeUrl` takes
-  the messages and stamps every write, because the page holds no postage stamp. A message costs one stamped chunk, and
+  the messages and stamps every write, because the page holds no stamp key. A message costs one stamped chunk, and
   one more for each resend while it has not been read back. A viewer who pays with their own stamp,
   [who pays for a message](own-stamp.md), sends through their own Bee node or through Weeb3 instead.
 - **The chat aggregator**, on swarm-chat-js 9. It listens on the shared chat address made from `gsocResourceId` and

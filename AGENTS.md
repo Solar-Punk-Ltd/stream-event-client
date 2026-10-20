@@ -17,7 +17,8 @@ built.
   node that runs in the browser tab. Under Use for they pick which source each part is read from.
 - In: a chat per stream, and the choice of who pays for a message, the event gateway or the viewer's
   own stamp. On their own stamp, Swarm ID stamps each message in its hidden frame, and the page sends
-  it through the viewer's Bee node or Weeb3. The page never holds a stamp or a stamp key.
+  it through the viewer's Bee node or Weeb3. The page never holds a stamp key or buys a stamp. It only
+  carries the finished stamp to the node.
 - In: a theme switcher for viewers logged in to the chat. A deployment picks its theme with `theme` in
   `config.json`, which decides the logo and the words. A viewer's switch changes only the colours and
   typefaces, and `themeSwitcher` turns it off.
