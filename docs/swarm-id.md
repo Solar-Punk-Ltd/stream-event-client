@@ -1,6 +1,6 @@
 # Swarm ID
 
-Swarm ID lets a viewer sign in and chat under a verified identity instead of as a guest. It is a separate site that
+Swarm ID lets a viewer sign in and chat under an account of their own instead of as a guest. It is a separate site that
 holds a person's accounts and gives each site they sign in to a chat key for one of them. This page says how the
 viewer signs a person in with it, what a reader sees, and what a deployment and the Swarm ID site need for it.
 
@@ -21,7 +21,7 @@ the Swarm ID site draws, not this page. The person picks an account there, or ma
 
 The ID then gives this site its chat key for that account and a chat binding, the account's signed statement that the
 key's address on this site is its own. Every message is signed with that key and carries the binding, so every reader
-shows the Swarm ID badge. The page never connects a wallet and never sees the account's own key. The Swarm ID site
+shows the Swarm ID badge, which means an account signed that statement. The page never connects a wallet and never sees the account's own key. The Swarm ID site
 does, so a person trusts whoever serves it, as [what a viewer has to trust](../README.md#what-a-viewer-has-to-trust)
 says. Messages go through the event gateway, which stamps them, unless the person picks their own stamp, as
 [who pays for a message](own-stamp.md) says.

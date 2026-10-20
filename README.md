@@ -41,10 +41,12 @@ like anyone else: through the event's gateway, as a guest with a display name.
   node, or Weeb3, a Swarm node running in the browser tab, and pick a source for each part under Use for. The aim is
   that watching an event on Swarm does not depend on the event's own servers. Anyone with a Bee node, or only a
   browser, can reach the same content.
-- **Swarm ID.** Signing in with Swarm ID gives a person a chat identity they hold themselves, verified on every
-  message, and lets them pay for their messages with their own postage stamp. Swarm ID is a separate experimental
-  project, Solar Punk's fork of swarm-id, in [Solar-Punk-Ltd/solarpunk-id](https://github.com/Solar-Punk-Ltd/solarpunk-id).
-  This viewer only uses it.
+- **Swarm ID.** Signing in with Swarm ID gives a person a chat identity they hold themselves, an account whose signed
+  statement every message carries, and lets them pay for their messages with their own postage stamp. Readers show such
+  a message with the Swarm ID badge, which shows that an account key signed for the sender's chat address. Anyone can
+  make such a key, so the badge tells accounts apart and does not vouch for a person or for a genuine Swarm ID account.
+  Swarm ID is a separate experimental project, Solar Punk's fork of swarm-id, in
+  [Solar-Punk-Ltd/solarpunk-id](https://github.com/Solar-Punk-Ltd/solarpunk-id). This viewer only uses it.
 
 We offer both to learn how decentralised access and identity hold up with real viewers, and feedback in the chat is
 welcome.

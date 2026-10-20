@@ -106,7 +106,8 @@ the row.
 
 - A grey outline hexagon after a name in the plain weight is a guest, told apart only by the key their browser keeps.
 - A filled hexagon with a check after a name in the accent colour is a Swarm ID account, which signed a statement that
-  this chat address on this site is its own.
+  this chat address on this site is its own. The badge shows that an account key signed that statement. Anyone can make
+  such a key, so the badge tells accounts apart and does not vouch for a person or for a genuine Swarm ID account.
 - A stamp after the badge says the sender paid for the write with a stamp of their own. Every message this page sends
   says who paid, the event gateway or the viewer's own stamp.
 
