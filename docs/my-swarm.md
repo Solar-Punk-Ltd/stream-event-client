@@ -124,7 +124,8 @@ its Test connection starts a node that failed once more. Copy diagnostics is the
   segment comes from the new source, in a recording as in a live stream.
 - **A source that fails.** When a part's reads, or the segments and pictures loaded for it, have had no answer it can
   use for 10 s, a bar under the header says so (`FailureBars.tsx`), such as "Video cannot load from Event gateway." and
-  "No answer for more than 10 s.", with a Choose another source button that opens My Swarm. One bar per failing part,
+  "No answer for more than 10 s.", with a Choose another source button that opens My Swarm while `experimental` is
+  on. One bar per failing part,
   gone at the part's next answer, or 30 s after it stopped reading. A not found is an answer, so a chat slot not
   written yet never shows one. The watch page names the video's source above the player, such as "via Event gateway".
 - **Copy diagnostics.** The last checks of that source, who answered each part in the last minute, the build and the
