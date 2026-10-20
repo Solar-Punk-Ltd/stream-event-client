@@ -8,6 +8,7 @@ import {
   configProblemText,
   enabledChat,
   ensRpcUrl,
+  experimentalEnabled,
   loadRuntimeConfig,
   parseRuntimeConfig,
   type RuntimeConfigResult,
@@ -233,6 +234,31 @@ describe('the Swarm ID setting', () => {
     expect(on.ok && swarmIdUrl(on.config)).toBe('https://id.example.com');
     expect(off.ok && swarmIdUrl(off.config)).toBeNull();
     expect(unset.ok && swarmIdUrl(unset.config)).toBeNull();
+  });
+});
+
+describe('the experimental setting', () => {
+  it('is on unless set, and a deployment may turn it off', () => {
+    const unset = parseRuntimeConfig(VALID);
+    const on = parseRuntimeConfig({ ...VALID, experimental: true });
+    const off = parseRuntimeConfig({ ...VALID, experimental: false });
+
+    expect(unset.ok && experimentalEnabled(unset.config)).toBe(true);
+    expect(on.ok && experimentalEnabled(on.config)).toBe(true);
+    expect(off.ok && experimentalEnabled(off.config)).toBe(false);
+  });
+
+  it('refuses anything but true or false, naming the field', () => {
+    for (const experimental of ['false', 0, null, {}]) {
+      expect(problemOf(parseRuntimeConfig({ ...VALID, experimental }))).toBe('experimental: must be true or false');
+    }
+  });
+
+  it('turned off, offers no Swarm ID even where the deployment names one', () => {
+    const swarmId = { url: 'https://id.example.com' };
+    const off = parseRuntimeConfig({ ...VALID, chat: CHAT, swarmId, experimental: false });
+
+    expect(off.ok && swarmIdUrl(off.config)).toBeNull();
   });
 });
 
