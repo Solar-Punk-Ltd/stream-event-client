@@ -23,6 +23,7 @@ The page itself fetches it with `cache: 'no-store'`. The image does both, see [t
 | `chat`          | Optional. The chat's settings, [below](#the-chat-block). Without it, or with `enabled` false, there is no chat anywhere on the page                                                                                                                                                                                   |
 | `theme`         | Optional. Which of the build's themes the page wears, `swarm` by default. A name the build does not carry is refused                                                                                                                                                                                                  |
 | `themeSwitcher` | Optional. Whether a viewer logged in to the chat may switch the colours and typefaces between the build's themes, `true` by default                                                                                                                                                                                   |
+| `experimental`  | Optional. Whether the page offers the experimental parts, Swarm ID and a viewer's own choice of sources, `true` by default. Off, [below](#the-experimental-switch), the page offers chat as a guest only                                                                                                              |
 | `swarmId.url`   | Optional. The Swarm ID site a viewer may sign in to the chat with, an origin such as `https://id.example.com`, with no path and no trailing slash. Without it, or without a chat, there is no sign-in                                                                                                                 |
 | `ensRpcUrl`     | Optional. An Ethereum mainnet JSON-RPC endpoint, an https address, or http on `localhost`, `127.0.0.1`, `[::1]` or a `.localhost` name, with no user name or password in it, that the page reads senders' ENS names through ([ENS names](swarm-id.md#ens-names)). Without it, or without a chat, no name is looked up |
 
@@ -93,6 +94,22 @@ before the page renders, while the config is still loading (`src/app/themeChoice
 
 A deployment without chat has no login, so it has no switcher either. One with `themeSwitcher` false keeps a viewer's
 earlier pick without wearing it.
+
+## The experimental switch
+
+`experimental` false turns off the parts of the viewer that are still experiments, Swarm ID and choosing the sources the
+page reads Swarm through. `true`, or no setting, keeps both.
+
+With it off:
+
+- Swarm ID is off as though `swarmId` were not set, so there is no Sign in with Swarm ID and no own stamp.
+- My Swarm holds only the ID: a guest name with Chat as guest and the hint under it, and for a chatting guest their name
+  with Leave and the theme switcher where `themeSwitcher` allows it. The beta note, the Chat stamp group, the Swarm
+  access list, Add source and Use for are not shown.
+- The page reads every part from the default gateway, as a fresh browser does. It neither reads nor writes the
+  viewer's saved `swarm-sources` and `swarm-routing`, so they come back unchanged once the switch is on again.
+- On a site with no chat the header has no My Swarm button, since the panel would be empty.
+- A part that cannot load says so without sending the viewer to My Swarm, and its bar has no button.
 
 ## How the config is read
 

@@ -5,7 +5,8 @@ page says what the panel holds, how a source is added and checked, and what the 
 changing a source type or a check starts here.
 
 The Swarm access list, Use for and Sign in with Swarm ID are experimental, offered beside the defaults. The
-[README](../README.md#experimental-your-own-way-into-swarm-and-swarm-id) says what they are for.
+[README](../README.md#experimental-your-own-way-into-swarm-and-swarm-id) says what they are for. A deployment with
+[`experimental` false](configuration.md#the-experimental-switch) turns them off, and My Swarm then holds only the ID.
 
 The button at the right of the header opens My Swarm (`src/features/connect/Connect.tsx`), a panel at the side of the
 window on a wider screen. The button says My Swarm, or the viewer's chat name with its badge once they chat. My Swarm
@@ -147,4 +148,6 @@ defaults for that visit:
 | `stream-event-client:own-player-quality`   | The Weeb3 player's quality: `by-peers`, or the height held, such as `720`                                    | `src/features/player/qualityChoice.ts`                |
 
 The Swarm ID sign-in is not among these. The Swarm ID library keeps what it needs for it, which this list does not
-cover. Only viewer-added sources are stored: the offered gateways come from `config.json` on every load.
+cover. Only viewer-added sources are stored: the offered gateways come from `config.json` on every load. With
+`experimental` false the page neither reads nor writes `swarm-sources` and `swarm-routing`, and leaves them as they
+were.

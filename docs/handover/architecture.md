@@ -96,8 +96,8 @@ never throws: the result is `{ok: true, config}` or `{ok: false, problem}`. The 
 `<angle brackets>`, requires exactly one of `gatewayUrl` and `providers`, requires every chat field when `chat.enabled`
 is true, and allows only `bee-http` as a gateway kind. `chat.beeUrl` is refused by name, with a message that
 `chat.readUrl` and `chat.writeUrl` replace it. Unknown keys are dropped.
-Helpers (`selectedTheme`, `themeSwitcherEnabled`, `enabledChat`, `swarmIdUrl`, `ensRpcUrl`) answer the questions the
-rest of the app asks, so no component reads the raw config. The fields are listed in
+Helpers (`selectedTheme`, `themeSwitcherEnabled`, `experimentalEnabled`, `enabledChat`, `swarmIdUrl`, `ensRpcUrl`)
+answer the questions the rest of the app asks, so no component reads the raw config. The fields are listed in
 [configuration](../configuration.md).
 
 ## The Swarm client
