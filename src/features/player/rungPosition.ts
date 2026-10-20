@@ -15,7 +15,7 @@ const RUNG_PROGRESS_FLOOR_MS = 6_000;
  * short segments keeps the six seconds the player has always given a rung. A length not known
  * yet answers the floor.
  *
- * ⛔ **Liveness is a rung's own progress, never a comparison with another rung.** A rung's feed index
+ * **Liveness is a rung's own progress, never a comparison with another rung.** A rung's feed index
  * counts the playlists the uploader published to it, publishes coalesce under load, and late starts,
  * failed uploads and resumed feeds move each rung on its own. So the rungs of one ladder drift apart
  * without bound, and no index or stamp of one says where another should be.
@@ -66,7 +66,7 @@ interface RungSnapshot {
  * Only a rung that has clearly stopped is refused: one whose newest playlist is finished while the
  * playing rung is live, or whose newest segment is more than {@link STALE_RUNG_LAG_MS} behind.
  *
- * ⛔ **Two finished rungs refuse nothing.** On a recording every rung is complete, so a newest segment
+ * **Two finished rungs refuse nothing.** On a recording every rung is complete, so a newest segment
  * dated later says nothing about whether a rung stopped. On 2026-10-15 a 35 minute recording whose 1080p
  * dates trailed by 496 s, every rung holding the same segments, had 1080p refused and dropped under a
  * viewer, and the drop restarted the recording from the start. A finished playing rung alone is no such

@@ -103,7 +103,7 @@ export class SourceMissCost {
   /**
    * The window a read on this source is given when it is slow, or null for the usual one.
    *
-   * ⛔ **A read cut short on a slow source is worse than a long one.** On the light node one read in six
+   * **A read cut short on a slow source is worse than a long one.** On the light node one read in six
    * to eight ran past the usual 10 s, and a search with one read it could not finish fails whole, backs
    * off and starts again, so it never got through the five or six rounds it needed. Asking the same
    * address again soon after makes Bee skip the peers it asked, which makes the next try slower still.

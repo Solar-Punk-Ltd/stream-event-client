@@ -40,12 +40,12 @@ export function isWaitingForStart(wasWaiting: boolean, listed: ListedStream | un
 /**
  * What the watch page shows, from the stream list it holds.
  *
- * ⛔ **A stream the page was waiting for that leaves the list is no longer available, and the player
+ * **A stream the page was waiting for that leaves the list is no longer available, and the player
  * is not mounted for it.** An announced broadcast has no manifest feed under its topic, so a player
  * mounted there polls a slot nobody writes and loads for ever. The stream list follows every catalog
  * change, so an unpublish in the web2 admin reaches a page that is waiting and takes the entry away.
  *
- * ⭐ **Everything else the list does not have still plays.** A deep link to a topic this catalog does
+ * **Everything else the list does not have still plays.** A deep link to a topic this catalog does
  * not list may be a real stream, and nothing here knows better. So may a stream that was already
  * playing when its entry went: a viewer switching to a node that has not caught up with this catalog
  * gets that node's list, whatever it holds, and the page stopped waiting when the entry said live.

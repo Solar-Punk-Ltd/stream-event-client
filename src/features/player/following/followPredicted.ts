@@ -93,7 +93,7 @@ interface Ask {
  * one, once when it is two segments late and again on every backoff turn, in case the node is refusing it
  * while the publisher has moved on.
  *
- * ⛔ **A feed with markers stops asking a slot that does not come.** Bee skips, for a minute, every
+ * **A feed with markers stops asking a slot that does not come.** Bee skips, for a minute, every
  * peer it asked for an address not written yet, and once all are skipped it answers not found at
  * once even after the slot is written. Measured on 2026-10-08: a 21 s broadcaster outage left the
  * picture frozen for 72 s, about a minute of it from the follower's own asks for the next slot. So

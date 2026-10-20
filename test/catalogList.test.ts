@@ -155,7 +155,7 @@ describe('the catalog a poll leaves on screen', () => {
   });
 
   /**
-   * ⛔ The switch case. Each node resolves its own head, so a node freshly pointed at this catalog
+   * The switch case. Each node resolves its own head, so a node freshly pointed at this catalog
    * routinely answers with an older slot than the one on screen, and the comparison alone would refuse
    * it for ever.
    */
@@ -172,7 +172,7 @@ describe('the catalog a poll leaves on screen', () => {
 });
 
 /**
- * ⛔ The web2 admin changes an entry where it stands, and a rule that compares only the end misses it.
+ * The web2 admin changes an entry where it stands, and a rule that compares only the end misses it.
  *
  * The stack's own uploader removes a changed entry and appends it again, so every change it makes
  * reached the last entry, which is all such a rule compares. The admin appends an entry when it
@@ -267,7 +267,7 @@ const bodiesThatAreNotCatalogs: Array<[kind: string, fetched: unknown]> = [
 ];
 
 /**
- * ⛔ Unpublishing the last stream leaves the admin's catalog empty, and an open page has to show that.
+ * Unpublishing the last stream leaves the admin's catalog empty, and an open page has to show that.
  *
  * Only a newer slot can say a catalog is empty on purpose. A read that failed or found nothing newer
  * brings no body and no slot, and a body that does not validate is refused whatever its slot, so a

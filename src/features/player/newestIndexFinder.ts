@@ -35,7 +35,7 @@ export interface NewestIndex {
  *
  * The only place a rung's walk may skip indexes. Everything after it is walked slot by slot.
  *
- * ⛔ **The hint is the playing rung's newest slot, and nothing may rely on it being right.** A rung's
+ * **The hint is the playing rung's newest slot, and nothing may rely on it being right.** A rung's
  * index counts the playlists the uploader published to it, and publishes coalesce under load, so the
  * rungs of one ladder drift apart without bound. A search may start from the hint. It may never read
  * the hint as the answer.

@@ -40,7 +40,7 @@ describe('what the watch page shows', () => {
   });
 
   /**
-   * ⛔ The bug this exists for. The web2 admin removes an entry from the catalog when it unpublishes
+   * The bug this exists for. The web2 admin removes an entry from the catalog when it unpublishes
    * it, and once the stream list follows every catalog change the entry a viewer is waiting on can
    * disappear from under the page. The page then no longer knew the stream had been announced and
    * mounted the player on a feed nobody had written, which loads for ever.
@@ -69,7 +69,7 @@ describe('whether the page is waiting for its stream to start', () => {
   });
 
   /**
-   * ⛔ A playing stream never turns into a message. Its entry can leave the list without being
+   * A playing stream never turns into a message. Its entry can leave the list without being
    * unpublished: a viewer who switches to a node that has not caught up with this catalog gets that
    * node's list, whatever it holds. The page stopped waiting the moment the entry said live, so the
    * player stays.

@@ -166,7 +166,7 @@ interface LadderEntry {
  * asks for the next slot when the next playlist is due rather than as often as it can, and looks one
  * slot past a slot that is late. The loader serves hls.js's level reloads out of what it has read.
  *
- * ⭐ **One rung at a time** (the owner's ruling, 2026-10-07: "only one quality request at the time. Not 4! We only
+ * **One rung at a time** (the owner's ruling, 2026-10-07: "only one quality request at the time. Not 4! We only
  * request what we watch."). Every rung of the ladder is registered, and only the playing rung is
  * walked, plus the one being switched to while a switch is under way. Walking all four would make a
  * switch free, at up to about 320 requests a minute, half of them for an index not written yet. A
@@ -403,7 +403,7 @@ export class LadderFeedPoller {
   /**
    * Stops following a rung and forgets everything it read.
    *
-   * ⛔ Forgotten rather than kept, so coming back to it starts at its newest index. A kept index would
+   * Forgotten rather than kept, so coming back to it starts at its newest index. A kept index would
    * be resumed from, and two minutes away is about eighty indexes walked one at a time before the
    * viewer sees anything new. Its feed health goes too, or an unserved run from before would call it
    * stalled the moment it was played again.
@@ -553,7 +553,7 @@ export class LadderFeedPoller {
   /**
    * The backoff the shared tracker has set for this rung's gateway, waited out interruptibly.
    *
-   * ⛔ **Waited out in slices rather than in one committed timer.** A single timer for the whole of a rung's
+   * **Waited out in slices rather than in one committed timer.** A single timer for the whole of a rung's
    * backoff at the cap could not find out the fault was over. Measured 2026-08-29:
    * three unrelated faults each froze the picture for 58.5 to 59.0 seconds, an eight second
    * writer-bee pause included. A slice is the poll interval, and each slice asks the unjittered
@@ -899,7 +899,7 @@ export class LadderFeedPoller {
    * broadcast ended, one that carries on through the bound means this rung alone stopped and the
    * player fails over to it.
    *
-   * ⛔ **The sibling is watched for the whole bound, not to its first new index.** The qualities of one
+   * **The sibling is watched for the whole bound, not to its first new index.** The qualities of one
    * broadcast finish moments apart, each as its own upload drains, so a sibling still publishing its
    * last playlists is finishing too. Taking its first new index as proof it carries on failed the viewer
    * over to a quality about to end, and the ended overlay came late or not at all.
@@ -1046,7 +1046,7 @@ export class LadderFeedPoller {
   /**
    * Keep asking whether the broadcaster has come back to the rung that was playing when it ended.
    *
-   * ⛔ **A finished playlist is the end of a session, not of the feed.** A declared stream's rungs keep
+   * **A finished playlist is the end of a session, not of the feed.** A declared stream's rungs keep
    * their topics for the life of the declaration, so a broadcaster who stops and comes back continues
    * every rung at the next index. Measured live 2026-09-24: a viewer who had watched the end was told it
    * had ended for fifteen minutes past the return. One watch, on the rung that was playing, and the

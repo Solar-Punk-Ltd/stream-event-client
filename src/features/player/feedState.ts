@@ -17,7 +17,7 @@ export const FEED_STATE_DEGRADED = 'degraded';
  * The broadcaster ended the stream. The other three describe something still being retried, and this
  * one describes there being nothing left to retry, so nothing a gateway does moves a feed out of it.
  *
- * ⛔ **Not terminal, although it reads as terminal.** A declared stream's feeds outlive its session:
+ * **Not terminal, although it reads as terminal.** A declared stream's feeds outlive its session:
  * a broadcaster who stops and comes back continues the same feeds at the next index, and the admin
  * accepts `live` after `vod`. A viewer who watched such a broadcast end would still be told it had
  * ended fifteen minutes after it came back. So the followers keep a slow watch
@@ -60,7 +60,7 @@ const MANIFEST_RETRY_BASE_MS = 2_000;
  * The longest gap between attempts on a failing gateway, which is also the longest a viewer whose
  * gateway has come back can sit in front of a frozen picture without anything finding out.
  *
- * ⛔ **A thirty second ceiling was measured to be most of the freeze.** Three
+ * **A thirty second ceiling was measured to be most of the freeze.** Three
  * unrelated faults injected under a watching viewer on the four rung ABR ladder, 2026-08-29, live,
  * in a real browser: killing the uploader process froze the picture **59.0s**, pausing the writer
  * bee node for **eight seconds** froze it **58.9s**, and a writer bee outage froze it **58.5s**.
@@ -71,7 +71,7 @@ const MANIFEST_RETRY_BASE_MS = 2_000;
  *
  * ## Why eight
  *
- * ⭐ **It is the largest ceiling that keeps a ladder viewer no worse off than a single rendition
+ * **It is the largest ceiling that keeps a ladder viewer no worse off than a single rendition
  * one.** The same client on one rendition was measured on 2026-08-27 taking **10.7s and 9.9s to
  * recover after the gateway had started answering again**, across both byte sources, on a 20.5
  * second gateway stop. A ladder viewer walks
@@ -103,7 +103,7 @@ export const MANIFEST_RETRY_CAP_MS = 8_000;
  * How long a feed may sit on a slot the gateway answered for, but had nothing in, before the feed
  * is called stalled.
  *
- * ⛔⛔⛔ **A POLL COUNT would not do, because the poll rate is not a constant.** It collapses during exactly
+ * **A POLL COUNT would not do, because the poll rate is not a constant.** It collapses during exactly
  * the stall it counts. Measured on two recorded uploader crashes, feed reads went from a 264ms gap
  * before the crash to 1064ms during the freeze, because each read takes about three times as long
  * and the client also spaces unserved reads about four times wider. So thirty polls was about eight
@@ -111,7 +111,7 @@ export const MANIFEST_RETRY_CAP_MS = 8_000;
  * by-product rather than a decision. A 12.4 second freeze accumulated 13 polls, never reached the
  * threshold, and that viewer watched a dead picture for twelve seconds and was told nothing.
  *
- * ⭐ **Eight is what a thirty poll count meant while healthy**, so a viewer at the live edge is no
+ * **Eight is what a thirty poll count meant while healthy**, so a viewer at the live edge is no
  * more likely to see the overlay than with a count. Only the stall case differs, which is the case
  * a count got wrong. It is also {@link MANIFEST_RETRY_CAP_MS}, already this client's answer to how long a quiet
  * feed may go unmentioned, reached there from two independent directions.
@@ -125,7 +125,7 @@ export const UNSERVED_SLOT_STALL_MS = 8_000;
 /**
  * How many consecutive unserved polls the walk keeps probing past a refusal for.
  *
- * ⚠️ **Not what decides the overlay.** That is {@link UNSERVED_SLOT_STALL_MS}. This bounds
+ * **Not what decides the overlay.** That is {@link UNSERVED_SLOT_STALL_MS}. This bounds
  * only the extra request the ladder walk makes to ask what is behind a refused slot: below
  * `UNSERVED_POLLS_BEFORE_PROBE` a refusal is too likely to be the publisher's own head to be worth
  * asking about, and above this the walk has asked on every poll and found nothing every time, so
@@ -142,7 +142,7 @@ export const UNSERVED_POLLS_PROBE_CEILING = 30;
  * absorbing, and how slow that is depends on the segment length, the bitrate and the deployment. How
  * often the picture stops does not.
  *
- * ⭐ **Both numbers are measured rather than chosen**, by replaying every archived browser run's
+ * **Both numbers are measured rather than chosen**, by replaying every archived browser run's
  * rebuffer counter through candidate rules. Within a rolling twenty seconds and after the first
  * frame, the fourteen-minute collapse measured on 2026-08-07
  * reaches 4 stalls, the one other run with viewer-visible degradation reaches 4, and the worst run a
@@ -262,7 +262,7 @@ function stateOfHealth(health: TopicHealth | undefined, nowMs: number): FeedStat
  * recorded against the entry topic directly. The poller follows only the playing rung, and the one
  * being switched to during a switch, so the rungs folded here are one or two.
  *
- * ⭐ **Agreement across the rungs, not the worst of them.** One gateway serves every feed, so a
+ * **Agreement across the rungs, not the worst of them.** One gateway serves every feed, so a
  * rung being served is proof the gateway answers, and a rung failing beside it is behind for a
  * reason of its own rather than cut off. Taking the worst would raise the overlay on any single
  * rung's flake. This is the same all-rungs rule the ended signal already uses.
@@ -276,7 +276,7 @@ function stateOfHealth(health: TopicHealth | undefined, nowMs: number): FeedStat
  * fetch and never again, so a failure recorded there has nothing that would ever clear it, and the
  * rungs report the same outage within a poll anyway.
  *
- * ⭐⭐⭐ **One rung going quiet is a fault the whole group has to report, and only when it is the rung
+ * **One rung going quiet is a fault the whole group has to report, and only when it is the rung
  * the viewer is on.** Agreement is right for reaching the gateway, which is what it was built for: a
  * rung that cannot reach the host its siblings are reaching has a flake of its own, and the viewer is
  * still watching. It is wrong for a feed that stops advancing. Measured 2026-08-30, live, on both
@@ -357,7 +357,7 @@ export class FeedHealthTracker {
   /**
    * The rungs each ladder follows right now, keyed by the topic the viewer's own link names.
    *
-   * ⛔ **Without this the overlay is blind on a ladder.** A viewer subscribes to the entry topic,
+   * **Without this the overlay is blind on a ladder.** A viewer subscribes to the entry topic,
    * the only one their link carries and the only one that survives a restart, while the rung topics
    * are per session and are discovered from the master playlist. Every gateway fault is recorded
    * against a rung, so `reconnecting` and `stalled` had no way to reach a watching viewer. Caught
@@ -372,7 +372,7 @@ export class FeedHealthTracker {
   /**
    * The rung each ladder's viewer is actually playing, where the player has said.
    *
-   * ⛔ Absent for every single-rendition stream, and for a ladder until its first level switch. The
+   * Absent for every single-rendition stream, and for a ladder until its first level switch. The
    * fold falls back to the agreement rule then, which is what it did for every stream before this
    * existed. See {@link foldLadderHealth}.
    */
@@ -449,7 +449,7 @@ export class FeedHealthTracker {
   /**
    * Say which rung of a ladder this viewer is playing, or null once nothing is selected.
    *
-   * ⭐ The overlay watches the group and only the group, so without this a fault on the one rung a
+   * The overlay watches the group and only the group, so without this a fault on the one rung a
    * viewer can actually see is outvoted by three rungs they cannot. See {@link foldLadderHealth}.
    *
    * Ignored for a topic that is not a tracked ladder, and for a rung that ladder does not walk. Both
@@ -502,7 +502,7 @@ export class FeedHealthTracker {
   /**
    * Watch for a finished feed whose broadcaster has come back, which is what a player rejoins on.
    *
-   * ⛔ Announced from here rather than read off {@link subscribe} as a state leaving
+   * Announced from here rather than read off {@link subscribe} as a state leaving
    * {@link FEED_STATE_ENDED}, because that is not the only way a state leaves it. An ended topic can
    * be evicted past {@link TRACKED_TOPIC_LIMIT} or forgotten by {@link clear}, and both read as `live`
    * afterwards. A player that restarted on either would be handed the finished recording again from
@@ -610,7 +610,7 @@ export class FeedHealthTracker {
         ...health,
         gatewayFailures,
         retryAtMs: this.now() + Math.max(backoffDelayMs(gatewayFailures), atLeastMs),
-        // ⛔⛔⛔ **The unserved run ends here, and leaving it running cost a viewer their picture.**
+        // **The unserved run ends here, and leaving it running cost a viewer their picture.**
         // An unserved slot means the gateway ANSWERED and had nothing in it. A gateway that did not
         // answer is no evidence at all about the slot, so a run carried through an outage measures
         // the outage. Caught live on 2026-08-30: a 20.5 second gateway outage under a watching
@@ -637,7 +637,7 @@ export class FeedHealthTracker {
    * of reaching the gateway erases a stall the player has already reported, and the path that would
    * do it is the one every restart takes.
    *
-   * ⭐ **Every topic held off stops waiting, whichever one was proven.** One gateway serves every
+   * **Every topic held off stops waiting, whichever one was proven.** One gateway serves every
    * feed this tracker holds, so a read getting through is the same evidence a segment arriving is.
    * A ladder viewer holds an entry for the quality it plays, one more while a switch is under way,
    * each backing off on its own count, and leaving the switch target asleep while the playing rung is
@@ -717,7 +717,7 @@ export class FeedHealthTracker {
    * is {@link recordFeedResumed}, on evidence a served slot alone cannot give: an open playlist in the
    * slot after the finished one.
    *
-   * ⭐ A run of playback stalls is kept for the opposite reason: serving a slot does not disprove it.
+   * A run of playback stalls is kept for the opposite reason: serving a slot does not disprove it.
    * Through the whole of the fourteen-minute collapse the gateway kept serving, 384 slots against 34
    * empty ones after the onset, while the picture stopped every couple of seconds. Clearing the
    * stalls here would make the state that run exists to add unreachable on the run itself.
@@ -747,7 +747,7 @@ export class FeedHealthTracker {
    * The broadcaster is publishing to a feed that had finished: the slot after its finished playlist
    * was served one that is still open.
    *
-   * ⭐ The one thing that takes a topic back out of {@link FEED_STATE_ENDED}. A declared stream's
+   * The one thing that takes a topic back out of {@link FEED_STATE_ENDED}. A declared stream's
    * broadcaster who stops and comes back continues the same feed at the next index, so a finished
    * playlist is the end of a session rather than of the feed. Measured live 2026-09-24: finalized at
    * 18:41:57 UTC, back at 18:43:18, and a viewer who had watched it end was still told it had ended
@@ -759,7 +759,7 @@ export class FeedHealthTracker {
    * ends its walk before anything records it as served, and the end hides the run from then on.
    * Without this a ladder that came back would be announced as still waiting to continue.
    *
-   * ⛔ **For a ladder's group, every followed rung's run ends with it, not only the rung that was found
+   * **For a ladder's group, every followed rung's run ends with it, not only the rung that was found
    * back.** One rung is watched, and the rung a viewer is on decides the unserved half of the group's
    * state. Those runs were waiting on the broadcast that has just come back, so they are over whichever
    * rung showed it. Failures are left alone: they describe the gateway, not the broadcaster.
@@ -784,7 +784,7 @@ export class FeedHealthTracker {
    * A fresh session's first read found this feed's playlist open, while an end is still recorded
    * against it. That end was left by an earlier session, and the broadcaster has come back since.
    *
-   * ⛔ The tracker outlives every player on the page, so an end recorded while one viewer watched is
+   * The tracker outlives every player on the page, so an end recorded while one viewer watched is
    * still recorded after they leave. A viewer who came back through the app after the broadcaster had
    * returned was told the broadcast had ended over a live picture, because only a watch cleared an end
    * and the watch went with the session that ran it.

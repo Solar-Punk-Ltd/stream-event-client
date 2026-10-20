@@ -376,7 +376,7 @@ describe('LadderFeedPoller', () => {
   });
 
   /**
-   * ⛔⛔ **A finished ladder is not necessarily over.** Live, 2026-09-24: a declared stream's encoder
+   * **A finished ladder is not necessarily over.** Live, 2026-09-24: a declared stream's encoder
    * dropped for longer than the reconnect window, the uploader finalized all four rungs at 18:41:57
    * UTC, and the broadcaster came back at 18:43:18 with every rung resuming its feed at the next
    * index. The viewer who had watched it end sat on "This broadcast has ended" for more than fifteen
@@ -464,7 +464,7 @@ describe('LadderFeedPoller', () => {
      * through the reconnect window, the ladder finishes, and the broadcaster comes back. The viewer is
      * told the broadcast is waiting, then that it has ended, and then nothing.
      *
-     * ⛔ The viewer's rung still carried its wait from before the end, so the group used to come back
+     * The viewer's rung still carried its wait from before the end, so the group used to come back
      * reading as waiting to continue.
      */
     it('comes back live for the viewer on a rung, rather than as the wait before the end', async () => {
@@ -501,7 +501,7 @@ describe('LadderFeedPoller', () => {
     });
 
     /**
-     * ⛔ The tracker outlives every session on the page. A viewer who watched the ladder end, went
+     * The tracker outlives every session on the page. A viewer who watched the ladder end, went
      * elsewhere in the app, and came back after the broadcaster returned found the end still recorded
      * against the group, because only a watch cleared it and the watch stopped with the session that
      * ran it: "This broadcast has ended" over a live picture. Two sessions on one tracker here, as the
@@ -858,7 +858,7 @@ describe('LadderFeedPoller feed health', () => {
   });
 
   /**
-   * ⭐ The measured defect. Three unrelated faults under a watching ladder viewer on 2026-08-29 each
+   * The measured defect. Three unrelated faults under a watching ladder viewer on 2026-08-29 each
    * froze the picture for 58.5 to 59.0 seconds, an eight second writer-bee pause included, because
    * every rung that had reached the cap was asleep on a committed timer and could not find out the
    * fault was over. The clock is frozen in both tests below, so nothing any rung is owed can elapse
@@ -904,7 +904,7 @@ describe('LadderFeedPoller feed health', () => {
     });
 
     /**
-     * ⛔ The trap in slicing a wait. What the poller is handed is not a deadline, it is a *fresh
+     * The trap in slicing a wait. What the poller is handed is not a deadline, it is a *fresh
      * draw*: `ManifestFetcher` wires it to `RequestJitter.spread`, which randomises a quarter off
      * the top on every call. A loop that re-reads it once per slice therefore re-rolls the dice
      * once per slice, and the separation between two viewers who lost the same gateway in the same
@@ -986,7 +986,7 @@ describe('LadderFeedPoller feed health', () => {
         const brokenAsks = () => gateway.requests.filter((path) => path === feedHeadPath(broken)).length;
         const healthyAsks = () => gateway.requests.filter((path) => path.startsWith('soc/')).length;
 
-        // ⛔ Counted over the whole run rather than over a window opened after the first success,
+        // Counted over the whole run rather than over a window opened after the first success,
         // and the reason is a property of the release rather than of the clock. Sibling evidence is
         // recorded on a served READ, and the only served read here is the head: everything after it
         // is a 404 for a slot the publisher has not written, which records nothing either way. So
@@ -1042,7 +1042,7 @@ describe('LadderFeedPoller feed health', () => {
 });
 
 /**
- * ⛔ **The half of the overlay a ladder could not reach.** A viewer's gateway
+ * **The half of the overlay a ladder could not reach.** A viewer's gateway
  * was taken away, the picture froze for 26.6 seconds, and the client rendered nothing at all, which
  * is how it says the feed is live. The viewer was told everything was fine over a frozen frame.
  *
@@ -1120,7 +1120,7 @@ describe('LadderFeedPoller telling the viewer the gateway is gone', () => {
 });
 
 /**
- * ⛔⛔⛔ **`stalled` is dead code on a ladder unless the poller calls `recordUnservedSlot`.** Never calling it
+ * **`stalled` is dead code on a ladder unless the poller calls `recordUnservedSlot`.** Never calling it
  * (found 2026-08-29) leaves the counter the state reads permanently zero, so no threshold can make it fire. Sibling of the `reconnecting` fault in `feedState.test.ts`:
  * that one recorded the right thing under a name nobody read, this one never recorded it at all.
  *
@@ -1286,7 +1286,7 @@ describe('LadderFeedPoller telling the player a rung has stopped being produced'
 });
 
 /**
- * ⛔⛔⛔ **A rung pays for a refusal it believes with the rung itself.**
+ * **A rung pays for a refusal it believes with the rung itself.**
  *
  * The single-rendition walk has asked what is behind a refused slot since 2026-08-06, because on
  * this deployment a 404 usually is not the publisher's head: seventy-four of seventy-six refused

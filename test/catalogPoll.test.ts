@@ -46,7 +46,7 @@ describe('when the watch page reads the catalog again', () => {
 });
 
 /**
- * ⛔ SWR skips its refresh timer while its cache holds an error and leaves the next read to
+ * SWR skips its refresh timer while its cache holds an error and leaves the next read to
  * `onErrorRetry`, whose default waits longer after every failure, from 5 to 10 s after one up to
  * minutes after a few in a row. One slow or refused read would hold an open page that far behind.
  */
@@ -181,7 +181,7 @@ function listedAnnounced(catalog: StreamCatalog): Stream | undefined {
 }
 
 /**
- * ⛔ The watch page's path from a poll to its decision, for a scheduled stream that is not the newest.
+ * The watch page's path from a poll to its decision, for a scheduled stream that is not the newest.
  *
  * The web2 admin turns an announced stream live by replacing its entry where it stands, so the last
  * entry of the catalog stays the same. A stream list that compared only the last entries would start a
@@ -215,7 +215,7 @@ describe('when a scheduled stream that is not the newest entry goes live in plac
 });
 
 /**
- * ⛔ The same path, for a scheduled stream the web2 admin unpublishes, which removes its entry and
+ * The same path, for a scheduled stream the web2 admin unpublishes, which removes its entry and
  * touches no other. Once the list follows every catalog change, the entry leaves the page's list on the
  * next poll, and the page must not answer that by mounting the player on a feed nobody had written.
  *

@@ -29,7 +29,7 @@ export interface CatalogSnapshot {
   /**
    * The slot the body was read from, or null when the gateway did not say which.
    *
-   * ⛔ Travels with the body rather than being read off {@link CatalogFeedReader.getIndex} afterwards,
+   * Travels with the body rather than being read off {@link CatalogFeedReader.getIndex} afterwards,
    * because two reads can be in flight on one gateway at once and the one that lands last is not
    * always the newer. The app's first read runs beside the browse page's first poll, both start with
    * no position and resolve the head on their own, and the reader's position is whichever of them
@@ -97,7 +97,7 @@ export class CatalogFeedReader {
   /**
    * Bumped by {@link reset}, pinned by every read, and compared before the position is written.
    *
-   * ⛔ **Without it a reset that lands mid-read is undone by the read it was meant to cancel.** The
+   * **Without it a reset that lands mid-read is undone by the read it was meant to cancel.** The
    * position is written after an await, and a change of source resets this reader synchronously while a
    * poll may be in flight against the node the viewer just left. That read then finished and wrote
    * the old node's slot number back. Every later poll asked the new node for the slot after it, a
@@ -208,7 +208,7 @@ export class CatalogFeedReader {
         return newest;
       }
       const body = contentText(answer);
-      // ⛔ The body is checked before the position moves. The caller parses it after this returns, so
+      // The body is checked before the position moves. The caller parses it after this returns, so
       // a body that arrived cut short would fail that poll with the position already past it, and
       // every later poll would ask for the slot after it. A change announced only in that slot never
       // reached the page. The walk stops here and this slot is asked for again on the next poll.
@@ -263,7 +263,7 @@ export class CatalogFeedReader {
  * Whether a slot read past the head is "nothing new yet" rather than a fault: a refusing status, a rate
  * limit among them, or a window that ran out.
  *
- * ⛔ The reader holds a position, so this gateway has already answered for this catalog, and the slot
+ * The reader holds a position, so this gateway has already answered for this catalog, and the slot
  * asked for is usually one nobody has written yet: a miss, which on a gateway reading the catalog from
  * another node takes about a second and has a tail past six seconds under load. Raising it put the poll
  * into SWR's error state, which skips the regular reads and backs off, so one slow miss held an open

@@ -42,7 +42,7 @@ interface PreviewEntry {
 type PictureSource = 'given' | 'waiting' | 'none';
 
 /**
- * ⛔ A URL the source does not give yet is not a picture that failed. A node in this tab gives none
+ * A URL the source does not give yet is not a picture that failed. A node in this tab gives none
  * until it is ready, because the browser would otherwise ask the site itself for it and fail, and a
  * card that took that failure as the picture's went on without it for as long as it stayed mounted.
  */
@@ -54,7 +54,7 @@ export function pictureSourceOf(url: string | null, sourceState: ProviderState):
 }
 
 /**
- * ⛔ The rule this exists to hold: **a scheduled stream is never probed.** Not on first render, and
+ * The rule this exists to hold: **a scheduled stream is never probed.** Not on first render, and
  * not as the fallback when its thumbnail turns out to be unfetchable. There is no manifest behind
  * the topic in either case, so a probe there can only end as a wasted queue slot and a placeholder,
  * which is exactly what this returns without spending the fetch.
@@ -73,7 +73,7 @@ export function previewMode({ thumbnail, state, imageFailed = false, picture = '
  * Whether an image failure this card recorded still applies to the picture it is now being asked to
  * render.
  *
- * ⛔ A card outlives the picture it was given and the source it was read from, which is why this
+ * A card outlives the picture it was given and the source it was read from, which is why this
  * compares URLs rather than reading a flag. `StreamList` keys a card by topic, and in admin mode the
  * topic belongs to the declaration and outlives every session on it, so a publisher replacing an
  * unfetchable thumbnail re-renders the same mounted component with a new picture URL, and so does a

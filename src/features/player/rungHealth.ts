@@ -10,7 +10,7 @@ import { parseSwarmUri } from './playlist';
  * The player's side of a ladder's per-rung health: which rung this viewer is on, and what to do when
  * one of them stops being produced.
  *
- * ⛔⛔⛔ **A Swarm feed that stops advancing does not error.** hls.js changes level on a fragment load
+ * **A Swarm feed that stops advancing does not error.** hls.js changes level on a fragment load
  * error, and a feed that has simply stopped offering fragments raises none: the playlist still loads,
  * it just never grows. So a player waiting for a segment it was never offered has nothing to react
  * to. Measured live 2026-08-30 on both byte paths: one rung of four was silenced under a watching
@@ -22,7 +22,7 @@ import { parseSwarmUri } from './playlist';
  * a new index means the playing rung alone stopped. It announces that rung, and this side takes the
  * level out and moves the viewer to the sibling.
  *
- * ⛔ **Every announced rung is dropped, however many came before**, until the viewer is on a quality
+ * **Every announced rung is dropped, however many came before**, until the viewer is on a quality
  * that moves (ruled 2026-10-07). A cap of one per ladder is not used. It was tried from 2026-09-01,
  * when an uploader dying read as every rung failing in turn and the player took the ladder apart. The
  * poller does not condemn a rung for being quiet alone. It fails over only to a sibling it watched
@@ -71,7 +71,7 @@ function levelIndexOfRung(hls: Hls, rungTopicId: string): number {
 /**
  * Tell the feed health which rung this viewer is playing, so a fault on it reaches the overlay.
  *
- * ⛔ The overlay subscribes to the group topic, the only one a viewer's link carries, and a group's
+ * The overlay subscribes to the group topic, the only one a viewer's link carries, and a group's
  * health is what its rungs agree on. That is right for reaching the gateway and wrong for a feed that
  * has stopped: three healthy rungs outvote the one the viewer can actually see. See
  * `FeedHealthTracker.watchRung`.
@@ -96,11 +96,11 @@ export function attachWatchedRungReporter(hls: Hls, groupHexTopic: string, feedH
  * `LEVEL_SWITCHED` and not the level load, because hls.js keeps playing the old level from its buffer
  * until the new one's media is reached, and the old rung has to stay followed until then.
  *
- * ⛔ The level hls.js is loading is named too, when it is another one. A switch asked before hls.js
+ * The level hls.js is loading is named too, when it is another one. A switch asked before hls.js
  * reports the level it started on is under way when that report arrives, and a poller told only the
  * reported rung would stop the switch target and search for it again when hls.js next asks.
  *
- * ⛔ A switch taken back before it plays names the playing rung alone, so the rung asked for stops.
+ * A switch taken back before it plays names the playing rung alone, so the rung asked for stops.
  */
 export function attachActiveRungFollower(
   hls: Hls,
@@ -139,26 +139,26 @@ export function attachActiveRungFollower(
 /**
  * Take a rung out of the ladder once the poller has found it stopped, so ABR stops choosing it.
  *
- * ⛔⛔ **Removing it is the only thing that lasts.** Reporting the dead rung's playlist as a load error
+ * **Removing it is the only thing that lasts.** Reporting the dead rung's playlist as a load error
  * instead was tried on paper and does not hold: hls.js retries twice, switches away by setting
  * `nextAutoLevel`, and then clears that on the first fragment that loads, so ABR is free to pick the
  * dead rung again on the very next segment. On a link fast enough to afford it, that is a viewer
  * oscillating on a three second period for the rest of the broadcast. `removeLevel` is what hls.js
  * itself uses for a level it has decided is unusable, and unlike pinning a level it leaves ABR on.
  *
- * ⚠️ **A removed rung does not come back within the session.** hls.js has no API to put a level back,
+ * **A removed rung does not come back within the session.** hls.js has no API to put a level back,
  * so a rung that resumes publishing is available again only to viewers who join afterwards. The
  * alternative is rebuilding the player, which costs the viewer their place in a live stream to
  * recover a rung they are not watching.
  *
- * ⛔ **hls.js renumbers the levels on every removal**, so a rung is looked up by its topic on each
+ * **hls.js renumbers the levels on every removal**, so a rung is looked up by its topic on each
  * announcement and never by an index remembered from an earlier one.
  */
 export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () => void {
   return feedHealth.onRungStopped((rungTopicId, detail) => {
     const index = levelIndexOfRung(hls, rungTopicId);
     if (index < 0) {
-      // ⛔ This line is what tells another ladder's announcement apart from "the rung was never
+      // This line is what tells another ladder's announcement apart from "the rung was never
       // reported stopped at all". Without it a live test went red on 2026-09-01 having logged NOTHING:
       // no drop, no refusal, no detection, so the two had to be told apart by reasoning rather than by
       // reading. Most announcements really are another ladder's and this is the right answer for them,
@@ -171,7 +171,7 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
     }
 
     const level = hls.levels[index];
-    // ⛔ The reason that condemned it, in the line that announces it. A warning saying only that a rung
+    // The reason that condemned it, in the line that announces it. A warning saying only that a rung
     // stopped cannot be checked against the broadcast afterwards, and on 2026-08-31 that cost two live
     // test runs.
     const reason = detail.reason;
@@ -182,7 +182,7 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
       return;
     }
 
-    // ⛔ Read BEFORE the removal, because the removal is what sets `loadLevel` to -1 and the two
+    // Read BEFORE the removal, because the removal is what sets `loadLevel` to -1 and the two
     // reasons it can be -1 must not be confused. A player that has not chosen a level yet is also at
     // -1, and steering that one forces a level while hls.js is still settling the ladder. Only a
     // viewer whose own rung was just taken away needs somewhere to go.
@@ -229,7 +229,7 @@ function forgetUnfollowedPlaylists(hls: Hls, followed: readonly number[]): void 
 }
 
 /**
- * ⛔ Drops the playlist hls.js still holds for a level from an earlier visit to its rung.
+ * Drops the playlist hls.js still holds for a level from an earlier visit to its rung.
  *
  * The poller forgets a rung's playlist when it stops following it and starts a new one from the rung's
  * newest window when it follows it again, so whatever hls.js kept for that level is minutes old and starts
@@ -246,7 +246,7 @@ function forgetEarlierPlaylist(hls: Hls, levelIndex: number): void {
 }
 
 /**
- * ⛔⛔ Makes hls.js forget the fragment it appended last, which belonged to the rung just removed.
+ * Makes hls.js forget the fragment it appended last, which belonged to the rung just removed.
  *
  * hls.js renumbers the levels on a removal, so the rung moved to can take the removed one's number, and
  * the uploader numbers every rung's segments alike. hls.js then reads the new rung's first fragment as the

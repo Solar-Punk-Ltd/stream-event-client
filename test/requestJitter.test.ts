@@ -86,7 +86,7 @@ describe('RequestJitter spreading a wait that was computed identically everywher
   });
 
   /**
-   * ⛔ Only ever earlier. A jitter that could push an attempt later would be lengthening the retry
+   * Only ever earlier. A jitter that could push an attempt later would be lengthening the retry
    * schedule every time it was applied, which is a different schedule from the one that was chosen.
    */
   it('only ever brings the attempt forward', () => {
@@ -157,7 +157,7 @@ describe('RequestJitter staggering the work itself', () => {
 });
 
 /**
- * ⛔ Every other test here injects over the bound, the source or the timer, which proves the class
+ * Every other test here injects over the bound, the source or the timer, which proves the class
  * does what it is told and nothing about what a viewer runs. The suite would stay green on a shipped
  * bound of zero, and a shipped bound of zero is the whole feature doing nothing.
  *
@@ -167,7 +167,7 @@ describe('RequestJitter staggering the work itself', () => {
  */
 describe('the shipped defaults, which nothing else in this file exercises', () => {
   /**
-   * ⛔ Pinned deliberately. It shipped at 60ms on the reasoning that spreading viewers across it
+   * Pinned deliberately. It shipped at 60ms on the reasoning that spreading viewers across it
    * would land them in cohorts of the size that held. Measuring 128 paced viewers then put a jittered
    * herd at 8041 and 10826ms of ending lag against an unjittered one at 9437 and 9711: no effect, in
    * both rounds.

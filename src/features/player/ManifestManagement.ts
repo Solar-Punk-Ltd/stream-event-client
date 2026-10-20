@@ -56,7 +56,7 @@ interface TopicState {
   /**
    * The segment URLs {@link ManifestStateManager.serialize} built {@link cachedManifest} with.
    *
-   * ⛔ Every segment line in a serialized playlist comes from this, so a cached manifest is only
+   * Every segment line in a serialized playlist comes from this, so a cached manifest is only
    * valid for the gateway that produced it. Without it, `serialize` takes the gateway as an argument
    * and then ignores it on every cache hit.
    */
@@ -248,7 +248,7 @@ export class ManifestStateManager {
       return '';
     }
 
-    // ⛔⛔⛔ The gateway is part of the cache key, not just an argument. A viewer who changes gateway
+    // The gateway is part of the cache key, not just an argument. A viewer who changes gateway
     // through a change of source is covered by `markAllDirty`, but anything that changes it another way
     // was silently served the previous gateway's playlist. On 2026-08-13 that put every segment of
     // a comparison between two gateways on the SAME node while the client truthfully reported two
@@ -319,7 +319,7 @@ export class ManifestStateManager {
   /**
    * Have `onTornDown` called the next time this topic is torn down, once.
    *
-   * ⛔ The push half of what {@link generation} answers by pull, for the one kind of work a pull cannot
+   * The push half of what {@link generation} answers by pull, for the one kind of work a pull cannot
    * reach. A fetch in flight compares generations when it lands, which is enough for anything that
    * runs to its end. A timer between two ticks runs nothing that could compare anything, so work that
    * only pulled would stay scheduled past a teardown for as long as its interval. A finished feed's
@@ -397,15 +397,15 @@ export class ManifestStateManager {
   /**
    * Re-hosts a segment against this viewer's gateway, which is what makes the gateway theirs to pick.
    *
-   * ⛔⛔ The absolute and rooted branches look dead and are not. The uploader writes a bare reference
+   * The absolute and rooted branches look dead and are not. The uploader writes a bare reference
    * and has done since 2026-08-13, but a recording keeps the manifest it was published with, so every
    * broadcast recorded before then names an absolute `http://<host>/bytes/<ref>` for ever. Deleting
    * these branches would send those segments to `<viewer gateway>/bytes/http://...`.
    *
-   * ⚠️ It is also why those recordings still fetch from the publisher's gateway no matter what their
+   * It is also why those recordings still fetch from the publisher's gateway no matter what their
    * viewer configured. That cannot be repaired from this side: the address is in the published bytes.
    *
-   * ⛔ A publisher's gap entry never reaches here. Its URI names nothing fetchable, so re-hosting it
+   * A publisher's gap entry never reaches here. Its URI names nothing fetchable, so re-hosting it
    * would put a real host in front of a token that stands for missing media, and every later reader
    * would have to strip the host back off to see what it was. {@link serialize} passes it through
    * instead. A segment this viewer marked as a gap does come through here, see `liveGapUris`.
@@ -476,7 +476,7 @@ interface SlotRead {
  * How much longer than a search for a rung's newest index may take a level request waits for that
  * rung's first playlist.
  *
- * ⛔ **The wait it bounds had no bound at all, and a bound is the whole fix.** A rung is served out
+ * **The wait it bounds had no bound at all, and a bound is the whole fix.** A rung is served out
  * of what {@link LadderFeedPoller} has already read, so a level request for a rung that has read
  * nothing yet waits on `ready()`, which resolves on the first playlist and on a teardown and on
  * nothing else. A gateway that cannot resolve one rung's feed therefore left that promise pending
@@ -513,7 +513,7 @@ const SEARCH_ROUNDS_IN_A_ROW = 8;
  * {@link RUNG_READY_MARGIN_MS}, or on a slow source {@link SEARCH_ROUNDS_IN_A_ROW} of its rounds and
  * the margin when that is longer.
  *
- * ⛔ **A slow source is waited for, never switched away from** (the owner's ruling: a part reads from the
+ * **A slow source is waited for, never switched away from** (the owner's ruling: a part reads from the
  * source picked for it alone). Measured 2026-10-17 and 18 on a freshly started light Bee 2.8.3 with no
  * blockchain: a miss took 6 to 10 s, a search took about a minute, every quality failed at 20 s, and
  * the player restarted in a loop and never showed a frame, while a full node at 1.3 to 1.6 s a miss
@@ -1328,7 +1328,7 @@ export class ManifestFetcher {
   /**
    * Keep asking whether the broadcaster has come back to a single-rendition feed that just finished.
    *
-   * ⛔ **This path had nothing left that would ever ask again.** hls.js stops reloading a playlist that
+   * **This path had nothing left that would ever ask again.** hls.js stops reloading a playlist that
    * carries ENDLIST, and this fetcher only reads a feed when hls.js asks it to, so a finished feed was
    * never read after the read that finished it. A declared stream continues the same feed at the next
    * index when its broadcaster comes back, and a viewer who had watched the end was told it had ended

@@ -12,7 +12,7 @@ const REMEMBERED = 64;
  * Every read of a ladder's time markers one player makes, so that an address is asked once between the
  * start rung's search, a quiet rung's wait and the check that the stream list named every rung.
  *
- * ⛔ **A marker address is asked at most once.** A marker is never rewritten, so one found, missing or
+ * **A marker address is asked at most once.** A marker is never rewritten, so one found, missing or
  * malformed stays so, and asking a missing one again would put early asks on one address, which Bee
  * answers by skipping peers for it. A gateway fault is not remembered, since the next ask may well be
  * answered.

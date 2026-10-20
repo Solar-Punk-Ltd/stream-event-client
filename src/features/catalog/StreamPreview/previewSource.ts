@@ -20,7 +20,7 @@ type PreviewSource =
   | { kind: 'unavailable'; reason: string };
 
 /**
- * ⛔ The distinction this exists to keep: `parseManifest` returns `segments: []` both for a playlist
+ * The distinction this exists to keep: `parseManifest` returns `segments: []` both for a playlist
  * that genuinely lists no segments and for a body that was never a playlist, and a 404 page parses to
  * exactly the same empty result as an empty playlist. Reading `ok` first is what separates "the
  * gateway does not have this" from "the broadcast published nothing", which are the same value by the
@@ -29,7 +29,7 @@ type PreviewSource =
  * Both still end as `unavailable`, because a viewer can do nothing about either. They are kept apart
  * so the reason reaching the log names the one that happened.
  *
- * ⛔ A gap entry is skipped rather than taken. It is a sequence the broadcast lost, listed so the
+ * A gap entry is skipped rather than taken. It is a sequence the broadcast lost, listed so the
  * numbering behind it does not move, and its URI names nothing a gateway can serve. The publisher
  * never opens a playlist on one, so this cannot be reached today, and it costs one predicate to keep
  * it that way: a card built on a gap would ask the gateway for a reference that does not exist and

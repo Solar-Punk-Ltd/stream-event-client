@@ -18,7 +18,7 @@ const ENDED: PlaybackPosition = { isEnded: true, isPaused: true, bufferedAheadS:
 const WATCHING_FURTHER_BACK: PlaybackPosition = { isEnded: false, isPaused: false, bufferedAheadS: 40 };
 
 /**
- * ⛔ The rule that keeps the fix from costing a viewer their place. A broadcast that comes back is
+ * The rule that keeps the fix from costing a viewer their place. A broadcast that comes back is
  * joined by restarting the player at the live edge, and a restart takes a viewer who is still
  * watching the recording further back away from it. So the restart waits for the viewer to reach the
  * end of what they were playing.

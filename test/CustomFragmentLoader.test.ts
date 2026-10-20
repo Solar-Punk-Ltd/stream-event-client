@@ -193,7 +193,7 @@ describe('CustomFragmentLoader meeting a url that names no gateway', () => {
 });
 
 /**
- * ⛔ The block that does NOT call {@link runStaggerInline}, because the stagger is what it is about.
+ * The block that does NOT call {@link runStaggerInline}, because the stagger is what it is about.
  *
  * hls.js abandons fragments as a matter of course: on a level switch, on a seek, and on every
  * teardown. Before the stagger existed the transport had already been handed the fragment by the

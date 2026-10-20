@@ -24,7 +24,7 @@ interface LadderMarkerWatch {
  * Waits on an announced stream's ladder markers, which the uploader writes once its broadcast has
  * started, and calls `onMarker` for each one found.
  *
- * ⛔ **Not the stream list's next slot.** A waiting page that asks the list's unwritten slot every few
+ * **Not the stream list's next slot.** A waiting page that asks the list's unwritten slot every few
  * seconds gets every peer of its node skipped for that address, so the slot saying live reaches it up
  * to a minute late. A marker address is computed from the clock and asked once, about four seconds
  * into its period, so no address collects early asks. A read the gateway does not answer is let go

@@ -9,7 +9,7 @@ import { WATCH_VIEW_NOT_STARTED, WATCH_VIEW_UNAVAILABLE, WatchPageView } from '@
  * the watch page while what it shows depends on the catalog. Both use the same SWR key, so a viewer
  * moving between the two pages never has two polls running against the gateway.
  *
- * ⛔ **Once a minute, never faster.** Every read asks the list's next slot, which is not written yet,
+ * **Once a minute, never faster.** Every read asks the list's next slot, which is not written yet,
  * and the next change to the list is written to exactly that slot. Bee skips each peer asked for an
  * address too early for a minute, and 25 to 40 early asks delayed a chat message by about 40 s, while a
  * few a minute were harmless. A browse page reading every 5 s made 12 such asks a minute per viewer. A
@@ -22,7 +22,7 @@ export const CATALOG_POLL_INTERVAL_MS = 60_000;
 /**
  * How often the watch page has to read the catalog again, or null when it need not.
  *
- * ⛔ **Only a message the catalog can take back needs it.** The page decides to show "This stream has
+ * **Only a message the catalog can take back needs it.** The page decides to show "This stream has
  * not started yet" from the catalog entry's `state`, and without a poll the catalog is read once, when
  * the app loads. While it waits, the ladder's markers prompt the read that takes it live, and the poll
  * carries a new start time, a title change or a cancellation. A stream that was unpublished while the
@@ -38,7 +38,7 @@ export function watchPageCatalogPollMs(view: WatchPageView): number | null {
  * How soon a failed read is tried again while the list has not yet been shown from the selected source,
  * in milliseconds.
  *
- * ⛔ **Only on the first load.** A viewer whose first read fails would otherwise look at an empty page
+ * **Only on the first load.** A viewer whose first read fails would otherwise look at an empty page
  * for a whole {@link CATALOG_POLL_INTERVAL_MS}. A retry asks the list's next slot again, which is not
  * written yet, and Bee skips each peer asked that early for a minute, so once the list has been shown a
  * failed read waits the routine interval instead.
@@ -50,7 +50,7 @@ export const FIRST_LOAD_RETRY_MS = 5_000;
  * it. That time is {@link FIRST_LOAD_RETRY_MS} while the list has not been shown from the selected
  * source, and `pollMs` once it has. A switch of source starts the first load again.
  *
- * ⛔ **Never a backoff.** SWR skips its refresh timer while its cache holds an error and leaves the next
+ * **Never a backoff.** SWR skips its refresh timer while its cache holds an error and leaves the next
  * read to `onErrorRetry`, whose default waits longer after every failure, from 5 to 10 s after one up
  * to minutes after a few in a row. One slow or refused read would hold an open page that far behind,
  * so a stream published or gone live would reach it only after a reload. A retry due while the page is

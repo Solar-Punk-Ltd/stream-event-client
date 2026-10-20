@@ -68,7 +68,7 @@ describe('escalating a fatal media error instead of retrying it forever', () => 
   });
 
   /**
-   * ⛔ Why the caller must read a monotonic clock, made executable rather than left in a comment.
+   * Why the caller must read a monotonic clock, made executable rather than left in a comment.
    *
    * The whole ladder is a subtraction of two clock readings, so a clock that can jump breaks it in
    * both directions, and the two failures are opposite. `feedState.ts` already documents this for its

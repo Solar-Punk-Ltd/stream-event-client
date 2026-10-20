@@ -3,7 +3,7 @@ import type { FeedHealthTracker } from './feedState';
 /**
  * The player's side of a broadcast that comes back after it ended: when to rejoin it.
  *
- * ⛔⛔ **Rejoining costs a viewer their place, so it waits for them to have nothing left to lose.** A
+ * **Rejoining costs a viewer their place, so it waits for them to have nothing left to lose.** A
  * broadcast that comes back is joined through the player's existing restart, which bootstraps every
  * feed at the live edge. That is exactly right for the viewer of 2026-09-24, who watched the end and
  * was left paused on it, and exactly wrong for a viewer still watching the recording further back,
@@ -41,7 +41,7 @@ export interface PlaybackPosition {
  * finish is left on an element that has ended and paused, which fits the viewer of 2026-09-24. Paused
  * at the end of what is held is the other way, for a viewer who stopped there themselves.
  *
- * ⚠️ Still playing is never the end, however little is held. A player waiting on a fragment of the
+ * Still playing is never the end, however little is held. A player waiting on a fragment of the
  * recording it is watching looks exactly like one that has run out, and moving it would be the one
  * mistake this rule is here to avoid.
  */

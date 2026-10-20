@@ -8,7 +8,7 @@ import { watchForLadderMarkers } from './watchForLadderMarkers';
  * Reads the stream list once at each ladder marker of an announced stream, which is how a waiting page
  * learns the stream went live without asking the list's next slot on a short timer.
  *
- * ⭐ **One read per marker, never a retry of its own.** The admin writes the live entry when the first
+ * **One read per marker, never a retry of its own.** The admin writes the live entry when the first
  * quality reports, before that quality's first segment and so before any marker, so the read at the
  * first marker normally finds it. When it does not, the next marker prompts the next read, ten seconds
  * on, which keeps the list's next slot clear of early asks the skip rule would punish. The wait ends

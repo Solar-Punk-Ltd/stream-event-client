@@ -51,7 +51,7 @@ describe('what the browse page shows for a catalog fetch', () => {
   });
 
   /**
-   * ⛔ The gateway switch. A list from the node a viewer has just left is not an answer from the node
+   * The gateway switch. A list from the node a viewer has just left is not an answer from the node
    * they chose, so it cannot hold the page: they would believe their own node was serving them, and
    * the message written for this moment could never appear, because a non-empty list is read first.
    */

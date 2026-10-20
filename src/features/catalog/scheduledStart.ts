@@ -8,7 +8,7 @@
  */
 
 /**
- * ⭐ The browser's own locale and time zone, never a format chosen here. A viewer reads a start time
+ * The browser's own locale and time zone, never a format chosen here. A viewer reads a start time
  * to decide whether to come back, which they can only do in their own clock. A fixed format would be
  * both wrong for most readers and a second place for the offset to be lost.
  *

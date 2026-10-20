@@ -68,7 +68,7 @@ describe('FeedHealthTracker backoff schedule', () => {
    * same value, so the constant is only ever compared to itself: raising it to 600 leaves such tests
    * green, and 600 polls is ten minutes of a dead feed before a viewer is told anything.
    *
-   * ⛔ **Polls were the wrong unit, which is why this is now milliseconds.** The poll rate collapses
+   * **Polls were the wrong unit, which is why this is now milliseconds.** The poll rate collapses
    * during exactly the stall it counted, so thirty polls meant about eight seconds while healthy and
    * about thirty-two during a stall. See {@link UNSERVED_SLOT_STALL_MS}. Eight seconds is what the
    * count meant in the healthy case, so only the broken case moves.
@@ -145,7 +145,7 @@ describe('FeedHealthTracker backoff schedule', () => {
  * What the schedule costs a viewer whose gateway has come back, which is a different question from
  * what the schedule is.
  *
- * ⭐ **Measured 2026-08-29, live, in a real browser, on the four rung ABR ladder.** Three unrelated
+ * **Measured 2026-08-29, live, in a real browser, on the four rung ABR ladder.** Three unrelated
  * faults were injected under a watching viewer and the frozen picture was timed: killing the
  * uploader process cost **59.0s**, pausing the writer bee node for **eight seconds** cost **58.9s**,
  * and a writer bee outage cost **58.5s**. Three faults of three very different lengths landing
@@ -153,7 +153,7 @@ describe('FeedHealthTracker backoff schedule', () => {
  * the schedule above. Waiting out 2 + 4 + 8 + 16 and then a first cap period is exactly sixty
  * seconds in which nothing asks the gateway anything, and all three sat on it.
  *
- * ⛔ **The fault length barely enters into it.** An eight second pause cost 58.9 seconds of frozen
+ * **The fault length barely enters into it.** An eight second pause cost 58.9 seconds of frozen
  * picture, so fifty of those seconds were the client's own, spent holding off a gateway that had
  * been answering again for the better part of a minute.
  *
@@ -385,7 +385,7 @@ describe('FeedHealthTracker proof that did not come from a feed read', () => {
   });
 
   /**
-   * ⭐ The ladder half of the same defect, and why "a feed read only proves the gateway served that
+   * The ladder half of the same defect, and why "a feed read only proves the gateway served that
    * feed" was the wrong reading of it. One gateway serves every feed this tracker holds, so a feed
    * read getting through is the same evidence a segment arriving is: the gateway is up. A viewer on
    * the four rung ladder holds five entries, each backing off on its own count, and leaving four of
@@ -629,7 +629,7 @@ describe('FeedHealthTracker on a broadcast that has ended', () => {
   });
 
   /**
-   * ⛔ The live failure this exists for, 2026-09-24. A declared stream's encoder dropped for longer
+   * The live failure this exists for, 2026-09-24. A declared stream's encoder dropped for longer
    * than the reconnect window, the uploader finalized the broadcast, and the broadcaster came back on
    * the same feeds eighty-one seconds later. A viewer who had watched it end was still being told it
    * had ended fifteen minutes after that, while a viewer who opened the page fresh played it live.
@@ -697,7 +697,7 @@ describe('FeedHealthTracker on a broadcast that has ended', () => {
   });
 
   /**
-   * ⛔ The tracker outlives every player on the page, so an end recorded while one viewer watched is
+   * The tracker outlives every player on the page, so an end recorded while one viewer watched is
    * still recorded after they leave. A viewer who came back through the app once the broadcaster had
    * returned was told the broadcast had ended over a live picture, because only a watch cleared an end
    * and the watch went with the session that ran it.
@@ -714,7 +714,7 @@ describe('FeedHealthTracker on a broadcast that has ended', () => {
   });
 
   /**
-   * ⛔ Silently. A viewer who has only just arrived has watched nothing yet, so there is nothing to
+   * Silently. A viewer who has only just arrived has watched nothing yet, so there is nothing to
    * rejoin, and a rejoin armed here would fire at the end of the live broadcast they go on to watch
    * and restart them into its recording.
    */
@@ -874,7 +874,7 @@ describe('FeedHealthTracker on a gateway that is slow rather than absent', () =>
   });
 
   /**
-   * ⭐ The case the collapse actually was, and the one the other states get wrong. Slots kept being
+   * The case the collapse actually was, and the one the other states get wrong. Slots kept being
    * served all the way through: 384 served against 34 empty after the onset, and the longest run of
    * consecutive unserved slots in the whole run was 2. A served slot ends a stalled feed and a run of
    * failures, because it disproves both. It disproves nothing about a player that cannot keep up.
@@ -978,7 +978,7 @@ describe('FeedHealthTracker on a gateway that is slow rather than absent', () =>
 /**
  * The ladder splits one broadcast across five feeds, and the overlay watches none of them.
  *
- * ⛔ **This fault was caught in a live run.** A viewer's gateway was taken away for
+ * **This fault was caught in a live run.** A viewer's gateway was taken away for
  * twenty-odd seconds. Every rung recorded its failures, the picture froze for 26.6s, and the client
  * rendered nothing at all, which is how it says the feed is live. The viewer was told everything was
  * fine while looking at a frozen frame.
@@ -991,7 +991,7 @@ describe('FeedHealthTracker on a gateway that is slow rather than absent', () =>
  * because {@link LadderFeedPoller} was already taught to record it against the group, and `degraded`
  * reached them because playback stalls are counted off the video element against the entry topic.
  *
- * ⭐ **Every tracked rung has to agree before the group says anything.** One gateway serves every
+ * **Every tracked rung has to agree before the group says anything.** One gateway serves every
  * feed, so a single rung being served is proof the gateway is answering, and the others are then
  * behind for their own reasons. The rungs tracked are the ones the poller follows: the playing rung,
  * and during a switch the one being switched to, which is why these cases hold two.
@@ -1088,7 +1088,7 @@ describe('FeedHealthTracker on a ladder, where the faults land on rungs and the 
   });
 
   /**
-   * ⛔ The rung a viewer is on decides the unserved half of the group's state, and every rung sat on
+   * The rung a viewer is on decides the unserved half of the group's state, and every rung sat on
    * unserved slots for the whole reconnect window before the ladder finished. The rungs are found back
    * one watch at a time, up to a whole watch interval apart when the uploader writes one just after its
    * watch looked, so the rung the viewer is on is not necessarily the one found first. Its run from
@@ -1156,7 +1156,7 @@ describe('FeedHealthTracker on a ladder, where the faults land on rungs and the 
 });
 
 /**
- * ⛔⛔⛔ **`stalled` was unreachable on a ladder, and the threshold was the smaller half of why.**
+ * **`stalled` was unreachable on a ladder, and the threshold was the smaller half of why.**
  *
  * Two faults, found together:
  *
@@ -1168,7 +1168,7 @@ describe('FeedHealthTracker on a ladder, where the faults land on rungs and the 
  *    while healthy and about 32 during a stall. A 12.4 second freeze accumulated 13 polls, never
  *    reached the threshold, and the viewer was told nothing for twelve seconds.
  *
- * ⭐ **Eight seconds is the same number the poll count meant while healthy**, so a viewer at the
+ * **Eight seconds is the same number the poll count meant while healthy**, so a viewer at the
  * live edge is no more likely to see the overlay than before. What changes is the stall case, where
  * the count silently stretched to four times its intended duration. It is also
  * {@link MANIFEST_RETRY_CAP_MS}, which is already this client's answer to how long a quiet feed may
@@ -1243,14 +1243,14 @@ describe('FeedHealthTracker calling a feed stalled by elapsed time rather than b
 });
 
 /**
- * ⛔⛔⛔ **Three rungs outvoted the one the viewer could actually see.**
+ * **Three rungs outvoted the one the viewer could actually see.**
  *
  * Measured live on 2026-08-30, on both byte paths. One rung of a four rung ladder was silenced under
  * a watching viewer, the picture stopped for 87.2 seconds in the tab and 103.2 through a gateway,
  * three rungs published throughout, and the overlay said `live` for the whole of it. The group's
  * health is what its rungs agree on, and three of four agreed nothing was wrong.
  *
- * ⭐ Agreement is still right for reaching the gateway, which is what it was built for: one gateway
+ * Agreement is still right for reaching the gateway, which is what it was built for: one gateway
  * serves every feed, so a rung that cannot reach the host its siblings are reaching has a flake of
  * its own and the viewer is still watching. It is wrong for a feed that has stopped advancing, which
  * is a fault the viewer sees the instant it is the rung they are on. So only that half follows the
@@ -1298,7 +1298,7 @@ describe('FeedHealthTracker judging the rung a viewer is actually watching', () 
   });
 
   /**
-   * ⛔ The constraint the owner attached to this fix. A rung failing to reach a gateway its siblings
+   * The constraint the owner attached to this fix. A rung failing to reach a gateway its siblings
    * are reaching is that rung's own flake, and raising the overlay on it is what the agreement rule
    * exists to prevent. Watching the rung must not change that.
    */

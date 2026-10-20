@@ -33,7 +33,7 @@ import { beeNotFound } from './helpers/beeNotFound';
  * request jitter existed. A zero bound runs a staggered walk synchronously, and a random that always
  * returns zero leaves a backoff at exactly the length the fetcher asked for.
  *
- * ⛔ Not the production default, which is a real delay off `Math.random`. The tests that cover the
+ * Not the production default, which is a real delay off `Math.random`. The tests that cover the
  * jitter itself build their own, and one below deliberately uses the shipped defaults, for the same
  * reason `waitMs` is exercised directly: every test injecting over a thing is how a thing that does
  * nothing stays green.
@@ -94,7 +94,7 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
  * callbacks need a handful of ticks, and a defect that needed more than fifty is not the one here.
  * Verified the other way round, which is the part that matters: these tests fail without the fix.
  *
- * ⛔ **One poll per call, never a loop of them.** Node floors `setTimeout(0)` at about a millisecond,
+ * **One poll per call, never a loop of them.** Node floors `setTimeout(0)` at about a millisecond,
  * so this budget costs tens of milliseconds of real time and a loop pays that per poll. Loops here
  * used to measure 2306ms and 677ms on a quiet machine, and the 677ms one took **5491ms** on a loaded
  * one, past vitest's 5000ms default, failing with nothing wrong. A budget is also the weaker wait: it can only be long enough or too short. Every loop here
@@ -209,7 +209,7 @@ describe('ManifestFetcher follow-up fetches (CON-29)', () => {
    * fresh walk per reload, each re-requesting slots the ones already running are mid-flight on. That
    * is a viewer paying more the worse their gateway gets, which is the direction it must not go.
    *
-   * ⚠️ **Asserted as the sequence, and a count would not have worked.** Four overlapping polls issue
+   * **Asserted as the sequence, and a count would not have worked.** Four overlapping polls issue
    * four requests for the same first slot and then get correspondingly less far, so the totals
    * coincide: measured with the guard deleted, this run asks `[6, 6, 6, 6, 7]` where one walk asks
    * `[6, 7, 8, 9, 10]`, five requests either way. The count also varies between runs, since the extra
@@ -391,7 +391,7 @@ describe('ManifestFetcher follow-up fetches (CON-29)', () => {
   });
 
   /**
-   * ⛔ **The risk the timed threshold introduces, and the only test that can catch it.**
+   * **The risk the timed threshold introduces, and the only test that can catch it.**
    *
    * Every poll of a healthy feed ends on the 404 that says the publisher has been caught, so a
    * viewer at the live edge is riding an open unserved run at every instant. Counting polls, that
@@ -399,7 +399,7 @@ describe('ManifestFetcher follow-up fetches (CON-29)', () => {
    * advancing perfectly, and the only thing standing between a caught-up viewer and a permanent
    * overlay is the served slot ending the run before the next one starts.
    *
-   * ⚠️ **The window is per run, not per session, and that distinction is the test.** Twenty rounds
+   * **The window is per run, not per session, and that distinction is the test.** Twenty rounds
    * at a quarter window each is eighty seconds, ten windows of elapsed time, and the feed must still
    * read live throughout because no single run ever reaches eight seconds.
    *
@@ -537,7 +537,7 @@ describe('keeping up with a publisher that writes faster than hls.js reloads', (
   /**
    * How far the clock moves per poll here.
    *
-   * ⚠️ **Measured, not assumed: this fixture never records an unserved slot at all.** Its walk ends
+   * **Measured, not assumed: this fixture never records an unserved slot at all.** Its walk ends
    * each poll having consumed everything published, with `unservedPollsRecorded` sitting at zero
    * throughout, so the test below cannot fail whatever this clock does. Verified by mutation on
    * 2026-08-29: making `recordGatewayResponse` keep the run left all 52 tests here green.
@@ -1532,7 +1532,7 @@ describe('the probe landing on the recording instead of the manifest that ended 
 });
 
 /**
- * ⛔⛔ The single-rendition half of the failure measured live on 2026-09-24. A declared stream's
+ * The single-rendition half of the failure measured live on 2026-09-24. A declared stream's
  * broadcaster who stops and comes back continues the same feed at the next index, and this path read
  * nothing past the playlist that finished it. hls.js stops reloading a playlist that carries ENDLIST,
  * so nothing here would ever have asked again: a viewer who watched the end was told it had ended for
@@ -1686,7 +1686,7 @@ describe('a single-rendition broadcast that comes back after it ended', () => {
   }
 
   /**
-   * ⛔ The tracker outlives every mount, so an end recorded while one viewer watched is still recorded
+   * The tracker outlives every mount, so an end recorded while one viewer watched is still recorded
    * when they come back through the app. After the broadcaster returned, the new mount read the feed
    * open and the overlay still said the broadcast had ended, because only a watch cleared an end and
    * the watch was torn down with the mount that ran it.
@@ -1785,7 +1785,7 @@ describe('a single-rendition broadcast that comes back after it ended', () => {
 });
 
 /**
- * ⛔ Every other block in this file injects {@link NO_JITTER}, so the fetcher's two uses of the
+ * Every other block in this file injects {@link NO_JITTER}, so the fetcher's two uses of the
  * stagger could both be deleted with the suite still green. These are the tests that fail.
  *
  * They are separate from the backoff block above on purpose: that one asserts the wait the fetcher
@@ -1805,7 +1805,7 @@ describe('ManifestFetcher keeping its requests off the instant every other viewe
   });
 
   /**
-   * ⛔ The herd this exists for. `backoffDelayMs` is a pure function of the failure count, so a
+   * The herd this exists for. `backoffDelayMs` is a pure function of the failure count, so a
    * hundred viewers that lost one gateway in the same second ask it again in the same millisecond,
    * every time, for as long as it stays down. Spreading the wait is what breaks that up, and it is
    * free because the viewer was already waiting.
