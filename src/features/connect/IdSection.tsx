@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useId, useState } from 'react';
 
+import { useAppContext } from '@/app/AppProvider';
 import { useThemeChoice } from '@/app/ThemeChoiceProvider';
 import { SwarmIdOffer, SwarmIdYou } from '@/features/chat/swarmId/SwarmIdParts';
 import { useChatUser } from '@/features/chat/User';
@@ -23,12 +24,13 @@ interface IdSectionProps {
 export function IdSection({ onLeave }: IdSectionProps) {
   const { session } = useChatUser();
   const { canSwitch } = useThemeChoice();
+  const { experimental } = useAppContext();
 
   if (session === null) {
     return (
       <>
         <GuestForm />
-        <BetaIntro />
+        {experimental && <BetaIntro />}
         <SwarmIdOffer />
       </>
     );

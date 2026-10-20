@@ -5,7 +5,13 @@ import { manifestFetcher } from '@/features/player/CustomManifestLoader';
 import { ManifestStateManager } from '@/features/player/ManifestManagement';
 import { Stream } from '@/features/catalog/stream';
 import { CatalogFeedReader } from '@/features/catalog/catalogFeed';
-import { type ChatConfig, enabledChat, type RuntimeConfig, selectedTheme } from '@/config/runtimeConfig';
+import {
+  type ChatConfig,
+  enabledChat,
+  experimentalEnabled,
+  type RuntimeConfig,
+  selectedTheme,
+} from '@/config/runtimeConfig';
 import { THEME_CONTENT, type ThemeContent } from '@/design/themes';
 import { gatewayClock } from '@/shared/gatewayClock';
 import type { SwarmClient, SwarmReader } from '@/swarm/client';
@@ -27,6 +33,7 @@ import {
 
 import { CatalogRead, catalogUpdater, StreamCatalog, toCatalogRead } from '@/features/catalog/catalogState';
 
+import { browserStorage } from './browserStorage';
 import { loadSourceChoices, saveAddedSources, saveRouting, type SourceChoices } from './sourceStorage';
 
 type AppContextState = {
@@ -94,6 +101,8 @@ type AppContextState = {
   setRouting: (routing: Routing) => void;
   /** The chat's settings, or null when this deployment has chat switched off. */
   chat: ChatConfig | null;
+  /** Whether this deployment offers Swarm ID and the viewer's own choice of sources, the `experimental` setting. */
+  experimental: boolean;
   /** The logo, words and links of this deployment's theme, which stay when a viewer switches the look. */
   themeContent: ThemeContent;
 };
@@ -170,9 +179,13 @@ function absoluteUrl(url: string): string {
 export const AppContextProvider = ({ config, children }: Props) => {
   const settings = useMemo(() => swarmSettingsFrom(config), [config]);
   const chat = useMemo(() => enabledChat(config), [config]);
+  const experimental = experimentalEnabled(config);
+  // With the experimental parts off the saved choices are neither read nor written, so they come back unchanged
+  // once the deployment turns them on again.
+  const [choiceStorage] = useState(() => (experimental ? browserStorage() : null));
   const [catalog, setCatalog] = useState<StreamCatalog>({ streams: [], gateway: null, slot: null });
   const [isStreamListLoaded, setIsStreamListLoaded] = useState(false);
-  const [choices, setChoices] = useState<SourceChoices>(() => loadSourceChoices(settings));
+  const [choices, setChoices] = useState<SourceChoices>(() => loadSourceChoices(settings, choiceStorage));
   const wiring = useMemo(() => wiringOf(settings, choices), [settings, choices]);
   const [swarm, setSwarm] = useState<SwarmClient>(() => {
     const client = swarmClientFor(settings, wiring, chat);
@@ -232,39 +245,39 @@ export const AppContextProvider = ({ config, children }: Props) => {
   const addSource = useCallback(
     (source: NewSource) => {
       const { sources: added, id } = withSourceAdded(choicesRef.current.added, source);
-      saveAddedSources(added);
+      saveAddedSources(added, choiceStorage);
       applyChoices({ ...choicesRef.current, added });
       return id;
     },
-    [applyChoices],
+    [applyChoices, choiceStorage],
   );
 
   const renameSource = useCallback(
     (id: string, name: string) => {
       const added = withSourceRenamed(choicesRef.current.added, id, name);
-      saveAddedSources(added);
+      saveAddedSources(added, choiceStorage);
       applyChoices({ ...choicesRef.current, added });
     },
-    [applyChoices],
+    [applyChoices, choiceStorage],
   );
 
   const removeSource = useCallback(
     (id: string) => {
       const added: AddedSource[] = withSourceRemoved(choicesRef.current.added, id);
       const routing = withoutSource(choicesRef.current.routing, id, settings.defaultId);
-      saveAddedSources(added);
-      saveRouting(routing);
+      saveAddedSources(added, choiceStorage);
+      saveRouting(routing, choiceStorage);
       applyChoices({ ...choicesRef.current, added, routing });
     },
-    [applyChoices, settings],
+    [applyChoices, settings, choiceStorage],
   );
 
   const setRouting = useCallback(
     (routing: Routing) => {
-      saveRouting(routing);
+      saveRouting(routing, choiceStorage);
       applyChoices({ ...choicesRef.current, routing });
     },
-    [applyChoices],
+    [applyChoices, choiceStorage],
   );
 
   /**
@@ -361,6 +374,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
         removeSource,
         setRouting,
         chat,
+        experimental,
         themeContent: THEME_CONTENT[selectedTheme(config)],
       }}
     >

@@ -18,6 +18,8 @@ import {
 } from '../helpers/dom';
 import { WEEB3_PARTS_NOTE } from '../../src/features/connect/connectWords';
 import { chatConfig, connectPage, seen } from '../helpers/connectPage';
+import { fakeSwarmId } from '../helpers/fakeSwarmId';
+import { defaultRouting } from '../../src/swarm/routing';
 import { minimalConfig } from '../helpers/themeChoice';
 
 const CATALOG_OWNER = '1'.repeat(40);
@@ -410,6 +412,79 @@ describe('use for', () => {
       ['Previews', false],
       ['Chat history', false],
     ]);
+  });
+});
+
+describe('with the experimental parts turned off', () => {
+  const SAVED_SOURCES = JSON.stringify([
+    { id: 'added-1', type: 'bee-node', name: 'Desk node', url: 'http://localhost:1633' },
+  ]);
+  const SAVED_ROUTING = JSON.stringify({ mode: 'all', source: 'added-1', parts: {} });
+  const off = (extra: Record<string, unknown> = {}) => chatConfig({ experimental: false, ...extra });
+
+  it('holds only the ID, a guest name and its hint, with no beta note and no Swarm ID', async () => {
+    const swarmId = await fakeSwarmId();
+    mounted = connectPage({ config: off({ swarmId: { url: 'https://id.example.com' } }), swarmId });
+    await settle();
+    click(button('My Swarm'));
+    await settle();
+
+    expect([...(dialog()?.querySelectorAll('section') ?? [])].map((part) => part.getAttribute('aria-label'))).toEqual([
+      'ID',
+    ]);
+    expect(section('ID')?.textContent).toContain('For the smoothest experience, go with the defaults and a simple name.');
+    expect(section('ID')?.querySelector('.connect-beta')).toBeNull();
+    expect(queryButton('Chat as guest')).not.toBeNull();
+    expect(queryButton('Sign in with Swarm ID')).toBeNull();
+    expect(queryButton('Add source')).toBeNull();
+  });
+
+  it("shows a chatting guest's name with Leave and the theme switcher, and no chat stamp", async () => {
+    persistUserSession(nicknameLogin('Ada'));
+    await openConnect(off());
+
+    expect([...(dialog()?.querySelectorAll('section') ?? [])].map((part) => part.getAttribute('aria-label'))).toEqual([
+      'ID',
+    ]);
+    expect(section('ID')?.textContent).toContain('Ada');
+    expect(queryButton('Leave')).not.toBeNull();
+    expect(section('ID')?.querySelector('[role="radiogroup"][aria-label="Theme"]')).not.toBeNull();
+  });
+
+  it("reads every part from the default gateway, as a fresh browser does, whatever this browser saved", async () => {
+    localStorage.setItem('swarm-sources', SAVED_SOURCES);
+    localStorage.setItem('swarm-routing', SAVED_ROUTING);
+    mounted = connectPage({ config: off() });
+    await settle();
+
+    expect(seen.app!.sources.map(({ id }) => id)).toEqual(['event', 'backup']);
+    expect(seen.app!.routing).toEqual(defaultRouting('event'));
+    expect(seen.app!.parts).toEqual({ player: 'event', 'stream-list': 'event', previews: 'event', chat: 'event' });
+  });
+
+  it('leaves the saved choices as they were, so turning the setting on again brings them back', async () => {
+    localStorage.setItem('swarm-sources', SAVED_SOURCES);
+    localStorage.setItem('swarm-routing', SAVED_ROUTING);
+    mounted = connectPage({ config: off() });
+    await settle();
+
+    seen.app!.setRouting(defaultRouting('backup'));
+    seen.app!.addSource({ type: 'gateway', name: 'Another', url: 'https://another.example.org' });
+    await settle();
+
+    expect(localStorage.getItem('swarm-sources')).toBe(SAVED_SOURCES);
+    expect(localStorage.getItem('swarm-routing')).toBe(SAVED_ROUTING);
+    mounted.unmount();
+    mounted = connectPage({ config: chatConfig() });
+    await settle();
+    expect(seen.app!.sources.map(({ id }) => id)).toContain('added-1');
+  });
+
+  it('has no My Swarm button on a site with no chat, since the panel would be empty', async () => {
+    mounted = connectPage({ config: minimalConfig({ experimental: false }) });
+    await settle();
+
+    expect(queryButton('My Swarm')).toBeNull();
   });
 });
 
