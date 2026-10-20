@@ -5,12 +5,12 @@
 stream-event-client is a static web page for watching an event's live streams and recordings over
 [Swarm](https://www.ethswarm.org), the decentralised storage network, with a chat beside each stream. It is built with
 React 19, Vite 8 and TypeScript, plays video with hls.js, and reads everything it shows from Swarm through a small
-client layer of its own. It holds no keys, no stamps and no accounts: what it needs to pay for or sign is done by
+Swarm client in `src/swarm/`. It holds no keys, no stamps and no accounts: what it needs to pay for or sign is done by
 services outside it, or by Swarm ID in the viewer's browser.
 
 It was built from the viewer of [streaming-monorepo](https://github.com/Solar-Punk-Ltd/streaming-monorepo) and the
-Swarm design and chat of [msrs-client](https://github.com/Solar-Punk-Ltd/msrs-client). Some files in `src/shared`
-still name the path and commit they were copied from.
+Swarm design and chat of [msrs-client](https://github.com/Solar-Punk-Ltd/msrs-client). The Swarm words used on this
+page, feed, stamp, gateway, part and the rest, are in the [glossary](stack.md#words-used-across-these-docs).
 
 ## What a viewer does
 
@@ -21,7 +21,8 @@ still name the path and commit they were copied from.
 3. Chats, as a guest with a display name or signed in with Swarm ID, with the event gateway paying for each message
    or, once signed in, a stamp of their own.
 4. Opens My Swarm, the panel behind the header button, to see or change where each part of the page reads from: the
-   event's gateway, another gateway, a Bee node of their own, or Weeb3, a Swarm node that runs inside the browser tab.
+   event's gateway, another gateway, a Bee node of their own, or Weeb3, a Swarm node that runs inside the browser tab
+   (the package is weeb-3). Weeb3 is offered for the video and for sending chat messages on the viewer's own stamp.
    Nothing ever switches source by itself.
 
 ## What runs where
@@ -77,9 +78,10 @@ flowchart LR
 
 Every read of Swarm content goes through the client (`src/swarm/`), which hands each part of the page, the player, the
 stream list, the previews and the chat history, to the provider the viewer picked for it. The three writes the page
-makes are the exceptions and are named as such in the boundary test: a chat message to the event's write endpoint, and
-a message on the viewer's own stamp to their Bee node or to weeb-3. Segments and pictures are loaded by hls.js and the
-browser from URLs the provider gives, and each load's outcome is reported back to the client.
+makes are the exceptions, and the [boundary test](architecture.md#the-import-direction-and-the-boundary-test) names
+them: a chat message to the event's write endpoint, and a message on the viewer's own stamp to their Bee node or to
+weeb-3. Segments and pictures are loaded by hls.js and the browser from URLs the provider gives, and each load's
+outcome is reported back to the client.
 
 ## Where to look first
 

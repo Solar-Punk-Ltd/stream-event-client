@@ -1,7 +1,8 @@
 # Extending the providers
 
 How to add a new kind of source to My Swarm: a new way for the page to reach Swarm, beside a Bee node over HTTP and
-the node in the browser. Read [the Swarm client](swarm-client.md) first for the shape of the layer.
+the node in the browser. A developer who wants the viewer to read through something else starts here. Read
+[the Swarm client](swarm-client.md) first for the shape of the layer.
 
 ## Two words that are not the same
 
@@ -78,9 +79,27 @@ export interface ProviderStatus {
 /** Where a player starts a stream: at its newest entry, or at the first it can rebuild. */
 export type PlaybackStart = 'live' | 'beginning';
 
+/** One quality of a stream an own player plays, by the level the player knows it as. */
+export interface PlayerLevel {
+  readonly level: number;
+  readonly height: number;
+  readonly bitrate: number;
+}
+
+/** The qualities of the stream an own player plays, the one asked for and the one playing, -1 for none. */
+export interface PlayerQuality {
+  readonly levels: readonly PlayerLevel[];
+  readonly selectedLevel: number;
+  readonly currentLevel: number;
+}
+
 /** A player a provider brings with it, which plays a stream into a video element the page owns. */
 export interface OwnPlayer {
   attach(video: HTMLVideoElement, owner: string, topic: string, from: PlaybackStart): Promise<void>;
+  /** The attached stream's qualities, or null before they have loaded. Absent for a player that offers no choice. */
+  readonly quality?: () => PlayerQuality | null;
+  /** Switches the attached stream to one level. Throws while the player cannot switch, as during a seek. */
+  readonly holdQuality?: (level: number) => void;
   /**
    * Stops the player loading for the video it attached, and lets go of what it held, such as a node in the tab, which
    * stops once nothing holds it.
@@ -183,9 +202,9 @@ time where known, `not-found`, `rate-limited` with the wait asked for, `unsuppor
 
 ## A minimal provider
 
-The smallest real provider is `BeeHttpProvider` (`src/swarm/providers/bee-http/beeHttpProvider.ts`, about 240 lines),
-and the smallest of all is the test double `ScriptedProvider` in `test/helpers/scriptedProvider.ts`. A new kind that
-reaches a node at an address follows the Bee one's shape:
+The smallest real provider is `BeeHttpProvider` (`src/swarm/providers/bee-http/beeHttpProvider.ts`), and the smallest
+of all is the test double `ScriptedProvider` in `test/helpers/scriptedProvider.ts`. A new kind that reaches a node at
+an address follows the Bee one's shape:
 
 ```ts
 // src/swarm/providers/my-kind/myKindProvider.ts
@@ -260,10 +279,12 @@ export class MyKindProvider implements SwarmProvider {
 
 `httpRead` (`src/swarm/httpRead.ts`) and `boundedRequest` (`src/swarm/boundedRequest.ts`) turn a response into a
 `SwarmAnswer` under the read's window, with Bee's statuses mapped as [the Swarm client](swarm-client.md) describes. Read
-the Bee provider for the real `probe` and for how it joins a body longer than one chunk. A provider that runs a node in
-the tab follows `Weeb3Provider` instead: a `status()` that moves through `stopped`, `starting`, `ready`, `failed` and
-`lost`, a `start()` that resolves when the node is ready, `restart`, and a `shortestReadWindowMs` where its reads need
-one.
+the Bee provider for the real `probe` and for how it joins a body longer than one chunk.
+
+A provider that runs a node in the tab follows `Weeb3Provider` instead: a `status()` that moves through `stopped`,
+`starting`, `ready`, `failed` and `lost`, a `start()` that resolves when the node is ready, `restart`, and a
+`shortestReadWindowMs` where its reads need one. A provider that brings its own video player adds `ownPlayer`, and its
+`OwnPlayer` may offer `quality` and `holdQuality` for the page's Quality picker.
 
 Then register the kind:
 
@@ -284,9 +305,8 @@ export const PROVIDER_KINDS = [...GATEWAY_KINDS, 'weeb-3'] as const;
 
 ## The checklist: every file a new kind or type touches
 
-Verified against the code. "Compile-enforced" means a `Record` keyed by the union or an exhaustive `switch` turns a
-missing case into a type error. "Hand-listed" means a literal list a new entry has to be added to by hand, which no
-check catches.
+"Compile-enforced" means a `Record` keyed by the union or an exhaustive `switch` turns a missing case into a type
+error. "Hand-listed" means a literal list a new entry has to be added to by hand, which no check catches.
 
 ### The Swarm layer (a new kind)
 
@@ -371,18 +391,12 @@ check catches.
 21. The boundary: `test/swarm/boundary.test.ts` needs no change for a provider that stays inside `src/swarm`. A feature
     that must import past the public surface, as the chat's writes do, adds a named entry to
     `ALLOWED_PAST_THE_SURFACE` with its reason.
-22. Suites that enumerate kinds or types, to extend: `test/swarm/settings.test.ts`, `test/swarm/sources.test.ts`,
-    `test/sourceStorage.test.ts`, `test/runtimeConfig.test.ts`, `test/gateway/checkWords.test.ts`,
-    `test/gateway/sourceStatus.test.ts`, `test/gateway/sourceChecks.test.ts`, `test/gateway/report.test.ts`,
-    `test/gateway/nodeAddressLevels.test.ts`, `test/ownNodeAddress.test.ts`, `test/connect/connect.test.tsx`,
-    `test/connect/weeb3Add.test.tsx`, `test/connect/chatStamp.test.tsx`, `test/connect/failureBar.test.tsx`,
-    `test/helpers/connectPage.ts`, `test/chat/ownStampRoute.test.ts`, `test/chat/chatOnOwnStamp.test.tsx`,
-    `test/appSwarmClient.test.tsx`.
-23. Doubles and browser fakes: `test/helpers/scriptedProvider.ts`, `test/helpers/fakeWeeb3.ts`,
-    `test/helpers/recordedBeeGateway.ts`, `test/helpers/gatewaySwarm.ts` for unit tests, and `e2e/fakeWeeb3.ts`,
-    `e2e/ladderGateway.ts` (a fake gateway answering 650 ms late) and `e2e/fakeSwarmIdSite.ts` for the browser
-    journeys. A new kind the journeys should cover gets a fake of its own and a spec beside `e2e/connect.e2e.ts` and
-    `e2e/weeb3.e2e.ts`.
+22. Then run the type check and the test suite and fix what breaks. Several suites enumerate the kinds or the types,
+    under `test/swarm/`, `test/gateway/`, `test/connect/` and `test/chat/`, and each names what it expects of a new
+    one.
+23. Doubles and browser fakes: the unit tests use `test/helpers/scriptedProvider.ts` and `test/helpers/fakeWeeb3.ts`,
+    and the browser journeys use `e2e/fakeWeeb3.ts` and `e2e/fakeSwarmIdSite.ts`. A new kind the journeys should cover
+    gets a fake of its own and a spec beside `e2e/connect.e2e.ts` and `e2e/weeb3.e2e.ts`.
 24. The docs: [configuration](configuration.md), [My Swarm](my-swarm.md), [the Swarm client](swarm-client.md) and the
     storage table, and this page.
 

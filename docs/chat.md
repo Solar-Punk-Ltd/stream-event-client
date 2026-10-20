@@ -1,9 +1,13 @@
 # The chat
 
-One chat per stream, beside the video on a desktop and under it on a phone, where it folds away. The chat is
-optional: without a `chat` block in `config.json`, or with `enabled` false, nothing of it is on the page
-([configuration](configuration.md#the-chat-block)). The code is `src/features/chat/`, and the library under it is
-`@solarpunkltd/swarm-chat-js` 9.0.0.
+Every stream has a chat beside it, and this page says how it works: what a viewer can do in it, what it needs outside
+this repository, how it reads and writes Swarm, and how every message is checked before it is shown. The chat sits
+beside the video on a desktop and under it on a phone, where it folds away. It is optional: without a `chat` block in
+`config.json`, or with `enabled` false, nothing of it is on the page ([configuration](configuration.md#the-chat-block)).
+The code is `src/features/chat/`, and the library under it is `@solarpunkltd/swarm-chat-js` 9.0.0.
+
+Words used here, such as slot, part and Use for, are explained in
+[the glossary](handover/stack.md#words-used-across-these-docs).
 
 Anyone can read it. Writing asks once for a display name, 1 to 20 characters with no invisible formatting or control
 character such as a right-to-left override. The zero width joiner and non-joiner are allowed, since joined emoji and
@@ -13,14 +17,16 @@ one. There is no password, wallet or account. A deployment that names a Swarm ID
 signing in with Swarm ID, described in [Swarm ID](swarm-id.md).
 
 A viewer can send a message, react with an emoji, reply in a thread, load older messages, and retry a message that did
-not send. A message lights up under the pointer and shows its reaction and reply buttons there, as keyboard focus
-inside it does, and on a touch screen a tap shows them. A mouse click never keeps them, so a click on the sender's badge
-opens the details and nothing else. The emoji bar's last button opens every emoji above the field, with its close button
-above the picker.
+not send.
+
+- A message lights up under the pointer and shows its reaction and reply buttons there, as keyboard focus inside it
+  does, and on a touch screen a tap shows them.
+- A mouse click never keeps them, so a click on the sender's badge opens the details and nothing else.
+- The emoji bar's last button opens every emoji above the field, with its close button above the picker.
 
 The chat and its library are a file of the bundle of their own, fetched as the watch page opens, beside the video
-rather than after it (`src/features/chat/WatchChat.tsx` lazy-loads `Chat/Chat.tsx`), and the emoji picker is fetched
-the first time one is drawn: the emoji bar above the message field, or a reaction's picker beside a message.
+rather than after it (`src/features/chat/WatchChat.tsx` lazy-loads `Chat/Chat.tsx`). The emoji picker is fetched the
+first time one is drawn: the emoji bar above the message field, or a reaction's picker beside a message.
 
 ## What it needs, outside this repository
 
@@ -30,13 +36,14 @@ Two services, set up apart from this app:
   the messages and stamps every write, because the page holds no postage stamp. A message costs one stamped chunk, and
   one more for each resend while it has not been read back. A viewer who pays with their own stamp,
   [who pays for a message](own-stamp.md), sends through their own Bee node or through Weeb3 instead.
-- **The chat aggregator**, on swarm-chat-js 9, which listens on the shared address the key and topic above name, and
-  appends each message to the stream's chat feed, `chat-<stream topic>` under `chat.feedOwner`. Opening a chat reads
-  the newest history file the chat feed points to, then the entries after it. When the feed's newest entry is not found
-  in time, the library opens the chat empty and reads on
-  from its first entry, and the chat says "Loading the chat…" until that read answers. "No messages yet." shows only
-  once it found nothing. The endpoint viewers write through must be a different Bee node from the one the aggregator
-  listens on, because Bee hands a message on to a listener only when it arrives from another node.
+- **The chat aggregator**, on swarm-chat-js 9. It listens on the shared chat address made from `gsocResourceId` and
+  `gsocTopic`, and appends each message to the stream's chat feed, `chat-<stream topic>` under `chat.feedOwner`.
+  - Opening a chat reads the newest history file the chat feed points to, then the entries after it.
+  - When the feed's newest entry is not found in time, the library opens the chat empty and reads on from its first
+    entry, and the chat says "Loading the chat…" until that read answers. "No messages yet." shows only once it found
+    nothing.
+  - The endpoint viewers write through must be a different Bee node from the one the aggregator listens on, because
+    Bee hands a message on to a listener only when it arrives from another node.
 
 The per-stream settings the library is started with are built by `chatSettings` in `src/features/chat/chatSettings.ts`:
 the chat topic `chat-<stream topic>`, a read-only key for a reader with no name, `chat.readUrl` as the library's Bee
@@ -44,19 +51,23 @@ address, and `chat.writeUrl` as the write address while the gateway pays. The li
 
 ## Why `gsocResourceId` is not a secret
 
-Every viewer writes to the same shared address, so every viewer's page carries the same key. It is chosen so the
-address lands where the aggregator listens, and it owns nothing but that shared chat address, which every viewer writes
-to anyway. A check for keys in the tree has to know it.
+`gsocResourceId` is the key every viewer's page uses to write to the shared chat address. Every viewer writes to the
+same address, so every viewer's page carries the same key. It is chosen so the address lands where the aggregator
+listens, and it owns nothing but that shared chat address, which every viewer writes to anyway. A check for keys in
+the tree has to know it.
 
 ## How the chat reads Swarm
 
-The library is handed a source and a write in place of its own Bee client (`src/features/chat/chatParts.ts`). The
-source makes the library's own reads through the Swarm client's chat reader, `reader('chat')`, on the source picked for
-Chat history in My Swarm: the feed head, each slot and note as a single-owner chunk checked to be the chat owner's
-(`src/swarm/singleOwnerChunk.ts`), or through the node in this browser by its owner and identifier, and history files
-as bytes. A 404 and a 500 both mean a chunk is not there, as the library rules. While the event pays, a message is
-written exactly as the library writes it, to `chat.writeUrl`, whose gateway stamps it. On the viewer's own stamp, Swarm
-ID stamps it and the page sends it through the viewer's Bee node or Weeb3, as [who pays](own-stamp.md) says.
+The library is handed a source and a write in place of its own Bee client (`src/features/chat/chatParts.ts`).
+
+- The source makes the library's own reads through the Swarm client's chat reader, `reader('chat')`, on the source
+  picked for Chat history in My Swarm: the feed head, each slot and note as a single-owner chunk checked to be the chat
+  owner's (`src/swarm/singleOwnerChunk.ts`), or through the node in this browser by its owner and identifier, and
+  history files as bytes.
+- A 404 and a 500 both mean a chunk is not there, as the library rules.
+- While the event pays, a message is written exactly as the library writes it, to `chat.writeUrl`, whose gateway stamps
+  it. On the viewer's own stamp, Swarm ID stamps it and the page sends it through the viewer's Bee node or Weeb3, as
+  [who pays](own-stamp.md) says.
 
 ## What the browser keeps
 
@@ -74,20 +85,26 @@ per account, so another account signing in on the same browser starts with the g
 
 Every message is signed by its sender's chat key. The page checks each one, live, from history and the viewer's own
 while it is still sending, in a Web Worker with swarm-chat-js's `verifyChatMessage` and the page's own origin, so a
-long history never holds up the page (`src/features/chat/verify/`). History is checked in batches of 25, and each batch
-shows as soon as it passed. A message is shown only once it passed. One that fails, whether its text was changed after
-signing, its Swarm ID binding was made for another site, or it is in the format before version 8, is never shown, and
-the panel counts them in its `data-refused-messages` attribute. A chat whose history is all of the older format opens
-as an empty chat. The worker is the bundle's own file, so the page's policy allows it with `worker-src 'self'`. A worker
-that cannot start or fails is left, and the same check runs on the page's thread instead, for the messages it held and
-every later one. Nothing is shown unchecked and nothing is left waiting.
+long history never holds up the page (`src/features/chat/verify/`).
+
+- History is checked in batches of 25, and each batch shows as soon as it passed. A message is shown only once it
+  passed.
+- One that fails, whether its text was changed after signing, its Swarm ID binding was made for another site, or it is
+  in the format before version 8, is never shown, and the panel counts them in its `data-refused-messages` attribute.
+  A chat whose history is all of the older format opens as an empty chat.
+- The worker is the bundle's own file, so the page's policy allows it with `worker-src 'self'`. A worker that cannot
+  start or fails is left, and the same check runs on the page's thread instead, for the messages it held and every
+  later one. Nothing is shown unchecked and nothing is left waiting.
 
 Above each message is its sender line: the name, the badge, the stamp for a message sent with the sender's own stamp,
 and the time it was published, in hours and minutes on the viewer's clock. There is no initial and nothing floats over
-the row. A grey outline hexagon after a name in the plain weight is a guest, told apart only by the key their browser
-keeps. A filled hexagon with a check after a name in the accent colour is a Swarm ID account, which signed a statement
-that this chat address on this site is its own. A stamp after the badge says the sender paid for the write with a stamp
-of their own. Every message this page sends says who paid, the event gateway or the viewer's own stamp.
+the row.
+
+- A grey outline hexagon after a name in the plain weight is a guest, told apart only by the key their browser keeps.
+- A filled hexagon with a check after a name in the accent colour is a Swarm ID account, which signed a statement that
+  this chat address on this site is its own.
+- A stamp after the badge says the sender paid for the write with a stamp of their own. Every message this page sends
+  says who paid, the event gateway or the viewer's own stamp.
 
 ## A message's details, and Verify
 
@@ -103,32 +120,39 @@ copies both in full as `owner/topic`. Opening the details reads nothing more.
 
 A **Verify** button compares the own feed with the chat only when pressed, and says **Checked 12 of 40** while it
 reads, counting the entries of the chat feed and of the own feed, with a **Stop** button. It then says how many
-messages from the sender the chat holds and whether every signature is valid, naming the ones that fail. It splits them
-by who paid, as each message's signed `via` says: **X on their own stamp, all X in their own feed**, or how many of
-those are missing from their own feed, and **Y paid by the gateway, which have no own-feed copy**, since a message the
-gateway paid for never gets a copy and so is never missing. It lists the messages missing from their own feed and the
-copies in their own feed that are missing from the chat feed, five of each at most, newest first, and says whether this
-message is in their own feed.
+messages from the sender the chat holds and whether every signature is valid, naming the ones that fail.
 
-It says no own feed found when none is found, since copies that have not reached Swarm yet look the same as none, Their
-own feed could not be read when a read fails, and Their own feed is too large to check when it names more entries than
-the sender's messages in the chat and 25 more, or more than 1,000. When the source answers the chat but turns away the
-sender's own feed, as an event gateway that serves only the chat server's feeds does, it says in one line that this
-source does not serve their own feed. A refusal is a 4xx other than 404 and 429, or a network failure on two reads in a
-row, since a refusal without CORS headers reads as one but so does a dropped connection.
+- It splits them by who paid, as each message's signed `via` says: **X on their own stamp, all X in their own feed**,
+  or how many of those are missing from their own feed, and **Y paid by the gateway, which have no own-feed copy**,
+  since a message the gateway paid for never gets a copy and so is never missing.
+- It lists the messages missing from their own feed and the copies in their own feed that are missing from the chat
+  feed, five of each at most, newest first, and says whether this message is in their own feed.
+- It says no own feed found when none is found, since copies that have not reached Swarm yet look the same as none.
+  Their own feed could not be read when a read fails. Their own feed is too large to check when it names more entries
+  than the sender's messages in the chat and 25 more, or more than 1,000.
+- When the source answers the chat but turns away the sender's own feed, as an event gateway that serves only the chat
+  server's feeds does, it says in one line that this source does not serve their own feed. A refusal is a 4xx other
+  than 404 and 429, or a network failure on two reads in a row, since a refusal without CORS headers reads as one but
+  so does a dropped connection.
 
-Every press reads the whole chat and the whole own feed afresh, and nothing is kept from an earlier press, because a
-chat read before the own feed would lack messages the own feed already holds and call them missing from the chat feed.
-Both are read through the source picked for Chat history: the chat feed from its newest entry back through its history
-files, each file older than the one before and 50 at most, and each entry no file holds read by its own index, 500 at
-most, then the own feed from its first entry to its newest, and on past the newest by index until an entry is not
-there, since a gateway may serve a newest entry seconds old and a copy written since would otherwise count as missing,
-and My stamp would offer to copy it again. Past those limits the chat is not counted. An entry the source answers is
-not there counts as missing, by the rule the chat reads its slots with, so a 404 or the 500 a Bee 2.6 cluster gives a
-slot never written, and any other answer makes the count fail rather than call a message missing. Each copy is read by
-its address and must be the sender's own single-owner chunk, and every copy and every chat message must pass the same
-check as a message shown in the chat and be for this chat, the copies also the sender's, or it is not counted. A copy
-and a chat message are the same message when their signatures are: a message has one valid signature, over every field
-it says, so a copy with the same signature is the message the chat feed shows, as far as the chat server that writes
-the feed is trusted. Stopping, pressing Verify again and closing the details each end the reads of the check running.
-The comparison only reads (`src/features/chat/stamp/ownFeedComparison.ts`).
+How the check reads, in `src/features/chat/stamp/ownFeedComparison.ts`, which only reads:
+
+- Every press reads the whole chat and the whole own feed afresh, and nothing is kept from an earlier press, because a
+  chat read before the own feed would lack messages the own feed already holds and call them missing from the chat
+  feed.
+- Both are read through the source picked for Chat history. The chat feed is read from its newest entry back through
+  its history files, each file older than the one before and 50 at most, and each entry no file holds by its own
+  index, 500 at most. Past those limits the chat is not counted.
+- Then the own feed is read from its first entry to its newest, and on past the newest by index until an entry is not
+  there, since a gateway may serve a newest entry seconds old and a copy written since would otherwise count as
+  missing, and My stamp would offer to copy it again.
+- An entry the source answers is not there counts as missing, by the rule the chat reads its slots with, so a 404 or
+  the 500 a Bee 2.6 cluster gives a slot never written. Any other answer makes the count fail rather than call a
+  message missing.
+- Each copy is read by its address and must be the sender's own single-owner chunk. Every copy and every chat message
+  must pass the same check as a message shown in the chat and be for this chat, the copies also the sender's, or it is
+  not counted.
+- A copy and a chat message are the same message when their signatures are. A message has one valid signature, over
+  every field it says, so a copy with the same signature is the message the chat feed shows, as far as the chat server
+  that writes the feed is trusted.
+- Stopping, pressing Verify again and closing the details each end the reads of the check running.

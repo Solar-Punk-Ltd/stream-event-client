@@ -17,7 +17,7 @@ Set `DEV_BEE_PROXY_TARGET` to forward it somewhere else (`vite.config.js`).
 
 ## The scripts
 
-Every script is in `package.json`:
+Every script is in `package.json`. This table is the one place they are listed:
 
 | Script             | What it does                                                                                                  |
 | ------------------ | ------------------------------------------------------------------------------------------------------------- |
@@ -40,10 +40,11 @@ Every script is in `package.json`:
 `gateway/`, `following/`, `swarm/` and `shared/`, with the player's and the catalog's at the top level. `test/helpers/`
 holds the doubles: `scriptedProvider.ts` (a provider that answers what a test says), `recordedBeeGateway.ts`,
 `gatewaySwarm.ts`, `fakeSwarmChat.ts`, `fakeSwarmId.ts`, `fakeWeeb3.ts`, `connectPage.ts` and the rest.
-`test/feedModel/` is the polling study's simulator, kept with the strategies it compared. The environment is node, and
-a component test asks for jsdom in its own docblock. The timeout is a 30 s backstop, not a margin anything relies on.
+`test/feedModel/` simulates a Bee node, a publisher and a player on virtual time, and `study.test.ts` and
+`recommendedPair.test.ts` there measure the feed-following strategies on it. The environment is node, and a component
+test asks for jsdom in its own docblock. The timeout is a 30 s backstop, not a margin anything relies on.
 
-Four suites guard the whole repository rather than one feature:
+Five suites guard the whole repository rather than one feature:
 
 - `test/swarm/boundary.test.ts`: the Swarm layer imports nothing from the app or the features, and they reach Swarm
   only through the client ([architecture](architecture.md#the-import-direction-and-the-boundary-test)).
@@ -58,14 +59,18 @@ Four suites guard the whole repository rather than one feature:
 - `test/noUnboundedFetch.test.ts`: no file under `src/` calls the global `fetch` unbounded.
 
 **Browser journeys** (`pnpm e2e`, Playwright 1.63, `e2e/playwright.config.ts`) run the built app in one real Chromium,
-one worker, with no node and no network: `smoke.e2e.ts` replays the recorded Bee answers in `e2e/recorded/viewer.har`
-and the files beside it, `theme.e2e.ts` switches the theme on that recording, `chatStamp.e2e.ts` sends messages on the
-viewer's own stamp against a fake Swarm ID site (`fakeSwarmIdSite.ts`), through a Bee node and through a fake Weeb3
-(`fakeWeeb3.ts`), signing in and changing the stamp through that site's button frame, and `ladder.e2e.ts`,
-`connect.e2e.ts` and `weeb3.e2e.ts` run real hls.js against a fake gateway (`ladderGateway.ts`) publishing a live
-stream in four qualities, each answer held back 650 ms. `installBrowser.ts` fetches the pinned Chromium headless shell
-before the first run, with the system libraries only in CI or a container. They print their timings and read rates
-without asserting them.
+one worker, with no node and no network:
+
+- `smoke.e2e.ts` replays the recorded Bee answers in `e2e/recorded/viewer.har` and the files beside it.
+- `theme.e2e.ts` switches the theme on that recording.
+- `chatStamp.e2e.ts` sends messages on the viewer's own stamp against a fake Swarm ID site (`fakeSwarmIdSite.ts`),
+  through a Bee node and through a fake Weeb3 (`fakeWeeb3.ts`), signing in and changing the stamp through that site's
+  button frame.
+- `ladder.e2e.ts`, `connect.e2e.ts` and `weeb3.e2e.ts` run real hls.js against a fake gateway (`ladderGateway.ts`)
+  publishing a live stream in four qualities, each answer held back 650 ms.
+
+`installBrowser.ts` fetches the pinned Chromium headless shell before the first run, and the system libraries with it
+when `CI` or `PLAYWRIGHT_INSTALL_DEPS` is set. The journeys print their timings and read rates without asserting them.
 
 **The recorder** (`pnpm e2e:record`, `e2e/record.config.ts`, `e2e/record.e2e.ts`) starts a Bee node on a local chain
 through Docker (`e2e/record/`), publishes a stream and a chat, and records the browser's answers into
@@ -100,10 +105,17 @@ with `Service-Worker-Allowed`, defines `__WEEB3_VERSION__`, and points the packa
 
 ## Dependencies
 
-`pnpm-workspace.yaml` pins every dependency exact (`saveExact`), refuses any version younger than a week
-(`minimumReleaseAge: 10080`, strict), with named exceptions for the three packages published by the project or let in
-younger after their registry signatures and the malware advisories were checked, and carries the security floors
-inherited from the monorepo as `overrides`. No install script runs for `@parcel/watcher` or `@swc/core`.
+`pnpm-workspace.yaml` holds pnpm's settings:
+
+- Every dependency is pinned to an exact version (`saveExact: true`).
+- No version younger than a week is installed, transitive ones included (`minimumReleaseAge: 10080`, in minutes, with
+  `minimumReleaseAgeStrict: true`, so an install fails rather than fall back to an older version).
+- Three packages are exempt from that age, each at one exact version (`minimumReleaseAgeExclude`):
+  `@solarpunkltd/swarm-chat-js`, `@solarpunkltd/swarm-id` and `@lat-murmeldjur/weeb_3`. The file says what was
+  checked on each before it was let in.
+- No install script runs for `@parcel/watcher` or `@swc/core` (`allowBuilds`). Both are optional native helpers.
+- `overrides` carries minimum versions for `immutable`, `nanoid@3`, `postcss` and `ws`, each a package with a
+  published security fix.
 
 ## The image and nginx
 
@@ -121,8 +133,8 @@ font CORS from the image's settings. Everything about running it is in [the imag
 
 `.github/workflows/image.yml` runs on a `v*` tag: it builds the image for `linux/amd64` and pushes it as
 `ghcr.io/solar-punk-ltd/stream-event-client:<tag>`, passing the tag and its commit in as `BUILD_TAG` and
-`BUILD_COMMIT`. `latest` is never written, so a deployment pins the digest the tag resolves to. Nothing is deployed
-without the owner's word (`AGENTS.md`).
+`BUILD_COMMIT`. `latest` is never written, so a deployment pins the digest the tag resolves to. Releases are tagged by
+the maintainers.
 
 ## Working here
 
