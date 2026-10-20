@@ -64,11 +64,19 @@ const CATALOG_VIEW_MESSAGE: Record<Exclude<CatalogView, 'streams' | 'unreachable
 
 /**
  * What a view says. A list that cannot be read names the source it is read from as its Connect row and the failure
- * bars name it, whatever kind of source it is.
+ * bars name it, whatever kind of source it is. It sends the viewer to My Swarm only where `offersSources`, since a
+ * deployment with the experimental parts off shows no sources there to check or pick.
  */
-export function catalogViewMessage(view: Exclude<CatalogView, 'streams'>, sourceName: string | null): string {
+export function catalogViewMessage(
+  view: Exclude<CatalogView, 'streams'>,
+  sourceName: string | null,
+  offersSources: boolean,
+): string {
   if (view !== 'unreachable') {
     return CATALOG_VIEW_MESSAGE[view];
+  }
+  if (!offersSources) {
+    return sourceName === null ? 'The stream list cannot load.' : failureTitle('stream-list', sourceName);
   }
   return sourceName === null
     ? `The stream list cannot load. ${OPEN_MY_SWARM} to pick a source.`

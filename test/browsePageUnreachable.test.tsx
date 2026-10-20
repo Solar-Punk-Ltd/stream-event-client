@@ -6,12 +6,13 @@ import { StreamBrowser } from '../src/features/catalog/StreamBrowser/StreamBrows
 import type { Source } from '../src/swarm/sources';
 import { mount, type Mounted } from './helpers/dom';
 
-const app = vi.hoisted(() => ({ source: null as Source | null }));
+const app = vi.hoisted(() => ({ source: null as Source | null, experimental: true }));
 
 vi.mock('../src/app/AppProvider', () => ({
   useAppContext: () => ({
     streamList: [],
     isStreamListFromCurrentGateway: true,
+    experimental: app.experimental,
     themeContent: { heroTitle: 'Streams', heroSubtitle: '', footer: {} },
     sources: app.source ? [app.source] : [],
     parts: { player: app.source?.id, 'stream-list': app.source?.id, previews: app.source?.id, chat: app.source?.id },
@@ -27,6 +28,7 @@ vi.mock('../src/features/catalog/StreamList/StreamList', () => ({ StreamList: ()
 let mounted: Mounted | null = null;
 
 afterEach(() => {
+  app.experimental = true;
   mounted?.unmount();
   mounted = null;
   document.body.innerHTML = '';
@@ -52,5 +54,18 @@ describe('the browse page when the stream list cannot be read', () => {
     expect(words).toBe(
       `Stream list cannot load from ${source.name}. Open My Swarm to check it, or pick another source.`,
     );
+  });
+
+  it('leaves My Swarm out where the deployment turned the experimental parts off', async () => {
+    app.experimental = false;
+    const words = await alertFor({
+      id: 'event',
+      type: 'gateway',
+      name: 'Event gateway',
+      url: 'https://gateway.example.org',
+      offered: true,
+    });
+
+    expect(words).toBe('Stream list cannot load from Event gateway.');
   });
 });

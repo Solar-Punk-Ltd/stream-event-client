@@ -36,10 +36,11 @@ function useFailures(swarm: SwarmClient): readonly FeatureFailure[] {
 
 /**
  * A bar for each part whose source keeps failing, naming the part, the source and why, with one button that opens
- * Connect. The viewer picks another source there, because the page never switches by itself.
+ * Connect. The viewer picks another source there, because the page never switches by itself. A deployment with the
+ * experimental parts off offers no other source, so its bar has no button.
  */
 export function FailureBars() {
-  const { swarm, sources } = useAppContext();
+  const { swarm, sources, experimental } = useAppContext();
   const { open } = useConnect();
   const failures = useFailures(swarm);
 
@@ -47,9 +48,11 @@ export function FailureBars() {
     <div key={failure.feature} className="failure-bar" data-failing-part={failure.feature}>
       <strong role="status">{failureTitle(failure.feature, sourceName(sources, failure.provider))}</strong>
       <span className="failure-bar-reason">{failureReason(failure)}</span>
-      <Button variant={ButtonVariant.SECONDARY} className="failure-bar-button" onClick={open}>
-        Choose another source
-      </Button>
+      {experimental && (
+        <Button variant={ButtonVariant.SECONDARY} className="failure-bar-button" onClick={open}>
+          Choose another source
+        </Button>
+      )}
     </div>
   ));
 }

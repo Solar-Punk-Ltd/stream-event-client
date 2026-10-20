@@ -12,7 +12,7 @@ import { catalogViewFrom, catalogViewMessage } from './catalogView';
 import './StreamBrowser.scss';
 
 export function StreamBrowser() {
-  const { streamList, isStreamListFromCurrentGateway, themeContent, sources, parts } = useAppContext();
+  const { streamList, isStreamListFromCurrentGateway, themeContent, sources, parts, experimental } = useAppContext();
   const streamListSource = sources.find(({ id }) => id === parts['stream-list']) ?? null;
   const { error, isLoading } = useCatalogPoll(CATALOG_POLL_INTERVAL_MS);
 
@@ -71,7 +71,7 @@ export function StreamBrowser() {
         ) : (
           <div className={`stream-browser-notice ${view}`} role={view === 'unreachable' ? 'alert' : 'status'}>
             {view === 'loading' && <Spinner />}
-            <p>{catalogViewMessage(view, streamListSource?.name ?? null)}</p>
+            <p>{catalogViewMessage(view, streamListSource?.name ?? null, experimental)}</p>
             {view === 'loading' && <NodeInTabProgress source={streamListSource} />}
           </div>
         )}

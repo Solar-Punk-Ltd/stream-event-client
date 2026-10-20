@@ -76,8 +76,21 @@ describe('what the browse page shows for a catalog fetch', () => {
   it('has copy for every view that is not a list of streams', () => {
     for (const view of ['unreachable', 'loading', 'empty'] as const) {
       for (const sourceName of ['Event gateway', null] as const) {
-        assert.ok(catalogViewMessage(view, sourceName).length > 0, `${view} would render a blank screen`);
+        assert.ok(catalogViewMessage(view, sourceName, true).length > 0, `${view} would render a blank screen`);
       }
     }
+  });
+
+  it('sends the viewer to My Swarm only where the deployment offers a choice of sources', () => {
+    assert.equal(
+      catalogViewMessage('unreachable', 'Event gateway', true),
+      'Stream list cannot load from Event gateway. Open My Swarm to check it, or pick another source.',
+    );
+    assert.equal(
+      catalogViewMessage('unreachable', null, true),
+      'The stream list cannot load. Open My Swarm to pick a source.',
+    );
+    assert.equal(catalogViewMessage('unreachable', 'Event gateway', false), 'Stream list cannot load from Event gateway.');
+    assert.equal(catalogViewMessage('unreachable', null, false), 'The stream list cannot load.');
   });
 });
