@@ -152,6 +152,11 @@ const runtimeConfigSchema = z
     theme: z.enum(THEME_NAMES, { message: `must be one of ${THEME_NAMES.join(', ')}` }).optional(),
     /** Whether a viewer logged in to the chat may switch the look between the build's themes. On unless set. */
     themeSwitcher: z.boolean({ message: 'must be true or false' }).optional(),
+    /**
+     * Whether a viewer is offered the experimental parts: Swarm ID, and choosing the sources the page reads Swarm
+     * through. On unless set. Off, the page reads every part from the default gateway and chats as a guest.
+     */
+    experimental: z.boolean({ message: 'must be true or false' }).optional(),
     /** One Bee gateway, read as the only gateway offered and the default. `providers` is the other way to name them. */
     gatewayUrl: gatewayUrlSchema.optional(),
     providers: providersSchema.optional(),
@@ -194,14 +199,22 @@ export function themeSwitcherEnabled(config: RuntimeConfig): boolean {
   return config.themeSwitcher ?? true;
 }
 
+/** Whether this deployment offers Swarm ID and the viewer's own choice of sources. */
+export function experimentalEnabled(config: RuntimeConfig): boolean {
+  return config.experimental ?? true;
+}
+
 /** The chat's settings when chat is on, and null when it is off or not configured. */
 export function enabledChat(config: RuntimeConfig): ChatConfig | null {
   return config.chat?.enabled ? config.chat : null;
 }
 
-/** The Swarm ID site to offer sign-in with, or null when there is none or no chat for it to sign in to. */
+/**
+ * The Swarm ID site to offer sign-in with, or null when there is none, no chat for it to sign in to, or the deployment
+ * turned the experimental parts off.
+ */
 export function swarmIdUrl(config: RuntimeConfig): string | null {
-  return enabledChat(config) && config.swarmId ? config.swarmId.url : null;
+  return enabledChat(config) && config.swarmId && experimentalEnabled(config) ? config.swarmId.url : null;
 }
 
 /** The endpoint to read ENS names through, or null when there is none or no chat to show them in. */

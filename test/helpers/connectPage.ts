@@ -2,7 +2,7 @@ import { createElement, type ReactNode, StrictMode } from 'react';
 
 import { AppContextProvider, useAppContext } from '../../src/app/AppProvider';
 import { ThemeChoiceProvider } from '../../src/app/ThemeChoiceProvider';
-import type { RuntimeConfig } from '../../src/config/runtimeConfig';
+import { type RuntimeConfig, swarmIdUrl } from '../../src/config/runtimeConfig';
 import { AppChatUserProvider } from '../../src/app/AppChatUserProvider';
 import { ChatStampProvider, useChatStamp } from '../../src/features/chat/stamp/ChatStamp';
 import { useChatUser } from '../../src/features/chat/User';
@@ -66,6 +66,11 @@ interface ConnectPageOptions {
   readonly strict?: boolean;
 }
 
+/** The config's own Swarm ID site where it names one, through the app's rule, and a test site where it names none. */
+function offeredSwarmId(config: RuntimeConfig): string | null {
+  return config.swarmId ? swarmIdUrl(config) : 'https://id.example.com';
+}
+
 /** The page's header as the app builds it: Connect, in every provider the app has. */
 export function connectPage({
   config = chatConfig(),
@@ -82,7 +87,7 @@ export function connectPage({
       createElement(
         AppChatUserProvider,
         swarmId
-          ? { swarmIdUrl: 'https://id.example.com', appName: 'Devcon streams', loadSwarmIdClient: swarmId.load }
+          ? { swarmIdUrl: offeredSwarmId(config), appName: 'Devcon streams', loadSwarmIdClient: swarmId.load }
           : {},
         createElement(
           ConnectProvider,

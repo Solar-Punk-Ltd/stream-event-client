@@ -9,8 +9,9 @@ import { FailureBars } from '../../src/features/connect/FailureBars';
 import { type FeatureFailure, SwarmClient } from '../../src/swarm/client';
 import { button, click, mount, type Mounted, queryButton, settle, text } from '../helpers/dom';
 
-function config(): RuntimeConfig {
+function config(extra: Record<string, unknown> = {}): RuntimeConfig {
   const result = parseRuntimeConfig({
+    ...extra,
     catalog: { owner: '0x' + '1'.repeat(40), topic: 'event-streams' },
     providers: {
       gateways: [{ id: 'event', kind: 'bee-http', label: 'Event gateway', url: 'https://event.example.com' }],
@@ -33,10 +34,10 @@ function Probe() {
   return null;
 }
 
-async function start(): Promise<void> {
+async function start(extra: Record<string, unknown> = {}): Promise<void> {
   mounted = mount(
     createElement(AppContextProvider, {
-      config: config(),
+      config: config(extra),
       children: createElement(ConnectProvider, null, createElement(FailureBars), createElement(Probe)),
     }),
   );
@@ -73,6 +74,15 @@ describe('the failure bar', () => {
     expect(connect!.isOpen).toBe(false);
     click(button('Choose another source'));
     expect(connect!.isOpen).toBe(true);
+  });
+
+  it('says what fails and why with no button, where the deployment offers no choice of sources', async () => {
+    failures = [{ feature: 'player', provider: 'event', forMs: 12_000, cause: { kind: 'no-answer' } }];
+    await start({ experimental: false });
+
+    expect(text()).toContain('Video cannot load from Event gateway.');
+    expect(text()).toContain('No answer for more than 10 s.');
+    expect(queryButton('Choose another source')).toBeNull();
   });
 
   it('gives each failing part a bar of its own', async () => {

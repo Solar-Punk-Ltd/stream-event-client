@@ -181,7 +181,7 @@ async function emit(event: string, data: unknown, chat = FakeSwarmChat.latest())
 function JoinWhereConnectOpens() {
   const { isOpen, open } = useConnect();
   return isOpen
-    ? createElement(IdSection, { onLeave: () => {} })
+    ? createElement(IdSection, { onLeave: () => {}, experimental: true })
     : createElement('button', { type: 'button', onClick: open }, 'My Swarm');
 }
 

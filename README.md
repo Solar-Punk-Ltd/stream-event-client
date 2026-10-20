@@ -49,7 +49,8 @@ like anyone else: through the event's gateway, as a guest with a display name.
   [Solar-Punk-Ltd/solarpunk-id](https://github.com/Solar-Punk-Ltd/solarpunk-id). This viewer only uses it.
 
 We offer both to learn how decentralised access and identity hold up with real viewers, and feedback in the chat is
-welcome.
+welcome. A deployment can turn both off with `experimental: false` in its config
+([Configuration](docs/configuration.md#the-experimental-switch)).
 
 ## What a viewer has to trust
 

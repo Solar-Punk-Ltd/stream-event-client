@@ -38,13 +38,13 @@ const MENU: View = { kind: 'menu' };
  */
 export function Connect() {
   const app = useAppContext();
-  const { chat, sources, routing, parts, catalogFeed } = app;
+  const { chat, experimental, sources, routing, parts, catalogFeed } = app;
   const { isOpen, open, close } = useConnect();
   const { session, swarmIdSession, logout } = useChatUser();
   const [view, setView] = useState<View>(MENU);
   // Closing stops the node in this browser a viewer is adding, so Connect asks first rather than stop it unseen.
   const [isConfirmingClose, setIsConfirmingClose] = useState(false);
-  const { statuses } = useSourceStatuses(sources, isOpen, catalogFeed);
+  const { statuses } = useSourceStatuses(sources, isOpen && experimental, catalogFeed);
   // The node in this browser a viewer just added keeps running while Connect stays open, so its row shows its
   // peers. The video holds it too if it reads from it, and the node stops once neither does.
   const addedNode = useRef<SwarmClient | null>(null);
@@ -106,6 +106,11 @@ export function Connect() {
     isConfirmingClose ? 'confirming-close' : '',
   ].join(' ');
 
+  // With the experimental parts off My Swarm holds only the ID, which a site with no chat does not have.
+  if (!experimental && !chat) {
+    return null;
+  }
+
   return (
     <>
       <button type="button" className="connect-button" aria-haspopup="dialog" aria-expanded={isOpen} onClick={open}>
@@ -134,28 +139,32 @@ export function Connect() {
                 {chat && (
                   <section className="connect-group" aria-label="ID">
                     <div className="connect-section-label">ID</div>
-                    <IdSection onLeave={() => showView({ kind: 'leave' })} />
+                    <IdSection onLeave={() => showView({ kind: 'leave' })} experimental={experimental} />
                   </section>
                 )}
-                {chatsAs && <ChatStampSection />}
-                <section className="connect-group" aria-label="Swarm access">
-                  <div className="connect-section-label">Swarm access</div>
-                  <SwarmAccess
-                    sources={sources}
-                    statuses={statuses}
-                    onSettings={(id) => showView({ kind: 'source', id })}
-                    onAdd={() => showView({ kind: 'add' })}
-                  />
-                </section>
-                <section className="connect-group" aria-label="Use for">
-                  <UseFor
-                    sources={sources}
-                    routing={routing}
-                    parts={parts}
-                    hasChat={chat !== null}
-                    onChange={app.setRouting}
-                  />
-                </section>
+                {experimental && chatsAs && <ChatStampSection />}
+                {experimental && (
+                  <>
+                    <section className="connect-group" aria-label="Swarm access">
+                      <div className="connect-section-label">Swarm access</div>
+                      <SwarmAccess
+                        sources={sources}
+                        statuses={statuses}
+                        onSettings={(id) => showView({ kind: 'source', id })}
+                        onAdd={() => showView({ kind: 'add' })}
+                      />
+                    </section>
+                    <section className="connect-group" aria-label="Use for">
+                      <UseFor
+                        sources={sources}
+                        routing={routing}
+                        parts={parts}
+                        hasChat={chat !== null}
+                        onChange={app.setRouting}
+                      />
+                    </section>
+                  </>
+                )}
               </>
             )}
             {shown.kind === 'add' && <AddTiles onPick={(type) => showView({ kind: 'add-source', type })} />}
