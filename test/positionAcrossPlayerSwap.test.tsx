@@ -367,7 +367,7 @@ describe('a recording, when the video moves between weeb-3 and the app’s playe
     expect(video.currentTime).toBe(58);
   });
 
-  // The owner's ruling: the first seconds of the recording do not play while weeb-3's player waits.
+  // The first seconds of the recording never play while weeb-3's player waits for the place.
   it('holds weeb-3’s video still with a line under it until it reaches the place, then plays from there', async () => {
     watchOnAppPlayer(58);
     page.ownPlayer = await weeb3Player();

@@ -250,9 +250,9 @@ export class ManifestStateManager {
 
     // The gateway is part of the cache key, not just an argument. A viewer who changes gateway
     // through a change of source is covered by `markAllDirty`, but anything that changes it another way
-    // was silently served the previous gateway's playlist. On 2026-08-13 that put every segment of
-    // a comparison between two gateways on the SAME node while the client truthfully reported two
-    // different gateways.
+    // was silently served the previous gateway's playlist, so every segment came from the first
+    // gateway while the client reported another. `serializes against the gateway it was asked for` in
+    // `test/ManifestManagement.test.ts` reproduces it.
     if (!state.dirty && state.cachedSegmentUrl === segmentUrl) {
       return state.cachedManifest;
     }
@@ -513,8 +513,8 @@ const SEARCH_ROUNDS_IN_A_ROW = 8;
  * {@link RUNG_READY_MARGIN_MS}, or on a slow source {@link SEARCH_ROUNDS_IN_A_ROW} of its rounds and
  * the margin when that is longer.
  *
- * **A slow source is waited for, never switched away from** (the owner's ruling: a part reads from the
- * source picked for it alone). Measured 2026-10-17 and 18 on a freshly started light Bee 2.8.3 with no
+ * **A slow source is waited for, never switched away from**, because a part reads from the
+ * source picked for it alone. Measured 2026-10-17 and 18 on a freshly started light Bee 2.8.3 with no
  * blockchain: a miss took 6 to 10 s, a search took about a minute, every quality failed at 20 s, and
  * the player restarted in a loop and never showed a frame, while a full node at 1.3 to 1.6 s a miss
  * played the same recording. A source that is not slow keeps exactly the 20 s, so a viewer on a gateway
@@ -1188,7 +1188,8 @@ export class ManifestFetcher {
 
     // One outstanding walk per topic. This method is fire and forget by design: it returns the
     // already serialised state at once and leaves the walk running, so hls.js schedules its next
-    // level reload on the ordinary cadence while the previous one is still open. See CON-29.
+    // level reload on the ordinary cadence while the previous one is still open. The overlapping polls are
+    // pinned by `opens one walk per topic however many polls overlap` in `test/ManifestFetcher.test.ts`.
     if (!this.inFlight.has(hexTopic) && this.feedHealth.backoffRemainingMs(hexTopic) === 0) {
       // Staggered, because hls.js derives its reload cadence from the playlist's target duration and
       // its newest segment, and every viewer of one broadcast reads the same two. So the cadence that

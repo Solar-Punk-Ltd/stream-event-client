@@ -455,7 +455,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
 
       video.addEventListener('pause', onHlsPause);
       video.addEventListener('play', onHlsPlay);
-      // An iPhone pauses the video when the phone locks and does not resume it on unlock (SPDV-1655).
+      // An iPhone pauses the video when the phone locks and does not resume it on unlock.
       const returningHls = hls;
       detachResumeOnReturn = attachResumeOnReturn(
         video,

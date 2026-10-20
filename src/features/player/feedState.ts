@@ -610,15 +610,14 @@ export class FeedHealthTracker {
         ...health,
         gatewayFailures,
         retryAtMs: this.now() + Math.max(backoffDelayMs(gatewayFailures), atLeastMs),
-        // **The unserved run ends here, and leaving it running cost a viewer their picture.**
+        // **The unserved run ends here, because a run left running drops a rung that is still live.**
         // An unserved slot means the gateway ANSWERED and had nothing in it. A gateway that did not
         // answer is no evidence at all about the slot, so a run carried through an outage measures
-        // the outage. Caught live on 2026-08-30: a 20.5 second gateway outage under a watching
-        // viewer, and 480p was dropped from the ladder on the other side of it while the uploader
-        // was publishing it normally, 24 segments across the window it was removed in. That rung had
-        // simply been between segments when the gateway went away, so it came back looking silent
-        // for the whole outage. A run carried through an outage would also trip the poller's stall
-        // rule on the far side of every outage longer than its threshold.
+        // the outage. A rung that was between segments when the gateway went away comes back looking
+        // silent for the whole outage, and is dropped from the ladder while the uploader keeps
+        // publishing it. A run carried through an outage would also trip the poller's stall rule on
+        // the far side of every outage longer than its threshold. The last step of `says how long a
+        // rung has been unserved` in `test/feedState.test.ts` pins it.
         //
         // The poll count goes with it, for the same reason and so the two describe one run.
         unservedSinceMs: null,

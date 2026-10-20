@@ -166,8 +166,7 @@ interface LadderEntry {
  * asks for the next slot when the next playlist is due rather than as often as it can, and looks one
  * slot past a slot that is late. The loader serves hls.js's level reloads out of what it has read.
  *
- * **One rung at a time** (the owner's ruling, 2026-10-07: "only one quality request at the time. Not 4! We only
- * request what we watch."). Every rung of the ladder is registered, and only the playing rung is
+ * **One rung at a time, the one being watched.** Every rung of the ladder is registered, and only the playing rung is
  * walked, plus the one being switched to while a switch is under way. Walking all four would make a
  * switch free, at up to about 320 requests a minute, half of them for an index not written yet. A
  * switch instead pays the {@link NewestIndexFinder}'s reads for the new rung while hls.js plays the old one

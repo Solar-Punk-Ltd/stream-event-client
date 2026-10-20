@@ -2,7 +2,7 @@
  * The player's side of a page that comes back after it was hidden: whether to play a live stream again.
  *
  * An iPhone pauses the video when the phone locks and Safari does not resume it on unlock, so a live
- * viewer came back to a stopped player and had to start it by hand (SPDV-1655). The iOS Simulator
+ * viewer came back to a stopped player and had to start it by hand. The iOS Simulator
  * resumed by itself after 30 s and 2 min locks, so a return that finds playback running does nothing.
  *
  * A return only plays, it never seeks. The pause handler stopped loading, so hls.js's live sync

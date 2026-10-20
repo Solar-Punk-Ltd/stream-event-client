@@ -18,7 +18,7 @@ const PAUSED_UNSEEN: ReturnSnapshot = {
 };
 
 /**
- * SPDV-1655. An iPhone pauses the video when the phone locks and Safari does not resume it on unlock,
+ * An iPhone pauses the video when the phone locks and Safari does not resume it on unlock,
  * so a live viewer came back to a stopped player. A return plays it again unless the viewer paused it.
  *
  * Written in milliseconds rather than against the module's constant, so that a change to the window is

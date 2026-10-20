@@ -285,11 +285,11 @@ describe('dropping a rung that has stopped being produced', () => {
   });
 
   /**
-   * The SRS restart of 2026-10-08 (round 3, the viewer on a fast line). 360p was dropped while it played and
+   * A media server restart, with the viewer on a fast line. 360p was dropped while it played and
    * 1080p inherited its level number, so hls.js read 1080p's first fragment as the next one of the same level
    * and kept its video running on from 360p's last frame while its audio went where the playlist put it, 16 s
    * earlier. The picture and the sound never overlapped where hls.js kept seeking to, every 6 s, and the
-   * viewer saw nothing for 8.8 minutes. Restarting the load is how hls.js forgets the fragment it appended last.
+   * viewer saw nothing for minutes. Restarting the load is how hls.js forgets the fragment it appended last.
    */
   it('restarts loading when the playing rung is dropped, so the next rung is not appended as its continuation', () => {
     const player = makeLadderPlayer();

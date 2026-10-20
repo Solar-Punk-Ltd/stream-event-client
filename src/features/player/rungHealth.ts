@@ -159,8 +159,8 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
     const index = levelIndexOfRung(hls, rungTopicId);
     if (index < 0) {
       // This line is what tells another ladder's announcement apart from "the rung was never
-      // reported stopped at all". Without it a live test went red on 2026-09-01 having logged NOTHING:
-      // no drop, no refusal, no detection, so the two had to be told apart by reasoning rather than by
+      // reported stopped at all". Without it a run that drops nothing logs NOTHING, no drop, no
+      // refusal, no detection, and the two can only be told apart by reasoning rather than by
       // reading. Most announcements really are another ladder's and this is the right answer for them,
       // which is why it says which ladder rather than warning.
       console.debug(
@@ -172,8 +172,7 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
 
     const level = hls.levels[index];
     // The reason that condemned it, in the line that announces it. A warning saying only that a rung
-    // stopped cannot be checked against the broadcast afterwards, and on 2026-08-31 that cost two live
-    // test runs.
+    // stopped cannot be checked against the broadcast afterwards.
     const reason = detail.reason;
     if (hls.levels.length < MIN_LEVELS_TO_DROP_ONE) {
       console.warn(
