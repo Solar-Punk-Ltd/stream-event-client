@@ -60,7 +60,7 @@ interface SwarmIdSignInOptions {
 
 /**
  * Who the viewer is with Swarm ID, kept in memory only. The chat key the ID gives this site is held in the session
- * here and nowhere else. A reload asks the library again, whose frame keeps its own session for this site.
+ * here and never written to storage. A reload asks the library again, whose frame keeps its own session for this site.
  */
 export interface SwarmIdSignIn {
   getState(): SwarmIdState;

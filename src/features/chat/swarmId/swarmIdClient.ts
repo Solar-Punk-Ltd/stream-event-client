@@ -124,8 +124,8 @@ export interface SwarmIdClient {
   initialize(): Promise<void>;
   /**
    * Shows Swarm ID's button, a small frame of the Swarm ID site that fills the container. The click on it opens the
-   * Swarm ID window, which is the only way a site on another site than Swarm ID can sign in, since the browser keeps
-   * Swarm ID's frames apart from its storage there. Throws before {@link initialize} has resolved.
+   * Swarm ID window, which is the only way a site served from another origin than Swarm ID's can sign in, since the
+   * browser keeps Swarm ID's frames apart from its storage there. Throws before {@link initialize} has resolved.
    */
   mountButton(container: HTMLElement, options: SwarmIdButtonOptions): SwarmIdMountedButton;
   /** Ends the session for this site, so a reload does not restore it. */
