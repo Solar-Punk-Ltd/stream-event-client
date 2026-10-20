@@ -2,10 +2,10 @@
  * The player's side of a page that comes back after it was hidden: whether to play a live stream again.
  *
  * An iPhone pauses the video when the phone locks and Safari does not resume it on unlock, so a live
- * viewer came back to a stopped player and had to start it by hand (SPDV-1655). The iOS Simulator
+ * viewer came back to a stopped player and had to start it by hand. The iOS Simulator
  * resumed by itself after 30 s and 2 min locks, so a return that finds playback running does nothing.
  *
- * ⛔ A return only plays, it never seeks. The pause handler stopped loading, so hls.js's live sync
+ * A return only plays, it never seeks. The pause handler stopped loading, so hls.js's live sync
  * position is still worked out from the playlist read before the lock and would land a lock's length
  * behind live, or behind the playhead when the broadcast has stalled. Playing restarts loading through
  * the player's play handler, and hls.js moves the viewer to live itself once the playlist reloads.
@@ -44,7 +44,7 @@ export interface ReturnSnapshot {
  * Whether a pause was the viewer's: made while the page was visible and more than a second before it
  * was hidden.
  *
- * ⚠️ A pause the viewer makes while the page is hidden, from the lock screen's controls, by taking out
+ * A pause the viewer makes while the page is hidden, from the lock screen's controls, by taking out
  * earphones or with a media key, is indistinguishable here from the system's and is undone on return.
  */
 export function isViewerPause(pause: PauseRecord, hiddenAtMs: number | null): boolean {

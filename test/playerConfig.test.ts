@@ -75,7 +75,7 @@ describe('SwarmHlsPlayer hls.js tuning', () => {
     );
   });
 
-  // Normal speed is the product owner's ruling of 2026-10-12. Exactly 1 is the value hls.js reads as
+  // Live playback stays at normal speed. Exactly 1 is the value hls.js reads as
   // "never adapt", and its latency controller then returns before it touches the playback rate at all,
   // which is also what leaves a speed the viewer picks from the native controls alone.
   it('holds live playback at normal speed, which hls.js reads as never adapting the rate', () => {

@@ -14,7 +14,7 @@ export const MARKER_READ_DELAY_MS = 4_000;
  * caller's: a follower takes the index a marker names for its rung, a page waiting on a broadcast takes
  * only that a marker is there.
  *
- * ⛔ **A marker address is never asked twice.** Asking one again and again before it is written would
+ * **A marker address is never asked twice.** Asking one again and again before it is written would
  * be the very pile of early asks this exists to avoid, so one found missing is let go and the next
  * period's is waited for. A period whose moment passed while nobody was waiting is skipped, because a
  * newer marker says more.

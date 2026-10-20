@@ -53,7 +53,7 @@ export function parseSwarmUri(url: string): { owner: string; topic: string } {
  * A ladder's multivariant playlist: one `EXT-X-STREAM-INF` per rung, lowest first, each followed by
  * that rung's feed URI.
  *
- * ⛔ **One definition, because there are two producers.** The uploader publishes the master to a
+ * **One definition, because there are two producers.** The uploader publishes the master to a
  * feed of its own and the client builds the same text locally as a fallback for catalog entries
  * written before masters were published. Two copies would have to keep producing identical text. One definition keeps a viewer
  * who switches between the published master and the synthesised one mid-session from seeing the

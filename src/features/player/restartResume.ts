@@ -82,7 +82,7 @@ function oneSegmentPast(resume: RestartResume, playlist: RestartPlaylist | undef
 /**
  * Where the next player starts after a restart.
  *
- * ⛔ A player that fails again at the place it was asked to start, before playback has played past it,
+ * A player that fails again at the place it was asked to start, before playback has played past it,
  * on anything but its playlist, is sent one segment on. A segment that never loads fails every player
  * sent to it, so resuming at the same place would restart the recording there without end. Each such
  * restart starts strictly later, so a recording runs out of segments to fail on. A playlist failure says

@@ -24,19 +24,19 @@ interface CatalogPoll {
 /**
  * What the stream list should become after a poll, or null to keep what is on screen.
  *
- * ⛔ **A read from another gateway replaces the list whatever it holds, including nothing.** Until
+ * **A read from another gateway replaces the list whatever it holds, including nothing.** Until
  * this rule existed, switching node left the previous gateway's streams on the page: a viewer who
  * pointed Connect's add form at their own Bee node, which holds none of that catalog yet, saw the site
  * gateway's streams, believed their node was serving them, and got "Reconnecting to the stream"
  * on a stream their node has never heard of. The message written for that moment, "Could not reach
  * this gateway", could not appear at all, because a non-empty list is what the page looks at first.
  *
- * ⭐ **On the same gateway, a poll that carries no valid catalog keeps what is on screen.** That is
+ * **On the same gateway, a poll that carries no valid catalog keeps what is on screen.** That is
  * the older rule and it is still right: a read that failed, found nothing newer or brought a body
  * that does not validate is not a reason to blank a usable list, and a viewer can open a stale stream
  * while they can do nothing with an empty page.
  *
- * ⛔ **On the same gateway, a valid catalog read from a newer feed slot is taken whatever changed in
+ * **On the same gateway, a valid catalog read from a newer feed slot is taken whatever changed in
  * it, and one from the same or an older slot never is.** The catalog has two writers and they change
  * it in different places. The stack's own uploader removes a changed entry and appends it again, so
  * its changes always land on the last entry. The web2 admin appends an entry when it first publishes

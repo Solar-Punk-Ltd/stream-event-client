@@ -40,7 +40,7 @@ type AppContextState = {
    * about it until this flips. Mounting the player before then would start it as single-rendition
    * and rebuild it the moment the ladder arrived, losing playback position on every deep link.
    *
-   * ⛔ Not reset by a gateway switch, and that is deliberate. The ladder belongs to the broadcast
+   * Not reset by a gateway switch, and that is deliberate. The ladder belongs to the broadcast
    * rather than to the node serving it, and the watch page keeps no catalog poll while the player is showing, so
    * clearing this there would unmount the player and leave nothing to bring it back.
    */
@@ -196,7 +196,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
   /**
    * Take the viewer's new choices, remember them, and point every later read where they say.
    *
-   * ⛔ **The stream list is not cleared here, on purpose.** What a
+   * **The stream list is not cleared here, on purpose.** What a
    * switch changes is whose answer the list is, which the source held beside it already records, so
    * the browse page stops showing it from this moment without anything being thrown away. Clearing
    * it would reach the watch page too, where a player is mounted on a ladder read out of it and
@@ -288,7 +288,7 @@ export const AppContextProvider = ({ config, children }: Props) => {
   /**
    * Stable, and applied through the state it is updating rather than through a captured copy.
    *
-   * ⛔ A new function on every render is what let a poll be applied twice: the browse page's effect
+   * A new function on every render is what let a poll be applied twice: the browse page's effect
    * depends on this, so it re-ran on every render of this provider and handed the previous poll's
    * body back in, which would put the previous gateway's streams back on screen as the current
    * gateway's right after a switch.

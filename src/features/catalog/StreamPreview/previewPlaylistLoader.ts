@@ -5,7 +5,7 @@ import Hls from 'hls.js';
  * The address a stream card gives hls.js for its one-segment playlist, which the loader below answers
  * from memory, so nothing ever asks the network for it.
  *
- * ⛔ Not a blob URL. hls.js reads a playlist with XHR, so a blob URL is governed by `connect-src`, and
+ * Not a blob URL. hls.js reads a playlist with XHR, so a blob URL is governed by `connect-src`, and
  * the image's policy names no blob source there. A card handed a blob showed nothing on a deployed
  * site, while every run without the policy passed. Answering here keeps the policy as narrow as it is.
  *

@@ -1,7 +1,7 @@
 /**
  * Which rungs of a catalog entry the watch page hands the player.
  *
- * ⛔ A finished ladder can lack a rung: on 2026-09-23 1080p's batch refused its recording and the
+ * A finished ladder can lack a rung: on 2026-09-23 1080p's batch refused its recording and the
  * ladder finished without it. The admin's entry still lists that rung, without an index, over a feed
  * whose last playlist is a live one that will never end, and the player would walk it for as long as
  * the recording was watched.

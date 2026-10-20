@@ -108,7 +108,7 @@ export function programDateTimeMs(line: string): number | null {
  * `#EXT-X-ENDLIST` sets `isFinalized` wherever it appears, since a finished recording is the one
  * fact a reader must not miss.
  *
- * ⛔ `#EXT-X-PROGRAM-DATE-TIME` belongs to the segment after it, never to the headers, and it ends
+ * `#EXT-X-PROGRAM-DATE-TIME` belongs to the segment after it, never to the headers, and it ends
  * the header block for the same reason a discontinuity does. Left in the header branch, the first
  * segment's stamp would be captured as a header the client then repeats above every later segment,
  * and every other stamp would be dropped on the floor, silently, because a line that is neither a

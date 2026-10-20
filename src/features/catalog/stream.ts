@@ -33,7 +33,7 @@ export interface Stream {
   /**
    * A Swarm reference to a still image for this stream, served at `{gateway}/bzz/{thumbnail}/`.
    *
-   * ⭐ Optional, and empty string means the same as absent. The uploader has never written this and
+   * Optional, and empty string means the same as absent. The uploader has never written this and
    * the admin layer only started to, so the field is missing on every entry published before that
    * and on every entry a broadcaster never gave an image for. A card treats it as a hint it may
    * have, never as one it can rely on.

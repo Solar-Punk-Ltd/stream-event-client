@@ -97,7 +97,7 @@ export async function fetchPreviewManifest(
 /**
  * Where a finished ladder recorded this rung's final playlist, or undefined to search the feed.
  *
- * ⛔ The entry's own `index` addresses the master, so a rung read without its own slot pays a head
+ * The entry's own `index` addresses the master, so a rung read without its own slot pays a head
  * lookup, and a head lookup grows with the feed. On 2026-09-24 a 10.1 hour recording's lookup ran
  * past the preview's 10 second limit and its card stayed blank, while the entry named the rung's
  * slot all along. The master's variant URI carries the rendition's own topic verbatim, so the rung

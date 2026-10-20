@@ -15,7 +15,7 @@ import { BeeHttpProvider } from '@/swarm/providers/bee-http/beeHttpProvider';
 /**
  * Which playlists a stream card reads to find its first frame.
  *
- * ⛔ The card that stayed blank, 2026-09-24 on the tester's viewer: a 10.1 hour ladder recording.
+ * The card that stayed blank, 2026-09-24 on the tester's viewer: a 10.1 hour ladder recording.
  * Its catalog entry names the master's final slot, and the card read that directly, then read the
  * first rung's playlist by a head lookup. A head lookup searches the feed for its newest update and
  * grows with the feed, and on a feed that long it outlasted the preview's 10 second limit, while

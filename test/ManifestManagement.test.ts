@@ -269,7 +269,7 @@ describe('a gap entry as a viewer rebuilds it', () => {
   });
 
   /**
-   * ⛔ Untouched, unlike a segment reference. Every media line is re-hosted against this viewer's own
+   * Untouched, unlike a segment reference. Every media line is re-hosted against this viewer's own
    * gateway, and a gap URI put through that would become `<gateway>/gap-1`, which reads as an address
    * on a real host. hls.js never loads a gap fragment, so nothing fetches either form, but the
    * unprefixed one cannot be mistaken for media by anything that reads the playlist afterwards.
@@ -324,12 +324,12 @@ describe('a gap entry as a viewer rebuilds it', () => {
 /**
  * That a manifest serialized for one gateway is not handed back for another.
  *
- * ⛔⛔⛔ Two viewers configured with different gateways both fetched their video from the same node:
+ * Two viewers configured with different gateways both fetched their video from the same node:
  * the feed and SOC lookups followed the viewer's gateway and all 253 segment fetches did not.
  * Every check passed regardless, so nothing would have shown that the gateway choice made no
  * difference to what a viewer received.
  *
- * ⭐ `serialize` takes the gateway as an argument and then returns `cachedManifest` without looking
+ * `serialize` takes the gateway as an argument and then returns `cachedManifest` without looking
  * at it. `markAllDirty` exists for exactly this and is called by `setGatewayUrl`, so a viewer who
  * clicks the control is fine. Code that seeds the gateway before the app runs never calls the
  * setter, and neither does anything else that changes the gateway without going through it.
@@ -359,7 +359,7 @@ describe('a cached manifest belongs to the gateway it was built for', () => {
 /**
  * Work bound to one generation of a topic, ended by the teardown that ends that generation.
  *
- * ⛔ A generation is enough for a fetch that lands after a teardown, because a fetch runs to its end
+ * A generation is enough for a fetch that lands after a teardown, because a fetch runs to its end
  * and can compare generations there. A timer between two ticks runs nothing that could compare
  * anything, so the watch a finished feed keeps would stay scheduled past a teardown for its whole
  * interval. This is what ends it at the teardown itself.

@@ -99,7 +99,10 @@ interface MessageDetailsProps {
   onClose: () => void;
 }
 
-/** What the check of one message found: who signed it, whether Swarm ID vouched for them, and who paid to send it. */
+/**
+ * What the check of one message found: who signed it, which account signed a statement naming that signer, and who
+ * paid to send it.
+ */
 export function MessageDetails({
   id,
   name,

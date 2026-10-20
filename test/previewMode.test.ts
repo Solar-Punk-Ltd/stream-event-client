@@ -38,7 +38,7 @@ describe('where a preview card gets its picture', () => {
     assert.equal(previewMode({ thumbnail: '   ', state: 'live' }), 'probe');
   });
 
-  // ⛔ The rule the whole module exists for. There is no manifest behind a scheduled topic, so a probe
+  // The rule the whole module exists for. There is no manifest behind a scheduled topic, so a probe
   // there can only end as a wasted queue slot and a placeholder, before the fetch or after it.
   it('never probes a scheduled stream that has no image', () => {
     assert.equal(previewMode({ state: 'scheduled' }), 'placeholder');
@@ -76,7 +76,7 @@ describe('whether a recorded image failure still applies', () => {
     assert.equal(pictureFailed(null, REF), false);
   });
 
-  /** ⛔ The regression itself: a new picture must be rendered rather than inheriting the old verdict. */
+  /** The regression itself: a new picture must be rendered rather than inheriting the old verdict. */
   it('stops applying once the publisher hands the card a different reference', () => {
     assert.equal(pictureFailed(REF, OTHER_REF), false);
     assert.equal(

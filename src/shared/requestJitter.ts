@@ -3,7 +3,7 @@
  *
  * ## Why any delay at all
  *
- * ⭐ What limits a bee gateway is not how many viewers it serves but **how many ask it for something
+ * What limits a bee gateway is not how many viewers it serves but **how many ask it for something
  * in the same instant**. Measured 2026-08-08 against one unfunded gateway: 128 viewers arriving in
  * cohorts of 8 held a 57-68ms median with 1.7% of segments over the 267ms budget and drained no
  * buffer at all. The same 128 viewers firing on one tick put 40% of segments over budget and drained
@@ -12,17 +12,17 @@
  * Firing many requests for one chunk at the same moment does not get them merged, it gets them
  * raced: 47 retrieval operations per distinct chunk synchronised, against 8.4 for eight cohorts.
  *
- * ⛔ Viewers do not normally line up, because each one's timers started whenever it joined. They line
+ * Viewers do not normally line up, because each one's timers started whenever it joined. They line
  * up **after a common shock**, when an outage clears or an encoder restarts and every player recovers
  * at once. So the herd forms on the recovery path, when the system is already degraded.
  *
- * ## ⛔ Why this is 0, having shipped at 60ms and been measured
+ * ## Why this is 0, having shipped at 60ms and been measured
  *
  * **60ms was measured and it does nothing.** Eight runs at 128 paced viewers put a jittered herd at
  * 8041 and 10826ms of ending lag against an unjittered one at 9437 and 9711, in both rounds, inside
  * the spread an unfunded node shows on identical work.
  *
- * ⭐⭐ **The reason is that the cohort finding above is about chunk diversity, not arrival instant, and
+ * **The reason is that the cohort finding above is about chunk diversity, not arrival instant, and
  * jitter buys no chunk diversity.** Viewers at sixteen playback positions want sixteen different
  * chunks, so the gateway has something to spread the work across. Viewers moved a few tens of
  * milliseconds are still at one playback position wanting one chunk. A whole segment duration of
@@ -42,7 +42,7 @@ export const GATEWAY_REQUEST_JITTER_MS = 0;
 /**
  * The fraction of a manifest backoff that is randomised, on top of the stagger above.
  *
- * ⛔ A backoff is where alignment is *guaranteed* rather than merely possible. `backoffDelayMs` is a
+ * A backoff is where alignment is *guaranteed* rather than merely possible. `backoffDelayMs` is a
  * pure function of the failure count, so every viewer that lost the same gateway at the same moment
  * waits the identical 2s, then 4s, then 8s, and arrives back together every time. That is the herd
  * this exists to break, and unlike the stagger it costs nothing: the viewer is already waiting.
@@ -50,7 +50,7 @@ export const GATEWAY_REQUEST_JITTER_MS = 0;
  * Proportional rather than absolute because the point of doubling a backoff is that later attempts
  * spread wider, and a fixed 60ms on top of a multi-second wait would not.
  *
- * ⚠️ **This stays on where the stagger above is off, and the difference is scale.** A quarter of a
+ * **This stays on where the stagger above is off, and the difference is scale.** A quarter of a
  * 2 to 8 second backoff is 0.5 to 2 seconds of separation, where the 60ms stagger was measured to do
  * nothing. ⬅ **The quarter fraction itself is not measured.** It is standard practice for a retry
  * storm, not a measured result.
@@ -113,7 +113,7 @@ export class RequestJitter {
   /**
    * Run `task` after a bounded random delay.
    *
-   * ⛔ Runs it **synchronously** when the delay is zero. Deferring a disabled stagger by a tick would
+   * Runs it **synchronously** when the delay is zero. Deferring a disabled stagger by a tick would
    * make turning it off a behaviour change of its own, and the fragment loader's contract with hls.js
    * is the sort of thing that notices.
    */

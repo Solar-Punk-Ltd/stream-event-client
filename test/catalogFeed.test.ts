@@ -252,7 +252,7 @@ describe('CatalogFeedReader', () => {
   });
 
   /**
-   * ⛔ The distinction this whole group exists for, and the one status was collapsing.
+   * The distinction this whole group exists for, and the one status was collapsing.
    *
    * A 404 is the ordinary answer on a catalog nobody has broadcast to yet, so it has to stay quiet.
    * Every other status is the gateway failing, and returning null for those made a failing gateway
@@ -272,7 +272,7 @@ describe('CatalogFeedReader', () => {
   });
 
   /**
-   * ⛔ Once the head has answered, a slot read the gateway refuses or lets time out is "nothing new
+   * Once the head has answered, a slot read the gateway refuses or lets time out is "nothing new
    * yet". Raising it put the browse page's poll into SWR's error state, which skips the regular reads
    * and backs off instead, so one slow or refused miss held an open page behind until a reload.
    */
@@ -301,7 +301,7 @@ describe('CatalogFeedReader', () => {
   );
 
   /**
-   * ⛔ The body is checked before the position moves. The caller parses it after the read returns, so
+   * The body is checked before the position moves. The caller parses it after the read returns, so
    * a body cut short used to fail that poll with the position already past it, and every later poll
    * asked for the slot after it. A change announced only in that slot never reached the page.
    */
@@ -405,7 +405,7 @@ describe('CatalogFeedReader', () => {
 });
 
 /**
- * ⛔ A gateway switch resets this reader, and a poll in flight when it lands must not undo the reset.
+ * A gateway switch resets this reader, and a poll in flight when it lands must not undo the reset.
  *
  * The position is written after an await, so the read against the node the viewer just left finished
  * and wrote that node's slot number back. Every poll after it asked the new node for the slot after
@@ -473,7 +473,7 @@ describe('CatalogFeedReader when a gateway switch lands mid-read', () => {
 });
 
 /**
- * ⛔ Two reads can be in flight on one gateway at once, and the one that lands last is not always the
+ * Two reads can be in flight on one gateway at once, and the one that lands last is not always the
  * newer.
  *
  * The app's first read runs beside the browse page's first poll, both start with no position, and

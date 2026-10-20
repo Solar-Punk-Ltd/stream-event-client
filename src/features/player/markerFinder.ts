@@ -27,7 +27,7 @@ export const MARKER_REUSE_MS = 5_000;
  * marker was written, which lands in one round. A ladder with no marker, a marker that does not
  * parse, or one that does not name the rung goes to the {@link IndexSearchFinder} unchanged.
  *
- * ⛔ **A marker address is read at most once**, through {@link LadderMarkerReads}, which says why.
+ * **A marker address is read at most once**, through {@link LadderMarkerReads}, which says why.
  */
 export class MarkerFinder implements NewestIndexFinder {
   private last: {

@@ -51,7 +51,7 @@ function announceStopped(feedHealth: FeedHealthTracker, deadRung: string, failov
  * what makes the index question real: it drops the entry, so every level above it shifts down, and
  * it clears the current level when the removed one was playing.
  *
- * ⛔ `walked` and `parsed` are separate because they genuinely come apart: the poller registers every
+ * `walked` and `parsed` are separate because they genuinely come apart: the poller registers every
  * rung while hls.js only holds the levels it still has, so after a rung has been dropped the two sets
  * differ, and that is exactly the state the last-rung case has to be set up in.
  */
@@ -152,7 +152,7 @@ function makeLadderPlayer({
 }
 
 /**
- * ⛔⛔⛔ **A Swarm feed that stops advancing does not error, so hls.js never switches away from it.**
+ * **A Swarm feed that stops advancing does not error, so hls.js never switches away from it.**
  *
  * Measured live on 2026-08-30, both byte paths, one rung of four silenced under a watching viewer:
  * the player stayed on the dead rung for the whole outage, the picture stopped for 87.2 seconds in
@@ -171,7 +171,7 @@ describe('dropping a rung that has stopped being produced', () => {
   });
 
   /**
-   * ⛔⛔ **Any number of drops, until the viewer is on a quality that moves** (ruled 2026-10-07).
+   * **Any number of drops, until the viewer is on a quality that moves** (ruled 2026-10-07).
    *
    * A cap of one would fail here: a live test on 2026-09-01 showed an uploader dying read as
    * every rung failing in turn. The poller does not announce a rung for being quiet alone, it fails
@@ -192,7 +192,7 @@ describe('dropping a rung that has stopped being produced', () => {
     assert.equal(player.nextLoadLevel(), 0, 'the viewer was not moved on to 480p');
   });
 
-  /** ⛔ A refusal takes a quality nobody plays out of the ladder, and must not stand in the way of a real failover. */
+  /** A refusal takes a quality nobody plays out of the ladder, and must not stand in the way of a real failover. */
   it('still fails over on a real failure after a switch was refused', () => {
     const player = makeLadderPlayer();
     // The viewer plays 1080p and asked for 720p, which was found stale and refused.
@@ -223,7 +223,7 @@ describe('dropping a rung that has stopped being produced', () => {
   /**
    * Every player on the page hears every announcement, and most of them are about other ladders.
    *
-   * ⛔ The other broadcast's rung has to really be announced, or this case would pass on there being no
+   * The other broadcast's rung has to really be announced, or this case would pass on there being no
    * announcement at all rather than on one being correctly ignored.
    */
   it('ignores a rung this player is not holding', () => {
@@ -244,7 +244,7 @@ describe('dropping a rung that has stopped being produced', () => {
   /**
    * A viewer with one rung left is better off frozen on it than left with no ladder at all.
    *
-   * ⛔ Asserted on the call rather than on the outcome. hls.js refuses to remove the last level
+   * Asserted on the call rather than on the outcome. hls.js refuses to remove the last level
    * itself, so a test that only checked the level survived would pass with no guard here at all, and
    * the recovery below would then run against a ladder nothing had been taken out of.
    */
@@ -260,7 +260,7 @@ describe('dropping a rung that has stopped being produced', () => {
   });
 
   /**
-   * ⛔ hls.js clears the loading level when the removed one was playing and picks no replacement.
+   * hls.js clears the loading level when the removed one was playing and picks no replacement.
    * Left at -1 the player buffers out and stops, which is the freeze this whole change exists to end.
    */
   it('puts the viewer on a living rung when the one they were playing is removed', () => {
@@ -285,11 +285,11 @@ describe('dropping a rung that has stopped being produced', () => {
   });
 
   /**
-   * The SRS restart of 2026-10-08 (round 3, the viewer on a fast line). 360p was dropped while it played and
+   * A media server restart, with the viewer on a fast line. 360p was dropped while it played and
    * 1080p inherited its level number, so hls.js read 1080p's first fragment as the next one of the same level
    * and kept its video running on from 360p's last frame while its audio went where the playlist put it, 16 s
    * earlier. The picture and the sound never overlapped where hls.js kept seeking to, every 6 s, and the
-   * viewer saw nothing for 8.8 minutes. Restarting the load is how hls.js forgets the fragment it appended last.
+   * viewer saw nothing for minutes. Restarting the load is how hls.js forgets the fragment it appended last.
    */
   it('restarts loading when the playing rung is dropped, so the next rung is not appended as its continuation', () => {
     const player = makeLadderPlayer();
@@ -391,7 +391,7 @@ describe('dropping a rung that has stopped being produced', () => {
   });
 
   /**
-   * ⛔ The other reason `loadLevel` is -1. A player that has not chosen a level yet reads exactly like
+   * The other reason `loadLevel` is -1. A player that has not chosen a level yet reads exactly like
    * one whose level was just removed, and steering the first forces a level while hls.js is still
    * settling the ladder. Removing a rung from a freshly restarted player left the viewer's playhead
    * at zero for good.
@@ -419,7 +419,7 @@ describe('dropping a rung that has stopped being produced', () => {
 });
 
 /**
- * ⛔⛔⛔ The overlay watches the group topic and nothing else, and a group's health is what its rungs
+ * The overlay watches the group topic and nothing else, and a group's health is what its rungs
  * agree on. Three healthy rungs outvote the one the viewer can actually see, which is why a viewer
  * frozen for 87 seconds on a dead rung was told the stream was live for every one of them.
  */

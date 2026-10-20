@@ -320,9 +320,9 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
   const hlsConfigKey = tuningKey(hlsConfig ?? {});
   const renditionKey = ladderKey(renditions);
 
-  // Read through a ref, not a dependency. The catalog is polled every few seconds and hands back
-  // a fresh array each time, so depending on it directly would tear the player down and rebuild
-  // it on every poll. `renditionKey` is what the effect actually reacts to.
+  // Read through a ref, not a dependency. The list arrives as a fresh array on each catalog read,
+  // and for a recording on every render, so depending on it directly would tear the player down and
+  // rebuild it each time. `renditionKey` is what the effect actually reacts to.
   const renditionsRef = useRef(renditions);
   renditionsRef.current = renditions;
   const onLadderShortRef = useRef(onLadderShort);
@@ -455,7 +455,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
 
       video.addEventListener('pause', onHlsPause);
       video.addEventListener('play', onHlsPlay);
-      // An iPhone pauses the video when the phone locks and does not resume it on unlock (SPDV-1655).
+      // An iPhone pauses the video when the phone locks and does not resume it on unlock.
       const returningHls = hls;
       detachResumeOnReturn = attachResumeOnReturn(
         video,
@@ -511,7 +511,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
             restartStream(data);
             break;
           case ErrorTypes.MEDIA_ERROR: {
-            // ⛔ Recovery re-appends the media that just failed, so calling it on every fatal media
+            // Recovery re-appends the media that just failed, so calling it on every fatal media
             // error with no window and no ending is an unbounded loop that refetches fragments each
             // turn. A broadcast whose opening media a decoder will not accept would leave a viewer
             // on a black player pulling media for as long as the tab stayed open.
@@ -573,12 +573,12 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
     const detachQoe = enableQoeOverlay ? attachQoeTracking(video, hls, setMetrics) : null;
     const detachLiveSync = hls ? attachLiveSyncToSegmentLength(hls, callerTuning) : null;
 
-    // ⛔ Both halves of what a ladder viewer needs when one rung stops being produced, and neither
+    // Both halves of what a ladder viewer needs when one rung stops being produced, and neither
     // works alone: the failover moves the picture, the reporter is what lets the overlay say so
     // during the seconds before it does. A single-rendition stream gets neither, because there is
     // no second rung to move to and nothing for a group's health to be folded from.
     //
-    // ⛔⛔⛔ Read this before switching it off. Earlier versions of the rule judged a rung by comparing
+    // Read this before switching it off. Earlier versions of the rule judged a rung by comparing
     // it with its siblings, and three of them dropped healthy rungs during the settle, before any
     // fault. The poller now judges the playing rung by its own progress and confirms with one sibling's
     // (`LadderFeedPoller`), so a rung is only ever dropped on evidence that a sibling is moving.
@@ -611,7 +611,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
       ? attachPlaybackStallReporter(video, () => manifestFetcher.feedHealth.recordPlaybackStall(stallTopic))
       : null;
 
-    // ⛔ A broadcast that ended can come back. A declared stream's broadcaster who stops and returns
+    // A broadcast that ended can come back. A declared stream's broadcaster who stops and returns
     // continues the same feeds at the next index, and both followers keep a slow watch on the slot
     // after a finished playlist to find that out. This is the half that acts on it: once the return is
     // announced and this viewer has reached the end of what they were playing, the player restarts,
@@ -670,7 +670,7 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
         }
       }
     };
-    // ⛔ `mediaType` is here although nothing above reads it, and it is not removable. It decides
+    // `mediaType` is here although nothing above reads it, and it is not removable. It decides
     // whether the element below is a `video` or an `audio`, so React swaps the element when it
     // changes and `videoRef.current` becomes a different node. Without it this effect does not
     // re-run, and hls.js stays attached to the element React has already removed: a dead player with

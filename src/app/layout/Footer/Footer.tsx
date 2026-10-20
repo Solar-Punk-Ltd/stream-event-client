@@ -46,7 +46,8 @@ export function Footer() {
               <SocialLinks links={social.links} />
             </section>
           ) : (
-            // Held for the newsletter form, which waits on the owner's decision about where it posts.
+            // An empty cell in the grid's fifth column. The grid defines five columns whether or not it is
+            // here, so it holds no width of its own and changes nothing on the page.
             <div className="footer-newsletter-slot" aria-hidden="true" />
           )}
         </div>

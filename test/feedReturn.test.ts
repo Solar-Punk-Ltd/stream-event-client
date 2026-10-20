@@ -13,7 +13,7 @@ const OWNER = 'aabbcc';
 const TOPIC = Topic.fromString('a-finished-feed');
 
 /**
- * ⛔ Every viewer who saw a broadcast end starts watching for its return within a poll of the same
+ * Every viewer who saw a broadcast end starts watching for its return within a poll of the same
  * moment. A wait every one of them computes identically keeps their asks landing together on every
  * interval, and their rejoins landing together when the broadcaster returns, so each wait is drawn.
  *
@@ -46,7 +46,7 @@ describe('the wait before each ask for a broadcaster coming back', () => {
   });
 
   /**
-   * ⛔ Drawn per ask, not once per watch. Two viewers whose first draws happened to land close would
+   * Drawn per ask, not once per watch. Two viewers whose first draws happened to land close would
    * otherwise stay that close for as long as their pages stay open.
    */
   it('is drawn again before every ask', async () => {

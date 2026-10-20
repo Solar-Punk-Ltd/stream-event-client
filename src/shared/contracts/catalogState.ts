@@ -9,7 +9,7 @@ export const CATALOG_STATE_VOD = 'vod' as const;
  * Written by the admin, which publishes a catalog entry when a broadcast is *scheduled* rather than when it starts.
  * The uploader never writes this and has no lifecycle that maps to it.
  *
- * ⛔ **A scheduled entry has no manifest feed.** Its topic is a promise, not a stream, so asking the gateway for a
+ * **A scheduled entry has no manifest feed.** Its topic is a promise, not a stream, so asking the gateway for a
  * playlist under it is a guaranteed miss rather than a slow hit. Telling that apart from "live, and the first segment
  * has not landed yet" is the whole reason this literal exists: a reader that cannot will spend a fetch, and a spinner,
  * on every announced broadcast.

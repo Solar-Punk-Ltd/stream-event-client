@@ -46,7 +46,7 @@ export class CustomManifestLoader extends PlaylistLoader {
         callbacks.onSuccess({ url: context.url, data, code: 200 }, this.stats, context, null);
       })
       .catch((error) => {
-        // ⛔⛔ A refused rung's request is left unanswered. The refusal has already taken its level out,
+        // A refused rung's request is left unanswered. The refusal has already taken its level out,
         // and hls.js renumbers the levels on a removal, so an error here names a level number that now
         // belongs to another rung or to none. With none hls.js finds nothing to switch to, calls the
         // error fatal, and the player restarts from the beginning: a recording viewer 2100 s in was sent
@@ -70,7 +70,7 @@ export class CustomFragmentLoader extends FragmentLoader {
   /**
    * The stagger waiting to hand this fragment to the transport, if one is.
    *
-   * ⛔ Held so {@link abort} and {@link destroy} can cancel it. hls.js abandons in-flight fragments
+   * Held so {@link abort} and {@link destroy} can cancel it. hls.js abandons in-flight fragments
    * routinely, on a level switch, a seek and every teardown, and a stagger that fired anyway would
    * start a transfer for a fragment nobody is waiting for, against the loader hls.js has
    * already finished with. That is a request the gateway pays for and nothing consumes.

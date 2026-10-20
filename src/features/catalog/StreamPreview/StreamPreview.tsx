@@ -91,7 +91,7 @@ export const StreamPreview = ({
    * `previewMode`. A scheduled card must not fall back to a probe, and that rule lives in one place
    * with a test rather than in two handlers.
    *
-   * ⛔ The URL and not a boolean, because a card outlives the picture it was given and the source it
+   * The URL and not a boolean, because a card outlives the picture it was given and the source it
    * was read from. `StreamList` keys a card by topic, and a topic outlives every broadcast published
    * under it, so a publisher replacing a broken thumbnail re-renders this same mounted component with
    * a new `thumbnail` prop, and a viewer switching Previews to another source re-renders it with a new
