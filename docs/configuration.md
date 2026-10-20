@@ -26,8 +26,8 @@ The page itself fetches it with `cache: 'no-store'`. The image does both, see [t
 | `swarmId.url`   | Optional. The Swarm ID site a viewer may sign in to the chat with, an origin such as `https://id.example.com`, with no path and no trailing slash. Without it, or without a chat, there is no sign-in                                                                                                                 |
 | `ensRpcUrl`     | Optional. An Ethereum mainnet JSON-RPC endpoint, an https address, or http on `localhost`, `127.0.0.1`, `[::1]` or a `.localhost` name, with no user name or password in it, that the page reads senders' ENS names through ([ENS names](swarm-id.md#ens-names)). Without it, or without a chat, no name is looked up |
 
-Unknown keys are ignored. A deployment written for an earlier release may still name `providers.fallback`,
-`providers.kinds`, `providers.beeNodes` or a `weeb3` block, and the page reads none of them.
+Unknown keys are ignored. The one key refused by name is `chat.beeUrl`, [below](#the-chat-block). The fields in this
+table are the whole of what the page reads.
 
 ## The chat block
 
@@ -38,7 +38,8 @@ other fields are not read.
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `chat.enabled`        | Whether the page has a chat                                                                                                                                              |
 | `chat.readUrl`        | Where the chat's feed and history files are read: a path on this site or an http or https address                                                                        |
-| `chat.writeUrl`       | Where chat messages are written, an endpoint that stamps each write: a path on this site or an http or https address. The one `chat.beeUrl` of before is refused         |
+| `chat.writeUrl`       | Where chat messages are written, an endpoint that stamps each write: a path on this site or an http or https address                                                     |
+| `chat.beeUrl`         | Refused. The page names `chat.readUrl` and `chat.writeUrl` as what to set instead                                                                                        |
 | `chat.gsocResourceId` | 32 bytes as 64 hex digits: the key every viewer writes chat messages with. Shared by design and public, not a secret ([why](chat.md#why-gsocresourceid-is-not-a-secret)) |
 | `chat.gsocTopic`      | The topic of the address the chat aggregator listens on                                                                                                                  |
 | `chat.feedOwner`      | The Ethereum address that writes the chat feeds, which is the aggregator's                                                                                               |
@@ -48,11 +49,11 @@ What the chat needs outside this repository, and what each setting reaches, is i
 
 ## The providers block
 
-The `providers` block names more than one way of reaching Swarm. A config that names only `gatewayUrl` is read as one
-Bee gateway and the default, so a deployment written before `providers` needs no change. Nothing switches source by
-itself: a part reads from the source the viewer picked and from nothing else, and when that source fails the page says
-so and the viewer picks another. The chat history is read from the source picked for it, and the default gateway's at
-`chat.readUrl`.
+The `providers` block offers the viewer more than one gateway. A config that names only `gatewayUrl` is read as one
+gateway, which is the default. Nothing switches source by itself: a part (the video, the stream list, the previews or
+the chat history, see the [glossary](handover/stack.md#words-used-across-these-docs)) reads from the source the viewer
+picked and from nothing else, and when that source fails the page says so and the viewer picks another. The chat
+history is read from the source picked for it. When that source is the default gateway, it is read at `chat.readUrl`.
 
 The page's policy allows every https address, so a gateway in `providers.gateways` at an https address needs nothing
 more. One at a plain http address must also be named in the image's `EXTRA_GATEWAY_URLS` ([the image](image.md)), or
@@ -82,11 +83,16 @@ tokens test fails on a theme that misses one or on a text colour below 4.5:1. Th
 
 A viewer in the chat finds a Theme group under their ID in My Swarm, one option per theme with a swatch of its page
 colour, accent and heading typeface. The arrow keys move the pick within the group, and Tab reaches it at the checked
-option. A pick changes only the look. The logo, the words and the tab stay the deployment's, so a Devcon page in the
-web3privacy look still says Devcon. The pick is kept in this browser under `viewer-theme`, through reloads and after a
-logout, and on the next visit it is worn before the page renders, while the config is still loading
-(`src/app/themeChoice.ts`, `src/app/App.tsx`). A deployment without chat has no login, so it has no switcher either,
-and one with `themeSwitcher` false keeps a viewer's earlier pick without wearing it.
+option.
+
+A pick changes only the look. The logo, the words and the tab stay the deployment's, so a page in the `web3privacy`
+look still shows the deployment's own logo and words.
+
+The pick is kept in this browser under `viewer-theme`, through reloads and after a logout. On the next visit it is worn
+before the page renders, while the config is still loading (`src/app/themeChoice.ts`, `src/app/App.tsx`).
+
+A deployment without chat has no login, so it has no switcher either. One with `themeSwitcher` false keeps a viewer's
+earlier pick without wearing it.
 
 ## How the config is read
 

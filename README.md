@@ -2,30 +2,50 @@
 
 A web app for watching an event's live streams and recordings over [Swarm](https://www.ethswarm.org), with a chat
 beside each stream. Browse the event's streams, watch one, choose and test where each part of the page loads from
-(the event gateway, another gateway, your own Bee node, or Weeb3, a Swarm node that runs in the browser tab), and
-chat as a guest or signed in with Swarm ID, with the event paying for each message or a stamp of your own.
+(the event gateway, another gateway, your own Bee node, or Weeb3, a Swarm node that runs in the browser tab, the
+package is weeb-3), and chat as a guest or signed in with Swarm ID, with the event paying for each message or a stamp
+of your own.
 
 It is a static page: one build serves every deployment, and everything a deployment differs by is a setting in
-`config.json`. The page holds no keys and no stamps. It was built from the viewer of
-[streaming-monorepo](https://github.com/Solar-Punk-Ltd/streaming-monorepo) and the Swarm design and chat of
-[msrs-client](https://github.com/Solar-Punk-Ltd/msrs-client).
+`config.json`. The page holds no keys and no stamps.
+
+The Swarm words these docs use, feed, stamp, gateway, part and the rest, are explained in the
+[glossary](docs/handover/stack.md#words-used-across-these-docs).
 
 ## Features
 
 - **The stream list**, read from a Swarm feed: live streams featured, the next upcoming one with a countdown, then
   upcoming and past streams, with search and paging. A change reaches an open page within a minute.
-- **A player that reads only the quality it plays**, finds the newest playlist from the ladder's time markers, follows
-  the feed as it grows, skips a segment that will not load, rejoins a broadcast that comes back, and keeps your place
-  in a recording when you switch source.
-- **A chat per stream** on `@solarpunkltd/swarm-chat-js`: guests with a display
-  name, Swarm ID sign-in, every message verified before it is shown, reactions, threads, and verified ENS names.
+- **A player that reads only the quality it plays.** It finds the newest playlist from the markers the uploader
+  writes, follows the feed as it grows, skips a segment that will not load, rejoins a broadcast that comes back, and
+  keeps your place in a recording when you switch source.
+- **A chat per stream** on `@solarpunkltd/swarm-chat-js`: guests with a display name, Swarm ID sign-in, every message
+  verified before it is shown, reactions, threads, and verified ENS names.
 - **Who pays**: the event gateway stamps each message, or, once signed in with Swarm ID, your own stamp, sent through
   your own Bee node or Weeb3, with a copy in your own feed that anyone can check against the chat.
 - **My Swarm**: every source you can read Swarm through, each checked before it is added, and Use for, which says
   which source each part reads from. Nothing ever switches source by itself.
-- **Weeb3**, a whole Swarm node in the tab, as the source of the video with its own player, and a way to send chat
-  messages on your own stamp.
+- **Weeb3**, a whole Swarm node in the tab. It is offered for the video, with its own player, and for sending chat
+  messages on your own stamp. Its player shows the node's peers and the quality playing, with a Quality picker that
+  starts on By peers.
 - **Two themes**, `swarm` and `web3privacy`, with a switcher for viewers in the chat.
+
+## Experimental: your own way into Swarm, and Swarm ID
+
+Two parts of this viewer are experiments, offered beside the defaults. A viewer who never opens them watches and chats
+like anyone else: through the event's gateway, as a guest with a display name.
+
+- **Swarm access.** In My Swarm, a viewer can read the streams and the chat through another gateway, their own Bee
+  node, or Weeb3, a Swarm node running in the browser tab, and pick a source for each part under Use for. The aim is
+  that watching an event on Swarm does not depend on the event's own servers. Anyone with a Bee node, or only a
+  browser, can reach the same content.
+- **Swarm ID.** Signing in with Swarm ID gives a person a chat identity they hold themselves, verified on every
+  message, and lets them pay for their messages with their own postage stamp. Swarm ID is a separate experimental
+  project, Solar Punk's fork of swarm-id, in [Solar-Punk-Ltd/solarpunk-id](https://github.com/Solar-Punk-Ltd/solarpunk-id).
+  This viewer only uses it.
+
+We offer both to learn how decentralised access and identity hold up with real viewers, and feedback in the chat is
+welcome.
 
 ## Quick start
 
@@ -47,20 +67,8 @@ Every setting is read from `config.json`, served beside the page, when the app s
 `public/config.json` is an example with placeholders, and the page refuses to start on a value still in
 `<angle brackets>`, naming the field. Real values live with the deployment, never here.
 
-| Field           | What it is                                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gatewayUrl`    | The event gateway: a path on this site such as `/bee`, or an http or https address of a Bee node. Set this or `providers`, not both         |
-| `providers`     | Optional in place of `gatewayUrl`: the gateways offered (`gateways[]` with `id`, `kind: "bee-http"`, optional `label`, `url`) and `default` |
-| `catalog.owner` | The Ethereum address that owns the stream list feed                                                                                         |
-| `catalog.topic` | The stream list feed's topic, as text                                                                                                       |
-| `chat`          | Optional. `enabled`, `readUrl`, `writeUrl`, `gsocResourceId`, `gsocTopic`, `feedOwner`, `pollIntervalMs`. Without it there is no chat       |
-| `theme`         | Optional. `swarm` (the default) or `web3privacy`                                                                                            |
-| `themeSwitcher` | Optional. Whether a viewer in the chat may switch the look, `true` by default                                                               |
-| `swarmId.url`   | Optional. The Swarm ID site viewers may sign in with, an origin such as `https://id.example.com`                                            |
-| `ensRpcUrl`     | Optional. An Ethereum mainnet JSON-RPC endpoint the page reads senders' ENS names through                                                   |
-
-Every field, the `chat` and `providers` blocks in full, what each refusal says and how the theme switcher behaves are
-in [docs/configuration.md](docs/configuration.md). Serve `config.json` with `Cache-Control: no-store`.
+Every field, the `chat` and `providers` blocks, what each refusal says and how the theme switcher behaves are in
+[docs/configuration.md](docs/configuration.md). Serve `config.json` with `Cache-Control: no-store`.
 
 ## Build and run the image
 
@@ -89,25 +97,19 @@ The settings (`GATEWAY_MODE`, `BEE_GATEWAY_URL`, `CHAT_READ_URL`, `CHAT_WRITE_UR
 
 ## Tests
 
-| Script                                             | What it runs                                                                                       |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `pnpm test`                                        | The vitest suites, including the Swarm boundary, the design tokens and the unused-exports ratchet  |
-| `pnpm e2e`                                         | Builds, then the Playwright journeys in a real browser against recorded answers and a fake gateway |
-| `pnpm lint`, `pnpm typecheck`, `pnpm format:check` | oxlint, tsc for the app and `e2e/`, oxfmt                                                          |
-| `pnpm e2e:record`                                  | Records the Bee answers the smoke test replays. Needs Docker and ffmpeg                            |
-| `pnpm proof:weeb3`                                 | The live proof of weeb-3 on the public network. Opt-in, never in CI                                |
-| `pnpm test:image`                                  | Builds the Docker image and checks it running. Needs a Docker daemon                               |
-
-Continuous integration runs the format check, lint, typecheck, tests, build and `pnpm e2e` on every pull request.
-Browser suites print their timings and never assert them. The details are in
-[docs/handover/development.md](docs/handover/development.md).
+`pnpm test` runs the vitest suites, `pnpm e2e` builds and then runs the Playwright journeys in a real browser, and
+`pnpm lint`, `pnpm typecheck` and `pnpm format:check` run oxlint, tsc and oxfmt. Continuous integration runs all of
+them, and the build, on every pull request. Browser suites print their timings and never assert them. Every script,
+every suite and the CI jobs are in [docs/handover/development.md](docs/handover/development.md).
 
 ## Documentation
 
-Start with the [handover](docs/handover/README.md), five pages for a developer new to the repository:
-[overview](docs/handover/overview.md), [architecture](docs/handover/architecture.md),
-[components](docs/handover/components.md), [specs](docs/handover/specs.md) and
-[development](docs/handover/development.md).
+Start with the [handover](docs/handover/README.md), six pages for a developer new to the repository:
+[overview](docs/handover/overview.md), [the whole stack](docs/handover/stack.md),
+[architecture](docs/handover/architecture.md), [components](docs/handover/components.md),
+[specs](docs/handover/specs.md) and [development](docs/handover/development.md).
+
+Then the topical pages, as the work needs them:
 
 | Page                                                   | What it covers                                                                      |
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------- |

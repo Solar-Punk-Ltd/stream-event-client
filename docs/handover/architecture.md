@@ -94,7 +94,8 @@ The routes are `/` (the stream list, `StreamBrowser`) and `/watch/:mediatype/:ow
 `src/config/runtimeConfig.ts` fetches `./config.json` with `cache: 'no-store'` and parses it with a zod schema. It
 never throws: the result is `{ok: true, config}` or `{ok: false, problem}`. The schema refuses placeholders still in
 `<angle brackets>`, requires exactly one of `gatewayUrl` and `providers`, requires every chat field when `chat.enabled`
-is true, refuses the old `chat.beeUrl` by name, and allows only `bee-http` as a gateway kind. Unknown keys are dropped.
+is true, and allows only `bee-http` as a gateway kind. `chat.beeUrl` is refused by name, with a message that
+`chat.readUrl` and `chat.writeUrl` replace it. Unknown keys are dropped.
 Helpers (`selectedTheme`, `themeSwitcherEnabled`, `enabledChat`, `swarmIdUrl`, `ensRpcUrl`) answer the questions the
 rest of the app asks, so no component reads the raw config. The fields are listed in
 [configuration](../configuration.md).
@@ -125,9 +126,9 @@ flowchart LR
 - **A source** (`sources.ts`) is what the viewer sees in My Swarm: the offered gateways, always of type `gateway`, and
   the sources they added, of type `gateway`, `bee-node` or `weeb-3`. Both `gateway` and `bee-node` are read through
   `bee-http`.
-- **Routing** (`routing.ts`) maps the four parts, `player`, `stream-list`, `previews` and `chat`, to source ids, in
-  `one` mode all to one source, in `per-part` mode each to its own. An id no longer known resolves to the default
-  gateway.
+- **Routing** (`routing.ts`) maps the four [parts](stack.md#words-used-across-these-docs), `player`, `stream-list`,
+  `previews` and `chat`, to source ids, in `one` mode all to one source, in `per-part` mode each to its own. An id
+  that names no known source resolves to the default gateway.
 - **The client** (`client.ts`, made by `createSwarmClient.ts`) holds one provider for the player's source and a route
   per part that differs. `reader(part)` gives a part its reader. It counts every answer, keeps the gateway clock from
   the player's and the stream list's answers, records each part's failures for the failure bars, and gives a read at
@@ -144,9 +145,10 @@ picked for Chat history, except that the deployment's default gateway reads the 
 
 State lives in React context and hooks, with no store library:
 
-- `AppContextProvider` holds the stream list (`{streams, gateway, slot}`), whether it has loaded and from which
-  source, the Swarm client, the sources, the routing and the resolved parts, and the functions that add, rename and
-  remove a source and set the routing. The stream list is polled with SWR (`useCatalogPoll`).
+- `AppContextProvider` holds the stream list (`{streams, gateway, slot}`, the slot being the feed entry it was read
+  from), whether it has loaded and from which source, the Swarm client, the sources, the routing and the resolved
+  parts, and the functions that add, rename and remove a source and set the routing. The stream list is polled with
+  SWR (`useCatalogPoll`).
 - `ChatUserProvider` holds the guest session and the Swarm ID session, `ChatStampProvider` holds who pays and the
   stamp, `EnsNamesProvider` the names, `ConnectProvider` the panel's view, `ThemeChoiceProvider` the look.
 - The player keeps its playlists in two module singletons, `ManifestStateManager` and `ManifestFetcher`
@@ -155,6 +157,7 @@ State lives in React context and hooks, with no store library:
 
 Everything kept across reloads is in `localStorage`, every access guarded in `src/app/browserStorage.ts` so a refusal
 leaves the defaults for that visit. The keys are `swarm-sources`, `swarm-routing`, `viewer-theme`,
-`stream-event-client:chat-session`, `stream-event-client:chat-stamp:<address>` and `stream-event-client:qoe-panel.v1`,
-each described in [My Swarm](../my-swarm.md#what-the-browser-keeps). The Swarm ID sign-in is kept by the Swarm ID
-library in its own frame, never by the page.
+`stream-event-client:chat-session`, `stream-event-client:chat-stamp:<address>`,
+`stream-event-client:own-player-quality` and `stream-event-client:qoe-panel.v1`, described in
+[My Swarm](../my-swarm.md#what-the-browser-keeps). The Swarm ID sign-in is kept by the Swarm ID library in its own
+frame, never by the page.
