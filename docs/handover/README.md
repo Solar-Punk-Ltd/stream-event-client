@@ -4,6 +4,8 @@ What a developer new to this repository reads, in this order. Each page is short
 topical pages under `docs/` for the detail.
 
 1. [Overview](overview.md): what the app is, what a viewer does, what runs where, and how a request flows.
+   [The whole stack](stack.md) beside it: every repository the event's streams and chat depend on, a stream and a chat
+   message followed end to end, and the Swarm words these docs use.
 2. [Architecture](architecture.md): the folders and what each owns, the import direction and the Swarm boundary test,
    the app shell, the runtime config, the Swarm client, state and browser storage.
 3. [Components](components.md): every feature with its main components, hooks and modules, one line each.

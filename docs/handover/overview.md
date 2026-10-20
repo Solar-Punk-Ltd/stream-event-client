@@ -39,6 +39,9 @@ still name the path and commit they were copied from.
 | weeb-3                            | Inside the browser tab, as WebAssembly       | A whole Swarm node, with a service worker and a shared worker, that plays the video and sends on the viewer's stamp ([weeb-3](../weeb3.md))    |
 | The image                         | nginx in a container                         | Serves the page, proxies `/bee`, writes the content security policy from its settings ([the image](../image.md))                               |
 
+Which repository each of these pieces comes from, and how a stream and a chat message travel through them, is in
+[the whole stack](stack.md).
+
 ## How a request flows
 
 ```mermaid

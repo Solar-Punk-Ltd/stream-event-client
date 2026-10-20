@@ -111,6 +111,7 @@ Start with the [handover](docs/handover/README.md), five pages for a developer n
 
 | Page                                                   | What it covers                                                                      |
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| [The whole stack](docs/handover/stack.md)              | Every repository behind the streams and the chat, end to end flows, a glossary      |
 | [Configuration](docs/configuration.md)                 | Every `config.json` field, the chat and providers blocks, the theme switcher        |
 | [The stream list and the player](docs/player.md)       | The browse page, the watch page, the quality ladder, how the player reads Swarm     |
 | [The chat](docs/chat.md)                               | Guests, the services it needs, verification, badges, a message's details and Verify |
