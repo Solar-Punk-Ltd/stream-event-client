@@ -50,6 +50,9 @@ The watch page is `#/watch/<mediatype>/<owner>/<topic>` (`src/app/routes.tsx`). 
 shows the player with the source's name above it, such as "via Event gateway", and the chat beside it. With Weeb3
 picked for the video it shows weeb-3's own player instead of this app's, as [weeb-3](weeb3.md) says.
 
+Until the stream list has loaded, which can take several seconds on a first open, an empty block holds the place of the
+title and one line of the description. On a phone the chat sits under them, so it stays where it is when they arrive.
+
 - **A broadcast that comes back.** After a feed finishes, the player keeps asking for the slot after the finished
   playlist, about every 30 seconds and spread per viewer (`feedReturn.ts`). When the broadcast returns and the viewer
   has reached the end of what they were playing, the player rejoins it live.

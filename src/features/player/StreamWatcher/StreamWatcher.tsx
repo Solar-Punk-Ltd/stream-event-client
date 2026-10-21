@@ -34,6 +34,20 @@ function isMediaType(value: string): value is MediaType {
   return VALID_MEDIA_TYPES.includes(value as MediaType);
 }
 
+/**
+ * Stands where the title and one line of the description go until the stream list arrives, which can take several
+ * seconds on a first open. On a phone the chat sits under them, and without this it jumps down when they arrive,
+ * under a keyboard that was raised for its field.
+ */
+function TitlePlaceholder() {
+  return (
+    <div className="watch-info" aria-hidden="true">
+      <div className="watch-info-title">{' '}</div>
+      <p className="watch-info-description">{' '}</p>
+    </div>
+  );
+}
+
 export function StreamWatcher() {
   const { mediatype, owner, topic } = useParams<{
     mediatype: string;
@@ -126,7 +140,9 @@ export function StreamWatcher() {
       }
       side={chat && <WatchChat key={streamKey} chat={chat} topic={topic} />}
       info={
-        stream ? (
+        !isStreamListLoaded ? (
+          <TitlePlaceholder />
+        ) : stream ? (
           <div className="watch-info">
             <h1 className="watch-info-title">{stream.title}</h1>
             {description && <p className="watch-info-description">{description}</p>}
