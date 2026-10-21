@@ -34,14 +34,14 @@ function isMediaType(value: string): value is MediaType {
   return VALID_MEDIA_TYPES.includes(value as MediaType);
 }
 
+/** One line's height of nothing: a no-break space, which a collapsing white space rule keeps. */
+const NO_BREAK_SPACE = String.fromCharCode(0xa0);
+
 /**
  * Stands where the title and one line of the description go until the stream list arrives, which can take several
  * seconds on a first open. On a phone the chat sits under them, and without this it jumps down when they arrive,
  * under a keyboard that was raised for its field.
  */
-/** One line's height of nothing: a no-break space, which a collapsing white space rule keeps. */
-const NO_BREAK_SPACE = String.fromCharCode(0xa0);
-
 function TitlePlaceholder() {
   return (
     <div className="watch-info" aria-hidden="true">
