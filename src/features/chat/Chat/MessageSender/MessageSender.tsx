@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { refusalProblem } from '../../draftCheck';
 
 import { ReactionToolbar } from './ReactionToolbar/ReactionToolbar';
+import { useFieldStaysInView } from './useFieldStaysInView';
 
 import './MessageSender.scss';
 
@@ -21,6 +22,7 @@ interface MessageSenderProps {
 
 export function MessageSender({ onSend, label, placeholder, checkDraft, isHeld = false }: MessageSenderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  useFieldStaysInView(inputRef);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);

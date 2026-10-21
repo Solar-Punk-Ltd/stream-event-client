@@ -23,6 +23,9 @@ not send.
   does, and on a touch screen a tap shows them.
 - A mouse click never keeps them, so a click on the sender's badge opens the details and nothing else.
 - The emoji bar's last button opens every emoji above the field, with its close button above the picker.
+- While the message field has focus, it comes back into view whenever the page or the part of it a phone's keyboard
+  leaves visible changes size, so the keyboard never covers what is being typed
+  (`MessageSender/useFieldStaysInView.ts`).
 
 The chat and its library are a file of the bundle of their own, fetched as the watch page opens, beside the video
 rather than after it (`src/features/chat/WatchChat.tsx` lazy-loads `Chat/Chat.tsx`). The emoji picker is fetched the
