@@ -22,16 +22,19 @@ class FakeResizeObserver {
 
 let visualViewport: EventTarget;
 let scrolled: Element[];
+let scrollOptions: (ScrollIntoViewOptions | boolean | undefined)[];
 let mounted: Mounted | null = null;
 
 beforeEach(() => {
   pageResized.length = 0;
   scrolled = [];
+  scrollOptions = [];
   visualViewport = new EventTarget();
   vi.stubGlobal('ResizeObserver', FakeResizeObserver);
   Object.defineProperty(window, 'visualViewport', { configurable: true, value: visualViewport });
-  Element.prototype.scrollIntoView = function (this: Element) {
+  Element.prototype.scrollIntoView = function (this: Element, options?: ScrollIntoViewOptions | boolean) {
     scrolled.push(this);
+    scrollOptions.push(options);
   };
 });
 
@@ -59,6 +62,7 @@ describe('the chat field on a phone', () => {
     });
 
     expect(scrolled).toEqual([input]);
+    expect(scrollOptions).toEqual([{ block: 'nearest' }]);
   });
 
   it('scrolls back into view when the page grows above it while it has focus', () => {
