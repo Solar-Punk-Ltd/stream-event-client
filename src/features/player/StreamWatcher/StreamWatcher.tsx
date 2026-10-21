@@ -39,11 +39,14 @@ function isMediaType(value: string): value is MediaType {
  * seconds on a first open. On a phone the chat sits under them, and without this it jumps down when they arrive,
  * under a keyboard that was raised for its field.
  */
+/** One line's height of nothing: a no-break space, which a collapsing white space rule keeps. */
+const NO_BREAK_SPACE = String.fromCharCode(0xa0);
+
 function TitlePlaceholder() {
   return (
     <div className="watch-info" aria-hidden="true">
-      <div className="watch-info-title">{' '}</div>
-      <p className="watch-info-description">{' '}</p>
+      <div className="watch-info-title">{NO_BREAK_SPACE}</div>
+      <p className="watch-info-description">{NO_BREAK_SPACE}</p>
     </div>
   );
 }

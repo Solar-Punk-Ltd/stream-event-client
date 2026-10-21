@@ -115,6 +115,8 @@ describe('the watch page', () => {
       expect(pending?.getAttribute('aria-hidden')).toBe('true');
       expect(pending?.querySelector('.watch-info-title')).not.toBeNull();
       expect(pending?.querySelector('.watch-info-description')).not.toBeNull();
+      // A plain space collapses to nothing and holds no line, a no-break space holds one.
+      expect(pending?.querySelector('.watch-info-title')?.textContent).toBe(String.fromCharCode(0xa0));
       expect(document.querySelector('h1')).toBeNull();
     } finally {
       appContext.value = { ...appContext.value, isStreamListLoaded: true };
