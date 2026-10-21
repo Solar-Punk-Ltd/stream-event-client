@@ -106,6 +106,23 @@ describe('the watch page', () => {
     expect(document.querySelector('.watch-info')?.textContent).toBe('A talk');
   });
 
+  it('holds the title and one line of description in place while the stream list loads', () => {
+    appContext.value = { ...appContext.value, streamList: [], isStreamListLoaded: false };
+    try {
+      mounted = mount(watchPage());
+
+      const pending = document.querySelector('.watch-layout-info .watch-info');
+      expect(pending?.getAttribute('aria-hidden')).toBe('true');
+      expect(pending?.querySelector('.watch-info-title')).not.toBeNull();
+      expect(pending?.querySelector('.watch-info-description')).not.toBeNull();
+      // A plain space collapses to nothing and holds no line, a no-break space holds one.
+      expect(pending?.querySelector('.watch-info-title')?.textContent).toBe(String.fromCharCode(0xa0));
+      expect(document.querySelector('h1')).toBeNull();
+    } finally {
+      appContext.value = { ...appContext.value, isStreamListLoaded: true };
+    }
+  });
+
   it('shows no description when the entry carries none, or carries something that is not text', () => {
     openWatchPage({ state: 'vod', description: { html: '<b>no</b>' } as unknown as string });
 
