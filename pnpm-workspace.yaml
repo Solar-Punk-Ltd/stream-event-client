@@ -32,3 +32,6 @@ overrides:
   nanoid@3: ^3.3.18 # GHSA-2v37-7h3g-55p8
   postcss: ^8.5.18
   ws: ^8.21.0
+  # GHSA-mrhx-c7xc-m3w5. Swarm ID 0.10.0 pins zod 4.1.13 exactly, which this lifts to the fix. Exact, and only
+  # below the fix, so it lifts no other major and takes no release younger than the fix.
+  'zod@<4.6.6': 4.6.6
