@@ -176,10 +176,10 @@ class FreedomBudget {
   private windowMs = FREEDOM_BUDGET_WINDOW_MS;
   private windowStartedAtMs: number | null = null;
   /**
-   * The reads sent in the first moment of the page's window, from its first. A late refusal of one says it reached
-   * Freedom in its last window and started none there, so the page's window starts at the next of them instead.
+   * The reads sent in the page's window, from its first. A late refusal of its first says it reached Freedom in its
+   * last window and started none there, so the page's window starts at the next of them instead, however long after.
    */
-  private firstMomentSentAtMs: number[] = [];
+  private sentInWindowAtMs: number[] = [];
   /** Whether the page has counted a window before, whose end in Freedom is then a moment after the page's. */
   private countedWindow = false;
   /** Whether the page's window followed one it counted. */
@@ -196,11 +196,9 @@ class FreedomBudget {
       this.followsWindow = this.countedWindow;
       this.countedWindow = true;
       this.windowStartedAtMs = nowMs;
-      this.firstMomentSentAtMs = [];
+      this.sentInWindowAtMs = [];
     }
-    if (nowMs - this.windowStartedAtMs < LATE_REFUSAL_WAIT_MS) {
-      this.firstMomentSentAtMs.push(nowMs);
-    }
+    this.sentInWindowAtMs.push(nowMs);
   }
 
   /**
@@ -226,13 +224,13 @@ class FreedomBudget {
    * ahead of Freedom's by as long as Freedom took to accept a read again, past the moment a late refusal is judged by.
    */
   private notStartedBy(sentAtMs: number): void {
-    const at = this.firstMomentSentAtMs.indexOf(sentAtMs);
+    const at = this.sentInWindowAtMs.indexOf(sentAtMs);
     if (at === -1) {
       return;
     }
-    this.firstMomentSentAtMs.splice(at, 1);
+    this.sentInWindowAtMs.splice(at, 1);
     if (this.windowStartedAtMs === sentAtMs) {
-      this.windowStartedAtMs = this.firstMomentSentAtMs[0] ?? null;
+      this.windowStartedAtMs = this.sentInWindowAtMs[0] ?? null;
     }
   }
 }

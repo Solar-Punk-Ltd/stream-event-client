@@ -72,12 +72,13 @@ every read is refused until the minute ends. Segments and pictures at `bzz://` a
   deployment's default gateway until Freedom's minute ends, then back to Freedom. A refusal names only the minute's
   length, so the page keeps when it sent the minute's first read and waits only what is left of it; a refusal that lands
   after that, as the first read reached Freedom a moment after it was sent, holds reads back for 1 s, and so does a
-  refusal of a read sent in the first second of the page's next minute, which may have reached Freedom in its last. Such a read started no minute in Freedom, so the page counts its minute
-  from the next read Freedom accepts. Freedom counts the
-  site's reads together, so every part picked for this source shares that one wait: after the stream list's refusal,
-  the player and the previews read through the gateway too, with no refusal of their own. A blob larger than the
-  site's whole byte budget is read there too. The diagnostics count those answers under this source. A client made for this source
-  alone, as for its checks, has no gateway behind it, and answers rate limited.
+  refusal of a read sent in the first second of the page's next minute, which may have reached Freedom in its last.
+  Such a read started no minute in Freedom, so the page counts its minute from the next read it sent, however long
+  after, that Freedom did not refuse late too. Freedom counts the site's reads together, so every part picked for this
+  source shares that one wait: after the stream list's refusal, the player and the previews read through the gateway
+  too, with no refusal of their own. A blob larger than the site's whole byte budget is read there too. The diagnostics
+  count those answers under this source. A client made for this source alone, as for its checks, has no gateway behind
+  it, and answers rate limited.
 - **What a viewer reads.** The player follows the quality it plays, about 36 reads a minute for a ladder of four
   qualities in `test/freedomBudgetLadder.test.ts`, which fits the anonymous budget. The stream list and the previews
   read through the same budget when they are picked for this source. That test spends the budget the way a browse page
