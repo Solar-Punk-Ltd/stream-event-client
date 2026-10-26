@@ -1,7 +1,7 @@
 // Copied from Solar-Punk-Ltd/streaming-monorepo at c1696c26, apps/hls-stream/packages/shared/src/manifest.ts.
 // Refresh it from there when the stream list format changes.
 
-import { HLS_DISCONTINUITY, HLS_ENDLIST, HLS_EXTINF, HLS_GAP, HLS_PROGRAM_DATE_TIME } from './hlsTags.js';
+import { HLS_DISCONTINUITY, HLS_ENDLIST, HLS_EXTINF, HLS_GAP, HLS_MAP, HLS_PROGRAM_DATE_TIME } from './hlsTags.js';
 
 /**
  * One media segment as it survives a manifest round trip.
@@ -28,6 +28,16 @@ export interface Segment {
    * carries none. Recordings published before the uploader started stamping them are the case.
    */
   programDateTime?: string;
+  /**
+   * The `#EXT-X-MAP` line in force for this segment, as written, absent on a stream with no
+   * initialization section. An MPEG-TS stream, which is what the uploader writes, carries none. An fMP4
+   * stream carries one above its first segment and a new one wherever its encoder restarted.
+   *
+   * Kept on every segment it covers rather than once in the headers, because a viewer assembles its
+   * playlist from many windows of the feed, and the window that named the map may have slid past
+   * every segment the viewer still holds. Its `URI` is rewritten like a segment's.
+   */
+  map?: string;
 }
 
 export interface ParsedManifest {
@@ -101,6 +111,18 @@ export function programDateTimeMs(line: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const MAP_URI = /URI="([^"]*)"/;
+
+/** The `URI` an `#EXT-X-MAP` line names, or null when it names none. */
+export function mapUri(line: string): string | null {
+  return MAP_URI.exec(line)?.[1] ?? null;
+}
+
+/** The `#EXT-X-MAP` line with its `URI` replaced by `uri`, every other attribute kept as written. */
+export function withMapUri(line: string, uri: string): string {
+  return line.replace(MAP_URI, () => `URI="${uri}"`);
+}
+
 /**
  * Split a playlist into its headers and its segments.
  *
@@ -113,6 +135,11 @@ export function programDateTimeMs(line: string): number | null {
  * segment's stamp would be captured as a header the client then repeats above every later segment,
  * and every other stamp would be dropped on the floor, silently, because a line that is neither a
  * header nor a segment has nowhere else to go. `#EXT-X-GAP` is read on exactly the same terms.
+ *
+ * `#EXT-X-MAP` is never a header either, wherever it stands: it goes on every segment after it until
+ * the next one (see {@link Segment.map}). Kept as a header, its `URI` would reach hls.js as the
+ * publisher wrote it, a bare reference no gateway resolves, and a second map after an encoder restart
+ * would be dropped, so the segments behind it would be decoded with the first one's section.
  *
  * **This reads the playlists the uploader produces, not RFC 8216 in general**, and the difference is
  * worth stating because the function now lives in a shared package where it looks more general than
@@ -131,6 +158,7 @@ export function parseManifest(text: string): ParsedManifest {
   let pendingDiscontinuity = false;
   let pendingGap = false;
   let pendingProgramDateTime: string | undefined;
+  let currentMap: string | undefined;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -158,6 +186,11 @@ export function parseManifest(text: string): ParsedManifest {
       continue;
     }
 
+    if (line.startsWith(`${HLS_MAP}:`)) {
+      currentMap = line;
+      continue;
+    }
+
     if (line.startsWith(HLS_EXTINF)) {
       headersDone = true;
       const uri = lines[i + 1]?.trim();
@@ -168,6 +201,7 @@ export function parseManifest(text: string): ParsedManifest {
           discontinuity: pendingDiscontinuity,
           gap: pendingGap,
           ...(pendingProgramDateTime === undefined ? {} : { programDateTime: pendingProgramDateTime }),
+          ...(currentMap === undefined ? {} : { map: currentMap }),
         });
         i++;
       }
