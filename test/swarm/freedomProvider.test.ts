@@ -466,6 +466,78 @@ describe("the Freedom browser's node, read through window.swarm", () => {
       expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({ kind: 'content' });
     });
 
+    it("starts the page's window at the next read Freedom accepts, not at a read it refused in its last window", async () => {
+      let nowMs = 0;
+      // How long a read takes to reach Freedom, which starts its window when the window's first read reaches it.
+      let ipcMs = 5;
+      let freedomStartedAtMs: number | null = null;
+      const swarm: FreedomSwarm = {
+        isFreedomBrowser: true,
+        request: async () => {
+          const reachedAtMs = nowMs + ipcMs;
+          if (freedomStartedAtMs === null || reachedAtMs >= freedomStartedAtMs + WINDOW_MS) {
+            freedomStartedAtMs = reachedAtMs;
+            return { data: Buffer.from(ENTRIES[0]).toString('base64'), encoding: 'base64', index: 0 };
+          }
+          throw freedomError(-32602, 'Permission-free read budget exceeded', {
+            reason: 'rate_limited',
+            windowMs: WINDOW_MS,
+          });
+        },
+      };
+      const provider = freedom(swarm, undefined, () => nowMs);
+
+      await provider.readFeedHead(OWNER, TOPIC);
+      nowMs = 20_000;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({ retryAfterMs: WINDOW_MS - 20_000 });
+      // Reaches Freedom 1 ms before its window ends, so it is refused late and starts no window there.
+      nowMs = WINDOW_MS + 2;
+      ipcMs = 1;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({ retryAfterMs: 1_000 });
+      // Freedom's next window starts as this read reaches it.
+      nowMs = 63_000;
+      ipcMs = 5;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({ kind: 'content' });
+      nowMs = 80_000;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({ retryAfterMs: 63_000 + WINDOW_MS - 80_000 });
+      nowMs = 63_000 + WINDOW_MS;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({ kind: 'content' });
+    });
+
+    it("starts the page's window at a read sent in the same moment as one refused late, when Freedom accepted it", async () => {
+      let nowMs = 0;
+      let ipcMs = 5;
+      let freedomStartedAtMs: number | null = null;
+      const swarm: FreedomSwarm = {
+        isFreedomBrowser: true,
+        request: async () => {
+          const reachedAtMs = nowMs + ipcMs;
+          if (freedomStartedAtMs === null || reachedAtMs >= freedomStartedAtMs + WINDOW_MS) {
+            freedomStartedAtMs = reachedAtMs;
+            return { data: Buffer.from(ENTRIES[0]).toString('base64'), encoding: 'base64', index: 0 };
+          }
+          throw freedomError(-32602, 'Permission-free read budget exceeded', {
+            reason: 'rate_limited',
+            windowMs: WINDOW_MS,
+          });
+        },
+      };
+      const provider = freedom(swarm, undefined, () => nowMs);
+
+      await provider.readFeedHead(OWNER, TOPIC);
+      ipcMs = 1;
+      nowMs = WINDOW_MS + 2;
+      const refusedLate = provider.readFeedHead(OWNER, TOPIC);
+      nowMs = WINDOW_MS + 4;
+      const accepted = provider.readFeedHead(OWNER, TOPIC);
+      expect(await refusedLate).toMatchObject({ retryAfterMs: 1_000 });
+      expect(await accepted).toMatchObject({ kind: 'content' });
+      nowMs = 80_000;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({
+        retryAfterMs: WINDOW_MS + 4 + WINDOW_MS - 80_000,
+      });
+    });
+
     it('answers rate limited with what is left of the window as the wait where no gateway is there', async () => {
       let nowMs = 0;
       const swarm = fakeFreedom(WORLD, { budget: { maxRequests: 1, windowMs: WINDOW_MS, now: () => nowMs } });

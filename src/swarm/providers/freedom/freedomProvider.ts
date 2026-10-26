@@ -175,7 +175,14 @@ function failureOf(error: unknown, method: string, windowMs: number): Called {
 class FreedomBudget {
   private windowMs = FREEDOM_BUDGET_WINDOW_MS;
   private windowStartedAtMs: number | null = null;
-  /** Whether the page's window followed one it counted, whose end in Freedom is then a moment after the page's. */
+  /**
+   * The reads sent in the first moment of the page's window, from its first. A late refusal of one says it reached
+   * Freedom in its last window and started none there, so the page's window starts at the next of them instead.
+   */
+  private firstMomentSentAtMs: number[] = [];
+  /** Whether the page has counted a window before, whose end in Freedom is then a moment after the page's. */
+  private countedWindow = false;
+  /** Whether the page's window followed one it counted. */
   private followsWindow = false;
   private overUntilMs = 0;
 
@@ -186,8 +193,13 @@ class FreedomBudget {
   /** A read sent to Freedom, the first of a new window where the last one has ended. */
   sent(nowMs: number): void {
     if (this.windowStartedAtMs === null || nowMs - this.windowStartedAtMs >= this.windowMs) {
-      this.followsWindow = this.windowStartedAtMs !== null;
+      this.followsWindow = this.countedWindow;
+      this.countedWindow = true;
       this.windowStartedAtMs = nowMs;
+      this.firstMomentSentAtMs = [];
+    }
+    if (nowMs - this.windowStartedAtMs < LATE_REFUSAL_WAIT_MS) {
+      this.firstMomentSentAtMs.push(nowMs);
     }
   }
 
@@ -202,8 +214,26 @@ class FreedomBudget {
     const startedAtMs = this.windowStartedAtMs ?? sentAtMs;
     const endsAtMs = startedAtMs + windowMs;
     const late = endsAtMs <= nowMs || (this.followsWindow && sentAtMs - startedAtMs < LATE_REFUSAL_WAIT_MS);
+    if (late) {
+      this.notStartedBy(sentAtMs);
+    }
     this.overUntilMs = late ? nowMs + Math.min(LATE_REFUSAL_WAIT_MS, windowMs) : endsAtMs;
     return this.overUntilMs - nowMs;
+  }
+
+  /**
+   * A read refused late started no window in Freedom. Were the page's window counted from it, the page's would run
+   * ahead of Freedom's by as long as Freedom took to accept a read again, past the moment a late refusal is judged by.
+   */
+  private notStartedBy(sentAtMs: number): void {
+    const at = this.firstMomentSentAtMs.indexOf(sentAtMs);
+    if (at === -1) {
+      return;
+    }
+    this.firstMomentSentAtMs.splice(at, 1);
+    if (this.windowStartedAtMs === sentAtMs) {
+      this.windowStartedAtMs = this.firstMomentSentAtMs[0] ?? null;
+    }
   }
 }
 
