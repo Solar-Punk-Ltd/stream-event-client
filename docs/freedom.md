@@ -39,7 +39,8 @@ A single-owner chunk whose span is longer than one chunk wraps the root of a tre
 A segment at `bzz://` goes through hls.js's fetch loader, since Freedom registers the scheme for `fetch` and promises
 nothing for XHR (`CustomFragmentLoader` in `src/features/player/CustomManifestLoader.ts`). Such a segment counts for the
 video's source in the failure bar, and ends no feed backoff, since the playlists are read through `window.swarm` and a
-segment arriving says nothing about those reads. Ant serves a raw `/bytes` reference at `bzz://<reference>/` from v0.5.53.
+segment arriving says nothing about those reads. Ant serves a raw `/bytes` reference at `bzz://<reference>/` from
+v0.5.53.
 
 ## Answers
 
@@ -72,14 +73,14 @@ every read is refused until the minute ends. Segments and pictures at `bzz://` a
   deployment's default gateway until Freedom's minute ends, then back to Freedom. A refusal names only the minute's
   length, so the page keeps when it sent the minute's first read and waits only what is left of it; a refusal that lands
   after that, as the first read reached Freedom a moment after it was sent, holds reads back for 1 s, and so does a
-  refusal of a read sent in the first second of the page's next minute, which may have reached Freedom in its last.
-  Such a read started no minute in Freedom, so the page counts its minute from the next read it sent, however long
-  after, that Freedom did not refuse late too. A late refusal never shortens a wait already running, and holds nothing
-  back once Freedom has answered a read sent after the refused one, as Freedom's next minute is then open. Freedom counts the site's reads together, so every part picked for this
-  source shares that one wait: after the stream list's refusal, the player and the previews read through the gateway
-  too, with no refusal of their own. A blob larger than the site's whole byte budget is read there too. The diagnostics
-  count those answers under this source. A client made for this source alone, as for its checks, has no gateway behind
-  it, and answers rate limited.
+  refusal of a read sent in the first second of the page's next minute, which may have reached Freedom in its last. Such
+  a read started no minute in Freedom, so the page counts its minute from the next read it sent, however long after,
+  that Freedom did not refuse late too. A late refusal never shortens a wait already running, and holds nothing back
+  once Freedom has answered a read sent after the refused one, as Freedom's next minute is then open. Freedom counts the
+  site's reads together, so every part picked for this source shares that one wait: after the stream list's refusal, the
+  player and the previews read through the gateway too, with no refusal of their own. A blob larger than the site's
+  whole byte budget is read there too. The diagnostics count those answers under this source. A client made for this
+  source alone, as for its checks, has no gateway behind it, and answers rate limited.
 - **What a viewer reads.** The player follows the quality it plays, about 36 reads a minute for a ladder of four
   qualities in `test/freedomBudgetLadder.test.ts`, which fits the anonymous budget. The stream list and the previews
   read through the same budget when they are picked for this source. That test spends the budget the way a browse page
