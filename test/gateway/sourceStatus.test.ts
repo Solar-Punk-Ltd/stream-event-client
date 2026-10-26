@@ -8,6 +8,7 @@ import { content, fault, notFound, ScriptedProvider } from '../helpers/scriptedP
 const CATALOG = { owner: '1'.repeat(40), topic: 'event-streams' };
 const GATEWAY = { type: 'gateway' as const, url: 'https://gw.example.com' };
 const NODE = { type: 'bee-node' as const, url: 'http://localhost:1633' };
+const FREEDOM = { type: 'freedom' as const, url: '' };
 
 /** A client on one scripted provider whose probe answers `probe`, and a clock each read moves on by 120 ms. */
 function world(probe: ProbeResult = { kind: 'ok', elapsedMs: 0 }) {
@@ -69,6 +70,33 @@ describe('the light check of a source', () => {
       words: 'Starting',
     });
     expect((await checkSourceStatus(NODE, world({ kind: 'unreachable' }).context)).health).toBe('failing');
+  });
+
+  it("asks the Freedom browser's node its probe, and reads nothing its read budget counts", async () => {
+    const { provider, context } = world({ kind: 'ok', elapsedMs: 30 });
+
+    expect(await checkSourceStatus(FREEDOM, context)).toEqual({ health: 'ok', elapsedMs: 30 });
+    expect(provider.asked).toEqual([]);
+  });
+
+  it("says why the Freedom browser's node cannot be read", async () => {
+    const status = async (probe: ProbeResult) => checkSourceStatus(FREEDOM, world(probe).context);
+
+    expect(await status({ kind: 'not-ready', reason: { kind: 'switched-off' } })).toEqual({
+      health: 'warning',
+      elapsedMs: null,
+      words: 'Switched off',
+    });
+    expect(await status({ kind: 'not-ready', reason: { kind: 'node-stopped' } })).toEqual({
+      health: 'warning',
+      elapsedMs: null,
+      words: 'Not running',
+    });
+    expect(await status({ kind: 'unreachable' })).toEqual({
+      health: 'failing',
+      elapsedMs: null,
+      words: 'Not in Freedom',
+    });
   });
 
   it('fails a plain http address the browser would block, without asking it', async () => {

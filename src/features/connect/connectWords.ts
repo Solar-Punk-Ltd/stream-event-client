@@ -17,16 +17,32 @@ export const KIND_LABELS: Readonly<Record<SourceType, string>> = {
   gateway: 'Gateway',
   'bee-node': 'Bee node',
   'weeb-3': 'Weeb3',
+  freedom: 'Freedom',
 };
 
 /** Under Use for while the list holds Weeb3, which no select offers but Video's. */
 export const WEEB3_PARTS_NOTE = 'Weeb3 is used for the video, and to send chat messages on your own stamp.';
+
+/** Under Use for while the list holds the Freedom browser's node, which Chat history's select does not offer. */
+export const FREEDOM_PARTS_NOTE = "This browser's Swarm node is used for the video, the stream list and the previews.";
+
+/**
+ * What connecting this site to Freedom does, beside its button. Freedom lets a site read its node a number of times a
+ * minute, more once the viewer connected the site, and the event gateway serves the reads past it.
+ */
+export const FREEDOM_CONNECT_LINE =
+  'Freedom lets this site read from its node 120 times a minute, and 600 once you connect the site. Reads past the limit come from the event gateway.';
+export const FREEDOM_CONNECTED_LINE =
+  'This site is connected to Freedom, and reads from its node up to 600 times a minute.';
+export const FREEDOM_DECLINED_LINE = 'You did not connect this site. Reload the page to be asked again.';
+export const FREEDOM_CONNECT_FAILED_LINE = 'Freedom did not connect this site. Try again.';
 
 /** Each tile of Add source: its name, and the line under it. */
 export const ADD_TILES: Readonly<Record<SourceType, { readonly name: string; readonly line: string }>> = {
   gateway: { name: 'Gateway', line: 'A Swarm gateway at an https address' },
   'bee-node': { name: 'My Bee node', line: 'On this computer or at an https address' },
   'weeb-3': { name: 'Weeb3', line: 'A Swarm node in this browser tab' },
+  freedom: { name: "This browser's Swarm node", line: 'The node Freedom runs for you' },
 };
 
 /** Each add view's title and its button. */
@@ -34,6 +50,7 @@ export const ADD_VIEWS: Readonly<Record<SourceType, { readonly title: string; re
   gateway: { title: 'Add a gateway', action: 'Add gateway' },
   'bee-node': { title: 'Add my Bee node', action: 'Add node' },
   'weeb-3': { title: 'Add Weeb3', action: 'Add Weeb3' },
+  freedom: { title: "Add this browser's Swarm node", action: 'Add node' },
 };
 
 /**

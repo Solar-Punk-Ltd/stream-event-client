@@ -6,17 +6,19 @@ the node in the browser. A developer who wants the viewer to read through someth
 
 ## Two words that are not the same
 
-- **A provider kind** is the code that reads Swarm, named in `src/swarm/providerKinds.ts`: `bee-http` and `weeb-3`.
-  Each has a class implementing `SwarmProvider` and an entry in `PROVIDER_REGISTRY` (`src/swarm/registry.ts`) that
+- **A provider kind** is the code that reads Swarm, named in `src/swarm/providerKinds.ts`: `bee-http`, `weeb-3`
+  and `freedom`. Each has a class implementing `SwarmProvider` and an entry in `PROVIDER_REGISTRY` (`src/swarm/registry.ts`) that
   makes one from a `GatewaySetting`. `GATEWAY_KINDS` is the subset a deployment may offer in `config.json`.
-- **A source type** is what a viewer sees and adds in My Swarm, named in `src/swarm/sources.ts`: `gateway`, `bee-node`
-  and `weeb-3`. `SOURCE_TYPE_KIND` maps each to the kind it is read through, so `gateway` and `bee-node` are both
+- **A source type** is what a viewer sees and adds in My Swarm, named in `src/swarm/sources.ts`: `gateway`, `bee-node`,
+  `weeb-3` and `freedom`. `SOURCE_TYPE_KIND` maps each to the kind it is read through, so `gateway` and `bee-node` are both
   `bee-http`. A type decides the words on the tile, which checks run, whether there is an address field, and which
   type-specific branches the panel takes. A kind decides how bytes are read.
 
 A new way of reaching Swarm may therefore be one of three things: a new kind behind an existing type (a different
 protocol for a gateway address), a new type over an existing kind (a different way of presenting `bee-http`), or
-both. The checklist below marks what each needs.
+both. The checklist below marks what each needs. The `freedom` kind and type, the Freedom browser's own node read
+through its `window.swarm`, were added by following it, and [the Freedom browser's node](freedom.md) says what each
+step became.
 
 ## The provider interface
 
@@ -113,7 +115,11 @@ export type NotReadyReason =
   /** Connected to nobody, so nothing it is asked for can be fetched from the network. */
   | { readonly kind: 'no-peers' }
   /** Older than the oldest release whose API this viewer reads. */
-  | { readonly kind: 'too-old'; readonly version: string; readonly needed: string };
+  | { readonly kind: 'too-old'; readonly version: string; readonly needed: string }
+  /** The browser's own node is not running. */
+  | { readonly kind: 'node-stopped' }
+  /** The browser offers its node to pages and has that switched off in its settings. */
+  | { readonly kind: 'switched-off' };
 
 /** What asking a provider whether it is there at all found. */
 export type ProbeResult =
@@ -291,7 +297,7 @@ Then register the kind:
 ```ts
 // src/swarm/providerKinds.ts
 export const GATEWAY_KINDS = ['bee-http', 'my-kind'] as const; // only if a deployment may offer it in config.json
-export const PROVIDER_KINDS = [...GATEWAY_KINDS, 'weeb-3'] as const;
+export const PROVIDER_KINDS = [...GATEWAY_KINDS, 'weeb-3', 'freedom'] as const;
 
 // src/swarm/registry.ts
 'my-kind': {
@@ -299,6 +305,11 @@ export const PROVIDER_KINDS = [...GATEWAY_KINDS, 'weeb-3'] as const;
   create: (gateway, environment) => new MyKindProvider({ baseUrl: gateway.url, ...environment }),
 },
 ```
+
+A kind's maker gets the `ProviderEnvironment`: the fetch to use, the page's origin, and `eventGateway`, the
+deployment's default gateway, which `createSwarmClient` fills in wherever that default is a gateway kind. `freedom`
+reads through it while Freedom's read budget is spent. A client made for one source alone, as the checks' is, names that
+source as its default, so its provider gets no gateway behind it.
 
 `PROVIDER_REGISTRY` is a `Record<ProviderKindName, ProviderKind>`, so a kind missing from it fails the typecheck, and
 `test/swarm/settings.test.ts` asserts the registry's keys equal `PROVIDER_KINDS` with a non-empty label each.
@@ -321,21 +332,26 @@ error. "Hand-listed" means a literal list a new entry has to be added to by hand
 ### The sources (a new type)
 
 5. `src/swarm/sources.ts`: `SOURCE_TYPES` (hand-listed), `SOURCE_TYPE_KIND` and `DEFAULT_NAMES` (compile-enforced),
-   and `hasAddress`, which is hard-coded as `type !== 'weeb-3'`. `parseAddedSources` keeps a saved entry only when
-   its type is listed and its address is present exactly when `hasAddress` says so.
+   and `hasAddress`, which is hard-coded as `type !== 'weeb-3' && type !== 'freedom'`. `parseAddedSources` keeps a
+   saved entry only when its type is listed and its address is present exactly when `hasAddress` says so.
+   `src/swarm/routing.ts`: `SERVED_PARTS` (compile-enforced) names the parts a type may be picked for under Use for.
 
 ### My Swarm, the panel (`src/features/connect/`)
 
 6. `connectWords.ts`: `KIND_LABELS`, `ADD_TILES` and `ADD_VIEWS` are `Record<SourceType, ...>`, compile-enforced.
    `ADDRESS_PLACEHOLDERS` is keyed by `'gateway' | 'bee-node'` only, so a type with an address extends that key.
-7. `AddSourceViews.tsx`: the tile list is the hand-listed literal `['gateway', 'bee-node', 'weeb-3']`, and `ONE_EACH`
+7. `AddSourceViews.tsx`: the tile list is the hand-listed `tilesOffered()`, which adds `'freedom'` only in Freedom, and
+   `ONE_EACH`
    names the types a browser holds one of. `AddAddressView` takes `type: 'gateway' | 'bee-node'`, with a local
-   `DEFAULT_NAMES` and `addressToCheck`. `AddWeeb3View` is weeb-3 only. A type with an address widens the address view,
+   `DEFAULT_NAMES` and `addressToCheck`. `AddWeeb3View` is weeb-3 only, and `AddFreedomView` freedom only. A type with an address widens the address view,
    a type without one gets a view of its own.
-8. `Connect.tsx`: `shown.type === 'weeb-3' ? <AddWeeb3View /> : <AddAddressView />` picks the add view, and
-   `isAddingWeeb3` asks before closing. A new type without an address joins both branches.
-9. `SwarmAccess.tsx` (the `hasAddress` branch, `NodeInTabMeta` for a node in the tab) and `SourceSettings.tsx` (the
-   `hasAddress` branches, node start and stop on test, the `WEEB3_VERSION` and `WEEB3_NETWORK` lines).
+8. `Connect.tsx`: `shown.type === 'weeb-3'`, then `shown.type === 'freedom'`, else `<AddAddressView />` picks the add
+   view, and `isAddingWeeb3` asks before closing. A new type without an address joins the first, and the second only if
+   closing would stop something it holds.
+9. `SwarmAccess.tsx` (the `hasAddress` branch, a `'freedom'` branch, `NodeInTabMeta` for a node in the tab) and
+   `SourceSettings.tsx` (the `hasAddress` branches, a `'freedom'` branch with `FreedomConnect.tsx`, node start and stop
+   on test for `'weeb-3'`, the `WEEB3_VERSION` and `WEEB3_NETWORK` lines). `UseFor.tsx` shows a line per type that is
+   offered for some parts only, `WEEB3_PARTS_NOTE` and `FREEDOM_PARTS_NOTE` in `connectWords.ts`.
 10. `ChatStampSection.tsx`: `SENDS_THROUGH` is keyed by the own-stamp route's `through`, `'bee-node'` and `'weeb-3'`,
     hand-listed. Only if the new type can send a message on the viewer's own stamp.
 
@@ -346,9 +362,10 @@ error. "Hand-listed" means a literal list a new entry has to be added to by hand
     `type === 'bee-node'`. `test/gateway/checkWords.test.ts` asserts each type's lines.
 12. `sourceChecks.ts`: `CheckRun.step` switches over `CheckStep` exhaustively, so a new step needs a case.
     `addressRefusal` branches on `'bee-node'`, `version` on `'gateway'`, `readStreamListAnswer` and `readsStreamList`
-    on `'weeb-3'`, and `nodeStarted` and `nodeHasPeers` are for a node in the tab.
-13. `sourceStatus.ts`: `checkSourceStatus` branches on `'weeb-3'`, then `'bee-node'`, and treats anything else as a
-    gateway asked for the stream list's first entry.
+    on `'weeb-3'`, `nodeStarted` and `nodeHasPeers` are for a node in the tab, and `inFreedom` and
+    `freedomNodeAnswers` share one probe of the Freedom browser's node.
+13. `sourceStatus.ts`: `checkSourceStatus` branches on `'weeb-3'`, then `'freedom'`, then `'bee-node'`, and treats
+    anything else as a gateway asked for the stream list's first entry.
 14. `gatewayProbe.ts`: `checkSourceAddress` adds `https://` for `type === 'gateway'` and runs the own-node rules for a
     Bee node.
 15. `NodeInTabProgress.tsx` (`type === 'weeb-3'`), `useNodeInTabStatus.ts` and `src/shared/nodeInTabStatus.ts` are
@@ -361,7 +378,8 @@ error. "Hand-listed" means a literal list a new entry has to be added to by hand
     looks for a `'bee-node'` then a `'weeb-3'`. `ChatStamp.tsx` branches on `route.through` for the send,
     `stampProblems.ts` reads the push's errors, `ownStampWrite.ts` names `NO_NODE`, and
     `Chat/StampWarningBar/StampWarningBar.tsx` and the `OWN_STAMP_NEEDS_*` texts in `connectWords.ts` name the types
-    that can send. Only if the new kind can send a stamped chunk.
+    that can send. Only if the new kind can send a stamped chunk. A type that cannot still needs its case in the
+    switch, as `'freedom'` has.
 
 ### The app
 
@@ -376,7 +394,8 @@ error. "Hand-listed" means a literal list a new entry has to be added to by hand
 ### Build, serve and policy
 
 19. `deploy/nginx/40-gateway-and-policy.sh`: the content security policy. A kind that reaches an https address needs
-    nothing, since `https:` is in `connect-src` and `img-src`. A kind that reaches a new scheme or a plain http origin
+    nothing, since `https:` is in `connect-src` and `img-src`. `freedom` added `bzz:` to both, for the segments and
+    pictures it names at `bzz://` URLs. A kind that reaches a new scheme or a plain http origin
     beyond the viewer's machine, or compiles WebAssembly, or opens websockets to a host `wss:` does not cover, adds its
     source to the policy there, and `test/image.test.ts` asserts the policy. `deploy/nginx/default.conf`'s `/weeb-3/`
     location, `scripts/weeb3-files.mjs` and the `weeb3Files` plugin in `vite.config.js` are weeb-3 only: a kind that
@@ -387,16 +406,17 @@ error. "Hand-listed" means a literal list a new entry has to be added to by hand
 20. The provider contract: `test/swarm/providerContract.ts` exports `describeProviderContract(name, harness)`. Add a
     `test/swarm/<kind>Provider.test.ts` that builds a `ContractHarness` (a world of content the provider holds, a
     `retryAfterMs`, and a provider for each far-side behaviour: `served`, `silent`, `faulty`, `rate-limited`) and
-    calls it, as `beeHttpProvider.test.ts` and `weeb3Provider.test.ts` do.
+    calls it, as `beeHttpProvider.test.ts`, `weeb3Provider.test.ts` and `freedomProvider.test.ts` do.
 21. The boundary: `test/swarm/boundary.test.ts` needs no change for a provider that stays inside `src/swarm`. A feature
     that must import past the public surface, as the chat's writes do, adds a named entry to
-    `ALLOWED_PAST_THE_SURFACE` with its reason.
+    `ALLOWED_PAST_THE_SURFACE` with its reason, as the panel's two imports of `providers/freedom/freedomSwarm` do.
 22. Then run the type check and the test suite and fix what breaks. Several suites enumerate the kinds or the types,
     under `test/swarm/`, `test/gateway/`, `test/connect/` and `test/chat/`, and each names what it expects of a new
     one.
-23. Doubles and browser fakes: the unit tests use `test/helpers/scriptedProvider.ts` and `test/helpers/fakeWeeb3.ts`,
-    and the browser journeys use `e2e/fakeWeeb3.ts` and `e2e/fakeSwarmIdSite.ts`. A new kind the journeys should cover
-    gets a fake of its own and a spec beside `e2e/connect.e2e.ts` and `e2e/weeb3.e2e.ts`.
+23. Doubles and browser fakes: the unit tests use `test/helpers/scriptedProvider.ts`, `test/helpers/fakeWeeb3.ts` and
+    `test/helpers/fakeFreedom.ts`, and the browser journeys use `e2e/fakeWeeb3.ts`, `e2e/fakeFreedom.ts` and
+    `e2e/fakeSwarmIdSite.ts`. A new kind the journeys should cover gets a fake of its own and a spec beside
+    `e2e/connect.e2e.ts`, `e2e/weeb3.e2e.ts` and `e2e/freedom.e2e.ts`, listed in `e2e/playwright.config.ts`.
 24. The docs: [configuration](configuration.md), [My Swarm](my-swarm.md), [the Swarm client](swarm-client.md) and the
     storage table, and this page.
 
@@ -411,8 +431,8 @@ Two checks run against a source, both through a client made for that source alon
   them with nothing kind-specific. The address, CORS, version and readiness steps are type-specific, and a new type
   picks the steps it needs and adds a case for any new one.
 - **The light status**, every 10 s while the panel is open: `checkSourceStatus` in `sourceStatus.ts`, a `probe` for a
-  Bee node, the node's own `status()` for weeb-3, and one feed entry read for a gateway. A new kind decides which of
-  the three fits, or adds a branch.
+  Bee node and for the Freedom browser's node, the node's own `status()` for weeb-3, and one feed entry read for a
+  gateway. A new kind decides which of the three fits, or adds a branch.
 
 The provider's own `probe()` is what both lean on for "is it there": map every way of not being there to a
 `ProbeResult` and never throw.

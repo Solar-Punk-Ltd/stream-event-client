@@ -1,13 +1,13 @@
 /**
  * The sources a viewer reads Swarm from: the gateways the deployment offers, and the gateways, Bee
- * nodes and the node in their own browser the viewer added. Pure, so the app keeps them in the browser and the Sources
+ * nodes, the node in their own browser tab and the Freedom browser's own node the viewer added. Pure, so the app keeps them in the browser and the Sources
  * screen shows them, and neither holds a rule of its own about them.
  */
 import type { ProviderKindName } from './providerKinds';
 import { gatewayName, type GatewaySetting, type SwarmSettings } from './settings';
 
 /** What a viewer adds a source as, one tile each under Add source in Connect. */
-const SOURCE_TYPES = ['gateway', 'bee-node', 'weeb-3'] as const;
+const SOURCE_TYPES = ['gateway', 'bee-node', 'weeb-3', 'freedom'] as const;
 
 export type SourceType = (typeof SOURCE_TYPES)[number];
 
@@ -16,11 +16,15 @@ const SOURCE_TYPE_KIND: Readonly<Record<SourceType, ProviderKindName>> = {
   gateway: 'bee-http',
   'bee-node': 'bee-http',
   'weeb-3': 'weeb-3',
+  freedom: 'freedom',
 };
 
-/** Whether a source of this type is reached at an address, which every type but the node in the browser is. */
+/**
+ * Whether a source of this type is reached at an address, which every type but a node in the browser is: weeb-3 in
+ * the tab, and the Freedom browser's own node.
+ */
 export function hasAddress(type: SourceType): boolean {
-  return type !== 'weeb-3';
+  return type !== 'weeb-3' && type !== 'freedom';
 }
 
 /** What a source a viewer leaves unnamed is called. */
@@ -28,6 +32,7 @@ const DEFAULT_NAMES: Readonly<Record<SourceType, string>> = {
   gateway: 'My gateway',
   'bee-node': 'My Bee node',
   'weeb-3': 'Weeb3',
+  freedom: "This browser's Swarm node",
 };
 
 /** A source the viewer added, as the browser keeps it. */

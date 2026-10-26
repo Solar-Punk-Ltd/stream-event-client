@@ -104,6 +104,16 @@ const ALLOWED_PAST_THE_SURFACE: readonly { readonly file: string; readonly targe
     why: 'what the node in this browser answered that push, read from its error',
   },
   {
+    file: 'src/features/connect/AddSourceViews.tsx',
+    target: 'providers/freedom/freedomSwarm',
+    why: 'whether the page runs in the Freedom browser, the one browser whose own node is offered as a source',
+  },
+  {
+    file: 'src/features/connect/FreedomConnect.tsx',
+    target: 'providers/freedom/freedomSwarm',
+    why: "connecting this site to the Freedom browser, a prompt of Freedom's own that raises its read budget and reads nothing",
+  },
+  {
     file: 'src/features/chat/stamp/stampProblems.ts',
     target: 'providers/bee-http/stampedSocUpload',
     why: "what the viewer's Bee node answered that write, read from its error",

@@ -37,8 +37,9 @@ holds who the viewer is in the chat, every source they can read Swarm through, a
   then the ones the viewer added. Each row has a status dot, the name, its type and address, how long its last light
   check took, and a Settings button.
   - While My Swarm is open each source gets that light check about every 10 s (`src/features/gateway/sourceStatus.ts`,
-    `useSourceStatuses.ts`): the stream list's first entry for a gateway, and Bee's `/health`, `/readiness` and
-    `/peers` for a Bee node. Nothing is checked while it is closed.
+    `useSourceStatuses.ts`): the stream list's first entry for a gateway, Bee's `/health`, `/readiness` and
+    `/peers` for a Bee node, and `swarm_getCapabilities` for the Freedom browser's node, which Freedom does not count
+    against its read budget. Nothing is checked while it is closed.
   - A gateway that refuses `/soc` is asked it once while My Swarm stays open, and its later checks read the entry by
     its chunk address.
   - Add source sits under the list.
@@ -48,6 +49,9 @@ holds who the viewer is in the chat, every source they can read Swarm through, a
     While the list holds it, a line under the selects says "Weeb3 is used for the video, and to send chat messages on
     your own stamp." A part saved on Weeb3 other than the video, or All features saved on it, reads from the
     deployment's default source.
+  - The Freedom browser's node is offered for Video, Stream list and Previews, and not for Chat history, so All
+    features does not offer it either. While the list holds it, a line under the selects says "This browser's Swarm
+    node is used for the video, the stream list and the previews."
   - While the event pays, chat messages are sent to `chat.writeUrl`, whichever source reads the chat history. On the
     viewer's own stamp they go through a Bee node of their own or Weeb3, the one picked for Chat history when it is a
     Bee node, as [who pays for a message](own-stamp.md) says.
@@ -59,8 +63,9 @@ holds who the viewer is in the chat, every source they can read Swarm through, a
 ## Adding a source
 
 Three tiles (`AddSourceViews.tsx`): Gateway, a Swarm gateway at an https address, My Bee node, on this computer or at
-an https address, and Weeb3, a Swarm node in this browser tab. A browser has one Bee node of its own and one Weeb3, so
-each tile says Already added once it is. A gateway or a Bee node takes an address and a name, and Test connection runs
+an https address, and Weeb3, a Swarm node in this browser tab. In the Freedom browser a fourth, This browser's Swarm
+node, "The node Freedom runs for you". A browser has one Bee node of its own, one Weeb3 and one Freedom node, so each
+of those tiles says Already added once it is. A gateway or a Bee node takes an address and a name, and Test connection runs
 its checks (below). The add button stays disabled until every check passed for the address in the field, so nothing is
 added before, and a new address asks for the checks again. A source that was added is not put in use: the viewer picks
 it under Use for.
@@ -77,6 +82,18 @@ it under Use for.
 
 Everything else about it is in [the node in this browser](weeb3.md).
 
+**This browser's Swarm node.** Offered only when the page runs in Freedom. It has no address and no node to start, so
+its checks run as its view opens, and Add node waits for them, with Test again when they did not pass.
+
+- Under the checks, a line says what connecting the site does, "Freedom lets this site read from its node 120 times a
+  minute, and 600 once you connect the site. Reads past the limit come from the event gateway.", with Connect this site,
+  which opens Freedom's connect prompt only when clicked. A site Freedom counts as connected says so instead. A viewer
+  who declines is told so, and is not asked again until the page is loaded again. The same line and button are in its
+  settings.
+- Its row says "Freedom · in this browser" and its light check's time.
+
+Everything else about it is in [the Freedom browser's node](freedom.md).
+
 ## The checks
 
 Each type of source runs its own, in this order, each line with ✓, ✕ or – and its time. The first that fails stops
@@ -85,18 +102,20 @@ this site (CORS)." and "Its operator has to add this site to Bee's cors-allowed-
 viewer's own that box also gives the exact `cors-allowed-origins` lines for this page's origin, or how to undo a refusal
 of the browser's local network question (`src/features/gateway/sourceChecks.ts`, its words in `checkWords.ts`).
 
-| Check                                            | Type         | How it is measured                                                                                                       |
-| ------------------------------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Answers over https                               | gateway      | The address is https, or on this computer, and the stream list's first entry is asked. Any answer is one                 |
-| Answers, on this computer or at an https address | Bee node     | The address is on this computer or https, then the same read                                                             |
-| Allows this site (CORS)                          | gateway, Bee | That answer could be read by this page. A refusal is told from nothing there by a second request without CORS            |
-| Bee 2.6 or later                                 | gateway      | `/health`'s version. A gateway that does not state one passes with "not stated", one that states an older release fails  |
-| Bee 2.6 or later, ready                          | Bee node     | `/health`'s version, `/readiness` and `/peers`, so a node still starting or with no peers fails                          |
-| Node started                                     | Weeb3        | Its module downloaded and the node running, waited for as long as its own deadlines allow                                |
-| Connected to a peer                              | Weeb3        | Its first peer, waited for up to a minute                                                                                |
-| Reads a chunk                                    | every type   | The root chunk of a segment of this event's video, read the way the chat history reads its slots, through its chat route |
-| Reads bytes                                      | every type   | The same segment's bytes, read the way the player reads it                                                               |
-| Reads this event's stream list                   | every type   | The feed's head, parsed as a stream list, then its entry by index, as the player reads a playlist. Weeb3 below           |
+| Check                                            | Type                   | How it is measured                                                                                                       |
+| ------------------------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Answers over https                               | gateway                | The address is https, or on this computer, and the stream list's first entry is asked. Any answer is one                 |
+| Answers, on this computer or at an https address | Bee node               | The address is on this computer or https, then the same read                                                             |
+| Allows this site (CORS)                          | gateway, Bee           | That answer could be read by this page. A refusal is told from nothing there by a second request without CORS            |
+| Bee 2.6 or later                                 | gateway                | `/health`'s version. A gateway that does not state one passes with "not stated", one that states an older release fails  |
+| Bee 2.6 or later, ready                          | Bee node               | `/health`'s version, `/readiness` and `/peers`, so a node still starting or with no peers fails                          |
+| Node started                                     | Weeb3                  | Its module downloaded and the node running, waited for as long as its own deadlines allow                                |
+| Connected to a peer                              | Weeb3                  | Its first peer, waited for up to a minute                                                                                |
+| Open in Freedom                                  | Freedom                | The page has Freedom's `window.swarm`                                                                                    |
+| Its Swarm node answers                           | Freedom                | `swarm_getCapabilities` answers, with pages let use the node and, for a connected site, the node running                 |
+| Reads a chunk                                    | every type but Freedom | The root chunk of a segment of this event's video, read the way the chat history reads its slots, through its chat route |
+| Reads bytes                                      | every type but Freedom | The same segment's bytes, read the way the player reads it                                                               |
+| Reads this event's stream list                   | every type             | The feed's head, parsed as a stream list, then its entry by index, as the player reads a playlist. Weeb3 below           |
 
 The segment comes from the stream list the page shows, a live stream first, else the newest with video, and its
 playlist is found as the player finds it (`src/features/gateway/eventContent.ts`). A stream's picture stands in where
@@ -111,12 +130,16 @@ reads the newest entry the page already read, by that entry's index, one read of
 It searches for the head only when the page has not read the list, or when that entry is not on the node yet, as right
 after a gateway ahead of it served a new list.
 
+The Freedom browser's node loads segments and pictures at `bzz://` URLs, outside Freedom's read budget, so it is not
+checked for a chunk or bytes, which would spend that budget on reads the page makes no other way.
+
 ## A source's settings
 
 Its name and address, Test connection, which runs the same checks again, and the last light check's time until then
 (`SourceSettings.tsx`). A source the event offers says "Offered by this event. It cannot be changed or removed." and its
 fields are read only. An added source's name can be changed, its address cannot, and Remove takes it out, every part
-that read from it moving to the default gateway. Weeb3's settings show its peers, its network and the weeb-3 build, and
+that read from it moving to the default gateway. The Freedom browser's node's settings hold Connect this site. Weeb3's
+settings show its peers, its network and the weeb-3 build, and
 its Test connection starts a node that failed once more. Copy diagnostics is there for every source.
 
 - **No fallback.** A part reads from the source picked for it and from nothing else, whatever that source answers. The
@@ -138,15 +161,15 @@ its Test connection starts a node that failed once more. Copy diagnostics is the
 In `localStorage`, every read and write guarded (`src/app/browserStorage.ts`) so a refusal leaves the deployment's
 defaults for that visit:
 
-| Key                                        | What it holds                                                                                                | Written by                                            |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| `swarm-sources`                            | The sources the viewer added: id, type (`gateway`, `bee-node` or `weeb-3`), name, address, none for `weeb-3` | `src/app/sourceStorage.ts`                            |
-| `swarm-routing`                            | All features or per feature, the source picked, and each part's source                                       | `src/app/sourceStorage.ts`                            |
-| `viewer-theme`                             | The theme a viewer picked with the theme switcher, kept after a logout                                       | `src/app/themeChoice.ts`                              |
-| `stream-event-client:chat-session`         | A guest's chat login: the display name, the chat key this browser made for them, and its address             | `src/features/chat/auth/persistence.ts`               |
-| `stream-event-client:chat-stamp:<address>` | Per account, by its chat address on this site: whether the gateway or their own stamp pays                   | `src/features/chat/stamp/chatStampChoice.ts`          |
-| `stream-event-client:qoe-panel.v1`         | Where the playback quality panel (`?qoe=1`) sits, its size, and whether it is open                           | `src/features/player/overlays/qoe/qoePanelStorage.ts` |
-| `stream-event-client:own-player-quality`   | The Weeb3 player's quality: `by-peers`, or the height held, such as `720`                                    | `src/features/player/qualityChoice.ts`                |
+| Key                                        | What it holds                                                                                                                         | Written by                                            |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `swarm-sources`                            | The sources the viewer added: id, type (`gateway`, `bee-node`, `weeb-3` or `freedom`), name, address, none for `weeb-3` and `freedom` | `src/app/sourceStorage.ts`                            |
+| `swarm-routing`                            | All features or per feature, the source picked, and each part's source                                                                | `src/app/sourceStorage.ts`                            |
+| `viewer-theme`                             | The theme a viewer picked with the theme switcher, kept after a logout                                                                | `src/app/themeChoice.ts`                              |
+| `stream-event-client:chat-session`         | A guest's chat login: the display name, the chat key this browser made for them, and its address                                      | `src/features/chat/auth/persistence.ts`               |
+| `stream-event-client:chat-stamp:<address>` | Per account, by its chat address on this site: whether the gateway or their own stamp pays                                            | `src/features/chat/stamp/chatStampChoice.ts`          |
+| `stream-event-client:qoe-panel.v1`         | Where the playback quality panel (`?qoe=1`) sits, its size, and whether it is open                                                    | `src/features/player/overlays/qoe/qoePanelStorage.ts` |
+| `stream-event-client:own-player-quality`   | The Weeb3 player's quality: `by-peers`, or the height held, such as `720`                                                             | `src/features/player/qualityChoice.ts`                |
 
 The Swarm ID sign-in is not among these. The Swarm ID library keeps what it needs for it, which this list does not
 cover. Only viewer-added sources are stored: the offered gateways come from `config.json` on every load. With

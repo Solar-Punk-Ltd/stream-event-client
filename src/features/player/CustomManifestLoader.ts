@@ -7,7 +7,7 @@ import type {
   LoaderContext,
   PlaylistLoaderContext,
 } from 'hls.js';
-import Hls from 'hls.js';
+import Hls, { FetchLoader } from 'hls.js';
 
 import { RequestJitter, StaggeredTask } from '@/shared/requestJitter';
 
@@ -66,6 +66,17 @@ const FragmentLoader = Hls.DefaultConfig.loader as unknown as {
   new (config: HlsConfig): Loader<FragmentLoaderContext>;
 };
 
+/**
+ * The scheme the Freedom browser serves its own Swarm node's content under. Freedom registers it for `fetch` and
+ * promises nothing for XHR, which is hls.js's default loader, so a segment there goes through hls.js's fetch loader.
+ */
+const BZZ_SCHEME = 'bzz://';
+
+const isBzz = (url: string) => url.startsWith(BZZ_SCHEME);
+
+/** The fetch loader as {@link CustomFragmentLoader} drives it, with the stats hls.js reads off the outer loader. */
+type FetchTransport = Loader<LoaderContext> & { stats: Loader<LoaderContext>['stats'] };
+
 export class CustomFragmentLoader extends FragmentLoader {
   /**
    * The stagger waiting to hand this fragment to the transport, if one is.
@@ -77,6 +88,13 @@ export class CustomFragmentLoader extends FragmentLoader {
    */
   private pendingStagger: StaggeredTask | null = null;
 
+  /** hls.js's fetch loader for a `bzz://` segment, made the first time one is loaded. */
+  private bzzTransport: FetchTransport | null = null;
+
+  constructor(private readonly hlsConfig: HlsConfig) {
+    super(hlsConfig);
+  }
+
   load(context: FragmentLoaderContext, config: LoaderConfiguration, callbacks: LoaderCallbacks<LoaderContext>) {
     const url = context.url;
 
@@ -84,12 +102,13 @@ export class CustomFragmentLoader extends FragmentLoader {
     // a bug upstream rather than a URL to repair, and it is not repairable anyway. A preview playlist
     // is answered from memory under its own scheme, and hls.js resolving `/bytes/<ref>` against it
     // returns `memory:preview.m3u8/bytes/<ref>`, so there is no gateway left to resolve against.
-    // Rebuilding the path against the page's own origin would ask a host that never had the segment.
+    // Rebuilding the path against the page's own origin would ask a host that never had the segment. A `bzz://` URL
+    // is absolute too, and names the Freedom browser's own node.
     //
     // Not optional-chained, unlike the manifest loader above. hls.js declares `onError` required, and
     // this is the one path that returns without reaching the transport: chaining it would turn a
     // missing callback into a fragment that never succeeds and never fails.
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    if (!url.startsWith('http://') && !url.startsWith('https://') && !isBzz(url)) {
       callbacks.onError(
         { code: 0, text: `fragment url is not absolute, so it names no gateway: ${url}` },
         context,
@@ -111,8 +130,9 @@ export class CustomFragmentLoader extends FragmentLoader {
   }
 
   /**
-   * The one place segment bytes are fetched, from the gateway through hls.js's own loader.
-   * Another source of segment bytes, such as a Swarm node in the tab, plugs in here.
+   * The one place segment bytes are fetched, from the gateway through hls.js's own loader, and from the Freedom
+   * browser's node through its fetch loader. Another source of segment bytes, such as a Swarm node in the tab, plugs
+   * in here.
    *
    * Asked of the source the player reads from when the request goes out rather than of the one that
    * named the segment, since a viewer can switch sources while hls.js still holds the old URLs. A URL
@@ -123,7 +143,19 @@ export class CustomFragmentLoader extends FragmentLoader {
     config: LoaderConfiguration,
     callbacks: LoaderCallbacks<LoaderContext>,
   ): void {
-    super.load({ ...context, url: manifestFetcher.segmentUrlNow(context.url) }, config, {
+    const url = manifestFetcher.segmentUrlNow(context.url);
+    if (isBzz(url)) {
+      // hls.js reads this loader's stats, so the fetch loader fills the same ones. A segment from the browser's own
+      // node proves nothing about the source the playlists are read from, whose budget it does not touch, so it ends
+      // no backoff there. It still counts for the video's source, through the player's own report of every load.
+      const transport = (this.bzzTransport ??= new (FetchLoader as unknown as new (
+        config: HlsConfig,
+      ) => FetchTransport)(this.hlsConfig));
+      transport.stats = this.stats;
+      transport.load({ ...context, url }, config, callbacks);
+      return;
+    }
+    super.load({ ...context, url }, config, {
       ...callbacks,
       // A segment that arrived is proof the gateway is answering, and the manifest side is the only
       // half that ever holds off on the belief that it is not. Its backoff doubles from the failure
@@ -139,11 +171,14 @@ export class CustomFragmentLoader extends FragmentLoader {
 
   abort(): void {
     this.cancelStagger();
+    this.bzzTransport?.abort();
     super.abort();
   }
 
   destroy(): void {
     this.cancelStagger();
+    this.bzzTransport?.destroy();
+    this.bzzTransport = null;
     super.destroy();
   }
 

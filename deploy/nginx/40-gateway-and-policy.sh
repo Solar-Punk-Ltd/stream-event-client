@@ -6,7 +6,8 @@
 #
 # The page decides which kinds of source a viewer may add, and the policy allows every one of them whatever the
 # deployment: any gateway at an https address, a Bee node on the viewer's own machine or at an https address, and the
-# Swarm node in the viewer's browser, weeb-3, which compiles WebAssembly and dials its peers over secure websockets.
+# Swarm node in the viewer's browser, weeb-3, which compiles WebAssembly and dials its peers over secure websockets,
+# and the Freedom browser's own node, whose content the page loads at bzz:// URLs.
 #
 # GATEWAY_MODE    proxy (default): the page reads the gateway at /bee on its own origin, and nginx forwards there.
 #                 direct: the page reads the gateway at its own address, which config.json names as gatewayUrl.
@@ -160,11 +161,13 @@ OWN_NODE="http://localhost:* http://127.0.0.1:*"
 
 # Inline styles are allowed because the emoji picker writes its own style element. hls.js runs in a worker it builds
 # from a blob, and plays through blob URLs. weeb-3 compiles its WebAssembly module, and reaches every peer its network
-# announces over a secure websocket.
+# announces over a secure websocket. In the Freedom browser the page fetches segments from the browser's own node at
+# bzz:// URLs and shows pictures from there, which no other source in the policy covers. The video still plays
+# through blob URLs, so media-src needs no bzz:.
 POLICY="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'"
-POLICY="$POLICY; img-src 'self' data: blob:$GATEWAY_SOURCE$EXTRA_SOURCE https: $OWN_NODE"
+POLICY="$POLICY; img-src 'self' data: blob:$GATEWAY_SOURCE$EXTRA_SOURCE https: bzz: $OWN_NODE"
 POLICY="$POLICY; media-src 'self' blob:; worker-src 'self' blob:"
-POLICY="$POLICY; connect-src 'self'$GATEWAY_SOURCE$EXTRA_SOURCE$CHAT_SOURCE https: wss: $OWN_NODE"
+POLICY="$POLICY; connect-src 'self'$GATEWAY_SOURCE$EXTRA_SOURCE$CHAT_SOURCE https: wss: bzz: $OWN_NODE"
 POLICY="$POLICY$SWARM_ID_DIRECTIVE; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
 
 if [ -n "$SWARM_ID" ]; then

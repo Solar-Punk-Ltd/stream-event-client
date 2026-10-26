@@ -77,8 +77,8 @@ function currentPageProtocol(): string {
  * Whether a source answers now. A gateway is asked for the stream list's first entry by index, because
  * a gateway serving only the event's content refuses a node's health, and Bee 2.8.2 searches a feed's
  * head from entry 0, which took longer than the probe's budget on a list past entry 1,000. A Bee node
- * is asked the provider probe, which also says whether it is still starting, and so is the node in this
- * browser. Never rejects.
+ * is asked the provider probe, which also says whether it is still starting, and so is the Freedom browser's
+ * node. The node in this browser tab is asked its own state. Never rejects.
  */
 export async function checkSourceStatus(
   source: Pick<Source, 'type' | 'url'>,
@@ -87,6 +87,9 @@ export async function checkSourceStatus(
   const now = context.now ?? (() => Date.now());
   if (source.type === 'weeb-3') {
     return nodeInTabStatus((context.client ?? clientOf)(source));
+  }
+  if (source.type === 'freedom') {
+    return freedomStatus((context.client ?? clientOf)(source), context);
   }
   const pageProtocol = context.pageProtocol ?? currentPageProtocol();
   const localNetworkRequests = context.localNetworkRequests ?? (await supportsLocalNetworkRequests());
@@ -125,6 +128,24 @@ export async function checkSourceStatus(
       return answer.cause.kind === 'status' ? warning('Errors') : failing;
     case 'aborted':
       return UNCHECKED;
+  }
+}
+
+/**
+ * The Freedom browser's node is asked its capabilities, which Freedom answers with no prompt and outside the reads it
+ * counts against this site, so a check every 10 s takes nothing from the video's reads.
+ */
+async function freedomStatus(client: Pick<SwarmClient, 'probe'>, context: SourceCheckContext): Promise<SourceStatus> {
+  const found = await client.probe({ timeoutMs: PROBE_TIMEOUT_MS, signal: context.signal });
+  switch (found.kind) {
+    case 'ok':
+      return { health: 'ok', elapsedMs: found.elapsedMs };
+    case 'not-ready':
+      return found.reason.kind === 'switched-off' ? warning('Switched off') : warning('Not running');
+    case 'unreachable':
+      return context.signal?.aborted ? UNCHECKED : { health: 'failing', elapsedMs: null, words: 'Not in Freedom' };
+    default:
+      return context.signal?.aborted ? UNCHECKED : failing;
   }
 }
 

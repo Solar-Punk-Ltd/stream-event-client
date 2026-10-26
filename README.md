@@ -30,6 +30,9 @@ The Swarm words these docs use, feed, stamp, gateway, part and the rest, are exp
 - **Weeb3**, a whole Swarm node in the tab. It is offered for the video, with its own player, and for sending chat
   messages on your own stamp. Its player shows the node's peers and the quality playing, with a Quality picker that
   starts on By peers.
+- **This browser's Swarm node**, in the [Freedom browser](https://github.com/solardev-xyz/freedom-browser), which runs
+  a Swarm node of its own. Offered only in Freedom, for the video, the stream list and the previews, read through
+  Freedom's `window.swarm` and its `bzz://` scheme, with the event gateway serving the reads past Freedom's read budget.
 - **Two themes**, `swarm` and `web3privacy`, with a switcher for viewers in the chat.
 
 ## Experimental: your own way into Swarm, and Swarm ID
@@ -146,6 +149,7 @@ Then the topical pages, as the work needs them:
 | [Who pays for a message](docs/own-stamp.md)            | Gateway pays or My stamp, which source sends, the own-feed copy and Sync            |
 | [My Swarm](docs/my-swarm.md)                           | The panel, Use for, adding a source, the checks, what the browser keeps             |
 | [The node in this browser](docs/weeb3.md)              | weeb-3: loading, readiness, lost peers, its player, its reads, the live proof       |
+| [The Freedom browser's node](docs/freedom.md)          | Freedom: what it reads through `window.swarm`, the read budget, Connect this site   |
 | [The Swarm client](docs/swarm-client.md)               | Providers, kinds, source types, answers, the client, routing, the contract          |
 | [Extending the providers](docs/extending-providers.md) | Adding a new kind of source to My Swarm, with every file it touches                 |
 | [The design](docs/design.md)                           | The two themes, tokens, variables, fonts                                            |

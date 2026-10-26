@@ -163,3 +163,20 @@ describe('the node in this browser', () => {
     expect(resolveRouting(saved, WITH_NODE, 'event')).toEqual({ ...DEFAULT.parts, player: 'added-2' });
   });
 });
+
+describe("the Freedom browser's node", () => {
+  it('serves the video, the stream list and the previews, and leaves the chat history where it is', () => {
+    for (const part of ['player', 'stream-list', 'previews'] as const) {
+      expect(servesPart('freedom', part)).toBe(true);
+    }
+    expect(servesPart('freedom', 'chat')).toBe(false);
+    expect(servesEveryPart('freedom')).toBe(false);
+  });
+
+  it('reads the chat history from the default gateway when a saved routing put every part on it', () => {
+    const sources = [...KNOWN, { id: 'added-2', type: 'freedom' }] as const;
+    const perPart = setPart(setPart(setMode(DEFAULT, 'per-part'), 'player', 'added-2'), 'chat', 'added-2');
+
+    expect(resolveRouting(perPart, sources, 'event')).toEqual({ ...DEFAULT.parts, player: 'added-2' });
+  });
+});

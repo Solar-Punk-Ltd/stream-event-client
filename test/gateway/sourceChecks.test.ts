@@ -5,6 +5,7 @@ import {
   corsRefused,
   NODE_FAILED,
   NOT_HTTPS,
+  NOT_IN_FREEDOM,
   NOT_THE_STREAM_LIST,
   NOTHING_TO_READ,
   notReady,
@@ -106,7 +107,7 @@ class Answering implements SwarmProvider {
   }
 }
 
-function world(type: 'gateway' | 'bee-node' | 'weeb-3' = 'gateway', url = 'https://gw.example.com') {
+function world(type: CheckTarget['type'] = 'gateway', url = 'https://gw.example.com') {
   const source = new Answering();
   const chat = new Answering();
   const client = new SwarmClient({
@@ -390,4 +391,45 @@ describe('the checks before the node in this browser is added', () => {
     expect(results[1]).toMatchObject({ step: 'peers', state: 'passed' });
     expect(results.at(-1)).toMatchObject({ step: 'feed', state: 'passed' });
   });
+});
+
+describe("the checks before the Freedom browser's node is added", () => {
+  it('ask Freedom once whether its node answers, then read the stream list through it, head and entry', async () => {
+    const { source, context, target } = world('freedom', '');
+    let probes = 0;
+    source.probe = async () => {
+      probes += 1;
+      return { kind: 'ok', elapsedMs: 4 };
+    };
+    const results = await runSourceChecks(target, context);
+
+    expect(marks(results)).toEqual([
+      ['in-freedom', 'passed'],
+      ['node', 'passed'],
+      ['feed', 'passed'],
+    ]);
+    expect(probes).toBe(1);
+    expect(source.asked).toEqual(['feed-head', 'feed-entry']);
+  });
+
+  it('fail outside Freedom, and read nothing', async () => {
+    const { source, context, target } = world('freedom', '');
+    source.found = { kind: 'unreachable' };
+    const results = await runSourceChecks(target, context);
+
+    expect(results[0]).toMatchObject({ step: 'in-freedom', state: 'failed', failure: NOT_IN_FREEDOM });
+    expect(source.asked).toEqual([]);
+  });
+
+  it.each([{ kind: 'node-stopped' }, { kind: 'switched-off' }] as const)(
+    'fail a node Freedom reports as %o, saying what to do',
+    async (reason) => {
+      const { source, context, target } = world('freedom', '');
+      source.found = { kind: 'not-ready', reason };
+      const results = await runSourceChecks(target, context);
+
+      expect(results[0]).toMatchObject({ step: 'in-freedom', state: 'passed' });
+      expect(results[1]).toMatchObject({ step: 'node', state: 'failed', failure: notReady(reason) });
+    },
+  );
 });

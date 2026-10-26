@@ -1,5 +1,6 @@
 import { Topic } from '@ethersphere/bee-js';
 import type { FragmentLoaderContext, HlsConfig, LoaderCallbacks, LoaderConfiguration, LoaderContext } from 'hls.js';
+import { FetchLoader } from 'hls.js';
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
@@ -423,5 +424,78 @@ describe('CustomFragmentLoader following the source the player reads from now', 
     const notNamedHere = `https://publisher-gateway.example.com/bytes/${SEGMENT_REF}`;
 
     assert.equal(transportedUrl(notNamedHere), notNamedHere);
+  });
+});
+
+/**
+ * A segment from the Freedom browser's own node, at a `bzz://` URL. Freedom registers that scheme for `fetch` and
+ * promises nothing for XHR, hls.js's default, so the loader hands it to hls.js's fetch loader. It reports nothing to
+ * the feeds' health: the playlists are read through Freedom's `window.swarm` under a budget a segment does not touch,
+ * so a segment arriving says nothing about whether they can be read.
+ */
+describe('CustomFragmentLoader loading a segment from the Freedom browser over bzz://', () => {
+  const BZZ_SEGMENT = `bzz://${'cd'.repeat(32)}/`;
+
+  /** hls.js's fetch loader as it is driven, with the callbacks and the URL it was handed. */
+  function loadOverBzz(url = BZZ_SEGMENT) {
+    let handed: { url: string; callbacks: LoaderCallbacks<LoaderContext>; stats: unknown } | null = null;
+    const xhr = vi.spyOn(transport, 'load').mockImplementation(() => {});
+    vi.spyOn(FetchLoader.prototype, 'load').mockImplementation(function (
+      this: { stats: unknown },
+      context,
+      _config,
+      callbacks,
+    ) {
+      handed = { url: context.url, callbacks, stats: this.stats };
+    });
+    const loader = new CustomFragmentLoader({} as HlsConfig);
+    const fromHls = {
+      onSuccess: vi.fn(),
+      onError: vi.fn(),
+      onTimeout: vi.fn(),
+    } as unknown as LoaderCallbacks<LoaderContext>;
+
+    loader.load({ url } as FragmentLoaderContext, {} as LoaderConfiguration, fromHls);
+
+    return { loader, fromHls, xhr, handed: handed as unknown as NonNullable<typeof handed> };
+  }
+
+  beforeEach(() => {
+    manifestFetcher.feedHealth.clear();
+    runStaggerInline();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    manifestFetcher.feedHealth.clear();
+  });
+
+  it("hands it to hls.js's fetch loader, not to its XHR loader, with the stats hls.js reads off this loader", () => {
+    const { loader, xhr, handed } = loadOverBzz();
+
+    assert.ok(handed, 'the bzz:// segment never reached the fetch loader');
+    assert.equal(handed.url, BZZ_SEGMENT);
+    assert.equal(handed.stats, loader.stats);
+    assert.equal(xhr.mock.calls.length, 0);
+  });
+
+  it('passes the segment on to hls.js, and ends no feed backoff', () => {
+    manifestFetcher.feedHealth.recordGatewayFailure(TOPIC);
+    const { fromHls, handed } = loadOverBzz();
+
+    handed.callbacks.onSuccess(arrived(), {} as never, {} as LoaderContext, undefined);
+
+    assert.equal((fromHls.onSuccess as unknown as { mock: { calls: unknown[][] } }).mock.calls.length, 1);
+    assert.equal(manifestFetcher.feedHealth.state(TOPIC), FEED_STATE_RECONNECTING);
+  });
+
+  it('stops the fetch loader when hls.js abandons the segment', () => {
+    const aborted = vi.spyOn(FetchLoader.prototype, 'abort').mockImplementation(() => {});
+    vi.spyOn(transport, 'abort').mockImplementation(() => {});
+    const { loader } = loadOverBzz();
+
+    loader.abort();
+
+    assert.equal(aborted.mock.calls.length, 1);
   });
 });

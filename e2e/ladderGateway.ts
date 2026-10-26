@@ -76,6 +76,8 @@ export type RequestKind =
   | 'catalog'
   /** A read of the stream list through the node in this browser, never the gateway. */
   | 'weeb3Catalog'
+  /** A read of the stream list through the Freedom browser's `window.swarm`, never the gateway. */
+  | 'freedomCatalog'
   /** A read of a ladder time marker that was written. */
   | 'marker'
   /** A read of a ladder time marker that was not written, answered 404. */
@@ -299,6 +301,30 @@ export class LadderGateway {
         body: Buffer.concat([span, payload]),
       });
     });
+  }
+
+  /**
+   * What the Freedom browser's node answers a `window.swarm` read of this event with, as Freedom's provider API shapes
+   * it: the stream list's newest entry, its first, with or without its index. Every other entry and chunk is not there.
+   * See `e2e/fakeFreedom.ts`, which hands the page's calls here.
+   */
+  freedomAnswer(method: string, params: Record<string, unknown>): { result?: unknown; error?: unknown } {
+    const notThere = (reason: string) => ({ error: { code: -32602, message: reason, data: { reason } } });
+    if (method === 'swarm_readFeedEntry') {
+      const isCatalog =
+        String(params.owner).toLowerCase() === LADDER_OWNER && this.byTopicHex.get(String(params.topic)) === 'catalog';
+      if (!isCatalog || (params.index !== undefined && params.index !== 0)) {
+        return notThere(params.index === undefined ? 'feed_empty' : 'entry_not_found');
+      }
+      this.log('freedomCatalog', null, `swarm_readFeedEntry ${String(params.index ?? 'head')}`);
+      const data = Buffer.from(JSON.stringify([this.catalogEntry()])).toString('base64');
+      return { result: { data, encoding: 'base64', index: 0, nextIndex: 1 } };
+    }
+    if (method === 'swarm_readChunk' || method === 'swarm_readSingleOwnerChunk' || method === 'swarm_readData') {
+      return notThere('chunk_not_found');
+    }
+    this.log('unknown', null, method);
+    return { error: { code: 4200, message: `Unknown method: ${method}` } };
   }
 
   /**

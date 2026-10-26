@@ -11,7 +11,7 @@ import { MY_SWARM } from '@/shared/mySwarmPanel';
 import type { SwarmClient } from '@/swarm/client';
 import type { SourceType } from '@/swarm/sources';
 
-import { AddAddressView, AddTiles, AddWeeb3View } from './AddSourceViews';
+import { AddAddressView, AddFreedomView, AddTiles, AddWeeb3View } from './AddSourceViews';
 import { ChatStampSection } from './ChatStampSection';
 import { useConnect } from './ConnectContext';
 import { ADD_VIEWS } from './connectWords';
@@ -191,6 +191,8 @@ export function Connect() {
                     showView(MENU);
                   }}
                 />
+              ) : shown.type === 'freedom' ? (
+                <AddFreedomView onAdded={() => showView(MENU)} />
               ) : (
                 <AddAddressView key={shown.type} type={shown.type} onAdded={() => showView(MENU)} />
               ))}

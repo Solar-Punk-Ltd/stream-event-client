@@ -106,6 +106,7 @@ With it off:
 - My Swarm holds only the ID: a guest name with Chat as guest and the hint under it, and for a chatting guest their name
   with Leave and the theme switcher where `themeSwitcher` allows it. The beta note, the Chat stamp group, the Swarm
   access list, Add source and Use for are not shown.
+- The Freedom browser's own node is not offered either, even in Freedom, since it is a source a viewer adds.
 - The page reads every part from the default gateway, as a fresh browser does. It neither reads nor writes the
   viewer's saved `swarm-sources` and `swarm-routing`, so they come back unchanged once the switch is on again.
 - On a site with no chat the header has no My Swarm button, since the panel would be empty.

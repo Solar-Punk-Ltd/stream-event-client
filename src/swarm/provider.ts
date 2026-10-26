@@ -88,7 +88,11 @@ export type NotReadyReason =
   /** Connected to nobody, so nothing it is asked for can be fetched from the network. */
   | { readonly kind: 'no-peers' }
   /** Older than the oldest release whose API this viewer reads. */
-  | { readonly kind: 'too-old'; readonly version: string; readonly needed: string };
+  | { readonly kind: 'too-old'; readonly version: string; readonly needed: string }
+  /** The browser's own node is not running. */
+  | { readonly kind: 'node-stopped' }
+  /** The browser offers its node to pages and has that switched off in its settings. */
+  | { readonly kind: 'switched-off' };
 
 /** What asking a provider whether it is there at all found. */
 export type ProbeResult =
