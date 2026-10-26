@@ -5,9 +5,10 @@ import { PREVIEW_ORIGIN } from './recording';
 
 /**
  * The browser suites: the built app, one real browser, and no node, no network and no server other than the app's own.
- * The smoke, theme and chat stamp journeys replay every Bee answer from `e2e/recorded/`, the chat stamp journey beside a
- * fake Swarm ID site. The ladder, Connect, weeb-3 and Freedom journeys answer from a fake gateway that publishes a live stream
- * in four qualities. `pnpm e2e` builds the app first. They check that the journeys work, never how fast they are.
+ * The smoke, theme and chat stamp journeys replay every Bee answer from `e2e/recorded/`, the chat stamp journey beside
+ * a fake Swarm ID site. The ladder, Connect, weeb-3 and Freedom journeys answer from a fake gateway that publishes a
+ * live stream in four qualities. `pnpm e2e` builds the app first. They check that the journeys work, never how fast
+ * they are.
  */
 export default defineConfig({
   testDir: '.',

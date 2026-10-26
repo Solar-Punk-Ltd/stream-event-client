@@ -29,7 +29,8 @@ interface UseForProps {
 /**
  * What each source is used for: one source for all features, the chat history included, or a source each for the
  * video, the stream list, the previews and the chat history. Each select offers only the sources that may serve its
- * part, so Weeb3 is offered for the video alone and the Freedom browser's node for all but the chat history. Who sends a chat message is not picked here.
+ * part, so Weeb3 is offered for the video alone and the Freedom browser's node for all but the chat history. Who
+ * sends a chat message is not picked here.
  */
 export function UseFor({ sources, routing, parts, hasChat, onChange }: UseForProps) {
   const isOne = routing.mode === 'one';

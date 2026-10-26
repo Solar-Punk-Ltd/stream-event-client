@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Stream } from '../../src/features/catalog/stream';
 import {
   corsRefused,
+  freedomRefused,
   NODE_FAILED,
   NOT_HTTPS,
   NOT_IN_FREEDOM,
@@ -432,4 +433,14 @@ describe("the checks before the Freedom browser's node is added", () => {
       expect(results[1]).toMatchObject({ step: 'node', state: 'failed', failure: notReady(reason) });
     },
   );
+
+  it('pass the page as open in Freedom where Freedom answers with an error, and say which', async () => {
+    const { source, context, target } = world('freedom', '');
+    source.found = { kind: 'rejected', status: -32603 };
+    const results = await runSourceChecks(target, context);
+
+    expect(results[0]).toMatchObject({ step: 'in-freedom', state: 'passed' });
+    expect(results[1]).toMatchObject({ step: 'node', state: 'failed', failure: freedomRefused(-32603) });
+    expect(results[1].failure).not.toEqual(NOT_IN_FREEDOM);
+  });
 });

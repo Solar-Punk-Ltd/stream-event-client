@@ -1,7 +1,7 @@
 /**
- * The sources a viewer reads Swarm from: the gateways the deployment offers, and the gateways, Bee
- * nodes, the node in their own browser tab and the Freedom browser's own node the viewer added. Pure, so the app keeps them in the browser and the Sources
- * screen shows them, and neither holds a rule of its own about them.
+ * The sources a viewer reads Swarm from: the gateways the deployment offers, and the gateways, Bee nodes, the node in
+ * their own browser tab and the Freedom browser's own node the viewer added. Pure, so the app keeps them in the browser
+ * and the Sources screen shows them, and neither holds a rule of its own about them.
  */
 import type { ProviderKindName } from './providerKinds';
 import { gatewayName, type GatewaySetting, type SwarmSettings } from './settings';

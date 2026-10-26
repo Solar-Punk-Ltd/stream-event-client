@@ -281,7 +281,8 @@ export function AddFreedomView({ onAdded }: AddFreedomProps) {
   const app = useAppContext();
   const { results, run } = useSourceChecks();
   const isAdded = useRef(false);
-  // Read through a ref, so the checks run once as the view opens, however often the stream list they read is read again.
+  // Read through a ref, so the checks run once as the view opens, however often the stream list they read is read
+  // again.
   const latestRun = useRef(run);
 
   latestRun.current = run;

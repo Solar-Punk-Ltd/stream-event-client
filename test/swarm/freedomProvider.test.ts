@@ -71,7 +71,8 @@ function freedomHarness(): ContractHarness {
       },
     },
     retryAfterMs: WINDOW_MS,
-    provider: (behaviour) => freedom(fakeFreedom(WORLD, { behaviour })),
+    // A clock that stands still, so a refusal names the whole window as what is left of it.
+    provider: (behaviour) => freedom(fakeFreedom(WORLD, { behaviour }), undefined, () => 0),
   };
 }
 
@@ -338,6 +339,23 @@ describe("the Freedom browser's node, read through window.swarm", () => {
       expect(await freedom(null).probe()).toEqual({ kind: 'unreachable' });
       expect(await freedom(silent).probe({ timeoutMs: 20 })).toEqual({ kind: 'timed-out' });
     });
+
+    it('answers rejected, never unreachable, for any other failure of a Freedom that is there', async () => {
+      const internal = rejecting(freedomError(-32603, 'Request failed with status code 500'));
+      const unknown = rejecting('something Freedom does not document');
+      const shapeless: FreedomSwarm = { isFreedomBrowser: true, request: () => Promise.resolve(null) };
+
+      expect(await freedom(internal).probe()).toEqual({ kind: 'rejected', status: -32603 });
+      expect(await freedom(unknown).probe()).toEqual({ kind: 'rejected', status: -32603 });
+      expect(await freedom(shapeless).probe()).toEqual({ kind: 'rejected', status: -32603 });
+    });
+
+    it('answers unreachable for a probe the caller stopped', async () => {
+      const stopped = new AbortController();
+      stopped.abort();
+
+      expect(await freedom(fakeFreedom()).probe({ signal: stopped.signal })).toEqual({ kind: 'unreachable' });
+    });
   });
 
   describe("over Freedom's read budget", () => {
@@ -364,14 +382,84 @@ describe("the Freedom browser's node, read through window.swarm", () => {
       expect(swarm.calls).toHaveLength(4);
     });
 
-    it('answers rate limited with the window as the wait where no gateway is there to read through', async () => {
-      const provider = freedom(fakeFreedom(WORLD, { behaviour: 'rate-limited' }));
+    it('reads through Freedom again as soon as its fixed window ends, not a whole window after the refusal', async () => {
+      let nowMs = 0;
+      const swarm = fakeFreedom(WORLD, { budget: { maxRequests: 2, windowMs: WINDOW_MS, now: () => nowMs } });
+      const gateway = new ScriptedProvider('event gateway');
+      const provider = freedom(swarm, gateway, () => nowMs);
+
+      await provider.readFeedEntry(OWNER, TOPIC, 0);
+      nowMs = 50_000;
+      await provider.readFeedEntry(OWNER, TOPIC, 1);
+      // Refused 55 s into Freedom's window, which then has 5 s left.
+      nowMs = 55_000;
+      expect(await provider.readFeedEntry(OWNER, TOPIC, 2)).toMatchObject({ bytes: new Uint8Array([1]) });
+      nowMs = WINDOW_MS - 1;
+      await provider.readFeedEntry(OWNER, TOPIC, 3);
+      expect(swarm.calls).toHaveLength(3);
+      expect(gateway.asked).toEqual(['feed-entry', 'feed-entry']);
+
+      nowMs = WINDOW_MS;
+      expect(await provider.readFeedEntry(OWNER, TOPIC, 4)).toMatchObject({ kind: 'content', bytes: ENTRIES[4] });
+      expect(swarm.calls).toHaveLength(4);
+    });
+
+    it('holds reads back only a moment for a refusal that lands after the window the page counted', async () => {
+      let nowMs = 0;
+      // Freedom's window started as the read reached it, so its refusal can land after the end of the page's window.
+      const swarm: FreedomSwarm = {
+        isFreedomBrowser: true,
+        request: async () => {
+          nowMs += WINDOW_MS + 500;
+          throw freedomError(-32602, 'Permission-free read budget exceeded', {
+            reason: 'rate_limited',
+            windowMs: WINDOW_MS,
+          });
+        },
+      };
+      const provider = freedom(swarm, undefined, () => nowMs);
 
       expect(await provider.readFeedHead(OWNER, TOPIC)).toEqual({
         kind: 'rate-limited',
-        retryAfterMs: WINDOW_MS,
+        retryAfterMs: 1_000,
         serverTimeMs: null,
       });
+    });
+
+    it('answers rate limited with what is left of the window as the wait where no gateway is there', async () => {
+      let nowMs = 0;
+      const swarm = fakeFreedom(WORLD, { budget: { maxRequests: 1, windowMs: WINDOW_MS, now: () => nowMs } });
+      const provider = freedom(swarm, undefined, () => nowMs);
+
+      await provider.readFeedHead(OWNER, TOPIC);
+      nowMs = 20_000;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toEqual({
+        kind: 'rate-limited',
+        retryAfterMs: WINDOW_MS - 20_000,
+        serverTimeMs: null,
+      });
+    });
+
+    it("sends every part to the gateway after one part's refusal, since Freedom counts the site's reads together", async () => {
+      let nowMs = 0;
+      const swarm = fakeFreedom(WORLD, { budget: { maxRequests: 1, windowMs: WINDOW_MS, now: () => nowMs } });
+      const gateway = new ScriptedProvider('event gateway');
+      const streamList = freedom(swarm, gateway, () => nowMs);
+      const player = freedom(swarm, gateway, () => nowMs);
+      const previews = freedom(swarm, gateway, () => nowMs);
+
+      await streamList.readFeedEntry(OWNER, TOPIC, 0);
+      await streamList.readFeedEntry(OWNER, TOPIC, 1);
+      expect(swarm.refusals).toBe(1);
+
+      await player.readBytes(REFERENCE);
+      await previews.readChunk(CHUNK_ADDRESS);
+      expect(swarm.refusals).toBe(1);
+      expect(swarm.calls).toHaveLength(2);
+      expect(gateway.asked).toEqual(['feed-entry', 'bytes', 'chunk']);
+
+      nowMs = WINDOW_MS;
+      expect(await player.readBytes(REFERENCE)).toMatchObject({ kind: 'content', bytes: SEGMENT_BYTES });
     });
 
     it("reads a blob larger than the site's whole byte budget through the gateway, without pausing Freedom", async () => {

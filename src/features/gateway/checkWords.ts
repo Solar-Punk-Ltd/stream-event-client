@@ -27,7 +27,8 @@ export const CHECK_STEPS: Readonly<Record<SourceType, readonly CheckStep[]>> = {
   gateway: ['https', 'cors', 'version', 'chunk', 'bytes', 'feed'],
   'bee-node': ['reach', 'cors', 'version', 'chunk', 'bytes', 'feed'],
   'weeb-3': ['start', 'peers', 'chunk', 'bytes', 'feed'],
-  // The video and the pictures load over bzz:// with no read budget, so only what is read through window.swarm is checked.
+  // The video and the pictures load over bzz:// with no read budget, so only what is read through window.swarm is
+  // checked.
   freedom: ['in-freedom', 'node', 'feed'],
 };
 
@@ -129,6 +130,12 @@ export const NOT_IN_FREEDOM: CheckFailure = {
   reason: 'This page is not open in Freedom.',
   fix: 'Open it in the Freedom browser, in a window that is not private.',
 };
+
+/** Freedom is there and failed to answer its capabilities, with the error code of its provider API. */
+export const freedomRefused = (code: number): CheckFailure => ({
+  reason: `Freedom answers with an error (code ${code}).`,
+  fix: 'Check that its Swarm node runs, then test again.',
+});
 
 export const healthRefused = (status: number): CheckFailure => ({
   reason: `Its health answers with an error (HTTP ${status}).`,

@@ -34,6 +34,13 @@ const INTERNAL_ERROR = -32603;
 /** How long the shim waits for `swarm_readData`, a blob joined from the network, and for every other read. */
 const SHIM_DATA_WINDOW_MS = 300_000;
 const SHIM_READ_WINDOW_MS = 60_000;
+/** The one call Freedom answers outside the read budget. */
+const CAPABILITIES = 'swarm_getCapabilities';
+/**
+ * How long a refusal past the end of the window the page counted holds reads back. Freedom's window started when the
+ * window's first read reached it, a moment after the page sent it, so its end is that moment away.
+ */
+const LATE_REFUSAL_WAIT_MS = 1_000;
 
 /** The `data.reason` of a read Freedom answers as content that is not there. */
 const NOT_THERE: ReadonlySet<string> = new Set(['feed_empty', 'entry_not_found', 'chunk_not_found']);
@@ -131,13 +138,10 @@ function failureOf(error: unknown, method: string, windowMs: number): Called {
       return failed({ kind: 'not-found', serverTimeMs: null });
     }
     if (reason === RATE_LIMITED) {
-      const waitMs =
+      // The window's length, which the provider turns into what is left of it.
+      const windowMs =
         typeof data?.windowMs === 'number' && data.windowMs >= 0 ? data.windowMs : FREEDOM_BUDGET_WINDOW_MS;
-      return failed({
-        kind: 'rate-limited',
-        retryAfterMs: Math.min(waitMs, LONGEST_RETRY_AFTER_MS),
-        serverTimeMs: null,
-      });
+      return failed({ kind: 'rate-limited', retryAfterMs: windowMs, serverTimeMs: null });
     }
     // Every other reason is a request Freedom will refuse however often it is asked, a blob larger than the site's
     // whole byte budget among them.
@@ -163,14 +167,59 @@ function failureOf(error: unknown, method: string, windowMs: number): Called {
 }
 
 /**
+ * Freedom's read budget for this site as the page sees it. Freedom counts it over a fixed window that starts at the
+ * window's first read, and a refusal names only the window's length, so the page keeps when its own window started to
+ * know when Freedom's ends. One per `window.swarm`, shared by the provider of every part, since Freedom counts all of
+ * this site's reads together and one refusal means every other part's next read is refused too.
+ */
+class FreedomBudget {
+  private windowMs = FREEDOM_BUDGET_WINDOW_MS;
+  private windowStartedAtMs: number | null = null;
+  private overUntilMs = 0;
+
+  isOver(nowMs: number): boolean {
+    return nowMs < this.overUntilMs;
+  }
+
+  /** A read sent to Freedom, the first of a new window where the last one has ended. */
+  sent(nowMs: number): void {
+    if (this.windowStartedAtMs === null || nowMs - this.windowStartedAtMs >= this.windowMs) {
+      this.windowStartedAtMs = nowMs;
+    }
+  }
+
+  /** A read Freedom refused for the budget of a window `windowMs` long. Answers how long it refuses reads still. */
+  refused(nowMs: number, windowMs: number): number {
+    this.windowMs = windowMs;
+    const endsAtMs = (this.windowStartedAtMs ?? nowMs) + windowMs;
+    this.overUntilMs = endsAtMs > nowMs ? endsAtMs : nowMs + Math.min(LATE_REFUSAL_WAIT_MS, windowMs);
+    return this.overUntilMs - nowMs;
+  }
+}
+
+const budgets = new WeakMap<FreedomSwarm, FreedomBudget>();
+
+function budgetOf(swarm: FreedomSwarm | null): FreedomBudget {
+  if (swarm === null) {
+    return new FreedomBudget();
+  }
+  let budget = budgets.get(swarm);
+  if (budget === undefined) {
+    budget = new FreedomBudget();
+    budgets.set(swarm, budget);
+  }
+  return budget;
+}
+
+/**
  * Swarm read through the node of the Freedom browser the page runs in, over its `window.swarm`, the only way a page
  * reaches that node. Freedom checks what it serves against the address it was asked for, joins a body longer than one
  * chunk, and answers a feed's head from its own lookup.
  *
  * The video, previews and pictures load as `bzz://` URLs, which Freedom serves from the same node with no budget. The
  * reads here are counted against Freedom's budget for this site, a fixed minute of 120 reads, 600 once the viewer
- * connected the site. Once a read is refused for it every read is refused until the minute ends, so for that minute
- * every read goes to {@link FreedomProviderOptions.overBudget}, the event gateway, rather than waiting a minute.
+ * connected the site. Once a read is refused for it every read is refused until the minute ends, so until then every
+ * read of every part goes to {@link FreedomProviderOptions.overBudget}, the event gateway, rather than waiting.
  *
  * A read cannot be cancelled in Freedom, so a read the caller stopped answers aborted at once and its late result is
  * dropped.
@@ -181,13 +230,13 @@ export class FreedomProvider implements SwarmProvider {
   private readonly swarm: FreedomSwarm | null;
   private readonly overBudget: SwarmProvider | null;
   private readonly now: () => number;
-  /** Until when Freedom refuses this site's reads, from the window its last refusal named. */
-  private overBudgetUntilMs = 0;
+  private readonly budget: FreedomBudget;
 
   constructor(options: FreedomProviderOptions) {
     this.swarm = options.swarm;
     this.overBudget = options.overBudget ?? null;
     this.now = options.now ?? (() => Date.now());
+    this.budget = budgetOf(this.swarm);
   }
 
   /** Freedom's own lookup of the newest entry, which names its index. */
@@ -302,11 +351,7 @@ export class FreedomProvider implements SwarmProvider {
       return { kind: 'unreachable' };
     }
     const startedAtMs = this.now();
-    const called = await this.call(
-      'swarm_getCapabilities',
-      {},
-      { ...options, timeoutMs: options.timeoutMs ?? PROBE_TIMEOUT_MS },
-    );
+    const called = await this.call(CAPABILITIES, {}, { ...options, timeoutMs: options.timeoutMs ?? PROBE_TIMEOUT_MS });
     if (called.ok) {
       return called.result.reason === 'node-stopped'
         ? { kind: 'not-ready', reason: { kind: 'node-stopped' } }
@@ -315,9 +360,14 @@ export class FreedomProvider implements SwarmProvider {
     if (called.code === NODE_UNAVAILABLE) {
       return { kind: 'not-ready', reason: { kind: called.reason === null ? 'switched-off' : 'node-stopped' } };
     }
-    return called.answer.kind === 'unavailable' && called.answer.cause.kind === 'timeout'
-      ? { kind: 'timed-out' }
-      : { kind: 'unreachable' };
+    if (called.answer.kind === 'unavailable' && called.answer.cause.kind === 'timeout') {
+      return { kind: 'timed-out' };
+    }
+    // Unreachable is kept for a page with no `window.swarm`, which the checks report as not open in Freedom. Stopped,
+    // the probe answered nothing; any other failure is Freedom's own, an internal error or an answer of no shape.
+    return called.answer.kind === 'aborted'
+      ? { kind: 'unreachable' }
+      : { kind: 'rejected', status: called.code ?? INTERNAL_ERROR };
   }
 
   async start(): Promise<void> {}
@@ -363,16 +413,15 @@ export class FreedomProvider implements SwarmProvider {
     here: () => Promise<SwarmAnswer | typeof OVER_BYTE_BUDGET>,
   ): Promise<SwarmAnswer> {
     const { overBudget } = this;
-    if (overBudget !== null && this.now() < this.overBudgetUntilMs) {
+    if (overBudget !== null && this.budget.isOver(this.now())) {
       return elsewhere(overBudget);
     }
     const answer = await here();
     if (answer.kind === OVER_BYTE_BUDGET.kind) {
       return overBudget === null ? UNSUPPORTED : elsewhere(overBudget);
     }
-    if (answer.kind === 'rate-limited') {
-      this.overBudgetUntilMs = this.now() + (answer.retryAfterMs ?? FREEDOM_BUDGET_WINDOW_MS);
-      return overBudget === null ? answer : elsewhere(overBudget);
+    if (answer.kind === 'rate-limited' && overBudget !== null && this.budget.isOver(this.now())) {
+      return elsewhere(overBudget);
     }
     return answer;
   }
@@ -387,6 +436,9 @@ export class FreedomProvider implements SwarmProvider {
     }
     if (swarm === null) {
       return Promise.resolve(refusal(unavailable('is not here: this page is not open in Freedom')));
+    }
+    if (method !== CAPABILITIES) {
+      this.budget.sent(this.now());
     }
     return new Promise<Called>((resolve) => {
       let settled = false;
@@ -418,9 +470,19 @@ export class FreedomProvider implements SwarmProvider {
               ? { ok: true, result: result as Record<string, unknown> }
               : refusal(unavailable(`answered ${method} with nothing`)),
           ),
-        (error: unknown) => settle(failureOf(error, method, timeoutMs)),
+        (error: unknown) => settle(this.failed(error, method, timeoutMs)),
       );
     });
+  }
+
+  /** A rejected call as its answer. A refusal for the budget waits only what is left of Freedom's window. */
+  private failed(error: unknown, method: string, timeoutMs: number): Called {
+    const failed = failureOf(error, method, timeoutMs);
+    if (failed.ok || failed.answer.kind !== 'rate-limited') {
+      return failed;
+    }
+    const waitMs = this.budget.refused(this.now(), failed.answer.retryAfterMs ?? FREEDOM_BUDGET_WINDOW_MS);
+    return { ...failed, answer: { ...failed.answer, retryAfterMs: Math.min(waitMs, LONGEST_RETRY_AFTER_MS) } };
   }
 }
 

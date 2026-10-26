@@ -305,8 +305,8 @@ export class LadderGateway {
 
   /**
    * What the Freedom browser's node answers a `window.swarm` read of this event with, as Freedom's provider API shapes
-   * it: the stream list's newest entry, its first, with or without its index. Every other entry and chunk is not there.
-   * See `e2e/fakeFreedom.ts`, which hands the page's calls here.
+   * it: the stream list's newest entry, its first, with or without its index. Every other entry and chunk is not
+   * there. See `e2e/fakeFreedom.ts`, which hands the page's calls here.
    */
   freedomAnswer(method: string, params: Record<string, unknown>): { result?: unknown; error?: unknown } {
     const notThere = (reason: string) => ({ error: { code: -32602, message: reason, data: { reason } } });

@@ -65,8 +65,16 @@ export async function siteConnection(swarm: FreedomSwarm | null = pageFreedomSwa
     return 'unknown';
   }
   try {
-    const capabilities = (await swarm.request({ method: 'swarm_getCapabilities' })) as { reason?: unknown } | null;
-    return capabilities?.reason === 'not-connected' ? 'not-connected' : 'connected';
+    const capabilities: unknown = await swarm.request({ method: 'swarm_getCapabilities' });
+    // Freedom always names a reason, null where nothing holds the site back, so an answer without one says nothing.
+    const reason =
+      typeof capabilities === 'object' && capabilities !== null
+        ? (capabilities as { reason?: unknown }).reason
+        : undefined;
+    if (reason === 'not-connected') {
+      return 'not-connected';
+    }
+    return reason === null || typeof reason === 'string' ? 'connected' : 'unknown';
   } catch {
     return 'unknown';
   }

@@ -97,6 +97,7 @@ describe('the light check of a source', () => {
       elapsedMs: null,
       words: 'Not in Freedom',
     });
+    expect(await status({ kind: 'rejected', status: -32603 })).toEqual({ health: 'failing', elapsedMs: null });
   });
 
   it('fails a plain http address the browser would block, without asking it', async () => {
