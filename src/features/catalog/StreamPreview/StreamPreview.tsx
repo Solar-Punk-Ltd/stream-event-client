@@ -27,6 +27,7 @@ import {
 } from '@/features/catalog/stream';
 import { formatDuration } from '@/features/catalog/format';
 import { previewSegmentUrl } from '@/features/catalog/thumbnailManifest';
+import { mapUri, withMapUri } from '@/shared/manifest';
 import { watchPath } from '@/features/catalog/watchPath';
 import { PlayIcon } from '@/shared/components/Icons/PlayIcon';
 import { useNodeState } from '@/shared/nodeInTabStatus';
@@ -165,14 +166,30 @@ export const StreamPreview = ({
           return;
         }
 
+        // An fMP4 segment decodes only after its initialization section, so its map comes along,
+        // resolved through the same source as the segment.
+        let mapLine: string | null = null;
+        if (seg.map !== undefined) {
+          const reference = mapUri(seg.map);
+          const mapUrl =
+            reference === null ? null : previewSegmentUrl(reference, (ref) => previews.urlFor(ref, 'preview-segment'));
+          if (mapUrl === null) {
+            console.warn(`Thumbnail unavailable for ${topic}: no provider gives a URL for its initialization section`);
+            setIsLoading(false);
+            return;
+          }
+          mapLine = withMapUri(seg.map, mapUrl);
+        }
+
         // Spelled from the shared constants rather than by hand, so a tag rename cannot leave the
-        // preview player asking for a playlist no decoder accepts.
+        // preview player asking for a playlist no decoder accepts. A map needs version 6 (RFC 8216 §7).
         const miniManifest = [
           HLS_M3U,
-          `${HLS_VERSION}:3`,
+          `${HLS_VERSION}:${mapLine === null ? 3 : 6}`,
           `${HLS_TARGET_DURATION}:${PREVIEW_TARGET_DURATION_SECONDS}`,
           HLS_PLAYLIST_TYPE_VOD,
           HLS_MEDIA_SEQUENCE_ZERO,
+          ...(mapLine === null ? [] : [mapLine]),
           seg.extinf,
           segUrl,
           HLS_ENDLIST,

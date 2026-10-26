@@ -9,6 +9,10 @@ import { StreamPreview } from '../src/features/catalog/StreamPreview/StreamPrevi
 import { MEDIA_TYPE_VIDEO, STREAM_STATUS_VOD } from '../src/features/catalog/stream';
 
 const SEGMENT_URL = 'https://gateway.example.com/bytes/abc123';
+const MAP_URL = 'https://gateway.example.com/bytes/def456';
+const previewSegments = vi.hoisted(() => ({
+  current: [] as { extinf: string; uri: string; map?: string }[],
+}));
 
 vi.mock('../src/app/AppProvider', () => ({
   useAppContext: () => ({ swarm: { statusOf: () => ({ state: 'ready' }), reader: () => ({ urlFor: () => null }) } }),
@@ -18,7 +22,7 @@ vi.mock('../src/features/catalog/StreamPreview/previewManifest', () => ({
   rungSlotsKey: () => '',
   fetchPreviewManifest: async () => ({
     res: { ok: true, status: 200 },
-    segments: [{ extinf: '#EXTINF:2.000,', uri: SEGMENT_URL }],
+    segments: previewSegments.current,
   }),
 }));
 
@@ -33,6 +37,7 @@ let handoffs: Handoff[];
 let createObjectURL: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  previewSegments.current = [{ extinf: '#EXTINF:2.000,', uri: SEGMENT_URL }];
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   handoffs = [];
   vi.spyOn(Hls.prototype, 'attachMedia').mockImplementation(() => undefined);
@@ -114,5 +119,23 @@ describe('a stream card hands hls.js its preview playlist', () => {
     expect(playlist).toMatch(/^#EXTM3U\n/);
     expect(playlist).toContain(`#EXTINF:2.000,\n${SEGMENT_URL}\n`);
     expect(playlist).toMatch(/#EXT-X-ENDLIST$/);
+  });
+});
+
+describe('a stream card of an fMP4 stream', () => {
+  it('names the initialization section above its segment, in a playlist version that allows it', async () => {
+    previewSegments.current = [{ extinf: '#EXTINF:2.000,', uri: SEGMENT_URL, map: `#EXT-X-MAP:URI="${MAP_URL}"` }];
+
+    const playlist = await loadPlaylist(await mountPreview());
+
+    expect(playlist).toContain('#EXT-X-VERSION:6\n');
+    expect(playlist).toContain(`#EXT-X-MAP:URI="${MAP_URL}"\n#EXTINF:2.000,\n${SEGMENT_URL}\n`);
+  });
+
+  it('keeps version 3 and no map for a stream without one', async () => {
+    const playlist = await loadPlaylist(await mountPreview());
+
+    expect(playlist).toContain('#EXT-X-VERSION:3\n');
+    expect(playlist).not.toContain('#EXT-X-MAP');
   });
 });

@@ -422,3 +422,91 @@ describe('work that belongs to a topic until it is torn down', () => {
     assert.equal(tornDown, 0);
   });
 });
+
+/**
+ * An fMP4 stream names its initialization section with #EXT-X-MAP, and hls.js loads it through the
+ * fragment loader, which refuses a URL that names no gateway. An AntStream publisher writes it as a bare
+ * reference, like its segments, so it has to be resolved like them, and it has to reach every playlist
+ * served, however far the publisher's own window has slid past the line that named it.
+ */
+describe('ManifestStateManager serialize, fMP4 initialization sections', () => {
+  const TOPIC = 'topic-fmp4';
+  const manager = ManifestStateManager.getInstance();
+  const REF = (c: string) => c.repeat(64);
+  const AT_GATEWAY = (reference: string) => `https://gw.example/bytes/${reference}`;
+  const window = (sequence: number, map: string, refs: string[], extra: string[] = []) =>
+    parseManifest(
+      [
+        M3U,
+        '#EXT-X-VERSION:7',
+        '#EXT-X-TARGETDURATION:2',
+        `#EXT-X-MEDIA-SEQUENCE:${sequence}`,
+        `#EXT-X-MAP:URI="${map}"`,
+        ...refs.flatMap((ref) => ['#EXTINF:2.000,', ref]),
+        ...extra,
+      ].join('\n'),
+    );
+
+  beforeEach(() => {
+    manager.clear(TOPIC);
+  });
+
+  it('resolves the map like a segment and writes it once above the segments it covers', () => {
+    const parsed = window(0, REF('a'), [REF('1'), REF('2')]);
+    manager.updateManifest(TOPIC, parsed.headers, parsed.segments, parsed.isFinalized);
+
+    const out = manager.serialize(TOPIC, AT_GATEWAY);
+
+    assert.equal(out.split('#EXT-X-MAP').length - 1, 1, `one map, got:\n${out}`);
+    assert.ok(
+      out.includes(`#EXT-X-MAP:URI="${AT_GATEWAY(REF('a'))}"\n#EXTINF:2.000,\n${AT_GATEWAY(REF('1'))}`),
+      `the map resolved, above the first segment, got:\n${out}`,
+    );
+    assert.ok(out.indexOf('#EXT-X-MAP') > out.indexOf('#EXT-X-PLAYLIST-TYPE'), `not among the headers, got:\n${out}`);
+  });
+
+  it('keeps the map for segments whose window no longer names it first', () => {
+    const first = window(0, REF('a'), [REF('1'), REF('2')]);
+    manager.updateManifest(TOPIC, first.headers, first.segments, first.isFinalized);
+    const slid = window(1, REF('a'), [REF('2'), REF('3')]);
+    manager.updateManifest(TOPIC, slid.headers, slid.segments, slid.isFinalized);
+
+    const out = manager.serialize(TOPIC, AT_GATEWAY);
+
+    assert.equal(out.split('#EXT-X-MAP').length - 1, 1, `got:\n${out}`);
+    assert.ok(
+      out.includes(`#EXT-X-MAP:URI="${AT_GATEWAY(REF('a'))}"\n#EXTINF:2.000,\n${AT_GATEWAY(REF('1'))}`),
+      `got:\n${out}`,
+    );
+    assert.ok(out.includes(AT_GATEWAY(REF('3'))), `got:\n${out}`);
+  });
+
+  it('writes the new map after an encoder restart, behind its discontinuity', () => {
+    const parsed = window(
+      0,
+      REF('a'),
+      [REF('1')],
+      [DISCONTINUITY, `#EXT-X-MAP:URI="${REF('b')}"`, '#EXTINF:2.000,', REF('2')],
+    );
+    manager.updateManifest(TOPIC, parsed.headers, parsed.segments, parsed.isFinalized);
+
+    const out = manager.serialize(TOPIC, AT_GATEWAY);
+
+    assert.ok(
+      out.includes(
+        `${DISCONTINUITY}\n#EXT-X-MAP:URI="${AT_GATEWAY(REF('b'))}"\n#EXTINF:2.000,\n${AT_GATEWAY(REF('2'))}`,
+      ),
+      `got:\n${out}`,
+    );
+  });
+
+  it('serves the new gateway URL for the map when the gateway changes', () => {
+    const parsed = window(0, REF('a'), [REF('1')]);
+    manager.updateManifest(TOPIC, parsed.headers, parsed.segments, parsed.isFinalized);
+    manager.serialize(TOPIC, AT_GATEWAY);
+
+    const out = manager.serialize(TOPIC, (reference) => `https://other.example/bytes/${reference}`);
+
+    assert.ok(out.includes(`#EXT-X-MAP:URI="https://other.example/bytes/${REF('a')}"`), `got:\n${out}`);
+  });
+});
