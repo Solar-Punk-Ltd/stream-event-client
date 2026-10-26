@@ -7,8 +7,9 @@ and where each feature reads, which is what a developer needs before adding a re
 The layer is plain TypeScript with no React, and it imports nothing from `src/app` or `src/features`. A test fails on a
 line in the features or the app that builds a Bee URL, calls fetch, or makes a Bee client of its own, and on an import
 of anything in `src/swarm` beyond the client's public surface, `client`, `answers`, `provider`, `settings`,
-`createSwarmClient`, `addressSpace`, `sources` and `routing` (`test/swarm/boundary.test.ts`). Seven imports past it are
-named exceptions, each with its reason in the test, all for the chat's writes, which no provider makes:
+`createSwarmClient`, `addressSpace`, `sources` and `routing` (`test/swarm/boundary.test.ts`). Nine imports past it are
+named exceptions, each with its reason in the test: seven for the chat's writes, which no provider makes, and two for
+the Freedom browser's own `window.swarm`, whether the page runs in Freedom and connecting the site, which read nothing:
 
 | File                                       | Imports from `src/swarm`              | For                                           |
 | ------------------------------------------ | ------------------------------------- | --------------------------------------------- |
@@ -19,6 +20,8 @@ named exceptions, each with its reason in the test, all for the chat's writes, w
 | `src/features/chat/stamp/ChatStamp.tsx`    | `providers/weeb-3/weeb3Push`          | the own-stamp push through Weeb3              |
 | `src/features/chat/stamp/stampProblems.ts` | `providers/weeb-3/weeb3Push`          | what the push's error says                    |
 | `src/features/chat/stamp/stampProblems.ts` | `providers/bee-http/stampedSocUpload` | what the Bee node's write error says          |
+| `src/features/connect/AddSourceViews.tsx`  | `providers/freedom/freedomSwarm`      | whether the page runs in Freedom              |
+| `src/features/connect/FreedomConnect.tsx`  | `providers/freedom/freedomSwarm`      | Connect this site, Freedom's own prompt       |
 
 ## The pieces
 
@@ -35,10 +38,12 @@ named exceptions, each with its reason in the test, all for the chat's writes, w
     [weeb-3](weeb3.md) says.
   - The interface is quoted in full in [extending the providers](extending-providers.md).
 - **A provider kind** is the code behind a provider, named in `src/swarm/providerKinds.ts`: `bee-http`, a Bee node's
-  HTTP API, and `weeb-3`, the node in the browser. `GATEWAY_KINDS` is the subset a deployment may offer in
-  `config.json`, today `bee-http` alone. The registry (`src/swarm/registry.ts`) maps each kind to a label and a maker.
-- **A source type** is what a viewer sees and adds in My Swarm (`src/swarm/sources.ts`): `gateway`, `bee-node` and
-  `weeb-3`. Two of them, a gateway and a Bee node of the viewer's own, are both read through the `bee-http` kind. The
+  HTTP API, `weeb-3`, the node in the browser tab, and `freedom`, the Freedom browser's own node. `GATEWAY_KINDS` is
+  the subset a deployment may offer in `config.json`, today `bee-http` alone. The registry (`src/swarm/registry.ts`)
+  maps each kind to a label and a maker, which `createSwarmClient` hands the deployment's default gateway as
+  `eventGateway`, for a kind that reads through it past a budget of its own, as `freedom` does.
+- **A source type** is what a viewer sees and adds in My Swarm (`src/swarm/sources.ts`): `gateway`, `bee-node`,
+  `weeb-3` and `freedom`. Two of them, a gateway and a Bee node of the viewer's own, are both read through the `bee-http` kind. The
   gateways `config.json` offers are always sources of type `gateway`, marked offered.
 - **Every read answers and never throws** (`src/swarm/answers.ts`): the content, with the feed index and the server
   time where the answer carries them, not found, rate limited with the wait asked for, unsupported, unavailable with its
@@ -51,7 +56,9 @@ named exceptions, each with its reason in the test, all for the chat's writes, w
 - **The client** (`src/swarm/client.ts`) is made from the settings and the viewer's choice by `createSwarmClient`
   (`src/swarm/createSwarmClient.ts`), which makes each gateway's provider through the registry of kinds.
   - Each feature reads through its own provider and through nothing else. A read that fails answers as it failed, and
-    the feature's own retry, such as the player's backoff, asks the same provider again.
+    the feature's own retry, such as the player's backoff, asks the same provider again. The one exception is inside
+    the `freedom` provider, which reads through the event gateway while Freedom refuses this site's reads for its
+    budget, as [the Freedom browser's node](freedom.md#the-read-budget) says.
   - URLs come from the feature's own provider, and a segment URL the player already holds is named again by the new
     source at a switch, as each segment is loaded, for a live stream as for a recording.
   - Every read is counted by feature, kind, provider and answer, and `activity()` gives the last minute's answers per
@@ -91,11 +98,13 @@ read at `chat.readUrl` rather than the gateway's own address (`chatHistorySettin
 - Its probe asks `/health`, `/readiness` and `/peers`, and tells a CORS refusal from nothing there by a second request
   the browser cannot read.
 
-The node in the browser is described in [weeb-3](weeb3.md).
+The node in the browser tab is described in [weeb-3](weeb3.md), and the Freedom browser's own node in
+[the Freedom browser's node](freedom.md).
 
 ## The contract
 
 `test/swarm/providerContract.ts` is the suite every provider kind must pass. It is run for Bee over HTTP
 (`test/swarm/beeHttpProvider.test.ts`) against the answers the browser smoke test replays, and for weeb-3
-(`test/swarm/weeb3Provider.test.ts`) against a scripted view of the node in the tab. A harness hands it a world of
+(`test/swarm/weeb3Provider.test.ts`) against a scripted view of the node in the tab, and for Freedom
+(`test/swarm/freedomProvider.test.ts`) against a fake `window.swarm` (`test/helpers/fakeFreedom.ts`). A harness hands it a world of
 content the provider holds and a provider for each behaviour of the far side: served, silent, faulty and rate limited.

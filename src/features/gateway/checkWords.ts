@@ -9,13 +9,27 @@ import type { SourceType } from '@/swarm/sources';
 import { corsHelp, type Help, LOCAL_NETWORK_HELP } from './checkSentences';
 
 /** Every check a source can be put through. */
-export type CheckStep = 'https' | 'reach' | 'cors' | 'version' | 'chunk' | 'bytes' | 'feed' | 'start' | 'peers';
+export type CheckStep =
+  | 'https'
+  | 'reach'
+  | 'cors'
+  | 'version'
+  | 'chunk'
+  | 'bytes'
+  | 'feed'
+  | 'start'
+  | 'peers'
+  | 'in-freedom'
+  | 'node';
 
 /** The checks of each kind of source, in the order they run. */
 export const CHECK_STEPS: Readonly<Record<SourceType, readonly CheckStep[]>> = {
   gateway: ['https', 'cors', 'version', 'chunk', 'bytes', 'feed'],
   'bee-node': ['reach', 'cors', 'version', 'chunk', 'bytes', 'feed'],
   'weeb-3': ['start', 'peers', 'chunk', 'bytes', 'feed'],
+  // The video and the pictures load over bzz:// with no read budget, so only what is read through window.swarm is
+  // checked.
+  freedom: ['in-freedom', 'node', 'feed'],
 };
 
 /** The node in this browser's reads are checked from its first peer, since a read needs only one. */
@@ -31,6 +45,8 @@ const LINES: Readonly<Record<CheckStep, string>> = {
   feed: "Reads this event's stream list",
   start: 'Node started',
   peers: 'Connected to a peer',
+  'in-freedom': 'Open in Freedom',
+  node: 'Its Swarm node answers',
 };
 
 /** A check's line as the list shows it. A Bee node of the viewer's own must also be ready, which a gateway is not asked. */
@@ -100,8 +116,32 @@ export function notReady(reason: NotReadyReason): CheckFailure {
       return { reason: 'The node is still starting.', fix: 'Wait a minute, then test again.' };
     case 'no-peers':
       return { reason: 'The node has no peers yet.', fix: 'Wait a minute for it to connect, then test again.' };
+    case 'node-stopped':
+      return { reason: "Freedom's Swarm node is not running.", fix: 'Start it in Freedom, then test again.' };
+    case 'switched-off':
+      return {
+        reason: 'Freedom does not let pages use its Swarm node.',
+        fix: 'Turn on Enable Identity & Wallet in Settings, Advanced, then test again.',
+      };
   }
 }
+
+export const NOT_IN_FREEDOM: CheckFailure = {
+  reason: 'This page is not open in Freedom.',
+  fix: 'Open it in the Freedom browser, in a window that is not private.',
+};
+
+/** Freedom is there and failed to answer its capabilities, with the error code of its provider API. */
+export const freedomRefused = (code: number): CheckFailure => ({
+  reason: `Freedom answers with an error (code ${code}).`,
+  fix: 'Check that its Swarm node runs, then test again.',
+});
+
+/** Freedom is there and answered its capabilities with nothing it documents, no error code of its provider API. */
+export const FREEDOM_UNREADABLE: CheckFailure = {
+  reason: 'Freedom answers in a way this page cannot read.',
+  fix: 'Update Freedom, then test again.',
+};
 
 export const healthRefused = (status: number): CheckFailure => ({
   reason: `Its health answers with an error (HTTP ${status}).`,

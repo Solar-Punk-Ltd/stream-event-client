@@ -6,14 +6,24 @@ import { checksPassed } from '@/features/gateway/sourceChecks';
 import { Button, ButtonVariant } from '@/shared/components/Button/Button';
 import { useNodeStatus } from '@/shared/nodeInTabStatus';
 import type { SwarmClient } from '@/swarm/client';
+import { isFreedomBrowser } from '@/swarm/providers/freedom/freedomSwarm';
 import { SOURCE_NAME_MAX_LENGTH, type SourceType } from '@/swarm/sources';
 
 import { CheckList } from './CheckList';
 import { ADD_TILES, ADD_VIEWS, ADDRESS_PLACEHOLDERS, ALREADY_ADDED } from './connectWords';
+import { FreedomConnect } from './FreedomConnect';
 import { useCheckClient, useSourceChecks } from './useSourceChecks';
 
-/** The kinds a browser holds one of. A browser runs one weeb-3 node, and the design offers one Bee node of one's own. */
-const ONE_EACH: readonly SourceType[] = ['bee-node', 'weeb-3'];
+/**
+ * The kinds a browser holds one of. A browser runs one weeb-3 node and has one node of its own in Freedom, and the
+ * design offers one Bee node of one's own.
+ */
+const ONE_EACH: readonly SourceType[] = ['bee-node', 'weeb-3', 'freedom'];
+
+/** The tiles of Add source. The Freedom browser's node is offered only in Freedom, the one browser that has it. */
+function tilesOffered(): readonly SourceType[] {
+  return isFreedomBrowser() ? ['gateway', 'bee-node', 'weeb-3', 'freedom'] : ['gateway', 'bee-node', 'weeb-3'];
+}
 
 interface AddTilesProps {
   readonly onPick: (type: SourceType) => void;
@@ -24,7 +34,7 @@ export function AddTiles({ onPick }: AddTilesProps) {
   const { sources } = useAppContext();
   return (
     <div className="connect-tiles">
-      {(['gateway', 'bee-node', 'weeb-3'] as const).map((type) => {
+      {tilesOffered().map((type) => {
         const isAdded = ONE_EACH.includes(type) && sources.some((source) => source.type === type);
         return (
           <button key={type} type="button" className="connect-tile" disabled={isAdded} onClick={() => onPick(type)}>
@@ -250,6 +260,63 @@ export function AddWeeb3View({ onAdded }: AddWeeb3Props) {
           }}
         >
           {ADD_VIEWS['weeb-3'].action}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+const FREEDOM_SOURCE = { id: 'checked', type: 'freedom', url: '', offered: false } as const;
+
+interface AddFreedomProps {
+  /** Told the new source's id once it is added. */
+  readonly onAdded: (id: string) => void;
+}
+
+/**
+ * Adding the Freedom browser's own node: its checks run as the view opens, since there is no address to type and no
+ * node to start, and Connect this site raises Freedom's read budget for the page.
+ */
+export function AddFreedomView({ onAdded }: AddFreedomProps) {
+  const app = useAppContext();
+  const { results, run } = useSourceChecks();
+  const isAdded = useRef(false);
+  // Read through a ref, so the checks run once as the view opens, however often the stream list they read is read
+  // again.
+  const latestRun = useRef(run);
+
+  latestRun.current = run;
+
+  useEffect(() => {
+    void latestRun.current(FREEDOM_SOURCE);
+  }, []);
+
+  const canAdd = results !== null && checksPassed(results);
+  const isFinished = results !== null && results.every(({ state }) => state !== 'running' && state !== 'waiting');
+
+  return (
+    <>
+      <p className="connect-hint">Reads Swarm through the node Freedom runs on this computer.</p>
+      <CheckList type="freedom" results={results} isAdding />
+      {isFinished && !canAdd && (
+        <div className="connect-inline">
+          <Button variant={ButtonVariant.SECONDARY} className="connect-small" onClick={() => void run(FREEDOM_SOURCE)}>
+            Test again
+          </Button>
+        </div>
+      )}
+      <FreedomConnect />
+      <div className="connect-foot">
+        <Button
+          disabled={!canAdd}
+          onClick={() => {
+            if (canAdd && !isAdded.current) {
+              isAdded.current = true;
+              onAdded(app.addSource({ type: 'freedom', name: '', url: '' }));
+            }
+          }}
+        >
+          {ADD_VIEWS.freedom.action}
         </Button>
       </div>
     </>

@@ -50,6 +50,9 @@ The policy is the same on every deployment, because the page decides which sourc
   host, on purpose. The package's mainnet bootnodes are all `*.libp2p.direct` names, which `wss://*.libp2p.direct:*`
   would cover, but the node also dials any peer that announces a public DNS name with TLS, and a narrower list would
   refuse those.
+- **The Freedom browser's own node.** `bzz:` in `connect-src` and `img-src`, so the page in Freedom fetches segments
+  and preview segments from that node and shows its pictures, at `bzz://` URLs ([the Freedom browser's node](freedom.md)).
+  The video still plays through blob URLs, so `media-src` has no `bzz:`.
 
 Plain http beyond the viewer's own machine is never allowed, apart from the addresses the image's settings name, because
 a browser blocks it from an https page and a policy cannot tell the local network from the internet. Blob URLs stay

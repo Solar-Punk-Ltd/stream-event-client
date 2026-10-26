@@ -56,9 +56,9 @@ const sources = (csp: string, directive: string) =>
 /** What the policy is with nothing beyond the gateway set, the one every deployment starts from. */
 const BASE_POLICY =
   "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'" +
-  "; img-src 'self' data: blob: https: http://localhost:* http://127.0.0.1:*" +
+  "; img-src 'self' data: blob: https: bzz: http://localhost:* http://127.0.0.1:*" +
   "; media-src 'self' blob:; worker-src 'self' blob:" +
-  "; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*" +
+  "; connect-src 'self' https: wss: bzz: http://localhost:* http://127.0.0.1:*" +
   "; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'";
 
 /** The body of the server block's location whose opening line is exactly `opening`. */
@@ -112,6 +112,12 @@ describe('the image start-up script', () => {
     it('weeb-3, which compiles WebAssembly and reaches its peers over secure websockets', () => {
       expect(sources(csp, 'script-src')).toEqual(["'self'", "'wasm-unsafe-eval'"]);
       expect(sources(csp, 'connect-src')).toContain('wss:');
+    });
+
+    it("the Freedom browser's own node, whose segments the page fetches and whose pictures it shows at bzz:// URLs", () => {
+      expect(sources(csp, 'connect-src')).toContain('bzz:');
+      expect(sources(csp, 'img-src')).toContain('bzz:');
+      expect(sources(csp, 'media-src')).not.toContain('bzz:');
     });
 
     it('no plain http beyond this machine, no script from elsewhere, and blob URLs only as media, images and workers', () => {

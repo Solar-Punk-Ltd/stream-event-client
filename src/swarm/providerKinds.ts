@@ -4,9 +4,10 @@
 export const GATEWAY_KINDS = ['bee-http'] as const;
 
 /**
- * Every kind of provider this build carries. weeb-3 runs a node in the viewer's own browser, so a
- * deployment never offers one as a gateway, and the page offers it to every viewer.
+ * Every kind of provider this build carries. weeb-3 runs a node in the viewer's own browser, and freedom reads the
+ * node of the Freedom browser the page runs in, so a deployment never offers either as a gateway. The page offers
+ * weeb-3 to every viewer and freedom to a viewer in Freedom.
  */
-export const PROVIDER_KINDS = [...GATEWAY_KINDS, 'weeb-3'] as const;
+export const PROVIDER_KINDS = [...GATEWAY_KINDS, 'weeb-3', 'freedom'] as const;
 
 export type ProviderKindName = (typeof PROVIDER_KINDS)[number];

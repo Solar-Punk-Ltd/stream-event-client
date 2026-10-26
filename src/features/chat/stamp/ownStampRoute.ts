@@ -17,6 +17,8 @@ function routeThrough(source: RouteSource): OwnStampRoute {
     case 'weeb-3':
       return { ok: true, through: 'weeb-3' };
     case 'gateway':
+    // Sending a stamped chunk through the Freedom browser's node is not built yet.
+    case 'freedom':
       return NO_ROUTE;
   }
 }

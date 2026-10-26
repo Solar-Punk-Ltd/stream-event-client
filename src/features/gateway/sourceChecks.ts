@@ -10,7 +10,7 @@ import type { Stream } from '@/features/catalog/stream';
 import { supportsLocalNetworkRequests } from '@/swarm/addressSpace';
 import { contentText, type SwarmAnswer } from '@/swarm/answers';
 import type { SwarmClient } from '@/swarm/client';
-import { DEFAULT_READ_TIMEOUT_MS, PROBE_TIMEOUT_MS, type ReadOptions } from '@/swarm/provider';
+import { DEFAULT_READ_TIMEOUT_MS, PROBE_TIMEOUT_MS, type ProbeResult, type ReadOptions } from '@/swarm/provider';
 import type { SourceType } from '@/swarm/sources';
 
 import {
@@ -18,10 +18,13 @@ import {
   type CheckFailure,
   type CheckStep,
   corsRefused,
+  FREEDOM_UNREADABLE,
+  freedomRefused,
   healthRefused,
   LOCAL_NETWORK_BLOCKED,
   MIXED_CONTENT_BLOCKED,
   NODE_FAILED,
+  NOT_IN_FREEDOM,
   noPeers,
   noAnswerFor,
   NOT_BEE,
@@ -177,6 +180,8 @@ class CheckRun {
   /** Whether the first answer could be read by this page, which the CORS check reports. */
   private isReadable = false;
   private reference: Promise<string | CheckFailure> | null = null;
+  /** What the Freedom browser's node answered its probe, which its two checks read in turn. */
+  private freedomProbe: Promise<ProbeResult> | null = null;
 
   constructor(
     private readonly target: CheckTarget,
@@ -206,6 +211,10 @@ class CheckRun {
         return this.nodeStarted();
       case 'peers':
         return this.nodeHasPeers();
+      case 'in-freedom':
+        return this.inFreedom();
+      case 'node':
+        return this.freedomNodeAnswers();
     }
   }
 
@@ -410,6 +419,36 @@ class CheckRun {
       .reader('player')
       .readFeedEntry(owner, Topic.fromString(topic), answer.feedIndex ?? 0, this.window);
     return entry.kind === 'content' ? pass() : fail(readFailure("this event's stream list by its index", entry));
+  }
+
+  /** Asked once for both of the Freedom browser's checks, so its node is not asked twice. */
+  private probeFreedom(): Promise<ProbeResult> {
+    this.freedomProbe ??= this.context.client.probe({ timeoutMs: PROBE_TIMEOUT_MS, signal: this.context.signal });
+    return this.freedomProbe;
+  }
+
+  /** The page has Freedom's `window.swarm`, which its provider answers unreachable without. */
+  private async inFreedom(): Promise<Outcome> {
+    return (await this.probeFreedom()).kind === 'unreachable' ? fail(NOT_IN_FREEDOM) : pass();
+  }
+
+  /** Freedom answered with its node running, and with pages let use it. */
+  private async freedomNodeAnswers(): Promise<Outcome> {
+    const found = await this.probeFreedom();
+    switch (found.kind) {
+      case 'ok':
+        return pass();
+      case 'not-ready':
+        return fail(notReady(found.reason));
+      case 'timed-out':
+        return fail(noAnswerFor(PROBE_TIMEOUT_MS));
+      case 'rejected':
+        return fail(freedomRefused(found.status));
+      case 'not-swarm':
+        return fail(FREEDOM_UNREADABLE);
+      default:
+        return fail(this.context.signal?.aborted ? STOPPED : NOT_IN_FREEDOM);
+    }
   }
 
   /** Started once its module is in and it runs, which is before it has peers. */

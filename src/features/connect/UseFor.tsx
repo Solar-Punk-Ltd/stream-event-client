@@ -13,7 +13,7 @@ import {
 } from '@/swarm/routing';
 import type { Source } from '@/swarm/sources';
 
-import { PART_LABELS, WEEB3_PARTS_NOTE } from './connectWords';
+import { FREEDOM_PARTS_NOTE, PART_LABELS, WEEB3_PARTS_NOTE } from './connectWords';
 
 const MODE_LABELS: Readonly<Record<RoutingMode, string>> = { one: 'All features', 'per-part': 'Per feature' };
 
@@ -29,7 +29,8 @@ interface UseForProps {
 /**
  * What each source is used for: one source for all features, the chat history included, or a source each for the
  * video, the stream list, the previews and the chat history. Each select offers only the sources that may serve its
- * part, so Weeb3 is offered for the video alone. Who sends a chat message is not picked here.
+ * part, so Weeb3 is offered for the video alone and the Freedom browser's node for all but the chat history. Who
+ * sends a chat message is not picked here.
  */
 export function UseFor({ sources, routing, parts, hasChat, onChange }: UseForProps) {
   const isOne = routing.mode === 'one';
@@ -74,6 +75,7 @@ export function UseFor({ sources, routing, parts, hasChat, onChange }: UseForPro
         )}
       </div>
       {sources.some(({ type }) => type === 'weeb-3') && <p className="connect-hint">{WEEB3_PARTS_NOTE}</p>}
+      {sources.some(({ type }) => type === 'freedom') && <p className="connect-hint">{FREEDOM_PARTS_NOTE}</p>}
     </>
   );
 }

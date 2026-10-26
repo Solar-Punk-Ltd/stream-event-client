@@ -28,6 +28,11 @@ describe("the checks' lines", () => {
       'Reads bytes',
       "Reads this event's stream list",
     ]);
+    expect(CHECK_STEPS.freedom.map((step) => checkLine('freedom', step))).toEqual([
+      'Open in Freedom',
+      'Its Swarm node answers',
+      "Reads this event's stream list",
+    ]);
   });
 });
 
@@ -44,6 +49,9 @@ describe('what a failure says', () => {
     words.notReady({ kind: 'too-old', version: '2.5.0', needed: '2.6.0' }),
     words.notReady({ kind: 'starting' }),
     words.notReady({ kind: 'no-peers' }),
+    words.notReady({ kind: 'node-stopped' }),
+    words.notReady({ kind: 'switched-off' }),
+    words.NOT_IN_FREEDOM,
     words.healthRefused(502),
     words.readFailure('a chunk', { kind: 'not-found', serverTimeMs: null }),
     words.readFailure('a chunk', { kind: 'rate-limited', retryAfterMs: null, serverTimeMs: null }),

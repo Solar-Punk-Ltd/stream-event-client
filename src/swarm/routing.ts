@@ -23,12 +23,14 @@ export interface Routing {
 /**
  * The parts a kind of source may be picked for. Weeb3 serves the video alone: its newest-entry search makes the
  * stream list, the previews and the chat history slow. A message on the viewer's own stamp can still be sent through
- * it, which Use for does not decide.
+ * it, which Use for does not decide. The Freedom browser's node serves the video, the stream list and the previews,
+ * and the chat history stays where it is read: polling a chat's slots would spend most of Freedom's read budget.
  */
 const SERVED_PARTS: Readonly<Record<SourceType, readonly SwarmFeature[]>> = {
   gateway: SWARM_FEATURES,
   'bee-node': SWARM_FEATURES,
   'weeb-3': ['player'],
+  freedom: ['player', 'stream-list', 'previews'],
 };
 
 export function servesPart(type: SourceType, feature: SwarmFeature): boolean {

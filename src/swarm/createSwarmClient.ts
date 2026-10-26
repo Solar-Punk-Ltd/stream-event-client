@@ -1,7 +1,7 @@
 import { SwarmClient, type NamedProvider, type SwarmClientOptions, type SwarmFeature } from './client';
 import { PROVIDER_REGISTRY, type ProviderEnvironment, type ProviderKind } from './registry';
 import type { GatewaySetting, SwarmSettings } from './settings';
-import type { ProviderKindName } from './providerKinds';
+import { GATEWAY_KINDS, type ProviderKindName } from './providerKinds';
 
 export interface CreateSwarmClientOptions {
   /**
@@ -22,9 +22,16 @@ export interface CreateSwarmClientOptions {
 export function createSwarmClient(settings: SwarmSettings, options: CreateSwarmClientOptions = {}): SwarmClient {
   const { choice, routes = {}, environment = {}, registry = PROVIDER_REGISTRY } = options;
   const offered = (id: string | null) => settings.gateways.find((gateway) => gateway.id === id) ?? null;
+  // A client made for one source alone, as a check's, has that source as its default, which is then no gateway.
+  const defaultGateway = offered(settings.defaultId);
+  const eventGateway =
+    defaultGateway !== null && (GATEWAY_KINDS as readonly ProviderKindName[]).includes(defaultGateway.kind)
+      ? defaultGateway
+      : undefined;
+  const providerEnvironment: ProviderEnvironment = { eventGateway, ...environment };
   const make = (gateway: GatewaySetting): NamedProvider => ({
     id: gateway.id,
-    provider: registry[gateway.kind].create(gateway, environment),
+    provider: registry[gateway.kind].create(gateway, providerEnvironment),
   });
 
   const chosen =

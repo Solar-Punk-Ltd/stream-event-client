@@ -171,3 +171,21 @@ describe('the node in this browser as a source', () => {
     expect(parseAddedSources(saved)).toEqual([IN_BROWSER]);
   });
 });
+
+describe("the Freedom browser's node as a source", () => {
+  const FREEDOM: AddedSource = { id: 'added-1', type: 'freedom', name: "This browser's Swarm node", url: '' };
+
+  it('is added with no address, under the name of what it is when the viewer gives none', () => {
+    expect(addSource([], { type: 'freedom', name: '', url: 'https://ignored.example.org' }).sources).toEqual([FREEDOM]);
+  });
+
+  it('is read through the freedom kind', () => {
+    expect(gatewaySettingOf({ ...FREEDOM, offered: false })).toEqual({ id: 'added-1', kind: 'freedom', url: '' });
+  });
+
+  it('survives the round trip through the browser without an address, and is dropped with one', () => {
+    const saved = JSON.stringify([FREEDOM, { ...FREEDOM, id: 'added-2', url: 'https://gw.example.org' }]);
+
+    expect(parseAddedSources(saved)).toEqual([FREEDOM]);
+  });
+});

@@ -14,6 +14,7 @@ import { hasAddress, SOURCE_NAME_MAX_LENGTH, type Source, sourceName } from '@/s
 
 import { CheckList } from './CheckList';
 import { OFFERED_NOTE } from './connectWords';
+import { FreedomConnect } from './FreedomConnect';
 import { useCheckClient, useSourceChecks } from './useSourceChecks';
 
 const KEY_ENTER = 'Enter';
@@ -58,7 +59,7 @@ export function SourceSettings({ source, status, onRemoved }: SourceSettingsProp
   );
 
   const test = () => {
-    if (!hasAddress(source.type)) {
+    if (source.type === 'weeb-3') {
       if (!holdsNode.current) {
         holdsNode.current = true;
         client.start().catch(() => undefined);
@@ -123,6 +124,12 @@ export function SourceSettings({ source, status, onRemoved }: SourceSettingsProp
             <CheckList type={source.type} results={results} isAdding={false} />
           )}
         </>
+      ) : source.type === 'freedom' ? (
+        <div className="connect-box">
+          <FreedomConnect />
+          {actions}
+          {results !== null && <CheckList type={source.type} results={results} isAdding={false} />}
+        </div>
       ) : (
         <div className="connect-box">
           <NodeFacts source={source} />

@@ -53,6 +53,11 @@ export function SwarmAccess({ sources, statuses, onSettings, onAdd }: SwarmAcces
                     {KIND_LABELS[source.type]} · {shownAddress(source.url)}
                     {statuses[source.id] && ` · ${sourceStatusWords(statuses[source.id])}`}
                   </>
+                ) : source.type === 'freedom' ? (
+                  <>
+                    {KIND_LABELS[source.type]} · in this browser
+                    {statuses[source.id] && ` · ${sourceStatusWords(statuses[source.id])}`}
+                  </>
                 ) : (
                   <NodeInTabMeta source={source} />
                 )}
