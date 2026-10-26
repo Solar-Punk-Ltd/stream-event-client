@@ -18,6 +18,7 @@ import {
   type CheckFailure,
   type CheckStep,
   corsRefused,
+  FREEDOM_UNREADABLE,
   freedomRefused,
   healthRefused,
   LOCAL_NETWORK_BLOCKED,
@@ -443,6 +444,8 @@ class CheckRun {
         return fail(noAnswerFor(PROBE_TIMEOUT_MS));
       case 'rejected':
         return fail(freedomRefused(found.status));
+      case 'not-swarm':
+        return fail(FREEDOM_UNREADABLE);
       default:
         return fail(this.context.signal?.aborted ? STOPPED : NOT_IN_FREEDOM);
     }

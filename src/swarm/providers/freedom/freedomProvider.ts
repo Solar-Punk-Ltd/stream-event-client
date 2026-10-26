@@ -175,6 +175,8 @@ function failureOf(error: unknown, method: string, windowMs: number): Called {
 class FreedomBudget {
   private windowMs = FREEDOM_BUDGET_WINDOW_MS;
   private windowStartedAtMs: number | null = null;
+  /** Whether the page's window followed one it counted, whose end in Freedom is then a moment after the page's. */
+  private followsWindow = false;
   private overUntilMs = 0;
 
   isOver(nowMs: number): boolean {
@@ -184,15 +186,23 @@ class FreedomBudget {
   /** A read sent to Freedom, the first of a new window where the last one has ended. */
   sent(nowMs: number): void {
     if (this.windowStartedAtMs === null || nowMs - this.windowStartedAtMs >= this.windowMs) {
+      this.followsWindow = this.windowStartedAtMs !== null;
       this.windowStartedAtMs = nowMs;
     }
   }
 
-  /** A read Freedom refused for the budget of a window `windowMs` long. Answers how long it refuses reads still. */
-  refused(nowMs: number, windowMs: number): number {
+  /**
+   * A read sent at `sentAtMs` that Freedom refused for the budget of a window `windowMs` long. Answers how long it
+   * refuses reads still. A read sent in the first moment of a window that followed one the page counted may have
+   * reached Freedom while Freedom's last window, which started that moment later, was still open, so its refusal is a
+   * late one too.
+   */
+  refused(sentAtMs: number, nowMs: number, windowMs: number): number {
     this.windowMs = windowMs;
-    const endsAtMs = (this.windowStartedAtMs ?? nowMs) + windowMs;
-    this.overUntilMs = endsAtMs > nowMs ? endsAtMs : nowMs + Math.min(LATE_REFUSAL_WAIT_MS, windowMs);
+    const startedAtMs = this.windowStartedAtMs ?? sentAtMs;
+    const endsAtMs = startedAtMs + windowMs;
+    const late = endsAtMs <= nowMs || (this.followsWindow && sentAtMs - startedAtMs < LATE_REFUSAL_WAIT_MS);
+    this.overUntilMs = late ? nowMs + Math.min(LATE_REFUSAL_WAIT_MS, windowMs) : endsAtMs;
     return this.overUntilMs - nowMs;
   }
 }
@@ -364,10 +374,12 @@ export class FreedomProvider implements SwarmProvider {
       return { kind: 'timed-out' };
     }
     // Unreachable is kept for a page with no `window.swarm`, which the checks report as not open in Freedom. Stopped,
-    // the probe answered nothing; any other failure is Freedom's own, an internal error or an answer of no shape.
-    return called.answer.kind === 'aborted'
-      ? { kind: 'unreachable' }
-      : { kind: 'rejected', status: called.code ?? INTERNAL_ERROR };
+    // the probe answered nothing. Rejected carries an error code Freedom sent; an answer of no shape, or a failure
+    // with no code of Freedom's provider API, is not Freedom's node answering as it does.
+    if (called.answer.kind === 'aborted') {
+      return { kind: 'unreachable' };
+    }
+    return called.code === null ? { kind: 'not-swarm' } : { kind: 'rejected', status: called.code };
   }
 
   async start(): Promise<void> {}
@@ -437,8 +449,9 @@ export class FreedomProvider implements SwarmProvider {
     if (swarm === null) {
       return Promise.resolve(refusal(unavailable('is not here: this page is not open in Freedom')));
     }
+    const sentAtMs = this.now();
     if (method !== CAPABILITIES) {
-      this.budget.sent(this.now());
+      this.budget.sent(sentAtMs);
     }
     return new Promise<Called>((resolve) => {
       let settled = false;
@@ -470,18 +483,18 @@ export class FreedomProvider implements SwarmProvider {
               ? { ok: true, result: result as Record<string, unknown> }
               : refusal(unavailable(`answered ${method} with nothing`)),
           ),
-        (error: unknown) => settle(this.failed(error, method, timeoutMs)),
+        (error: unknown) => settle(this.failed(error, method, timeoutMs, sentAtMs)),
       );
     });
   }
 
   /** A rejected call as its answer. A refusal for the budget waits only what is left of Freedom's window. */
-  private failed(error: unknown, method: string, timeoutMs: number): Called {
+  private failed(error: unknown, method: string, timeoutMs: number, sentAtMs: number): Called {
     const failed = failureOf(error, method, timeoutMs);
     if (failed.ok || failed.answer.kind !== 'rate-limited') {
       return failed;
     }
-    const waitMs = this.budget.refused(this.now(), failed.answer.retryAfterMs ?? FREEDOM_BUDGET_WINDOW_MS);
+    const waitMs = this.budget.refused(sentAtMs, this.now(), failed.answer.retryAfterMs ?? FREEDOM_BUDGET_WINDOW_MS);
     return { ...failed, answer: { ...failed.answer, retryAfterMs: Math.min(waitMs, LONGEST_RETRY_AFTER_MS) } };
   }
 }

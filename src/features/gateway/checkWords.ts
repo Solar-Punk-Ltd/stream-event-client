@@ -137,6 +137,12 @@ export const freedomRefused = (code: number): CheckFailure => ({
   fix: 'Check that its Swarm node runs, then test again.',
 });
 
+/** Freedom is there and answered its capabilities with nothing it documents, no error code of its provider API. */
+export const FREEDOM_UNREADABLE: CheckFailure = {
+  reason: 'Freedom answers in a way this page cannot read.',
+  fix: 'Update Freedom, then test again.',
+};
+
 export const healthRefused = (status: number): CheckFailure => ({
   reason: `Its health answers with an error (HTTP ${status}).`,
   fix: 'Check the address and the port.',

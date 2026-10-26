@@ -340,14 +340,20 @@ describe("the Freedom browser's node, read through window.swarm", () => {
       expect(await freedom(silent).probe({ timeoutMs: 20 })).toEqual({ kind: 'timed-out' });
     });
 
-    it('answers rejected, never unreachable, for any other failure of a Freedom that is there', async () => {
+    it('answers rejected with the code Freedom sent, never unreachable, for any other error of a Freedom that is there', async () => {
       const internal = rejecting(freedomError(-32603, 'Request failed with status code 500'));
+      const unauthorized = rejecting(freedomError(4100, 'Unauthorized'));
+
+      expect(await freedom(internal).probe()).toEqual({ kind: 'rejected', status: -32603 });
+      expect(await freedom(unauthorized).probe()).toEqual({ kind: 'rejected', status: 4100 });
+    });
+
+    it('answers not Swarm, naming no code Freedom never sent, for an answer of no shape or an error with no code', async () => {
       const unknown = rejecting('something Freedom does not document');
       const shapeless: FreedomSwarm = { isFreedomBrowser: true, request: () => Promise.resolve(null) };
 
-      expect(await freedom(internal).probe()).toEqual({ kind: 'rejected', status: -32603 });
-      expect(await freedom(unknown).probe()).toEqual({ kind: 'rejected', status: -32603 });
-      expect(await freedom(shapeless).probe()).toEqual({ kind: 'rejected', status: -32603 });
+      expect(await freedom(unknown).probe()).toEqual({ kind: 'not-swarm' });
+      expect(await freedom(shapeless).probe()).toEqual({ kind: 'not-swarm' });
     });
 
     it('answers unreachable for a probe the caller stopped', async () => {
@@ -424,6 +430,40 @@ describe("the Freedom browser's node, read through window.swarm", () => {
         retryAfterMs: 1_000,
         serverTimeMs: null,
       });
+    });
+
+    it("holds reads back only a moment for a refusal of a new window's first read, which reached Freedom in its last", async () => {
+      let nowMs = 0;
+      // The window's first read reached Freedom 5 ms after it was sent, so Freedom's window ends 5 ms after the page's.
+      const freedomStartedAtMs = 5;
+      let reads = 0;
+      const swarm: FreedomSwarm = {
+        isFreedomBrowser: true,
+        request: async () => {
+          reads += 1;
+          if (reads === 1 || nowMs >= freedomStartedAtMs + WINDOW_MS) {
+            return { data: Buffer.from(ENTRIES[0]).toString('base64'), encoding: 'base64', index: 0 };
+          }
+          throw freedomError(-32602, 'Permission-free read budget exceeded', {
+            reason: 'rate_limited',
+            windowMs: WINDOW_MS,
+          });
+        },
+      };
+      const provider = freedom(swarm, undefined, () => nowMs);
+
+      await provider.readFeedHead(OWNER, TOPIC);
+      nowMs = 20_000;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({ retryAfterMs: WINDOW_MS - 20_000 });
+      // Sent after the page's window ended and refused in Freedom's, which has a moment left.
+      nowMs = WINDOW_MS + 2;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toEqual({
+        kind: 'rate-limited',
+        retryAfterMs: 1_000,
+        serverTimeMs: null,
+      });
+      nowMs = WINDOW_MS + 1_002;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({ kind: 'content' });
     });
 
     it('answers rate limited with what is left of the window as the wait where no gateway is there', async () => {
