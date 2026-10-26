@@ -184,6 +184,8 @@ class FreedomBudget {
   private countedWindow = false;
   /** Whether the page's window followed one it counted. */
   private followsWindow = false;
+  /** When the page sent the latest read Freedom answered, which Freedom then had budget for. */
+  private acceptedSentAtMs: number | null = null;
   private overUntilMs = 0;
 
   isOver(nowMs: number): boolean {
@@ -201,22 +203,32 @@ class FreedomBudget {
     this.sentInWindowAtMs.push(nowMs);
   }
 
+  /** A read sent at `sentAtMs` that Freedom answered rather than refused for the budget. */
+  accepted(sentAtMs: number): void {
+    this.acceptedSentAtMs = Math.max(this.acceptedSentAtMs ?? sentAtMs, sentAtMs);
+  }
+
   /**
    * A read sent at `sentAtMs` that Freedom refused for the budget of a window `windowMs` long. Answers how long it
    * refuses reads still. A read sent in the first moment of a window that followed one the page counted may have
    * reached Freedom while Freedom's last window, which started that moment later, was still open, so its refusal is a
-   * late one too.
+   * late one too. A late refusal holds reads back for a moment, never less than a wait already running, and not at all
+   * once Freedom answered a read sent after the refused one, as Freedom's next window is then open.
    */
   refused(sentAtMs: number, nowMs: number, windowMs: number): number {
     this.windowMs = windowMs;
     const startedAtMs = this.windowStartedAtMs ?? sentAtMs;
     const endsAtMs = startedAtMs + windowMs;
     const late = endsAtMs <= nowMs || (this.followsWindow && sentAtMs - startedAtMs < LATE_REFUSAL_WAIT_MS);
-    if (late) {
-      this.notStartedBy(sentAtMs);
+    if (!late) {
+      this.overUntilMs = endsAtMs;
+      return endsAtMs - nowMs;
     }
-    this.overUntilMs = late ? nowMs + Math.min(LATE_REFUSAL_WAIT_MS, windowMs) : endsAtMs;
-    return this.overUntilMs - nowMs;
+    this.notStartedBy(sentAtMs);
+    if (this.acceptedSentAtMs === null || this.acceptedSentAtMs <= sentAtMs) {
+      this.overUntilMs = Math.max(this.overUntilMs, nowMs + Math.min(LATE_REFUSAL_WAIT_MS, windowMs));
+    }
+    return Math.max(0, this.overUntilMs - nowMs);
   }
 
   /**
@@ -460,7 +472,7 @@ export class FreedomProvider implements SwarmProvider {
     if (answer.kind === OVER_BYTE_BUDGET.kind) {
       return overBudget === null ? UNSUPPORTED : elsewhere(overBudget);
     }
-    if (answer.kind === 'rate-limited' && overBudget !== null && this.budget.isOver(this.now())) {
+    if (answer.kind === 'rate-limited' && overBudget !== null) {
       return elsewhere(overBudget);
     }
     return answer;
@@ -505,12 +517,16 @@ export class FreedomProvider implements SwarmProvider {
         asked = Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }
       asked.then(
-        (result) =>
+        (result) => {
+          if (method !== CAPABILITIES) {
+            this.budget.accepted(sentAtMs);
+          }
           settle(
             typeof result === 'object' && result !== null
               ? { ok: true, result: result as Record<string, unknown> }
               : refusal(unavailable(`answered ${method} with nothing`)),
-          ),
+          );
+        },
         (error: unknown) => settle(this.failed(error, method, timeoutMs, sentAtMs)),
       );
     });

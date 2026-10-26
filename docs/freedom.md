@@ -74,7 +74,8 @@ every read is refused until the minute ends. Segments and pictures at `bzz://` a
   after that, as the first read reached Freedom a moment after it was sent, holds reads back for 1 s, and so does a
   refusal of a read sent in the first second of the page's next minute, which may have reached Freedom in its last.
   Such a read started no minute in Freedom, so the page counts its minute from the next read it sent, however long
-  after, that Freedom did not refuse late too. Freedom counts the site's reads together, so every part picked for this
+  after, that Freedom did not refuse late too. A late refusal never shortens a wait already running, and holds nothing
+  back once Freedom has answered a read sent after the refused one, as Freedom's next minute is then open. Freedom counts the site's reads together, so every part picked for this
   source shares that one wait: after the stream list's refusal, the player and the previews read through the gateway
   too, with no refusal of their own. A blob larger than the site's whole byte budget is read there too. The diagnostics
   count those answers under this source. A client made for this source alone, as for its checks, has no gateway behind

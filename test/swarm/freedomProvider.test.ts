@@ -538,18 +538,26 @@ describe("the Freedom browser's node, read through window.swarm", () => {
       });
     });
 
-    it("starts the page's window at a read Freedom accepted seconds after one whose refusal came late", async () => {
-      let nowMs = 0;
-      let ipcMs = 5;
-      let freedomStartedAtMs: number | null = null;
-      // Freedom answers its first refusal only after its node-up check, seconds after the read.
+    /**
+     * Freedom as the page sees it: a read reaches it `ipcMs` after it was sent, its window starts at the window's first
+     * read to reach it and holds `maxRequests`, and the first refusal is answered only when the test says so.
+     */
+    function slowRefusals(clock: { nowMs: number; ipcMs: number }, maxRequests: number) {
+      let startedAtMs: number | null = null;
+      let reads = 0;
       let answerRefusal: (() => void) | null = null;
-      const swarm: FreedomSwarm = {
+      const swarm: FreedomSwarm & { calls: number } = {
         isFreedomBrowser: true,
+        calls: 0,
         request: () => {
-          const reachedAtMs = nowMs + ipcMs;
-          if (freedomStartedAtMs === null || reachedAtMs >= freedomStartedAtMs + WINDOW_MS) {
-            freedomStartedAtMs = reachedAtMs;
+          swarm.calls += 1;
+          const reachedAtMs = clock.nowMs + clock.ipcMs;
+          if (startedAtMs === null || reachedAtMs >= startedAtMs + WINDOW_MS) {
+            startedAtMs = reachedAtMs;
+            reads = 0;
+          }
+          reads += 1;
+          if (reads <= maxRequests) {
             return Promise.resolve({ data: Buffer.from(ENTRIES[0]).toString('base64'), encoding: 'base64', index: 0 });
           }
           const refused = freedomError(-32602, 'Permission-free read budget exceeded', {
@@ -564,25 +572,93 @@ describe("the Freedom browser's node, read through window.swarm", () => {
           });
         },
       };
-      const provider = freedom(swarm, undefined, () => nowMs);
+      return { swarm, answerRefusal: () => answerRefusal?.() };
+    }
+
+    it("starts the page's window at a read Freedom accepted seconds after one whose refusal came late, and reads on through Freedom", async () => {
+      const clock = { nowMs: 0, ipcMs: 5 };
+      const { swarm, answerRefusal } = slowRefusals(clock, 1);
+      const gateway = new ScriptedProvider('event gateway');
+      const provider = freedom(swarm, gateway, () => clock.nowMs);
 
       // Freedom's window starts at 5, the page's at 0.
       await provider.readFeedHead(OWNER, TOPIC);
       // The first read of the page's next window reaches Freedom 2 ms before its window ends, and is refused only
       // seconds later.
-      ipcMs = 1;
-      nowMs = WINDOW_MS + 2;
+      clock.ipcMs = 1;
+      clock.nowMs = WINDOW_MS + 2;
       const refusedLate = provider.readFeedHead(OWNER, TOPIC);
       // Sent more than the late refusal's moment after it, this read starts Freedom's next window.
-      nowMs = WINDOW_MS + 1_502;
-      expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({ kind: 'content' });
-      nowMs = WINDOW_MS + 3_000;
-      answerRefusal?.();
-      expect(await refusedLate).toMatchObject({ retryAfterMs: 1_000 });
-      nowMs = 80_000;
+      clock.nowMs = WINDOW_MS + 1_502;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({ kind: 'content', bytes: ENTRIES[0] });
+      clock.nowMs = WINDOW_MS + 3_000;
+      answerRefusal();
+      // The refused read goes to the gateway, but Freedom's window is open, so the next read goes to Freedom.
+      expect(await refusedLate).toMatchObject({ kind: 'content', bytes: new Uint8Array([1]) });
+      expect(gateway.asked).toEqual(['feed-head']);
+      clock.nowMs = WINDOW_MS + 3_100;
+      await provider.readFeedHead(OWNER, TOPIC);
+      expect(swarm.calls).toBe(4);
+      expect(gateway.asked).toEqual(['feed-head', 'feed-head']);
+      // That read was refused on time, so the page waits out Freedom's window, counted from the read it accepted.
+      clock.nowMs = 80_000;
+      await provider.readFeedHead(OWNER, TOPIC);
+      expect(swarm.calls).toBe(4);
+      clock.nowMs = WINDOW_MS + 1_502 + WINDOW_MS;
+      expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({ kind: 'content', bytes: ENTRIES[0] });
+      expect(swarm.calls).toBe(5);
+    });
+
+    it('answers a late refusal with no wait where Freedom has since accepted a later read and no gateway is there', async () => {
+      const clock = { nowMs: 0, ipcMs: 5 };
+      const { swarm, answerRefusal } = slowRefusals(clock, 1);
+      const provider = freedom(swarm, undefined, () => clock.nowMs);
+
+      await provider.readFeedHead(OWNER, TOPIC);
+      clock.ipcMs = 1;
+      clock.nowMs = WINDOW_MS + 2;
+      const refusedLate = provider.readFeedHead(OWNER, TOPIC);
+      clock.nowMs = WINDOW_MS + 1_502;
+      await provider.readFeedHead(OWNER, TOPIC);
+      clock.nowMs = WINDOW_MS + 3_000;
+      answerRefusal();
+      expect(await refusedLate).toEqual({ kind: 'rate-limited', retryAfterMs: 0, serverTimeMs: null });
+      clock.nowMs = 80_000;
       expect(await provider.readFeedHead(OWNER, TOPIC)).toMatchObject({
         retryAfterMs: WINDOW_MS + 1_502 + WINDOW_MS - 80_000,
       });
+    });
+
+    it('never shortens the wait of a refusal on time for a late refusal that lands after it', async () => {
+      const clock = { nowMs: 0, ipcMs: 5 };
+      const { swarm, answerRefusal } = slowRefusals(clock, 2);
+      const gateway = new ScriptedProvider('event gateway');
+      const provider = freedom(swarm, gateway, () => clock.nowMs);
+
+      // Freedom's window starts at 5, the page's at 0. The second read spends it.
+      await provider.readFeedHead(OWNER, TOPIC);
+      await provider.readFeedHead(OWNER, TOPIC);
+      // Reaches Freedom 2 ms before its window ends, refused, and answered only seconds later.
+      clock.ipcMs = 1;
+      clock.nowMs = WINDOW_MS + 2;
+      const refusedLate = provider.readFeedHead(OWNER, TOPIC);
+      // Freedom's next window starts here and is spent by the read after.
+      clock.nowMs = WINDOW_MS + 1_500;
+      await provider.readFeedHead(OWNER, TOPIC);
+      clock.nowMs = WINDOW_MS + 1_600;
+      await provider.readFeedHead(OWNER, TOPIC);
+      clock.nowMs = WINDOW_MS + 1_700;
+      await provider.readFeedHead(OWNER, TOPIC);
+      expect(swarm.calls).toBe(6);
+      // The late refusal lands while the page waits out that window, and holds reads no shorter.
+      clock.nowMs = WINDOW_MS + 3_000;
+      answerRefusal();
+      await refusedLate;
+      clock.nowMs = WINDOW_MS + 5_000;
+      await provider.readFeedHead(OWNER, TOPIC);
+      clock.nowMs = 2 * WINDOW_MS - 1;
+      await provider.readFeedHead(OWNER, TOPIC);
+      expect(swarm.calls).toBe(6);
     });
 
     it('answers rate limited with what is left of the window as the wait where no gateway is there', async () => {
