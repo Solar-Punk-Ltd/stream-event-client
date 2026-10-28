@@ -46,7 +46,8 @@ export class CustomManifestLoader extends PlaylistLoader {
         callbacks.onSuccess({ url: context.url, data, code: 200 }, this.stats, context, null);
       })
       .catch((error) => {
-        // A refused rung's request is left unanswered. The refusal has already taken its level out,
+        // A refused rung's request is left unanswered, and so is the request of a rung with no playlist by its
+        // deadline once the player has taken it out. The removal has already happened,
         // and hls.js renumbers the levels on a removal, so an error here names a level number that now
         // belongs to another rung or to none. With none hls.js finds nothing to switch to, calls the
         // error fatal, and the player restarts from the beginning: a recording viewer 2100 s in was sent

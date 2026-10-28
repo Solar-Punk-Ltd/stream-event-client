@@ -476,9 +476,10 @@ export class FeedHealthTracker {
   }
 
   /**
-   * Watch for a rung the poller has found stopped, which the player takes out of its ladder.
+   * Watch for a rung the poller has found stopped, or that produced no playlist by its deadline, which the player
+   * takes out of its ladder.
    *
-   * Announced by the poller and never judged here. A rung is judged by its own progress, a new index
+   * Announced by the poller or the `ManifestFetcher` and never judged here. A rung is judged by its own progress, a new index
    * within `rungProgressBoundMs`, and only the poller sees that: the rungs of one ladder drift
    * apart without bound, so nothing recorded against one says where another should be.
    */

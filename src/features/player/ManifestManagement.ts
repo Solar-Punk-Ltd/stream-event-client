@@ -981,9 +981,10 @@ export class ManifestFetcher {
   /**
    * Waits for a rung to hold a playlist, and gives up rather than waiting for ever.
    *
-   * The expiry is a rejection because that is the only answer hls.js can act on: our loader hands a
-   * rejection to `callbacks.onError`, which errors the level, retries it and then switches away from
-   * it. Resolving with the empty playlist the state manager would serialize reaches hls.js as a
+   * The expiry is a rejection because that is the only answer hls.js can act on. Before it, the rung is
+   * announced stopped, and a player that takes its level out leaves the request unanswered, as for a refused
+   * rung. Otherwise our loader hands the rejection to `callbacks.onError`, which errors the level, retries it
+   * and then switches away from it. Resolving with the empty playlist the state manager would serialize reaches hls.js as a
    * fatal parse error instead, which restarts the whole player rather than leaving the three rungs
    * that are fine playing.
    *
@@ -1016,8 +1017,8 @@ export class ManifestFetcher {
     // Logged where it fires rather than left to hls.js, because the level error it becomes names a URL
     // and not the rung that went quiet.
     console.warn(
-      `Rung ${hexTopic} produced no playlist in ${waitedMs}ms, so this level is failed rather ` +
-        'than waited on. This gateway may not hold that rung.',
+      `Rung ${hexTopic} produced no playlist in ${waitedMs}ms, so it is taken out, or failed if it is the ` +
+        'last, rather than waited on. This gateway may not hold that rung.',
     );
     // Taken out like a rung that stopped. Only failed, hls.js would choose it again each time the level penalty
     // (`errorPenaltyExpireMs`) runs out and stall on this same wait every time.

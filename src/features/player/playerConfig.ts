@@ -154,7 +154,7 @@ const LEVEL_ERROR_PENALTY_MS = 60_000;
  * hls.js's own fragment retry decision, with a 404 retried {@link LATE_SEGMENT_RETRIES} times as well.
  *
  * `retryCount` is what hls.js passes, the sum of fragment errors on every level, so a level still carrying an
- * error from earlier leaves the others fewer retries until it plays again.
+ * error from earlier would leave the others no retry. `levelErrors.ts` clears those counts once a segment buffers.
  */
 function retryLateSegment(
   _config: RetryConfig | null | undefined,
