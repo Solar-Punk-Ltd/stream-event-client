@@ -176,7 +176,7 @@ describe('the predicted follower behind a cache that keeps a miss', () => {
    * first ask never hits. So nothing stopped that lag, and the wait from a missed first ask to the ask
    * that found the slot grew until it crossed the player's 8 second stall line.
    */
-  it('finds a slot whose first ask missed within 8 seconds of that ask, for 40 minutes', async () => {
+  it('finds a slot whose first ask missed within three segments of that ask, under the 8 second stall line, for 40 minutes', async () => {
     const time = new VirtualTime();
     const segmentMs = 2_000;
     const roundTripMs = 600;
@@ -207,12 +207,11 @@ describe('the predicted follower behind a cache that keeps a miss', () => {
     const missedFirst = [...found].filter(([index]) => (feed.earlyAsks.get(index) ?? 0) > 0);
     assert.ok(missedFirst.length > 100, `only ${missedFirst.length} first asks missed`);
     const waits = missedFirst.map(([index, at]) => at - (feed.askTimes.get(index) ?? [at])[0]);
-    const stalls = waits.filter((wait) => wait >= 8_000);
-    assert.equal(
-      stalls.length,
-      0,
-      `${stalls.length} slots found 8 s or more after their first ask, up to ${Math.max(...waits)} ms`,
-    );
+    // With the second ask held within a segment of the first, a refused slot is found by the next
+    // step's ask, about two segments and a round trip after the first. Three segments pins that bound,
+    // where a looser one of two segments, or none, finds some slots later still.
+    const worstMs = Math.max(...waits);
+    assert.ok(worstMs < 3 * segmentMs, `a slot was found ${worstMs} ms after its first ask`);
   });
 });
 
