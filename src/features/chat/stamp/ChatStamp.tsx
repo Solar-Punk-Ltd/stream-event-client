@@ -201,6 +201,11 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
   const noteSendProblem = useCallback(
     (problem: SendProblem) => {
       if (problem.text === STAMP_RAN_OUT) {
+        // While a warning already holds sending, the refusal is the page's own, read from figures that may belong to
+        // the stamp before the one Swarm ID names now, so it says nothing new about that stamp.
+        if (warningRef.current?.blocksSending) {
+          return;
+        }
         ranOutStampId.current = getSiteStampId();
         setSiteStamp((read) => (read.status === SITE_STAMP_READ ? { ...read, stamp: ranOut(read.stamp) } : read));
         return;

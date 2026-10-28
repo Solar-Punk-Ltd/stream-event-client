@@ -513,6 +513,34 @@ describe('a chat paid for with my own stamp', () => {
     expect(chatRegion()?.textContent).not.toContain('Your browser blocked the Swarm ID window.');
     expect(seen.chatStamp?.warning, 'nothing holds a message any more').toBeNull();
   });
+
+  it("does not take the page's own hold on a stamp that ran out for Swarm ID's word, so the stamp picked next is not held", async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    const swarmId = await watchPage({ ...BATCH, utilization: 1 });
+    const mine = signedMessage('held resend', {
+      key: seen.chatUser!.session!.privateKey,
+      name: seen.chatUser!.session!.username,
+      binding: seen.chatUser!.session!.binding,
+      via: MessageVia.OWN_STAMP,
+    });
+    const chat = FakeSwarmChat.latest();
+    // Swarm ID already names the new stamp while its figures are still being read, so the bar still holds sending
+    // with the old stamp's figures when the chat resends a message.
+    swarmId.client().postageBatchHangs = true;
+    swarmId.client().pickStamp({ ...BATCH, label: 'A new stamp' });
+    await settle();
+    await act(async () => {
+      await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(mine))).catch(() => {});
+    });
+    await settle();
+
+    swarmId.client().postageBatchHangs = false;
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    await settle();
+
+    expect(seen.chatStamp?.warning, 'the stamp picked next is not held').toBeNull();
+  });
 });
 
 describe("a sender's own feed in the message details", () => {
