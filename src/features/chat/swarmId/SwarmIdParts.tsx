@@ -230,10 +230,6 @@ export function SwarmIdOffer() {
   }
   return (
     <div className="swarm-id-offer">
-      <p className="swarm-id-hint">
-        Or sign in with your Swarm ID. Your messages carry its confirmed badge on every device, and you can send them
-        with your own stamp.
-      </p>
       <SwarmIdButton action="sign-in" text={SIGN_IN_LABEL} />
       <SignInProblem />
     </div>

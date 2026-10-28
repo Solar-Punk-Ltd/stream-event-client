@@ -90,7 +90,7 @@ describe('signing in with Swarm ID from My Swarm', () => {
     await header(await fakeSwarmId());
     click(button('My Swarm'));
 
-    expect(dialog()?.textContent).toContain('Or sign in with your Swarm ID.');
+    expect(dialog()?.textContent).not.toContain('Or sign in with your Swarm ID.');
     expect(queryButton('Chat as guest')).toBeTruthy();
     expect(swarmIdButton('Sign in with Swarm ID').disabled).toBe(false);
   });
