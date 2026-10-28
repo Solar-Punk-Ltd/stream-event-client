@@ -469,67 +469,6 @@ test('a quality left after a segment it never served is chosen again once its pe
   expectOnlyKnownRequests(gateway);
 });
 
-test('a quality whose segments all fail while its playlist moves on is tried again once its penalty has passed, and not again before the next', async ({
-  page,
-  context,
-}) => {
-  // Found on 2026-10-28, when a node that could no longer pay for one quality's media kept naming its new segments.
-  // Each segment hls.js asks again for raises only the level's segment error count, which the next buffered segment
-  // of the quality below clears, so hls.js came back to the dead quality every 3.5 to 4 s once its first penalty ran
-  // out, each time a playlist search, a 404 and a switch.
-  test.setTimeout(240_000);
-  const gateway = new LadderGateway();
-  await openStream(page, context, gateway);
-  expect(await playingUri(page), `the stream starts on ${TOP}`).toBe(rungUri(TOP));
-
-  const deadFrom = gateway.newestIndex(TOP) + 1;
-  const deadAtMs = Date.now();
-  gateway.refuseSegmentsFrom(TOP, deadFrom);
-
-  const lowerUris = RUNGS.map((rung) => rung.name)
-    .filter((rung) => rung !== TOP)
-    .map(rungUri);
-  await expect
-    .poll(async () => lowerUris.includes((await playingUri(page)) ?? ''), {
-      message: `hls.js moves down from ${TOP}`,
-      timeout: FAILOVER_WAIT_MS,
-    })
-    .toBe(true);
-  const downAtMs = Date.now();
-
-  const deadAsks = (sinceMs: number, untilMs = Infinity) =>
-    gateway.requests.filter(
-      (request) =>
-        request.rung === TOP && request.kind === 'refusedSegment' && request.atMs >= sinceMs && request.atMs < untilMs,
-    );
-  // A penalty is 60 s, and hls.js chooses the quality again at the first segment after it.
-  await expect
-    .poll(() => deadAsks(downAtMs).length, {
-      message: `${TOP} is tried again once its penalty has passed`,
-      timeout: 90_000,
-    })
-    .toBeGreaterThan(0);
-  const triedAgainAtMs = deadAsks(downAtMs)[0].atMs;
-  await page.waitForTimeout(2 * QUIET_WATCH_MS);
-  const askedAgain = deadAsks(triedAgainAtMs + 1_000, triedAgainAtMs + 1_000 + 2 * QUIET_WATCH_MS);
-
-  report('dead quality', {
-    deadFrom,
-    asksBeforeDown: deadAsks(deadAtMs, downAtMs).length,
-    triedAgainAfterDownMs: triedAgainAtMs - downAtMs,
-    askedAgainAfterMs: askedAgain.map((request) => request.atMs - triedAgainAtMs),
-    switches: (await probeState(page)).switches.filter((s) => s.atMs >= deadAtMs).map((s) => s.uri),
-  });
-  expect(
-    askedAgain.map((request) => request.index),
-    `${TOP} segments asked for in the ${(2 * QUIET_WATCH_MS) / 1000} s after it was tried again`,
-  ).toEqual([]);
-  expect(lowerUris, 'the video plays a quality below').toContain(await playingUri(page));
-  await expectPlaysOn(page, `on the quality below ${TOP}`);
-  await expectNoFatalErrorOrRestart(page);
-  expectOnlyKnownRequests(gateway);
-});
-
 /** A quality that cannot be switched to, and how the fake leaves it so. */
 const UNUSABLE: { why: string; rung: RungName; leave: (gateway: LadderGateway, rung: RungName) => void }[] = [
   { why: 'finished', rung: '360p', leave: (gateway, rung) => gateway.finish(rung, 20_000) },

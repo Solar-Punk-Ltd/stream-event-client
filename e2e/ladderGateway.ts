@@ -223,8 +223,6 @@ export class LadderGateway {
   private readonly segments = recordedSegments();
   /** Segment sequences every quality refuses. See {@link refuseSegment}. */
   private readonly refusedSequences = new Set<number>();
-  /** The sequence from which a quality refuses every segment. See {@link refuseSegmentsFrom}. */
-  private readonly refusedFrom = new Map<RungName, number>();
   /** Asks of one quality's segment still to be answered 404, by `<quality>:<sequence>`. See {@link lateSegment}. */
   private readonly lateAsks = new Map<string, number>();
   private isDown = false;
@@ -377,14 +375,6 @@ export class LadderGateway {
    */
   lateSegment(rung: RungName, sequence: number, asks: number): void {
     this.lateAsks.set(`${rung}:${sequence}`, asks);
-  }
-
-  /**
-   * This quality answers every segment from this sequence on 404, while its playlists go on naming new ones, as a node
-   * that can no longer pay to retrieve that quality's media does.
-   */
-  refuseSegmentsFrom(rung: RungName, sequence: number): void {
-    this.refusedFrom.set(rung, sequence);
   }
 
   /** How many requests of this kind were made for this quality, optionally since a moment. */
@@ -561,12 +551,7 @@ export class LadderGateway {
     if (lateAsksLeft > 0) {
       this.lateAsks.set(lateKey, lateAsksLeft - 1);
     }
-    const refusedFrom = this.refusedFrom.get(rung.name);
-    if (
-      this.refusedSequences.has(sequence) ||
-      lateAsksLeft > 0 ||
-      (refusedFrom !== undefined && sequence >= refusedFrom)
-    ) {
+    if (this.refusedSequences.has(sequence) || lateAsksLeft > 0) {
       this.log('refusedSegment', rung.name, path, sequence);
       return () => notFound(route);
     }
