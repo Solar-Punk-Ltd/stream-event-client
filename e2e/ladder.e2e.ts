@@ -418,7 +418,10 @@ test('a segment answered 404 a moment before the gateway has it is asked for aga
     .toBe(true);
   await expectPlaysOn(page, 'after the late segment');
 
-  const asks = gateway.requests.filter((request) => request.rung === TOP && request.index === late);
+  // Segments only: the playlist slot that names segment 33 is index 33 of the feed too.
+  const asks = gateway.requests.filter(
+    (request) => request.rung === TOP && request.index === late && ['segment', 'refusedSegment'].includes(request.kind),
+  );
   const switchedAway = (await probeState(page)).switches.filter((s) => s.atMs >= lateAtMs && s.uri !== rungUri(TOP));
   report('late segment', { late, asks: asks.map((request) => request.kind), switchedAway: switchedAway.length });
   expect(
