@@ -104,7 +104,9 @@ player with every quality, which costs the viewer a moment of loading. The page 
 - **How it times its reads.** The player asks for the next playlist when it is due: the newest segment's end, plus one
   segment, plus a delay it learns from its own reads, set so that about one ask in four comes too early
   (`following/followPredicted.ts`). A second ask covers that one, then one ask per segment, then asks every 2 seconds
-  rising to 4 while nothing comes. A playlist 4 seconds late is looked past, one slot further on. One viewer costs
+  rising to 4 while nothing comes. The second ask comes at most one segment after the first, because a gateway cache
+  or Bee can refuse it however late it comes, and a delay learnt from such refusals only grows, past the point where
+  the picture stalls. A playlist 4 seconds late is looked past, one slot further on. One viewer costs
   about 40 reads a minute.
 - **When the broadcast goes quiet.** Bee skips, for a minute, every peer it asked for an address not written yet, so a
   slot asked for over and over during an outage stays unreadable for about a minute after the broadcaster is back.
