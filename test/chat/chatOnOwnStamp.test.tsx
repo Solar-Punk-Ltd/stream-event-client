@@ -277,6 +277,40 @@ describe('a chat paid for with my own stamp', () => {
     expect(seen.chatStamp?.warning?.title, 'a read of the same stamp does not undo the refusal').toBe(STAMP_RAN_OUT);
   });
 
+  it('says why a message is still being sent while Swarm ID asks for it to be tried again, and stops once it went', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    const swarmId = await watchPage();
+    swarmId.client().stampRefusal = Object.assign(new Error('unconfirmed'), {
+      code: 'upload-unavailable',
+      reason: 'session-unconfirmed',
+    });
+    const mine = signedMessage('waiting', {
+      key: seen.chatUser!.session!.privateKey,
+      name: seen.chatUser!.session!.username,
+      binding: seen.chatUser!.session!.binding,
+      via: MessageVia.OWN_STAMP,
+    });
+    const chat = FakeSwarmChat.latest();
+    const write = () =>
+      act(async () => {
+        await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(mine))).catch(() => {});
+      });
+    await act(async () => chat.emitter.emit(EVENTS.MESSAGE_REQUEST_INITIATED, messageData(mine, -1)));
+    await write();
+    await settle();
+
+    expect(chatRegion()?.textContent).toContain('Sending… Swarm ID is still checking your session. Trying again.');
+    expect(chatRegion()?.textContent).not.toContain('Not sent.');
+
+    swarmId.client().stampRefusal = null;
+    await write();
+    await settle();
+
+    expect(chatRegion()?.textContent).toContain('Sending…');
+    expect(chatRegion()?.textContent).not.toContain('still checking your session');
+  });
+
   it('offers to choose a stamp in Swarm ID when it says it gave this site none, though a stamp was shown', async () => {
     chatOnMyBeeNode();
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });

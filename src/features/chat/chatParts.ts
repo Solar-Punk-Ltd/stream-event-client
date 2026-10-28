@@ -155,7 +155,7 @@ interface OwnStampParts {
   /** Read at every write: why the page cannot send on the viewer's stamp now, or null when it can. */
   readonly refusal?: () => string | null;
   readonly onProblem?: (messageId: string, problem: SendProblem) => void;
-  readonly onSent?: () => void;
+  readonly onSent?: (messageId: string) => void;
   /** Told once the copy beside a sent message was written or given up. */
   readonly onCopySettled?: (messageId: string) => void;
   /** Read at every write: how a stamped chunk goes out through the node in this browser, or null while it does not. */

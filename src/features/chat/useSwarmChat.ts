@@ -266,7 +266,13 @@ export function useSwarmChat(
             ownStampRef.current?.onProblem?.(problem);
           }
         },
-        onSent: () => ownStampRef.current?.onSent?.(),
+        onSent: (id) => {
+          // A write the node took answers the problem an earlier try of it showed.
+          if (!stopped) {
+            setSendProblems(({ [id]: _answered, ...rest }) => rest);
+          }
+          ownStampRef.current?.onSent?.();
+        },
         onCopySettled: (id) => {
           if (!stopped) {
             setCopySettledIds((previous) => new Set(previous).add(id));

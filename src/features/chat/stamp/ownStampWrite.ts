@@ -55,7 +55,7 @@ export interface OwnStampWriteOptions {
   /** Told why a message did not go out, every time it did not. */
   readonly onProblem?: (messageId: string, problem: SendProblem) => void;
   /** Told after every message the node took, so what is shown of the stamp can be read again. */
-  readonly onSent?: () => void;
+  readonly onSent?: (messageId: string) => void;
   /** Told once the copy beside a sent message was written or given up. */
   readonly onCopySettled?: (messageId: string) => void;
   readonly fetcher?: typeof fetch;
@@ -162,7 +162,7 @@ export function ownStampWrite(options: OwnStampWriteOptions): OwnStampWrite {
         data: withSpan(payload),
         signer: { privateKey: gsocKey },
       });
-      onSent?.();
+      onSent?.(message.id);
       void copies.copyBeside(message.id, payload).then(() => onCopySettled?.(message.id));
     } catch (error) {
       const problem = error instanceof SendRefusedError ? error.problem : stampRefusal(error);
