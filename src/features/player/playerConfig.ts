@@ -141,12 +141,14 @@ export const LIVE_GAP_WINDOW_MS = 5 * 60_000;
 const LATE_SEGMENT_RETRIES = 2;
 
 /**
- * How long a quality hls.js stepped down from after a failed segment stays out of its up-switch choice.
+ * How long a quality left after a failed segment stays out of hls.js's up-switch choice.
  *
  * hls.js bars a level with an error on its record from an up-switch, and clears the record only when that level
  * buffers a segment, which a barred level is never given the chance to do. Its own default of 0 therefore bars the
  * level for the rest of the session: one missing segment held a viewer on 480p for 65 minutes on 2026-10-28. After
- * this the level is chosen again only if the bandwidth estimate affords it, as any up-switch is.
+ * this the level is chosen again only if the bandwidth estimate affords it, as any up-switch is. A failed segment that
+ * hls.js asks for again puts the record on its level as well (`levelErrors.ts`), so a quality whose segments keep
+ * failing is tried once per penalty.
  */
 const LEVEL_ERROR_PENALTY_MS = 60_000;
 
