@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import type { FeedEntry, FollowContext } from '../../src/features/player/following/feedReader';
+import type { FeedEntry, FeedRead, FeedReader, FollowContext } from '../../src/features/player/following/feedReader';
 import { followPredicted } from '../../src/features/player/following/followPredicted';
 import { MARKER_READ_DELAY_MS, PeriodMarkers } from '../../src/features/player/following/headMarkers';
 import { MARKER_PERIOD_SECONDS, markerPeriodStartMs } from '../../src/shared/ladderMarker';
@@ -138,6 +138,81 @@ describe('the predicted follower', () => {
       `gaps ${gaps.join(', ')}`,
     );
     assert.ok(times.length <= 35, `${times.length} asks in two minutes`);
+  });
+});
+
+/**
+ * A gateway whose cache keeps the not found it gave a slot's missed first ask, and serves it to the
+ * next ask for that slot whether the slot was written by then or not.
+ */
+class StaleMissCache implements FeedReader {
+  private readonly asked = new Map<number, number>();
+  private readonly firstMissed = new Set<number>();
+
+  constructor(
+    private readonly time: VirtualTime,
+    private readonly feed: TimedFeed,
+    private readonly roundTripMs: number,
+  ) {}
+
+  async read(index: number): Promise<FeedRead> {
+    const asked = this.asked.get(index) ?? 0;
+    this.asked.set(index, asked + 1);
+    if (asked === 1 && this.firstMissed.has(index)) {
+      await this.time.delay(this.roundTripMs);
+      return { found: false };
+    }
+    const read = await this.feed.read(index);
+    if (asked === 0 && !read.found) {
+      this.firstMissed.add(index);
+    }
+    return read;
+  }
+}
+
+describe('the predicted follower behind a cache that keeps a miss', () => {
+  /**
+   * Only a hit brings the second ask's lag down, and behind such a cache the second ask after a missed
+   * first ask never hits. So nothing stopped that lag, and the wait from a missed first ask to the ask
+   * that found the slot grew until it crossed the player's 8 second stall line.
+   */
+  it('finds a slot whose first ask missed within 8 seconds of that ask, for 40 minutes', async () => {
+    const time = new VirtualTime();
+    const segmentMs = 2_000;
+    const roundTripMs = 600;
+    const lagOf = (index: number) => 600 + ((index * 7_919) % 500);
+    const feed = new TimedFeed(time, {
+      segmentEndMs: (index) => index * segmentMs,
+      segmentMs,
+      readableAtMs: (index) => index * segmentMs + lagOf(index),
+      roundTripMs,
+    });
+    const reader = new StaleMissCache(time, feed, roundTripMs);
+    const startMs = 61_000;
+    await time.runUntil(startMs);
+    const newest = feed.newestAt(startMs);
+    const found = new Map<number, number>();
+    let stopped = false;
+    void followPredicted({
+      reader,
+      clock: time.clock(),
+      from: { index: newest, newestSegmentEndMs: newest * segmentMs, segmentMs },
+      onEntry: (entry) => found.set(entry.index, time.trueNowMs),
+      isStopped: () => stopped,
+    });
+    await time.runUntil(startMs + 40 * 60_000);
+    stopped = true;
+
+    assert.ok(found.size > 1_100, `only ${found.size} slots found in 40 minutes`);
+    const missedFirst = [...found].filter(([index]) => (feed.earlyAsks.get(index) ?? 0) > 0);
+    assert.ok(missedFirst.length > 100, `only ${missedFirst.length} first asks missed`);
+    const waits = missedFirst.map(([index, at]) => at - (feed.askTimes.get(index) ?? [at])[0]);
+    const stalls = waits.filter((wait) => wait >= 8_000);
+    assert.equal(
+      stalls.length,
+      0,
+      `${stalls.length} slots found 8 s or more after their first ask, up to ${Math.max(...waits)} ms`,
+    );
   });
 });
 

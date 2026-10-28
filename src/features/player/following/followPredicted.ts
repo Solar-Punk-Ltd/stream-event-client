@@ -197,7 +197,7 @@ export async function followPredicted(
       return;
     }
     if (found.index === next) {
-      learn(asks, Math.round((found.newestSegmentEndMs - baseMs) / segmentMs), firstLag, secondLag);
+      learn(asks, Math.round((found.newestSegmentEndMs - baseMs) / segmentMs), segmentMs, firstLag, secondLag);
     }
     current = found;
     onEntry(found);
@@ -209,8 +209,21 @@ export async function followPredicted(
  * An ask for an earlier step came before that segment existed, which is coalescing, not a wrong lag.
  * A miss says the plan was too early however late the ask went out, but a hit says the plan was late
  * enough only when the ask went out on plan.
+ *
+ * The second lag stays within one segment of the first, the gap the two start from. Learning it
+ * assumes that asking later turns a miss into a hit, and a source that refuses the re-ask however late
+ * it comes breaks that: a gateway cache serving the first ask's not found again, or Bee refusing a slot
+ * asked too early. There only a hit could bring the lag down and none comes, so unbounded it climbed
+ * about a second every five minutes, measured on a live gateway, until the wait past a missed first ask
+ * crossed the player's stall line. A refused slot is then found by the next step's ask instead.
  */
-function learn(asks: readonly Ask[], foundStep: number, firstLag: TrackedLag, secondLag: TrackedLag): void {
+function learn(
+  asks: readonly Ask[],
+  foundStep: number,
+  segmentMs: number,
+  firstLag: TrackedLag,
+  secondLag: TrackedLag,
+): void {
   for (const ask of asks) {
     if (ask.step !== foundStep || (!ask.onTime && !ask.missed)) {
       continue;
@@ -221,6 +234,7 @@ function learn(asks: readonly Ask[], foundStep: number, firstLag: TrackedLag, se
       secondLag.record(ask.missed);
     }
   }
+  secondLag.valueMs = Math.min(secondLag.valueMs, firstLag.valueMs + segmentMs);
   if (secondLag.valueMs < firstLag.valueMs + MIN_RETRY_GAP_MS) {
     secondLag.valueMs = firstLag.valueMs + MIN_RETRY_GAP_MS;
   }
