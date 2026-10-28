@@ -897,7 +897,7 @@ export class LadderFeedPoller {
       if (progressed) {
         // A gateway failure ends the unserved run without any progress, so the rung may still be
         // dead. The sibling was just seen moving, so the spacing meant for a paused broadcast does
-        // not apply, and the next stall tries again at once.
+        // not apply, and the next 8 second stall tries again without waiting out that spacing.
         walk.stallTriedAtMs = null;
         console.debug(`[SwarmHls] rung ${entry.hexTopic} was no longer stalled when its sibling moved, so it is kept`);
         return;
