@@ -110,8 +110,12 @@ const LIVE_SYNC_PLAYBACK_RATE = 1;
  * At the live edge a segment the gateway cannot hand over yet is a hole the viewer is about to meet,
  * and skipping it costs one segment of picture. Further back the segment is history the viewer has
  * already played past or chose to rewind to, and is left to hls.js as it always was.
+ *
+ * Five rather than three because a missing segment is now asked for {@link LATE_SEGMENT_RETRIES} more times first,
+ * which takes three seconds and more, and the playlist moves on by a segment or two meanwhile. Five segments of 2 s are
+ * 10 s, still inside the 12 s live target.
  */
-export const LIVE_GAP_NEWEST_SEGMENTS = 3;
+export const LIVE_GAP_NEWEST_SEGMENTS = 5;
 
 /**
  * At most this many segments are turned into gaps inside {@link LIVE_GAP_WINDOW_MS}. A stream losing

@@ -154,7 +154,7 @@ player with every quality, which costs the viewer a moment of loading. The page 
   hls.js gives up on it. A late segment then costs a short wait inside the buffer, not a quality.
   - When hls.js does give up and moves down, it bars the quality it left from moving back up. That bar lifts after
     60 s, and the quality is chosen again only if the bandwidth estimate affords it, as any move up is.
-- **A segment that will not load.** When hls.js gives up on one of the three newest segments of a live playlist
+- **A segment that will not load.** When hls.js gives up on one of the five newest segments of a live playlist
   (segments already marked as gaps not counted), the player marks that segment `#EXT-X-GAP` in the playlist it serves
   hls.js (`liveSegmentGaps.ts`).
   - hls.js gives up after its own retries with no other quality left to try, or at once on a segment it finds no media
