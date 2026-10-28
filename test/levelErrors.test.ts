@@ -118,15 +118,3 @@ describe('the level error counts left by a segment given up on', () => {
     assert.equal(hls.levels[TOP].fragmentError, 3);
   });
 });
-
-describe('the player component', () => {
-  it('clears them on every buffered segment', async () => {
-    const { readFileSync } = await import('node:fs');
-    const source = readFileSync(new URL('../src/features/player/SwarmHlsPlayer.tsx', import.meta.url), 'utf8');
-
-    assert.match(
-      source,
-      /Events\.FRAG_BUFFERED, \(_event, data\) => \{[^}]*clearOtherLevelsFragmentErrors\(hls, data\)/,
-    );
-  });
-});

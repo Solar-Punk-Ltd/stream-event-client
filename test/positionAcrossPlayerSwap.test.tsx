@@ -549,3 +549,15 @@ describe('a live stream, when the video moves between weeb-3 and the app’s pla
     expect(fakes.hls.at(-1)!.startLoads[0]).toBeUndefined();
   });
 });
+
+describe("the app's player, once a segment has buffered", () => {
+  it("clears the other levels' segment error counts, so a level left behind does not use up their retries", () => {
+    watchOnAppPlayer(10);
+    const player = fakes.hls[0] as unknown as { levels: { fragmentError: number }[] };
+    player.levels = [{ fragmentError: 3 }, { fragmentError: 1 }];
+
+    emit(0, Events.FRAG_BUFFERED, { frag: { type: PlaylistLevelType.MAIN, level: 1 } });
+
+    expect(player.levels.map((level) => level.fragmentError)).toEqual([0, 1]);
+  });
+});
