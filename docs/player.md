@@ -232,7 +232,8 @@ its own loaders (`CustomManifestLoader.ts`):
   segments stay playable longer than the publisher's sliding window.
 - **LadderFeedPoller** (`LadderFeedPoller.ts`) follows the feed of the quality hls.js plays, plus the one being
   switched to during a switch. A quality left behind forgets where it was, so coming back to it starts at its newest
-  playlist.
+  playlist. The one exception is the playlist hls.js loaded last, which is kept so hls.js can place the next playlist
+  beside it rather than at 0.
   - Where it starts comes from a `NewestIndexFinder` (`newestIndexFinder.ts`), injected so it can be swapped: the
     `MarkerFinder`, which reads the ladder's time marker (`src/shared/ladderMarker.ts`, copied from the uploader) and
     falls back to the `IndexSearchFinder`.
