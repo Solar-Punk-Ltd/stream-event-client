@@ -134,7 +134,7 @@ export const LIVE_GAP_WINDOW_MS = 5 * 60_000;
  * hls.js waits 1 s before the first ask and 2 s before the second (its default `retryDelayMs` doubling), so a
  * late segment costs at most 3 s of buffer, well inside {@link LIVE_SYNC_DURATION_S}.
  */
-export const LATE_SEGMENT_RETRIES = 2;
+const LATE_SEGMENT_RETRIES = 2;
 
 /**
  * How long a quality hls.js stepped down from after a failed segment stays out of its up-switch choice.
@@ -144,7 +144,7 @@ export const LATE_SEGMENT_RETRIES = 2;
  * level for the rest of the session: one missing segment held a viewer on 480p for 65 minutes on 2026-10-28. After
  * this the level is chosen again only if the bandwidth estimate affords it, as any up-switch is.
  */
-export const LEVEL_ERROR_PENALTY_MS = 60_000;
+const LEVEL_ERROR_PENALTY_MS = 60_000;
 
 /**
  * hls.js's own fragment retry decision, with a 404 retried {@link LATE_SEGMENT_RETRIES} times as well.
@@ -152,7 +152,7 @@ export const LEVEL_ERROR_PENALTY_MS = 60_000;
  * `retryCount` is what hls.js passes, the sum of fragment errors on every level, so a level still carrying an
  * error from earlier leaves the others fewer retries until it plays again.
  */
-export function retryLateSegment(
+function retryLateSegment(
   _config: RetryConfig | null | undefined,
   retryCount: number,
   _isTimeout: boolean,
