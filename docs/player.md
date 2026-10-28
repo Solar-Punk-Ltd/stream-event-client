@@ -154,6 +154,11 @@ player with every quality, which costs the viewer a moment of loading. The page 
   hls.js gives up on it. A late segment then costs a short wait inside the buffer, not a quality.
   - When hls.js does give up and moves down, it bars the quality it left from moving back up. That bar lifts after
     60 s, and the quality is chosen again only if the bandwidth estimate affords it, as any move up is.
+  - A segment that fails on a quality hls.js has just moved up to bars that quality the same way, also when hls.js
+    would ask for it again, because hls.js leaves such a quality when the next ask is due (`levelErrors.ts`). A quality
+    whose segments all fail while its playlist goes on naming new ones, as when a node can no longer pay to retrieve
+    them, is therefore tried once a minute, not every few seconds. A late segment of the quality that plays is still
+    asked for again.
   - hls.js counts the retries it allows across all qualities together, so a quality left behind would use up the
     others' retries. Once a segment of the playing quality has buffered, the other qualities' segment error counts
     are cleared (`levelErrors.ts`), and the next late segment is asked for again in full.

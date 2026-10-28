@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, createElement } from 'react';
 import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from 'react-router';
-import { Events, PlaylistLevelType } from 'hls.js';
+import { ErrorDetails, ErrorTypes, Events, PlaylistLevelType } from 'hls.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MOVING_TO_PLACE } from '../src/features/player/OwnPlayerStage';
@@ -559,5 +559,26 @@ describe("the app's player, once a segment has buffered", () => {
     emit(0, Events.FRAG_BUFFERED, { frag: { type: PlaylistLevelType.MAIN, level: 1 } });
 
     expect(player.levels.map((level) => level.fragmentError)).toEqual([0, 1]);
+  });
+});
+
+describe("the app's player, when a segment fails to load", () => {
+  it('bars its level from the next choice of quality, also while hls.js asks for the segment again', () => {
+    watchOnAppPlayer(10);
+    const player = fakes.hls[0] as unknown as { levels: { fragmentError: number; loadError: number }[] };
+    player.levels = [
+      { fragmentError: 0, loadError: 0 },
+      { fragmentError: 1, loadError: 0 },
+    ];
+
+    emit(0, Events.ERROR, {
+      type: ErrorTypes.NETWORK_ERROR,
+      details: ErrorDetails.FRAG_LOAD_ERROR,
+      fatal: false,
+      frag: { type: PlaylistLevelType.MAIN, level: 1, sn: 10, gap: false },
+      response: { code: 404, text: 'Not Found' },
+    });
+
+    expect(player.levels.map((level) => level.loadError)).toEqual([0, 1]);
   });
 });

@@ -1,8 +1,15 @@
-import Hls, { ErrorController, ErrorDetails, ErrorTypes, NetworkErrorAction, PlaylistLevelType } from 'hls.js';
+import Hls, {
+  AbrController,
+  ErrorController,
+  ErrorDetails,
+  ErrorTypes,
+  NetworkErrorAction,
+  PlaylistLevelType,
+} from 'hls.js';
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { describe, it, vi } from 'vitest';
 
-import { clearOtherLevelsFragmentErrors } from '../src/features/player/levelErrors';
+import { barLevelOfFailedSegment, clearOtherLevelsFragmentErrors } from '../src/features/player/levelErrors';
 import { buildPlayerConfig } from '../src/features/player/playerConfig';
 
 (globalThis as { self?: unknown }).self ??= globalThis;
@@ -16,7 +23,10 @@ interface FakeLevel {
   loadErrorTime: number;
 }
 
-/** What hls.js's error controller reads of the player, with the shipped config and four levels playing the top one. */
+/**
+ * What hls.js's error controller and ABR read of the player, with the shipped config and four levels of a live stream
+ * playing the top one.
+ */
 function fourLevelPlayer() {
   const levels = Array.from({ length: 4 }, (_, index) => ({
     fragmentError: 0,
@@ -26,6 +36,8 @@ function fourLevelPlayer() {
     codecSet: 'avc1,mp4a',
     videoRange: 'SDR',
     bitrate: (index + 1) * 1_000_000,
+    maxBitrate: (index + 1) * 1_000_000,
+    averageBitrate: (index + 1) * 1_000_000,
     hasAudioGroup: () => false,
     hasSubtitleGroup: () => false,
   }));
@@ -33,6 +45,8 @@ function fourLevelPlayer() {
     logger: QUIET,
     config: { ...Hls.DefaultConfig, ...buildPlayerConfig({ pLoader: undefined, fLoader: undefined }) },
     levels: levels as (FakeLevel & (typeof levels)[number])[],
+    allAudioTracks: [],
+    latestLevelDetails: { live: true },
     loadLevel: TOP,
     autoLevelEnabled: true,
     minAutoLevel: 0,
@@ -116,5 +130,92 @@ describe('the level error counts left by a segment given up on', () => {
     clearOtherLevelsFragmentErrors(hls, { frag: { type: PlaylistLevelType.AUDIO, level: 0 } as never });
 
     assert.equal(hls.levels[TOP].fragmentError, 3);
+  });
+});
+
+/**
+ * The level hls.js's own ABR would move to next, with bandwidth for every level and a full buffer, after a segment of
+ * `playing` was the last one loaded.
+ */
+function nextLevelChosen(hls: ReturnType<typeof fourLevelPlayer>, playing: number): number {
+  const abr = new AbrController(hls as unknown as Hls) as unknown as {
+    lastLoadedFragLevel: number;
+    findBestLevel(
+      bandwidth: number,
+      minAutoLevel: number,
+      maxAutoLevel: number,
+      bufferStarvationDelayS: number,
+      maxStarvationDelayS: number,
+      bandwidthFactor: number,
+      bandwidthUpFactor: number,
+    ): number;
+  };
+  abr.lastLoadedFragLevel = playing;
+  return abr.findBestLevel(1_000_000_000, 0, TOP, 30, 0, 1, 1);
+}
+
+/** The clock hls.js stamps and reads a level's penalty with, at `nowMs`. */
+function clockAt(nowMs: number) {
+  return vi.spyOn(performance, 'now').mockReturnValue(nowMs);
+}
+
+const PENALTY_MS = buildPlayerConfig({ pLoader: undefined, fLoader: undefined }).errorPenaltyExpireMs!;
+
+describe('a quality whose segments fail while its playlist moves on', () => {
+  /**
+   * Back on the top level after its penalty lifted: hls.js loaded its playlist with no segment error on record, which
+   * also cleared its load error (`onLevelLoaded` in its level controller), and asks for a segment while the level
+   * below is still the one whose segment was loaded last.
+   */
+  function triedAgainAfterItsPenalty() {
+    const hls = fourLevelPlayer();
+    const controller = new ErrorController(hls as unknown as Hls);
+    const error = failed(TOP, 404);
+    const decision = decide(controller, error);
+    barLevelOfFailedSegment(hls, error, performance.now());
+    return { hls, decision };
+  }
+
+  it('stays out of the choice once a segment of the level below buffers, until its penalty has passed', () => {
+    const clock = clockAt(1_000_000);
+    try {
+      const { hls, decision } = triedAgainAfterItsPenalty();
+      assert.equal(decision.action, NetworkErrorAction.RetryRequest, 'hls.js decides the 404 as one to ask again');
+      assert.equal(nextLevelChosen(hls, TOP - 1), TOP - 1, 'and its ABR leaves the level when the retry is due');
+
+      clearOtherLevelsFragmentErrors(hls, { frag: { type: PlaylistLevelType.MAIN, level: TOP - 1 } as never });
+
+      assert.equal(nextLevelChosen(hls, TOP - 1), TOP - 1, 'the failed level is chosen again at once');
+      clock.mockReturnValue(1_000_000 + PENALTY_MS + 1);
+      assert.equal(nextLevelChosen(hls, TOP - 1), TOP, 'the failed level is chosen again once its penalty has passed');
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('is still asked again when it is the level that plays, so a late segment keeps its quality', () => {
+    const clock = clockAt(1_000_000);
+    try {
+      const { hls, decision } = triedAgainAfterItsPenalty();
+
+      assert.equal(decision.action, NetworkErrorAction.RetryRequest);
+      assert.equal(nextLevelChosen(hls, TOP), TOP);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('is left alone for a fatal error, an audio segment or an error that is not a failed load', () => {
+    const hls = fourLevelPlayer();
+    const error = failed(TOP, 404);
+
+    barLevelOfFailedSegment(hls, { ...error, fatal: true }, 1);
+    barLevelOfFailedSegment(hls, { ...error, frag: { ...error.frag, type: PlaylistLevelType.AUDIO } } as never, 1);
+    barLevelOfFailedSegment(hls, { ...error, details: ErrorDetails.FRAG_PARSING_ERROR }, 1);
+
+    assert.deepEqual(
+      hls.levels.map((level) => level.loadError),
+      [0, 0, 0, 0],
+    );
   });
 });

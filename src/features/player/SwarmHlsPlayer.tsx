@@ -11,7 +11,7 @@ import { attachQoeTracking, initialMetrics, QoeMetrics } from './overlays/qoe/us
 import { CustomFragmentLoader, CustomManifestLoader, manifestFetcher } from './CustomManifestLoader';
 import { FEED_STATE_LIVE, FeedState } from './feedState';
 import { LiveGapBudgetPerStream, skipFailedLiveSegment } from './liveSegmentGaps';
-import { clearOtherLevelsFragmentErrors } from './levelErrors';
+import { barLevelOfFailedSegment, clearOtherLevelsFragmentErrors } from './levelErrors';
 import { attachLiveSyncToSegmentLength } from './liveSyncLength';
 import { ManifestStateManager } from './ManifestManagement';
 import { nextMediaErrorAction, NO_MEDIA_ERRORS_YET, recoverFromMediaError } from './mediaErrorRecovery';
@@ -481,6 +481,9 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
         const segmentFailure = segmentLoadFailure(data);
         if (segmentFailure) {
           manifestFetcher.reportSegmentLoad(segmentFailure);
+        }
+        if (hls) {
+          barLevelOfFailedSegment(hls, data, performance.now());
         }
         if (
           hls &&
