@@ -43,6 +43,7 @@ const {
   pLoader: _pLoader,
   fLoader: _fLoader,
   autoStartLoad: _autoStartLoad,
+  fragLoadPolicy: SHIPPED_FRAGMENT_POLICY,
   ...SHIPPED_TUNING
 } = buildPlayerConfig(NO_LOADERS);
 
@@ -71,6 +72,7 @@ describe('SwarmHlsPlayer hls.js tuning', () => {
         maxMaxBufferLength: 120,
         maxBufferSize: 62914560,
         maxBufferHole: 1,
+        errorPenaltyExpireMs: 60_000,
       },
     );
   });
@@ -114,6 +116,37 @@ describe('SwarmHlsPlayer hls.js tuning', () => {
    * Asserted here because the flag and the `startLoad()` call are a pair: either alone is a player
    * that loads at the wrong moment, or one that never loads at all.
    */
+  describe('a segment the gateway answers 404', () => {
+    const errorRetry = SHIPPED_FRAGMENT_POLICY!.default.errorRetry!;
+    const notFound = { code: 404, text: 'Not Found' };
+
+    it('is asked for twice more, as a segment a moment late is', () => {
+      assert.equal(errorRetry.shouldRetry!(errorRetry, 0, false, notFound, false), true);
+      assert.equal(errorRetry.shouldRetry!(errorRetry, 1, false, notFound, false), true);
+      assert.equal(errorRetry.shouldRetry!(errorRetry, 2, false, notFound, false), false);
+    });
+
+    it('waits 1 s, then 2 s, so the wait stays well inside the live target', () => {
+      assert.equal(errorRetry.retryDelayMs, 1000);
+      assert.ok(errorRetry.retryDelayMs + 2 * errorRetry.retryDelayMs < LIVE_SYNC_DURATION_S * 1000);
+    });
+
+    it("leaves every other answer to hls.js's own decision", () => {
+      const serverError = { code: 500, text: 'Internal Server Error' };
+      assert.equal(errorRetry.shouldRetry!(errorRetry, 5, false, serverError, true), true);
+      assert.equal(errorRetry.shouldRetry!(errorRetry, 0, false, { code: 403, text: 'Forbidden' }, false), false);
+      assert.equal(errorRetry.shouldRetry!(errorRetry, 6, false, serverError, false), false);
+    });
+
+    it("keeps hls.js's own timeouts and retry counts", () => {
+      const { shouldRetry: _shouldRetry, ...ours } = errorRetry;
+      assert.deepEqual(
+        { ...SHIPPED_FRAGMENT_POLICY!.default, errorRetry: ours },
+        Hls.DefaultConfig.fragLoadPolicy.default,
+      );
+    });
+  });
+
   it('leaves fragment loading for the component to start', () => {
     assert.equal(buildPlayerConfig(NO_LOADERS).autoStartLoad, false);
   });
