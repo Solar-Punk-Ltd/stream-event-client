@@ -60,7 +60,8 @@ named exceptions, each with its reason in the test, all for the chat's writes, w
     the chat's own host, does not.
   - A read's window is never shorter than the provider's `shortestReadWindowMs`.
   - Failures per feature are kept in `featureFailures.ts`: a part with no usable answer for 10 s is failing, and the
-    bar under the header says so.
+    bar under the header says so. A read counts when it ends, so a read given a longer window, such as the stream
+    list's one head lookup, raises no bar while it is still running.
 - **Routing** (`src/swarm/routing.ts`) says which source each part reads from, in `one` mode a single source for every
   part and in `per-part` mode one each for `player`, `stream-list`, `previews` and `chat`. `resolveRouting` replaces an
   id that is no longer known with the default gateway's.

@@ -17,6 +17,12 @@ Words used here, such as slot, marker, ladder and part, are explained in
   - Each read asks the list's next slot before it is written, and Bee skips each peer asked that early for a minute,
     so the page asks no more often than that. A new or changed entry therefore reaches an open browse page up to a
     minute after it is written.
+  - The feed's head is looked up once, on the first read, and every read after it asks for the next slot by its
+    index. Bee finds a head by searching forward from the feed's first index, so the lookup grows slower as the list
+    gains slots. It gets a window of 30 seconds of its own (`CATALOG_HEAD_READ_TIMEOUT_MS`), while every slot read
+    keeps the ordinary 10 seconds. A slow lookup is not a failing source, so the stream list's bar shows only once a
+    lookup has gone 30 seconds without an answer, and still after 10 seconds for a source that refuses the connection
+    or answers with an error.
   - Once the list has been read, a slow or refused read of the next slot means nothing new yet. A slot whose body does
     not parse is asked for again rather than skipped (`catalogFeed.ts`).
 - **What it shows.** Every live stream gets a featured block of its own. Then the next upcoming stream, the soonest
