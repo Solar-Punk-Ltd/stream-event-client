@@ -419,14 +419,12 @@ test('a segment answered 404 a moment before the gateway has it is asked for aga
   await expectPlaysOn(page, 'after the late segment');
 
   const asks = gateway.requests.filter((request) => request.rung === TOP && request.index === late);
-  const switchedAway = (await probeState(page)).switches.filter(
-    (s) => s.atMs >= lateAtMs && s.uri !== rungUri(TOP),
-  );
+  const switchedAway = (await probeState(page)).switches.filter((s) => s.atMs >= lateAtMs && s.uri !== rungUri(TOP));
   report('late segment', { late, asks: asks.map((request) => request.kind), switchedAway: switchedAway.length });
-  expect(asks.map((request) => request.kind), `${TOP} segment ${late} was refused once and then served`).toEqual([
-    'refusedSegment',
-    'segment',
-  ]);
+  expect(
+    asks.map((request) => request.kind),
+    `${TOP} segment ${late} was refused once and then served`,
+  ).toEqual(['refusedSegment', 'segment']);
   expect(switchedAway, `hls.js stayed on ${TOP}`).toEqual([]);
   expect(await playingUri(page)).toBe(rungUri(TOP));
   await expectNoFatalErrorOrRestart(page);
@@ -458,7 +456,11 @@ test('a quality left after a segment it never served is chosen again once its pe
   const downAtMs = Date.now();
 
   const backAtMs = await waitForSwitchTo(page, TOP, downAtMs, 120_000);
-  report('quality back after penalty', { missing, downAfterMs: downAtMs - missingAtMs, backAfterMs: backAtMs - downAtMs });
+  report('quality back after penalty', {
+    missing,
+    downAfterMs: downAtMs - missingAtMs,
+    backAfterMs: backAtMs - downAtMs,
+  });
   await expectPlaysOn(page, `back on ${TOP}`);
   await expectNoFatalErrorOrRestart(page);
   expectOnlyKnownRequests(gateway);
