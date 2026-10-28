@@ -163,9 +163,9 @@ const PENALTY_MS = buildPlayerConfig({ pLoader: undefined, fLoader: undefined })
 
 describe('a quality whose segments fail while its playlist moves on', () => {
   /**
-   * Back on the top level after its penalty lifted: hls.js loaded its playlist with no segment error on record, which
-   * also cleared its load error (`onLevelLoaded` in its level controller), and asks for a segment while the level
-   * below is still the one whose segment was loaded last.
+   * The top level with no error on record, the state it is in once a penalty has lifted and hls.js loaded its playlist
+   * (`onLevelLoaded` in its level controller clears the load error then), fails a segment while the level below is
+   * still the one whose segment was loaded last.
    */
   function triedAgainAfterItsPenalty() {
     const hls = fourLevelPlayer();
