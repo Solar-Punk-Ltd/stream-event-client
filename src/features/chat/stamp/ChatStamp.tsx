@@ -13,8 +13,8 @@ import { type ChatSending, GATEWAY_SENDING } from './chatSending';
 import { type ChatStampChoice, GATEWAY_PAYS, loadChatStampChoice, saveChatStampChoice } from './chatStampChoice';
 import { OwnFeedChatProvider } from './OwnFeedChat';
 import { type OwnStampRoute, ownStampRoute } from './ownStampRoute';
-import { type SiteStamp, siteStampOf, stampWarning, type StampWarning } from './siteStamp';
-import { NO_SITE_STAMP, type SendProblem } from './stampProblems';
+import { ranOut, type SiteStamp, siteStampOf, stampWarning, type StampWarning } from './siteStamp';
+import { NO_SITE_STAMP, type SendProblem, STAMP_RAN_OUT } from './stampProblems';
 
 export const SITE_STAMP_READING = 'reading';
 export const SITE_STAMP_NONE = 'none';
@@ -116,6 +116,11 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
   const lastReadAt = useRef(0);
   /** The stamp the figures shown are for, or null for none. */
   const shownStampId = useRef<string | null>(null);
+  /**
+   * The stamp Swarm ID refused to stamp with because it ran out. Swarm ID 0.10 can still report such a stamp with time
+   * left, from an estimate, so its refusal is the word the figures keep until it names another stamp.
+   */
+  const ranOutStampId = useRef<string | null>(null);
   const readSiteStamp = useCallback(() => {
     if (!canUseOwnStamp) {
       return;
@@ -132,7 +137,12 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
     getSiteStamp().then(
       (batch) => {
         if (asked === readGeneration.current) {
-          setSiteStamp(batch ? { status: SITE_STAMP_READ, stamp: siteStampOf(batch) } : { status: SITE_STAMP_NONE });
+          if (!batch) {
+            setSiteStamp({ status: SITE_STAMP_NONE });
+            return;
+          }
+          const stamp = siteStampOf(batch);
+          setSiteStamp({ status: SITE_STAMP_READ, stamp: stampId === ranOutStampId.current ? ranOut(stamp) : stamp });
         }
       },
       () => {
@@ -188,14 +198,22 @@ export function ChatStampProvider({ children }: { readonly children: ReactNode }
    * one. A refusal to stamp for want of a stamp is the newer word, so the bar shows no stamp and offers Choose a stamp
    * in Swarm ID at once, and the next stamp Swarm ID reports is read whatever its id.
    */
-  const noteSendProblem = useCallback((problem: SendProblem) => {
-    if (problem.text !== NO_SITE_STAMP) {
-      return;
-    }
-    readGeneration.current += 1;
-    shownStampId.current = null;
-    setSiteStamp({ status: SITE_STAMP_NONE });
-  }, []);
+  const noteSendProblem = useCallback(
+    (problem: SendProblem) => {
+      if (problem.text === STAMP_RAN_OUT) {
+        ranOutStampId.current = getSiteStampId();
+        setSiteStamp((read) => (read.status === SITE_STAMP_READ ? { ...read, stamp: ranOut(read.stamp) } : read));
+        return;
+      }
+      if (problem.text !== NO_SITE_STAMP) {
+        return;
+      }
+      readGeneration.current += 1;
+      shownStampId.current = null;
+      setSiteStamp({ status: SITE_STAMP_NONE });
+    },
+    [getSiteStampId],
+  );
 
   const warning: StampWarning | null = useMemo(() => {
     if (!ownStampPays || !route.ok) {

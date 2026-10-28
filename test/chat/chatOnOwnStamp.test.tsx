@@ -246,6 +246,37 @@ describe('a chat paid for with my own stamp', () => {
     expect(chat.retrySendMessage).toHaveBeenCalled();
   });
 
+  it('shows the stamp as ran out once Swarm ID refused it for that, though its figures said time was left', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    const swarmId = await watchPage();
+    expect(seen.chatStamp?.warning, 'the figures Swarm ID reported say the stamp is fine').toBeNull();
+    swarmId.client().stampRefusal = Object.assign(new Error('expired'), {
+      code: 'upload-unavailable',
+      reason: 'stamp-expired',
+    });
+    const mine = signedMessage('refused', {
+      key: seen.chatUser!.session!.privateKey,
+      name: seen.chatUser!.session!.username,
+      binding: seen.chatUser!.session!.binding,
+      via: MessageVia.OWN_STAMP,
+    });
+    const chat = FakeSwarmChat.latest();
+    await act(async () => {
+      await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(mine))).catch(() => {});
+    });
+    await settle();
+
+    expect(seen.chatStamp?.warning?.title).toBe(STAMP_RAN_OUT);
+    expect(button('Send').disabled).toBe(true);
+
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    await settle();
+
+    expect(swarmId.client().postageBatchReads, 'read again on focus').toBeGreaterThan(1);
+    expect(seen.chatStamp?.warning?.title, 'a read of the same stamp does not undo the refusal').toBe(STAMP_RAN_OUT);
+  });
+
   it('offers to choose a stamp in Swarm ID when it says it gave this site none, though a stamp was shown', async () => {
     chatOnMyBeeNode();
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
