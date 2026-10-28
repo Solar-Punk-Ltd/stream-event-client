@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, createElement } from 'react';
 import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from 'react-router';
-import { Events } from 'hls.js';
+import { Events, PlaylistLevelType } from 'hls.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MOVING_TO_PLACE } from '../src/features/player/OwnPlayerStage';
@@ -438,7 +438,7 @@ describe('a recording, when the video moves between weeb-3 and the app’s playe
     expect(startLoads.length).toBeGreaterThan(1);
     expect(new Set(startLoads)).toEqual(new Set([58]));
 
-    emit(fakes.hls.length - 1, Events.FRAG_BUFFERED);
+    emit(fakes.hls.length - 1, Events.FRAG_BUFFERED, { frag: { type: PlaylistLevelType.MAIN, level: 0 } });
     void appVideo().pause();
     void appVideo().play();
     expect(startLoads.at(-1)).toBeUndefined();
