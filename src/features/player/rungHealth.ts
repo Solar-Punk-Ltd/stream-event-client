@@ -241,10 +241,16 @@ function forgetUnfollowedPlaylists(hls: Hls, followed: readonly number[]): void 
  * sequence numbers at the target duration, which is wrong by every short segment and gap in between. On
  * 2026-10-08 it put 1080p about 16 s away from the 360p it replaced. A level with no playlist is placed by
  * date against the level loaded last, which is the rung being replaced.
+ *
+ * The playlist hls.js loaded last is kept, whichever level holds it, because it is that one hls.js places a
+ * playlist loaded for a level holding none against, and it is the newest it has, not minutes old. Without it
+ * such a playlist starts at 0, as one for a quality hls.js left before it played and asked for again before the
+ * quality on screen reloaded did, and hls.js then moves a stalled video to the edge of that playlist less the
+ * live target, far behind the broadcast.
  */
 function forgetEarlierPlaylist(hls: Hls, levelIndex: number): void {
   const level = hls.levels[levelIndex];
-  if (level) {
+  if (level && level.details !== hls.latestLevelDetails) {
     level.details = undefined;
   }
 }
