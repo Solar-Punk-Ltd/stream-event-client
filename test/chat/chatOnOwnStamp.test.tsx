@@ -539,6 +539,9 @@ describe("a sender's own feed in the message details", () => {
     feeds.asked.filter((read) => read.endsWith(OWN_TOPIC) || read.startsWith('chunk')).length;
   const listed = (label: string) =>
     [...(section()?.querySelectorAll(`[aria-label="${label}"] li`) ?? [])].map((item) => item.textContent);
+  /** The check's result as its lines read, in order: this message, then each count of what disagrees. */
+  const resultLines = (shown: HTMLElement) =>
+    [...shown.querySelectorAll('.own-feed-this, .own-feed-missing > span:first-child')].map((line) => line.textContent);
 
   /** The watch page on a chat that `feeds` serves through `pageReads`, with `shown` in it and its details open. */
   async function openDetailsOn(feeds: ReturnType<typeof servedFeeds>, shown: ChatMessage, pageReads = feeds.reads) {
@@ -608,15 +611,13 @@ describe("a sender's own feed in the message details", () => {
     expect(window.getSelection()?.toString()).toBe(`${addressOf(SENDER_KEY)}/${OWN_TOPIC}`);
   });
 
-  it('says how many messages are in the chat and that every one on their own stamp is in their own feed', async () => {
+  it('says only that this message is in their own feed when the chat and their own feed agree', async () => {
     const [a, b] = [mine('a'), mine('b')];
     await openDetails(b, [a, b], [a, b]);
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('2 messages from them in this chat, all signatures valid');
-    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
-    expect(shown.textContent).toContain('This message is in their own feed');
+    expect(resultLines(shown)).toEqual(['This message is in their own feed']);
     expect(shown.querySelector('.own-feed-missing')).toBeNull();
   });
 
@@ -631,9 +632,11 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('3 messages from them in this chat');
-    expect(shown.textContent).toContain('3 on their own stamp, 2 missing from their own feed');
-    expect(shown.textContent).toContain('This message is not in their own feed');
+    expect(resultLines(shown)).toEqual([
+      'This message is not in their own feed',
+      '2 messages in this chat but not in their own feed',
+      '1 message in their own feed but not in this chat',
+    ]);
     expect(listed('Missing from their own feed')).toEqual([c.text, b.text]);
     expect(listed('Missing from the chat feed')).toEqual([d.text]);
   });
@@ -645,9 +648,7 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('4 messages from them in this chat, all signatures valid');
-    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
-    expect(shown.textContent).toContain('2 paid by the gateway, which have no own-feed copy');
+    expect(resultLines(shown)).toEqual(['This message is in their own feed']);
     expect(shown.querySelector('[aria-label="Missing from their own feed"]')).toBeNull();
   });
 
@@ -658,7 +659,7 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('2 messages from them in this chat, 1 with a signature that does not match');
+    expect(shown.textContent).toContain('1 message carrying their address with a signature that does not match');
     expect(listed('Signature does not match')).toEqual(['changed after signing']);
   });
 
@@ -700,13 +701,12 @@ describe("a sender's own feed in the message details", () => {
     const [a, b] = [mine('a'), mine('b')];
     const feeds = await openDetails(a, [a], [a]);
     await verify();
-    expect(section()?.textContent).toContain('1 on their own stamp, in their own feed');
+    expect(section()?.textContent).not.toContain('in this chat but not in their own feed');
 
     feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b]);
-    feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, [a, b]);
     const shown = await verify();
 
-    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
+    expect(shown.textContent).toContain('1 message in this chat but not in their own feed');
   });
 
   it('says in one line when the source does not serve their own feed', async () => {
@@ -727,7 +727,7 @@ describe("a sender's own feed in the message details", () => {
     const shown = await verify();
 
     expect(shown.textContent).toContain('This source does not serve their own feed, so it cannot be checked here.');
-    expect(shown.textContent).not.toMatch(/Checked|from them in this chat/);
+    expect(shown.textContent).not.toMatch(/Checked|in their own feed but not|This message is/);
   });
 
   it('says the own feed is too large to check when it names far more entries than the sender sent', async () => {
@@ -794,7 +794,7 @@ describe("a sender's own feed in the message details", () => {
     const shown = await verify();
 
     expect(shown.querySelector('[aria-label="Missing from the chat feed"]')).toBeNull();
-    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
+    expect(shown.querySelector('[aria-label="Missing from their own feed"]')).toBeNull();
   });
 
   it('says plainly when no own feed is found, without claiming the sender keeps none', async () => {
@@ -803,9 +803,8 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('1 on their own stamp, and no own feed found');
+    expect(resultLines(shown)[0]).toBe('No own feed found for them in this chat');
     expect(shown.textContent).not.toMatch(/keeps (no|none)/);
-    expect(shown.textContent).toContain('1 message from them in this chat');
   });
 });
 
