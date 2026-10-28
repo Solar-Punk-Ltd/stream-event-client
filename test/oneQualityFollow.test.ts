@@ -415,6 +415,32 @@ describe('Q3: the playing quality stops', () => {
     assert.deepEqual(rig.gateway.requestsFor(hex(LOW)), [], 'a rung below the candidate was read');
   });
 
+  /**
+   * A quality that recovered while its sibling was walked waits on its next slot at the live edge, an
+   * ordinary miss that opens a new unserved run. Only a run that reached the stall threshold again is
+   * the quality still being stuck.
+   */
+  it('fails nothing over when the playing rung was served again while its sibling was walked', async () => {
+    const rig = makeRig({ progressBoundMs: SIBLING_MOVES_BOUND_MS });
+    rig.gateway.publishLive(TOP, 'top', 20);
+    rig.gateway.publishLive(MID, 'mid', 20);
+
+    await stallTop(rig);
+    await waitFor(() => rig.poller.isActive(hex(MID)), 'the next lower rung to be tried');
+    rig.gateway.publishNext(TOP);
+    await waitFor(() => {
+      const runMs = rig.health.unservedRunMs(hex(TOP));
+      return runMs !== null && runMs < UNSERVED_SLOT_STALL_MS;
+    }, 'the top rung to be served its slot and wait on its next one');
+    rig.gateway.publishNext(MID);
+    await waitFor(
+      () => rig.stopped.length > 0 || !rig.poller.isActive(hex(MID)),
+      'the trial to end, with the candidate stopped or the playing rung failed over',
+    );
+
+    assert.deepEqual(rig.stopped, []);
+  });
+
   it('reads a broadcast that paused as stalled, stops the candidate, and fails nothing over', async () => {
     const rig = makeRig();
     rig.gateway.publishLive(TOP, 'top', 20);

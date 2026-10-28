@@ -848,8 +848,7 @@ export class LadderFeedPoller {
     if (ladder.playing !== entry || ladder.isTrying || walk.isCandidate) {
       return;
     }
-    const unservedMs = this.feedHealth.unservedRunMs(entry.hexTopic);
-    if (unservedMs === null || unservedMs < UNSERVED_SLOT_STALL_MS) {
+    if (!this.isStalled(entry)) {
       return;
     }
     const now = this.now();
@@ -863,11 +862,21 @@ export class LadderFeedPoller {
     }
   }
 
+  /** Whether the rung's current unserved run has reached {@link UNSERVED_SLOT_STALL_MS}. */
+  private isStalled(entry: RungEntry): boolean {
+    return (this.feedHealth.unservedRunMs(entry.hexTopic) ?? 0) >= UNSERVED_SLOT_STALL_MS;
+  }
+
   /**
    * The playing rung has been unserved for the stall threshold. Walks the next lower rung for
    * {@link rungProgressBoundMs} from when its newest index is found: a new index there means the
    * playing rung alone stopped, and the player fails over to it. None means the broadcast paused, and
    * the stall shows as it always did.
+   *
+   * The playing rung must still be stalled when the sibling shows progress. A rung served again while
+   * the sibling was walked waits on its next slot at the live edge, and that ordinary miss opens a new
+   * unserved run. Failing over on any open run would remove a quality that already recovered, and
+   * hls.js cannot take a removed level back.
    */
   private async failOverIfSiblingProgresses(entry: RungEntry, walk: Walk, sibling: RungEntry): Promise<void> {
     const { ladder } = entry;
@@ -878,7 +887,7 @@ export class LadderFeedPoller {
       if (!this.isCurrent(entry) || entry.walk !== walk) {
         return;
       }
-      if (progressed && this.feedHealth.unservedRunMs(entry.hexTopic) !== null) {
+      if (progressed && this.isStalled(entry)) {
         this.failOver(entry, sibling, 'it has stopped while the next lower quality carries on');
         return;
       }
