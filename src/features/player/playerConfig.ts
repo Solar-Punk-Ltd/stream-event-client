@@ -1,4 +1,4 @@
-import type { HlsConfig } from 'hls.js';
+import Hls, { type HlsConfig, type LoaderResponse, type RetryConfig } from 'hls.js';
 
 const MB = 1024 * 1024;
 
@@ -124,6 +124,56 @@ export const LIVE_GAP_LIMIT = 4;
 export const LIVE_GAP_WINDOW_MS = 5 * 60_000;
 
 /**
+ * How many times a segment the gateway answered 404 is asked for again before hls.js gives up on it.
+ *
+ * A live playlist can name a segment a moment before a gateway can hand it over: the uploader pushes the playlist
+ * slot to the network synchronously and the segment's chunks deferred, so the one chunk overtakes the hundreds. On
+ * swarm-dev on 2026-10-28, 297 of 8,675 segments were answered 404 first and 200 within two seconds, 7% of the
+ * 720p and 1080p ones. hls.js retries no 4xx by itself, so each such 404 cost the viewer a quality.
+ *
+ * hls.js waits 1 s before the first ask and 2 s before the second (its default `retryDelayMs` doubling), so a
+ * late segment costs at most 3 s of buffer, well inside {@link LIVE_SYNC_DURATION_S}.
+ */
+export const LATE_SEGMENT_RETRIES = 2;
+
+/**
+ * How long a quality hls.js stepped down from after a failed segment stays out of its up-switch choice.
+ *
+ * hls.js bars a level with an error on its record from an up-switch, and clears the record only when that level
+ * buffers a segment, which a barred level is never given the chance to do. Its own default of 0 therefore bars the
+ * level for the rest of the session: one missing segment held a viewer on 480p for 65 minutes on 2026-10-28. After
+ * this the level is chosen again only if the bandwidth estimate affords it, as any up-switch is.
+ */
+export const LEVEL_ERROR_PENALTY_MS = 60_000;
+
+/**
+ * hls.js's own fragment retry decision, with a 404 retried {@link LATE_SEGMENT_RETRIES} times as well.
+ *
+ * `retryCount` is what hls.js passes, the sum of fragment errors on every level, so a level still carrying an
+ * error from earlier leaves the others fewer retries until it plays again.
+ */
+export function retryLateSegment(
+  _config: RetryConfig | null | undefined,
+  retryCount: number,
+  _isTimeout: boolean,
+  response: LoaderResponse | undefined,
+  retry: boolean,
+): boolean {
+  return retry || (response?.code === 404 && retryCount < LATE_SEGMENT_RETRIES);
+}
+
+/** hls.js's default fragment load policy, with {@link retryLateSegment} deciding its error retries. */
+function fragmentLoadPolicy(): HlsConfig['fragLoadPolicy'] {
+  const { default: policy } = Hls.DefaultConfig.fragLoadPolicy;
+  return {
+    default: {
+      ...policy,
+      errorRetry: policy.errorRetry && { ...policy.errorRetry, shouldRetry: retryLateSegment },
+    },
+  };
+}
+
+/**
  * Everything the player tells hls.js that is not a loader.
  *
  * Separate from the component because a wrong number here is invisible in every way except how the
@@ -138,6 +188,7 @@ export const HLS_TUNING = {
   maxMaxBufferLength: 120,
   maxBufferSize: 60 * MB,
   maxBufferHole: 1,
+  errorPenaltyExpireMs: LEVEL_ERROR_PENALTY_MS,
 } as const satisfies Partial<HlsConfig>;
 
 /**
@@ -159,6 +210,9 @@ export function buildPlayerConfig(
   return {
     ...tuning,
     ...loaders,
+    // With the loaders rather than the tuning, because it answers how Swarm serves segments, not how the stream
+    // should feel, and a caller's tuning is a set of numbers that cannot carry it.
+    fragLoadPolicy: fragmentLoadPolicy(),
     // Fragment loading is started by hand once the ladder is known, from the component's
     // MANIFEST_PARSED handler. Left on, hls.js starts it from its own MANIFEST_LOADED handler, and
     // whether that runs before or after the component gets to set `startLevel` depends on the order

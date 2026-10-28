@@ -148,6 +148,12 @@ player with every quality, which costs the viewer a moment of loading. The page 
   quality finishes, the next lower one is watched for that whole bound rather than to its first new playlist: one that
   finishes inside them means the broadcast ended, and only one that carries on through them is moved to. A quality the
   player was moved to that finishes before hls.js has switched to it runs the same check.
+- **A segment a moment late.** A playlist can name a segment a second or two before the gateway can hand it over,
+  because the uploader sends the small playlist to the network ahead of the segment's chunks. So a segment answered
+  "not found" is asked for again after 1 s and once more 2 s later (`playerConfig.ts`, `retryLateSegment`), before
+  hls.js gives up on it. A late segment then costs a short wait inside the buffer, not a quality.
+  - When hls.js does give up and moves down, it bars the quality it left from moving back up. That bar lifts after
+    60 s, and the quality is chosen again only if the bandwidth estimate affords it, as any move up is.
 - **A segment that will not load.** When hls.js gives up on one of the three newest segments of a live playlist
   (segments already marked as gaps not counted), the player marks that segment `#EXT-X-GAP` in the playlist it serves
   hls.js (`liveSegmentGaps.ts`).
