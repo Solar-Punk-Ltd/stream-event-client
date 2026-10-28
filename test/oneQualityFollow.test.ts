@@ -415,6 +415,65 @@ describe('Q3: the playing quality stops', () => {
     assert.deepEqual(rig.gateway.requestsFor(hex(LOW)), [], 'a rung below the candidate was read');
   });
 
+  /**
+   * A quality that recovered while its sibling was walked waits on its next slot at the live edge, an
+   * ordinary miss that opens a new unserved run. Only a run that reached the stall threshold again is
+   * the quality still being stuck.
+   */
+  it('fails nothing over when the playing rung was served again while its sibling was walked', async () => {
+    const rig = makeRig({ progressBoundMs: SIBLING_MOVES_BOUND_MS });
+    rig.gateway.publishLive(TOP, 'top', 20);
+    rig.gateway.publishLive(MID, 'mid', 20);
+
+    await stallTop(rig);
+    await waitFor(() => rig.poller.isActive(hex(MID)), 'the next lower rung to be tried');
+    rig.gateway.publishNext(TOP);
+    await waitFor(() => {
+      const runMs = rig.health.unservedRunMs(hex(TOP));
+      return runMs !== null && runMs < UNSERVED_SLOT_STALL_MS;
+    }, 'the top rung to be served its slot and wait on its next one');
+    rig.gateway.publishNext(MID);
+    await waitFor(
+      () => rig.stopped.length > 0 || !rig.poller.isActive(hex(MID)),
+      'the trial to end, with the candidate stopped or the playing rung failed over',
+    );
+
+    assert.deepEqual(rig.stopped, []);
+  });
+
+  /**
+   * A gateway failure ends the playing rung's unserved run without any progress, so the trial is
+   * refused although the rung may still be dead. The sibling was just seen moving, so the spacing
+   * meant for a paused broadcast must not hold back the next trial.
+   */
+  it('tries again at the next stall, without the thirty second wait, once a trial was refused while its sibling moved', async () => {
+    const rig = makeRig({ progressBoundMs: SIBLING_MOVES_BOUND_MS });
+    rig.gateway.publishLive(TOP, 'top', 20);
+    rig.gateway.publishLive(MID, 'mid', 20);
+    const stuckSlot = 21;
+
+    await stallTop(rig);
+    await waitFor(() => rig.poller.isActive(hex(MID)), 'the next lower rung to be tried');
+    rig.gateway.faultSlot(TOP, stuckSlot);
+    await waitFor(() => rig.health.unservedRunMs(hex(TOP)) === null, 'a gateway failure to end the unserved run');
+    rig.gateway.publishNext(MID);
+    await waitFor(() => !rig.poller.isActive(hex(MID)), 'the refused trial to stop the candidate');
+    assert.deepEqual(rig.stopped, []);
+
+    rig.gateway.clearFault(TOP, stuckSlot);
+    rig.clock.advance(UNSERVED_SLOT_STALL_MS);
+    await waitFor(() => rig.health.unservedPollsRecorded(hex(TOP)) > 0, 'the top rung to sit on its slot again');
+    rig.clock.advance(UNSERVED_SLOT_STALL_MS);
+    await waitFor(() => rig.poller.isActive(hex(MID)), 'the next lower rung to be tried again at the next stall');
+    rig.gateway.publishNext(MID);
+    await waitFor(() => rig.stopped.length > 0, 'the playing rung to be failed over');
+
+    assert.deepEqual(
+      rig.stopped.map(({ rung, failoverTo }) => ({ rung, failoverTo })),
+      [{ rung: hex(TOP), failoverTo: hex(MID) }],
+    );
+  });
+
   it('reads a broadcast that paused as stalled, stops the candidate, and fails nothing over', async () => {
     const rig = makeRig();
     rig.gateway.publishLive(TOP, 'top', 20);

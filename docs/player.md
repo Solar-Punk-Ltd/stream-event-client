@@ -135,8 +135,10 @@ player with every quality, which costs the viewer a moment of loading. The page 
     newest segment sits more than 30 seconds behind the playing one's. When both have finished, as on a recording, no
     switch is refused, because every quality of a recording is complete whatever its dates say.
   - When the playing quality has had nothing new for 8 seconds, or finishes, the next lower quality is found and then
-    read for three of its segments, never under 6 seconds. If it moves on, the player moves to it and drops the
-    stopped one.
+    read for three of its segments, never under 6 seconds. If it moves on while the playing quality has still had
+    nothing new for 8 seconds, the player moves to it and drops the stopped one. A playing quality served again during
+    that read is kept, because waiting on its next segment at the live edge is ordinary and a dropped quality cannot
+    come back until the page reloads.
   - There is no limit on how many are dropped: a quality refused at a switch is dropped too, and the player keeps
     moving on until it is on a quality that moves. The last quality is never dropped. If the next one does not move
     on, the broadcast paused or ended, and the player says so.
