@@ -85,6 +85,11 @@ export class FakeLadderGateway {
     this.faulted.add(this.slotPath(topic, index));
   }
 
+  /** Reads of this slot reach the gateway again, after {@link faultSlot}. */
+  clearFault(topic: Topic, index: number): void {
+    this.faulted.delete(this.slotPath(topic, index));
+  }
+
   /**
    * Answer from now on as a Bee node answers an address asked before it exists (Bee 2.8.2,
    * `pkg/retrieval/retrieval.go`): each such ask puts one of `peers` peers on a skip list for that
