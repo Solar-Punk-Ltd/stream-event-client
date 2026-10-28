@@ -223,6 +223,8 @@ export class LadderGateway {
   private readonly segments = recordedSegments();
   /** Segment sequences every quality refuses. See {@link refuseSegment}. */
   private readonly refusedSequences = new Set<number>();
+  /** Asks of one quality's segment still to be answered 404, by `<quality>:<sequence>`. See {@link lateSegment}. */
+  private readonly lateAsks = new Map<string, number>();
   private isDown = false;
 
   constructor(options: LadderGatewayOptions = {}) {
@@ -365,6 +367,14 @@ export class LadderGateway {
   /** Every quality answers the segment with this sequence 404 from now on, as a node that cannot retrieve it does. */
   refuseSegment(sequence: number): void {
     this.refusedSequences.add(sequence);
+  }
+
+  /**
+   * This quality answers its segment with this sequence 404 for the first `asks` asks and serves it after, as a
+   * gateway does for a segment the playlist names a moment before the node can retrieve it.
+   */
+  lateSegment(rung: RungName, sequence: number, asks: number): void {
+    this.lateAsks.set(`${rung}:${sequence}`, asks);
   }
 
   /** How many requests of this kind were made for this quality, optionally since a moment. */
@@ -536,11 +546,16 @@ export class LadderGateway {
       return () => notFound(route);
     }
     const sequence = Number.parseInt(match[2], 16);
-    if (this.refusedSequences.has(sequence)) {
+    const lateKey = `${rung.name}:${sequence}`;
+    const lateAsksLeft = this.lateAsks.get(lateKey) ?? 0;
+    if (lateAsksLeft > 0) {
+      this.lateAsks.set(lateKey, lateAsksLeft - 1);
+    }
+    if (this.refusedSequences.has(sequence) || lateAsksLeft > 0) {
       this.log('refusedSegment', rung.name, path, sequence);
       return () => notFound(route);
     }
-    this.log('segment', rung.name, path);
+    this.log('segment', rung.name, path, sequence);
     const segment = this.segments[sequence % this.segments.length];
     return () => route.fulfill({ status: 200, contentType: segment.contentType, body: segment.body });
   }

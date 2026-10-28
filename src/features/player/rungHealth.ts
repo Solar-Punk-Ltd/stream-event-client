@@ -167,7 +167,7 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
         `[SwarmHls] rung ${rungTopicId} was reported stopped and is not one of this player's ` +
           `${hls.levels.length} level(s), so there is nothing to drop`,
       );
-      return;
+      return false;
     }
 
     const level = hls.levels[index];
@@ -178,7 +178,7 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
       console.warn(
         `Rung ${level.height}p has stopped being produced (${reason}) and is the only one left, so playback stays on it`,
       );
-      return;
+      return false;
     }
 
     // Read BEFORE the removal, because the removal is what sets `loadLevel` to -1 and the two
@@ -188,6 +188,10 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
     const tookThePlayingLevel = hls.loadLevel === index;
     // Read before the removal too, which renumbers the levels and leaves the removed one's fragments at -1.
     const playingRung = rungOfLevel(hls, hls.currentLevel);
+    // A rung announced with nowhere to go, one that never produced a playlist, is taken while hls.js was switching to
+    // it, so the viewer goes back to the rung still on screen, as from a refused switch. Without a rung, hls.js's own
+    // start path would put a viewer mid-stream on the start level and drop the playlist the playing rung aligns to.
+    const failoverTo = detail.failoverTo ?? (hls.currentLevel !== index ? playingRung : null);
 
     console.warn(`Rung ${level.height}p has stopped being produced (${reason}), dropping it from the ladder`);
     hls.removeLevel(index);
@@ -197,12 +201,12 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
     // end. The poller names the rung it found moving, which is the one the viewer goes to. Read after
     // the removal, because hls.js renumbers the levels above it. Without one, ABR chooses.
     if (tookThePlayingLevel) {
-      const found = detail.failoverTo === null ? -1 : levelIndexOfRung(hls, detail.failoverTo);
+      const found = failoverTo === null ? -1 : levelIndexOfRung(hls, failoverTo);
       const target = found >= 0 ? found : hls.nextAutoLevel;
       // A refused switch hands the viewer back to the rung they play. Its playlist is the one hls.js aligns
       // that rung's next reload against, since the refused playlist never reached hls.js, and the fragment
       // appended last is that rung's own, so there is nothing to forget.
-      const backToThePlayingRung = playingRung !== null && detail.failoverTo === playingRung;
+      const backToThePlayingRung = playingRung !== null && failoverTo === playingRung;
       if (!backToThePlayingRung) {
         forgetEarlierPlaylist(hls, target);
       }
@@ -211,6 +215,7 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
         forgetLastAppendedFragment(hls);
       }
     }
+    return true;
   });
 }
 

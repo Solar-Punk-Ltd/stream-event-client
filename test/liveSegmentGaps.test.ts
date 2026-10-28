@@ -85,20 +85,20 @@ describe('marking a failed live segment as a gap in the served playlist', () => 
     assert.equal(after, before.replace(`#EXTINF:2,\n${urlOf(12)}`, `${GAP}\n#EXTINF:2,\n${urlOf(12)}`));
   });
 
-  it('marks any of the newest three, and nothing older', () => {
-    hold(livePlaylist([10, 11, 12, 13, 14]));
+  it('marks any of the newest five, and nothing older', () => {
+    hold(livePlaylist([8, 9, 10, 11, 12, 13, 14]));
 
-    assert.equal(manager.markLiveGap(HEX_TOPIC, urlOf(11), LIVE_GAP_NEWEST_SEGMENTS), false, 'fourth newest');
-    assert.equal(manager.markLiveGap(HEX_TOPIC, urlOf(12), LIVE_GAP_NEWEST_SEGMENTS), true, 'third newest');
-    assert.deepEqual(servedGaps(), [ref(12)]);
+    assert.equal(manager.markLiveGap(HEX_TOPIC, urlOf(9), LIVE_GAP_NEWEST_SEGMENTS), false, 'sixth newest');
+    assert.equal(manager.markLiveGap(HEX_TOPIC, urlOf(10), LIVE_GAP_NEWEST_SEGMENTS), true, 'fifth newest');
+    assert.deepEqual(servedGaps(), [ref(10)]);
   });
 
-  it('counts the newest three among segments that are not gaps already', () => {
-    hold(livePlaylist([10, 11, 12, 13, 14], { gaps: [13] }));
+  it('counts the newest five among segments that are not gaps already', () => {
+    hold(livePlaylist([8, 9, 10, 11, 12, 13, 14], { gaps: [13] }));
 
-    assert.equal(manager.markLiveGap(HEX_TOPIC, urlOf(11), LIVE_GAP_NEWEST_SEGMENTS), true);
+    assert.equal(manager.markLiveGap(HEX_TOPIC, urlOf(9), LIVE_GAP_NEWEST_SEGMENTS), true);
     assert.equal(manager.markLiveGap(HEX_TOPIC, urlOf(13), LIVE_GAP_NEWEST_SEGMENTS), false, 'already a gap');
-    assert.deepEqual(servedGaps(), [ref(11), ref(13)]);
+    assert.deepEqual(servedGaps(), [ref(9), ref(13)]);
   });
 
   it('leaves a recording untouched', () => {
@@ -212,13 +212,13 @@ describe('what the player does with a segment hls.js gave up on', () => {
     assert.equal(skipped, true);
   });
 
-  it('leaves a segment older than the newest three to the recovery it always had', () => {
-    hold(livePlaylist([10, 11, 12, 13, 14]));
+  it('leaves a segment older than the newest five to the recovery it always had', () => {
+    hold(livePlaylist([8, 9, 10, 11, 12, 13, 14]));
     const budget = new LiveGapBudget();
 
     const skipped = skipFailedLiveSegment(
       fakePlayer(),
-      fragError(11, { fatal: true }),
+      fragError(9, { fatal: true }),
       markWith(fetcher()),
       budget,
       0,

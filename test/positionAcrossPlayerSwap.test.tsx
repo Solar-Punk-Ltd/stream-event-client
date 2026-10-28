@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, createElement } from 'react';
 import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from 'react-router';
-import { Events } from 'hls.js';
+import { Events, PlaylistLevelType } from 'hls.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MOVING_TO_PLACE } from '../src/features/player/OwnPlayerStage';
@@ -438,7 +438,7 @@ describe('a recording, when the video moves between weeb-3 and the app’s playe
     expect(startLoads.length).toBeGreaterThan(1);
     expect(new Set(startLoads)).toEqual(new Set([58]));
 
-    emit(fakes.hls.length - 1, Events.FRAG_BUFFERED);
+    emit(fakes.hls.length - 1, Events.FRAG_BUFFERED, { frag: { type: PlaylistLevelType.MAIN, level: 0 } });
     void appVideo().pause();
     void appVideo().play();
     expect(startLoads.at(-1)).toBeUndefined();
@@ -547,5 +547,17 @@ describe('a live stream, when the video moves between weeb-3 and the app’s pla
     moveToAppPlayer();
 
     expect(fakes.hls.at(-1)!.startLoads[0]).toBeUndefined();
+  });
+});
+
+describe("the app's player, once a segment has buffered", () => {
+  it("clears the other levels' segment error counts, so a level left behind does not use up their retries", () => {
+    watchOnAppPlayer(10);
+    const player = fakes.hls[0] as unknown as { levels: { fragmentError: number }[] };
+    player.levels = [{ fragmentError: 3 }, { fragmentError: 1 }];
+
+    emit(0, Events.FRAG_BUFFERED, { frag: { type: PlaylistLevelType.MAIN, level: 1 } });
+
+    expect(player.levels.map((level) => level.fragmentError)).toEqual([0, 1]);
   });
 });

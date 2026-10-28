@@ -43,7 +43,8 @@ interface RungStoppedDetail {
   readonly failoverTo: string | null;
 }
 
-type RungStoppedListener = (rungTopicId: string, detail: RungStoppedDetail) => void;
+/** Answers whether it took the rung out of the player. */
+type RungStoppedListener = (rungTopicId: string, detail: RungStoppedDetail) => boolean;
 
 /**
  * How long to wait before asking a failing gateway again, after its first failure. Doubles per
@@ -475,9 +476,10 @@ export class FeedHealthTracker {
   }
 
   /**
-   * Watch for a rung the poller has found stopped, which the player takes out of its ladder.
+   * Watch for a rung the poller has found stopped, or that produced no playlist by its deadline, which the player
+   * takes out of its ladder.
    *
-   * Announced by the poller and never judged here. A rung is judged by its own progress, a new index
+   * Announced by the poller or the `ManifestFetcher` and never judged here. A rung is judged by its own progress, a new index
    * within `rungProgressBoundMs`, and only the poller sees that: the rungs of one ladder drift
    * apart without bound, so nothing recorded against one says where another should be.
    */
@@ -488,15 +490,21 @@ export class FeedHealthTracker {
     };
   }
 
-  /** Tells every {@link onRungStopped} listener that this rung stopped, and where to go instead. */
-  recordRungStopped(rungTopicId: string, detail: RungStoppedDetail): void {
+  /**
+   * Tells every {@link onRungStopped} listener that this rung stopped, and where to go instead.
+   *
+   * @returns Whether a listener took the rung out of its player.
+   */
+  recordRungStopped(rungTopicId: string, detail: RungStoppedDetail): boolean {
+    let takenOut = false;
     for (const listener of [...this.rungStoppedListeners]) {
       try {
-        listener(rungTopicId, detail);
+        takenOut = listener(rungTopicId, detail) || takenOut;
       } catch (error) {
         console.error('Rung stopped listener threw:', error);
       }
     }
+    return takenOut;
   }
 
   /**

@@ -148,7 +148,16 @@ player with every quality, which costs the viewer a moment of loading. The page 
   quality finishes, the next lower one is watched for that whole bound rather than to its first new playlist: one that
   finishes inside them means the broadcast ended, and only one that carries on through them is moved to. A quality the
   player was moved to that finishes before hls.js has switched to it runs the same check.
-- **A segment that will not load.** When hls.js gives up on one of the three newest segments of a live playlist
+- **A segment a moment late.** A playlist can name a segment a second or two before the gateway can hand it over,
+  because the uploader sends the small playlist to the network ahead of the segment's chunks. So a segment answered
+  "not found" is asked for again after 1 s and once more 2 s later (`playerConfig.ts`, `retryLateSegment`), before
+  hls.js gives up on it. A late segment then costs a short wait inside the buffer, not a quality.
+  - When hls.js does give up and moves down, it bars the quality it left from moving back up. That bar lifts after
+    60 s, and the quality is chosen again only if the bandwidth estimate affords it, as any move up is.
+  - hls.js counts the retries it allows across all qualities together, so a quality left behind would use up the
+    others' retries. Once a segment of the playing quality has buffered, the other qualities' segment error counts
+    are cleared (`levelErrors.ts`), and the next late segment is asked for again in full.
+- **A segment that will not load.** When hls.js gives up on one of the five newest segments of a live playlist
   (segments already marked as gaps not counted), the player marks that segment `#EXT-X-GAP` in the playlist it serves
   hls.js (`liveSegmentGaps.ts`).
   - hls.js gives up after its own retries with no other quality left to try, or at once on a segment it finds no media
@@ -228,7 +237,9 @@ its own loaders (`CustomManifestLoader.ts`):
     playlist they stand on, and a join from a time marker takes the `segmentMs` the marker names, which is the stage's
     `HLS_FRAGMENT`.
 - **A quality's first playlist** is waited for 20 s, the poller's 15 s search and 5 s more, and then that quality is
-  failed so hls.js tries another, because a gateway that does not hold a quality never answers for it.
+  taken out of the ladder like one that stopped, because a gateway that does not hold a quality never answers for it.
+  Only failed, hls.js would choose it again whenever its 60 s error penalty ran out and wait the 20 s once more. The
+  last quality left is failed instead, as before.
 - **A slow source.** The `ManifestFetcher` times how long the source it reads from takes to answer that a slot is not
   there, over the latest 16 such answers (`sourceMissCost.ts`).
   - Once five have been answered, the source is slow when the middle one of them is over 3 s. Before that it is slow

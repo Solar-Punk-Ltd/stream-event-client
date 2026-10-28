@@ -159,12 +159,12 @@ for (const order of ['player first', 'overlay first'] as const) {
     });
 
     it('still counts a fatal error the player recovers from the ordinary way', async () => {
-      holdLivePlaylist([10, 11, 12, 13, 14]);
+      holdLivePlaylist([8, 9, 10, 11, 12, 13, 14]);
       const player = makeWatchedPlayer(order);
 
-      await player.raise(fragError(11, { fatal: true }));
+      await player.raise(fragError(9, { fatal: true }));
 
-      assert.equal(player.playerRecovered.length, 1, 'a segment older than the newest three is not a gap');
+      assert.equal(player.playerRecovered.length, 1, 'a segment older than the newest five is not a gap');
       assert.equal(player.metrics().segmentsSkipped, 0);
       assert.equal(player.metrics().fatalErrorCount, 1);
       assert.equal(player.metrics().reconnectAttempts, 1);

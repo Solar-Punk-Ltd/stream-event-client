@@ -398,6 +398,77 @@ test('a live segment the gateway cannot serve is played past as a gap, without a
   expectOnlyKnownRequests(gateway);
 });
 
+test('a segment answered 404 a moment before the gateway has it is asked for again, and the quality is kept', async ({
+  page,
+  context,
+}) => {
+  const gateway = new LadderGateway();
+  await openStream(page, context, gateway);
+  expect(await playingUri(page), `the stream starts on ${TOP}`).toBe(rungUri(TOP));
+
+  const late = gateway.newestIndex(TOP) + 2;
+  const lateAtMs = Date.now();
+  gateway.lateSegment(TOP, late, 1);
+
+  await expect
+    .poll(async () => ((await playingDateMs(page)) ?? 0) > gateway.segmentEndMs(late), {
+      message: `the video plays on past segment ${late}`,
+      timeout: FAILOVER_WAIT_MS,
+    })
+    .toBe(true);
+  await expectPlaysOn(page, 'after the late segment');
+
+  // Segments only: the playlist slot that names segment 33 is index 33 of the feed too.
+  const asks = gateway.requests.filter(
+    (request) => request.rung === TOP && request.index === late && ['segment', 'refusedSegment'].includes(request.kind),
+  );
+  const switchedAway = (await probeState(page)).switches.filter((s) => s.atMs >= lateAtMs && s.uri !== rungUri(TOP));
+  report('late segment', { late, asks: asks.map((request) => request.kind), switchedAway: switchedAway.length });
+  expect(
+    asks.map((request) => request.kind),
+    `${TOP} segment ${late} was refused once and then served`,
+  ).toEqual(['refusedSegment', 'segment']);
+  expect(switchedAway, `hls.js stayed on ${TOP}`).toEqual([]);
+  expect(await playingUri(page)).toBe(rungUri(TOP));
+  await expectNoFatalErrorOrRestart(page);
+  expectOnlyKnownRequests(gateway);
+});
+
+test('a quality left after a segment it never served is chosen again once its penalty has passed', async ({
+  page,
+  context,
+}) => {
+  test.setTimeout(180_000);
+  const gateway = new LadderGateway();
+  await openStream(page, context, gateway);
+
+  // Past every ask the player makes again, so hls.js gives the segment up on this quality and moves down.
+  const missing = gateway.newestIndex(TOP) + 2;
+  const missingAtMs = Date.now();
+  gateway.lateSegment(TOP, missing, 10);
+
+  const lowerUris = RUNGS.map((rung) => rung.name)
+    .filter((rung) => rung !== TOP)
+    .map(rungUri);
+  await expect
+    .poll(async () => lowerUris.includes((await playingUri(page)) ?? ''), {
+      message: `hls.js moves down from ${TOP}`,
+      timeout: FAILOVER_WAIT_MS,
+    })
+    .toBe(true);
+  const downAtMs = Date.now();
+
+  const backAtMs = await waitForSwitchTo(page, TOP, downAtMs, 120_000);
+  report('quality back after penalty', {
+    missing,
+    downAfterMs: downAtMs - missingAtMs,
+    backAfterMs: backAtMs - downAtMs,
+  });
+  await expectPlaysOn(page, `back on ${TOP}`);
+  await expectNoFatalErrorOrRestart(page);
+  expectOnlyKnownRequests(gateway);
+});
+
 /** A quality that cannot be switched to, and how the fake leaves it so. */
 const UNUSABLE: { why: string; rung: RungName; leave: (gateway: LadderGateway, rung: RungName) => void }[] = [
   { why: 'finished', rung: '360p', leave: (gateway, rung) => gateway.finish(rung, 20_000) },

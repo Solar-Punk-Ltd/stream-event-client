@@ -11,6 +11,7 @@ import { attachQoeTracking, initialMetrics, QoeMetrics } from './overlays/qoe/us
 import { CustomFragmentLoader, CustomManifestLoader, manifestFetcher } from './CustomManifestLoader';
 import { FEED_STATE_LIVE, FeedState } from './feedState';
 import { LiveGapBudgetPerStream, skipFailedLiveSegment } from './liveSegmentGaps';
+import { clearOtherLevelsFragmentErrors } from './levelErrors';
 import { attachLiveSyncToSegmentLength } from './liveSyncLength';
 import { ManifestStateManager } from './ManifestManagement';
 import { nextMediaErrorAction, NO_MEDIA_ERRORS_YET, recoverFromMediaError } from './mediaErrorRecovery';
@@ -467,8 +468,11 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
       );
 
       hls.on(Events.FRAG_LOADED, () => manifestFetcher.reportSegmentLoad({ loaded: true }));
-      hls.on(Events.FRAG_BUFFERED, () => {
+      hls.on(Events.FRAG_BUFFERED, (_event, data) => {
         pendingStartS = undefined;
+        if (hls) {
+          clearOtherLevelsFragmentErrors(hls, data);
+        }
       });
       hls.on(Events.LEVEL_LOADED, (_event, data) => {
         isRecordingTimeline ??= !data.details.live;
