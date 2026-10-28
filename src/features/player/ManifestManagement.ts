@@ -535,9 +535,14 @@ const DEADLINE_PASSED = Symbol('deadline passed');
  * status was read. Nothing arrived at all.
  */
 export class RungNotReadyError extends Error {
+  /**
+   * @param takenOut Whether the player took the rung's level out, in which case the playlist loader leaves the
+   *   request unanswered, for the reason {@link RungRefusedError} gives.
+   */
   constructor(
     readonly hexTopic: string,
     readonly deadlineMs: number,
+    readonly takenOut: boolean,
   ) {
     super(`Rung ${hexTopic} had no playlist within ${deadlineMs}ms`);
     this.name = 'RungNotReadyError';
@@ -1014,7 +1019,13 @@ export class ManifestFetcher {
       `Rung ${hexTopic} produced no playlist in ${waitedMs}ms, so this level is failed rather ` +
         'than waited on. This gateway may not hold that rung.',
     );
-    throw new RungNotReadyError(hexTopic, waitedMs);
+    // Taken out like a rung that stopped. Only failed, hls.js would choose it again each time the level penalty
+    // (`errorPenaltyExpireMs`) runs out and stall on this same wait every time.
+    const takenOut = this.feedHealth.recordRungStopped(hexTopic, {
+      reason: `no playlist in ${waitedMs} ms`,
+      failoverTo: null,
+    });
+    throw new RungNotReadyError(hexTopic, waitedMs, takenOut);
   }
 
   /**

@@ -112,4 +112,27 @@ describe('a level request for a rung whose feed the gateway cannot read', () => 
     expect((error as RungNotReadyError).hexTopic).toBe(rungTopicHex);
     expect((error as Error).message).toContain(rungTopicHex);
   });
+
+  it('announces the rung stopped, with no rung to go to, so the player takes it out', async () => {
+    const announced: [string, string | null][] = [];
+    const stopListening = fetcher.feedHealth.onRungStopped((hexTopic, detail) => {
+      announced.push([hexTopic, detail.failoverTo]);
+      return true;
+    });
+    await fetcher.fetchSource(SOURCE_URL);
+
+    const error = await fetcher.fetch(RUNG_URL).catch((reason: unknown) => reason);
+    stopListening();
+
+    expect(announced).toEqual([[rungTopicHex, null]]);
+    expect((error as RungNotReadyError).takenOut).toBe(true);
+  });
+
+  it('says the rung was not taken out when no player took it, so its request is still failed for hls.js', async () => {
+    await fetcher.fetchSource(SOURCE_URL);
+
+    const error = await fetcher.fetch(RUNG_URL).catch((reason: unknown) => reason);
+
+    expect((error as RungNotReadyError).takenOut).toBe(false);
+  });
 });

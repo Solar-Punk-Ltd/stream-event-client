@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it, vi } from 'vitest';
 
 import { CustomManifestLoader, manifestFetcher } from '../src/features/player/CustomManifestLoader';
-import { RungRefusedError } from '../src/features/player/ManifestManagement';
+import { RungNotReadyError, RungRefusedError } from '../src/features/player/ManifestManagement';
 import { buildPlayerConfig } from '../src/features/player/playerConfig';
 import { buildMasterPlaylist, buildSwarmUri } from '../src/features/player/playlist';
 import { attachRungFailover } from '../src/features/player/rungHealth';
@@ -50,13 +50,34 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** What the poller and `ManifestFetcher.fetch` do with a rung refused at a switch. */
+function refusedAtASwitch(): never {
+  manifestFetcher.feedHealth.recordRungStopped(hexOf(TOP.name), {
+    reason: "its newest segment is 496s behind the playing quality's",
+    failoverTo: hexOf(RUNGS[0].name),
+  });
+  throw new RungRefusedError(hexOf(TOP.name));
+}
+
+/** What `ManifestFetcher.fetch` does with a rung that produced no playlist before its deadline. */
+function notReadyInTime(): never {
+  const takenOut = manifestFetcher.feedHealth.recordRungStopped(hexOf(TOP.name), {
+    reason: 'no playlist in 20000 ms',
+    failoverTo: null,
+  });
+  throw new RungNotReadyError(hexOf(TOP.name), 20_000, takenOut);
+}
+
 /**
  * Plays the ladder from its top rung while that rung is refused. The mocked fetch stands in for two parts
  * of the real code: the poller, which announces the rung stopped through `feedHealth.recordRungStopped`
  * and so takes its level out, and `ManifestFetcher.fetch`, which then ends the request with
  * `RungRefusedError`.
  */
-async function playWhileTopIsRefused(finished: boolean): Promise<{ errors: ErrorData[]; levels: number[] }> {
+async function playWhileTopIsRefused(
+  finished: boolean,
+  refuseTop: () => never = refusedAtASwitch,
+): Promise<{ errors: ErrorData[]; levels: number[] }> {
   vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   const renditions = RUNGS.map((rung) => ({
     name: rung.name,
@@ -71,11 +92,7 @@ async function playWhileTopIsRefused(finished: boolean): Promise<{ errors: Error
     const rung = RUNGS.find((candidate) => url.endsWith(`/${candidate.name}`));
     assert.ok(rung, `a level request for ${url}, which is no rung of this ladder`);
     if (rung === TOP) {
-      manifestFetcher.feedHealth.recordRungStopped(hexOf(TOP.name), {
-        reason: "its newest segment is 496s behind the playing quality's",
-        failoverTo: hexOf(RUNGS[0].name),
-      });
-      throw new RungRefusedError(hexOf(TOP.name));
+      refuseTop();
     }
     return mediaPlaylist(rung.name, finished);
   });
@@ -122,6 +139,19 @@ describe('a rung refused at a switch is taken out without stopping the player', 
       [],
     );
     assert.equal(hls?.levels.length, RUNGS.length - 1, 'the refused rung was not taken out');
+    assert.ok(levels.length > 0 && !levels.includes(TOP.height), `levels loaded: ${levels.join(', ')}`);
+  });
+});
+
+describe('a rung that produced no playlist in time is taken out the same way', () => {
+  it('raises no fatal error, carries on with a rung that is left, and leaves no level for the penalty to bring back', async () => {
+    const { errors, levels } = await playWhileTopIsRefused(false, notReadyInTime);
+
+    assert.deepEqual(
+      errors.filter((error) => error.fatal).map((error) => error.details),
+      [],
+    );
+    assert.equal(hls?.levels.length, RUNGS.length - 1, 'the rung with no playlist was not taken out');
     assert.ok(levels.length > 0 && !levels.includes(TOP.height), `levels loaded: ${levels.join(', ')}`);
   });
 });

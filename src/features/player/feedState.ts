@@ -43,7 +43,8 @@ interface RungStoppedDetail {
   readonly failoverTo: string | null;
 }
 
-type RungStoppedListener = (rungTopicId: string, detail: RungStoppedDetail) => void;
+/** Answers whether it took the rung out of the player. */
+type RungStoppedListener = (rungTopicId: string, detail: RungStoppedDetail) => boolean;
 
 /**
  * How long to wait before asking a failing gateway again, after its first failure. Doubles per
@@ -488,15 +489,21 @@ export class FeedHealthTracker {
     };
   }
 
-  /** Tells every {@link onRungStopped} listener that this rung stopped, and where to go instead. */
-  recordRungStopped(rungTopicId: string, detail: RungStoppedDetail): void {
+  /**
+   * Tells every {@link onRungStopped} listener that this rung stopped, and where to go instead.
+   *
+   * @returns Whether a listener took the rung out of its player.
+   */
+  recordRungStopped(rungTopicId: string, detail: RungStoppedDetail): boolean {
+    let takenOut = false;
     for (const listener of [...this.rungStoppedListeners]) {
       try {
-        listener(rungTopicId, detail);
+        takenOut = listener(rungTopicId, detail) || takenOut;
       } catch (error) {
         console.error('Rung stopped listener threw:', error);
       }
     }
+    return takenOut;
   }
 
   /**

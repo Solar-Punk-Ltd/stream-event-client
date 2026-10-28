@@ -237,7 +237,9 @@ its own loaders (`CustomManifestLoader.ts`):
     playlist they stand on, and a join from a time marker takes the `segmentMs` the marker names, which is the stage's
     `HLS_FRAGMENT`.
 - **A quality's first playlist** is waited for 20 s, the poller's 15 s search and 5 s more, and then that quality is
-  failed so hls.js tries another, because a gateway that does not hold a quality never answers for it.
+  taken out of the ladder like one that stopped, because a gateway that does not hold a quality never answers for it.
+  Only failed, hls.js would choose it again whenever its 60 s error penalty ran out and wait the 20 s once more. The
+  last quality left is failed instead, as before.
 - **A slow source.** The `ManifestFetcher` times how long the source it reads from takes to answer that a slot is not
   there, over the latest 16 such answers (`sourceMissCost.ts`).
   - Once five have been answered, the source is slow when the middle one of them is over 3 s. Before that it is slow

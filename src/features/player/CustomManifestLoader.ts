@@ -11,7 +11,7 @@ import Hls from 'hls.js';
 
 import { RequestJitter, StaggeredTask } from '@/shared/requestJitter';
 
-import { ManifestFetcher, RungRefusedError } from './ManifestManagement';
+import { ManifestFetcher, RungNotReadyError, RungRefusedError } from './ManifestManagement';
 
 export const manifestFetcher = new ManifestFetcher();
 
@@ -54,7 +54,7 @@ export class CustomManifestLoader extends PlaylistLoader {
         // cannot be answered as cancelled either. hls.js cancels it itself: in 1.7.3, when its level list
         // changes, it aborts a pending level request whose level has left the list
         // (`onLevelsUpdated` in its playlist loader), and nothing waits on this answer after that.
-        if (error instanceof RungRefusedError) {
+        if (error instanceof RungRefusedError || (error instanceof RungNotReadyError && error.takenOut)) {
           return;
         }
         callbacks.onError?.({ code: 0, text: error.message }, context, null, this.stats);

@@ -167,7 +167,7 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
         `[SwarmHls] rung ${rungTopicId} was reported stopped and is not one of this player's ` +
           `${hls.levels.length} level(s), so there is nothing to drop`,
       );
-      return;
+      return false;
     }
 
     const level = hls.levels[index];
@@ -178,7 +178,7 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
       console.warn(
         `Rung ${level.height}p has stopped being produced (${reason}) and is the only one left, so playback stays on it`,
       );
-      return;
+      return false;
     }
 
     // Read BEFORE the removal, because the removal is what sets `loadLevel` to -1 and the two
@@ -211,6 +211,7 @@ export function attachRungFailover(hls: Hls, feedHealth: FeedHealthTracker): () 
         forgetLastAppendedFragment(hls);
       }
     }
+    return true;
   });
 }
 
