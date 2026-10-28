@@ -155,3 +155,109 @@ describe('a rung that produced no playlist in time is taken out the same way', (
     assert.ok(levels.length > 0 && !levels.includes(TOP.height), `levels loaded: ${levels.join(', ')}`);
   });
 });
+
+const MID_PLAY_RUNGS = [
+  { name: 'mid-360p', height: 360, bandwidth: 700_000 },
+  { name: 'mid-480p', height: 480, bandwidth: 1_200_000 },
+  { name: 'mid-720p', height: 720, bandwidth: 2_800_000 },
+  { name: 'mid-1080p', height: 1080, bandwidth: 5_000_000 },
+] as const;
+
+function livePlaylist(name: string, firstSequence: number): string {
+  const lines = ['#EXTM3U', '#EXT-X-VERSION:3', '#EXT-X-TARGETDURATION:2', `#EXT-X-MEDIA-SEQUENCE:${firstSequence}`];
+  for (let i = 0; i < 10; i++) {
+    const sequence = firstSequence + i;
+    lines.push(`#EXT-X-PROGRAM-DATE-TIME:${new Date(Date.UTC(2026, 9, 28, 10) + sequence * 2000).toISOString()}`);
+    lines.push('#EXTINF:2.0,', `https://gateway.example.com/${name}/${sequence}.ts`);
+  }
+  return lines.join('\n') + '\n';
+}
+
+/**
+ * Plays `playing`, switches to `switchTo`, whose playlist never comes, and then does what `ManifestFetcher.fetch`
+ * does at the deadline. Answers the rung hls.js loads next and whether the playing rung kept its playlist.
+ */
+async function switchToARungThatNeverAnswers(
+  playing: number,
+  switchTo: number,
+  bandwidth: number,
+): Promise<{ nextHeight: number | undefined; playingKeptItsPlaylist: boolean }> {
+  vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  const renditions = MID_PLAY_RUNGS.map((rung) => ({
+    name: rung.name,
+    topic: rung.name,
+    bandwidth: rung.bandwidth,
+    avgBandwidth: rung.bandwidth,
+    width: Math.round((rung.height * 16) / 9),
+    height: rung.height,
+  }));
+  const silent = MID_PLAY_RUNGS[switchTo];
+  let failSilent: (reason: unknown) => void = () => {};
+  let sequence = 300;
+  vi.spyOn(manifestFetcher, 'fetchSource').mockResolvedValue(buildMasterPlaylist(OWNER, renditions));
+  vi.spyOn(manifestFetcher, 'fetch').mockImplementation((url: string) => {
+    const rung = MID_PLAY_RUNGS.find((candidate) => url.endsWith(`/${candidate.name}`));
+    assert.ok(rung, `a level request for ${url}, which is no rung of this ladder`);
+    if (rung === silent) {
+      return new Promise<string>((_resolve, reject) => {
+        failSilent = reject;
+      });
+    }
+    sequence += 1;
+    return Promise.resolve(livePlaylist(rung.name, sequence));
+  });
+
+  const player = new Hls(buildPlayerConfig({ pLoader: CustomManifestLoader as never }));
+  hls = player;
+  const detach = attachRungFailover(player, manifestFetcher.feedHealth);
+  await new Promise<void>((resolve) => {
+    player.on(Events.MANIFEST_PARSED, () => {
+      player.startLevel = MID_PLAY_RUNGS.length - 1;
+      player.startLoad();
+      resolve();
+    });
+    player.loadSource(buildSwarmUri(OWNER, 'mid-group'));
+  });
+  player.nextLoadLevel = playing;
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  // Past the start: jsdom plays no media, so the stream controller is told what a playing viewer's would hold, and
+  // which rung is on screen.
+  const streamController = (player as unknown as { streamController: Record<string, unknown> }).streamController;
+  streamController._hasEnoughToStart = true;
+  streamController.fragPlaying = { level: playing };
+  player.bandwidthEstimate = bandwidth;
+
+  player.nextLoadLevel = switchTo;
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  // Waiting on a playlist that never comes, hls.js has no fragment of the new level requested yet.
+  streamController.startFragRequested = false;
+
+  const takenOut = manifestFetcher.feedHealth.recordRungStopped(hexOf(silent.name), {
+    reason: 'no playlist in 20000 ms',
+    failoverTo: null,
+  });
+  const nextHeight = player.levels[player.loadLevel]?.height;
+  const playingKeptItsPlaylist = Boolean(
+    player.levels.find((level) => level.height === MID_PLAY_RUNGS[playing].height)?.details,
+  );
+  failSilent(new RungNotReadyError(hexOf(silent.name), 20_000, takenOut));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  detach();
+  return { nextHeight, playingKeptItsPlaylist };
+}
+
+describe('a rung with no playlist, taken out while hls.js was switching to it mid-play', () => {
+  it('sends a viewer switching down back to the rung on screen, not to the start level', async () => {
+    const { nextHeight, playingKeptItsPlaylist } = await switchToARungThatNeverAnswers(2, 1, 900_000);
+
+    assert.equal(nextHeight, 720);
+    assert.ok(playingKeptItsPlaylist, 'the playing rung kept the playlist its next reload aligns to');
+  });
+
+  it('sends a viewer switching up back to the rung on screen, with its playlist kept', async () => {
+    const { nextHeight, playingKeptItsPlaylist } = await switchToARungThatNeverAnswers(2, 3, 20_000_000);
+
+    assert.equal(nextHeight, 720);
+    assert.ok(playingKeptItsPlaylist, 'the playing rung kept the playlist its next reload aligns to');
+  });
+});
