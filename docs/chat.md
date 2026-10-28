@@ -128,15 +128,17 @@ under their chat address, as **Own feed: a1b2…c3d4/5e6f…7a8b**, its owner an
 copies both in full as `owner/topic`. Opening the details reads nothing more.
 
 A **Verify** button compares the own feed with the chat only when pressed, and says **Checked 12 of 40** while it
-reads, counting the entries of the chat feed and of the own feed, with a **Stop** button. It then says how many
-messages from the sender the chat holds and whether every signature is valid, naming the ones that fail.
+reads, counting the entries of the chat feed and of the own feed, with a **Stop** button. It then says first whether
+**this message is in their own feed**, and after that only what disagrees, each line shown only when there is one:
 
-- It splits them by who paid, as each message's signed `via` says: **X on their own stamp, all X in their own feed**,
-  or how many of those are missing from their own feed, and **Y paid by the gateway, which have no own-feed copy**,
-  since a message the gateway paid for never gets a copy and so is never missing.
-- It lists the messages missing from their own feed and the copies in their own feed that are missing from the chat
-  feed, five of each at most, newest first, and says whether this message is in their own feed.
-- It says no own feed found when none is found, since copies that have not reached Swarm yet look the same as none.
+- **X messages in this chat but not in their own feed**, of the sender's messages on their own stamp. A message the
+  gateway paid for never gets a copy, as each message's signed `via` says, so it is never counted missing.
+- **Y messages in their own feed but not in this chat**.
+- **Z carrying their address with a signature that does not match**.
+- Each count names its messages, five at most, newest first. A check that found nothing wrong shows the first line
+  alone.
+- It says no own feed found for them when none is found, since copies that have not reached Swarm yet look the same
+  as none.
   Their own feed could not be read when a read fails. Their own feed is too large to check when it names more entries
   than the sender's messages in the chat and 25 more, or more than 1,000.
 - When the source answers the chat but turns away the sender's own feed, as an event gateway that serves only the chat
