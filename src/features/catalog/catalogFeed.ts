@@ -21,9 +21,9 @@ const MAX_WALK_PER_READ = 32;
  * The window of the one head lookup a reader makes, in milliseconds, three times a slot read's.
  *
  * Bee finds a feed's head by searching forward from its first index in fixed rounds, so the lookup
- * costs more the higher the head sits. The catalog gains a slot per broadcast and is never reset, and
- * past about fifteen hundred slots its head took longer than the ordinary ten seconds through a
- * gateway. Cut at ten, the lookup never finished, the reader never held a position, every poll asked
+ * costs more the higher the head sits. The catalog gains a slot per broadcast and is never reset, so a
+ * long-lived catalog's head can take longer than the ordinary ten seconds through a gateway. Cut at
+ * ten, the lookup never finished, the reader never held a position, every poll asked
  * for the head again, and the stream list showed as failing on a gateway that was answering.
  *
  * Only the head lookup gets it. Every slot read after it stays on the ordinary window.
