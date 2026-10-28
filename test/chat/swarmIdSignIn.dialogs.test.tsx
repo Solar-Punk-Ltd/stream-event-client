@@ -90,7 +90,7 @@ describe('signing in with Swarm ID from My Swarm', () => {
     await header(await fakeSwarmId());
     click(button('My Swarm'));
 
-    expect(dialog()?.textContent).toContain('Or sign in with your Swarm ID.');
+    expect(dialog()?.textContent).not.toContain('Or sign in with your Swarm ID.');
     expect(queryButton('Chat as guest')).toBeTruthy();
     expect(swarmIdButton('Sign in with Swarm ID').disabled).toBe(false);
   });
@@ -303,6 +303,19 @@ describe('the Swarm ID button in My Swarm', () => {
     swarmId.client().closeWindow();
     await settle();
     expect(working(), 'gone once the window closed').toBeFalsy();
+  });
+
+  it("hands the frame no busy label, so its own does not show through the spinner's label over it", async () => {
+    const swarmId = await fakeSwarmId();
+    await header(swarmId);
+    click(button('My Swarm'));
+    await settle();
+
+    const mounted = swarmId.client().buttons.filter(({ unmounted }) => !unmounted);
+    expect(mounted.length).toBeGreaterThan(0);
+    for (const shown of mounted) {
+      expect(shown.options.config?.busyText).toBe('');
+    }
   });
 
   it('says when the browser blocked the window, honestly: only the button opens it, so the line says what to allow', async () => {

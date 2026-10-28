@@ -187,9 +187,12 @@ export function SwarmIdButton({
   );
 }
 
-/** The label is also the accessible name, so each frame's button is named by what it does here. */
+/**
+ * The label is also the accessible name, so each frame's button is named by what it does here. While its window is
+ * open the frame's own busy label would show through the page's spinner over it, so the frame is given none.
+ */
 function configOf(text: string, variant: ButtonVariant, size: SwarmIdButtonSize) {
-  return { text, ariaLabel: text, ...swarmIdButtonLook(variant, size) };
+  return { text, busyText: '', ariaLabel: text, ...swarmIdButtonLook(variant, size) };
 }
 
 /**
@@ -227,10 +230,6 @@ export function SwarmIdOffer() {
   }
   return (
     <div className="swarm-id-offer">
-      <p className="swarm-id-hint">
-        Or sign in with your Swarm ID. Your messages carry its confirmed badge on every device, and you can send them
-        with your own stamp.
-      </p>
       <SwarmIdButton action="sign-in" text={SIGN_IN_LABEL} />
       <SignInProblem />
     </div>

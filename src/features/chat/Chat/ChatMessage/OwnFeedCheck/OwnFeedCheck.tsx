@@ -37,14 +37,22 @@ const MISSING_FROM_CHAT = 'Missing from the chat feed';
 
 const shortHex = (hex: string) => `${hex.slice(0, KEPT_DIGITS)}…${hex.slice(-KEPT_DIGITS)}`;
 
-function MessageList({ label, records }: { readonly label: string; readonly records: readonly OwnFeedRecord[] }) {
+interface MessageListProps {
+  readonly label: string;
+  /** What the list's count reads as, such as "2 messages in this chat but not in their own feed". */
+  readonly line: (count: string) => string;
+  readonly records: readonly OwnFeedRecord[];
+}
+
+/** A count of `records` and the newest of them, shown only when there is at least one. */
+function MessageList({ label, line, records }: MessageListProps) {
   if (records.length === 0) {
     return null;
   }
   const more = records.length - LISTED_MISSING;
   return (
     <div className="own-feed-missing" aria-label={label} role="group">
-      <span className="own-feed-hint">{label}</span>
+      <span>{line(messagesText(records.length))}</span>
       <ul>
         {records.slice(0, LISTED_MISSING).map(({ index, message }) => (
           <li key={`${index}-${message.sig}`}>{message.text}</li>
@@ -79,46 +87,17 @@ function OwnFeedAddress({ sender, chatTopic }: { readonly sender: string; readon
   );
 }
 
-function stampLine({ chatOnOwnStamp, own, missingFromOwnFeed }: OwnFeedComparison): string {
-  const onOwnStamp = chatOnOwnStamp.length;
-  if (onOwnStamp === 0) {
-    return 'None on their own stamp';
-  }
-  if (own === null) {
-    return `${onOwnStamp} on their own stamp, and no own feed found`;
-  }
-  if (missingFromOwnFeed.length === 0) {
-    return onOwnStamp === 1
-      ? '1 on their own stamp, in their own feed'
-      : `${onOwnStamp} on their own stamp, all ${onOwnStamp} in their own feed`;
-  }
-  return `${onOwnStamp} on their own stamp, ${missingFromOwnFeed.length} missing from their own feed`;
-}
-
-function gatewayLine(byGateway: number): string {
-  return byGateway === 1
-    ? '1 paid by the gateway, which has no own-feed copy'
-    : `${byGateway} paid by the gateway, which have no own-feed copy`;
-}
-
-function signaturesLine({ inChat, badSignatures }: OwnFeedComparison): string {
-  const fromThem = `${messagesText(inChat.length + badSignatures.length)} from them in this chat`;
-  if (badSignatures.length === 0) {
-    return inChat.length === 1 ? `${fromThem}, its signature valid` : `${fromThem}, all signatures valid`;
-  }
-  return `${fromThem}, ${badSignatures.length} with a signature that does not match`;
-}
-
+/**
+ * Whether this message is in their own feed first, then only what disagrees: their messages in the chat with no copy
+ * in their own feed, copies in their own feed the chat does not hold, and messages carrying their address whose
+ * signature does not match. A check that found nothing wrong says the first line alone.
+ */
 function Result({ comparison, signature }: { readonly comparison: OwnFeedComparison; readonly signature: string }) {
   return (
     <>
-      <span>{signaturesLine(comparison)}</span>
-      <MessageList label={BAD_SIGNATURES} records={comparison.badSignatures} />
-      <span>{stampLine(comparison)}</span>
-      <MessageList label={MISSING_FROM_OWN_FEED} records={comparison.missingFromOwnFeed} />
-      <MessageList label={MISSING_FROM_CHAT} records={comparison.missingFromChat} />
-      {comparison.byGateway.length > 0 && <span>{gatewayLine(comparison.byGateway.length)}</span>}
-      {comparison.own !== null && (
+      {comparison.own === null ? (
+        <span className="own-feed-this">No own feed found for them in this chat</span>
+      ) : (
         <span className="own-feed-this">
           {isInOwnFeed(comparison, signature) ? (
             <>
@@ -138,6 +117,21 @@ function Result({ comparison, signature }: { readonly comparison: OwnFeedCompari
           )}
         </span>
       )}
+      <MessageList
+        label={MISSING_FROM_OWN_FEED}
+        line={(count) => `${count} in this chat but not in their own feed`}
+        records={comparison.missingFromOwnFeed}
+      />
+      <MessageList
+        label={MISSING_FROM_CHAT}
+        line={(count) => `${count} in their own feed but not in this chat`}
+        records={comparison.missingFromChat}
+      />
+      <MessageList
+        label={BAD_SIGNATURES}
+        line={(count) => `${count} carrying their address with a signature that does not match`}
+        records={comparison.badSignatures}
+      />
     </>
   );
 }

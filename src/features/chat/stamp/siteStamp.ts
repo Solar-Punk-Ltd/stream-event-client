@@ -42,6 +42,11 @@ export function siteStampOf(batch: SwarmIdPostageBatch): SiteStamp {
   return { label: batch.label.trim() || null, percentUsed, daysLeft, state: stateOf(batch) };
 }
 
+/** The same stamp, known to have run out whatever its figures said, as when Swarm ID refused to stamp with it. */
+export function ranOut(stamp: SiteStamp): SiteStamp {
+  return { ...stamp, daysLeft: 0, state: SITE_STAMP_RAN_OUT };
+}
+
 /** A line above the chat's message field, and whether a message on this stamp can be sent at all. */
 export interface StampWarning {
   readonly title: string;

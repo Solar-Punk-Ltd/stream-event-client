@@ -186,6 +186,23 @@
   }
 }
 
+// The browser's own arrow sits against the border, so a select draws its own chevron, centred and set in from the edge
+// as far as the text is from the other one, from two half-squares in the secondary text colour.
+$select-chevron-half: 5px;
+
+select.connect-input {
+  padding-right: calc(var(--spacing-sm-md) * 2 + #{$select-chevron-half * 2});
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-text-secondary) 50%),
+    linear-gradient(135deg, var(--color-text-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - var(--spacing-sm-md) - #{$select-chevron-half * 2}) 55%,
+    calc(100% - var(--spacing-sm-md) - #{$select-chevron-half}) 55%;
+  background-size: $select-chevron-half $select-chevron-half;
+  background-repeat: no-repeat;
+}
+
 .connect-report {
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);

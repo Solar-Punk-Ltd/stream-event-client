@@ -88,6 +88,11 @@
     border-right-color: currentColor;
   }
 
+  // Working, the frame under it still paints the button's fill, which a second fill would darken where it is see-through.
+  &.swarm-id-button-working {
+    background: transparent;
+  }
+
   // Loading, a band in the label's colour crosses the button from left to right, as a skeleton does, so it shows on a
   // light button as on a dark or orange one. Without motion the band stays as a still tint over the whole button.
   &.loading::after {

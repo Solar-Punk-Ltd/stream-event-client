@@ -45,9 +45,12 @@ A message Swarm ID will not stamp, or the node refuses, shows "Not sent." with t
 the gateway.
 
 - A refusal a resend cannot mend, such as a stamp that ran out, fails the message at once, and Retry tries it again on
-  the same stamp.
+  the same stamp. A stamp Swarm ID refused as ran out also shows as ran out in My Swarm and above the message field
+  from then on, even where the figures Swarm ID reports for it still say time is left, until Swarm ID names another
+  stamp for this site.
 - A node that did not answer, or a busy Swarm ID, is resent by the chat on its own, on the same stamp and through the
-  same node.
+  same node. Meanwhile the message says why, such as "Sending… Swarm ID is still checking your session. Trying
+  again.", until a try goes through.
 - When Swarm ID says it has given this site no stamp, which is every site until the person picks one there, the
   message reads "Not sent. Swarm ID has given this site no stamp. Choose one in Swarm ID." The field above the message
   box shows No stamp for this site with Choose a stamp in Swarm ID at once, even when the stamp read last named one.

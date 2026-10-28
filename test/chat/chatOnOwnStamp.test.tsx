@@ -246,6 +246,71 @@ describe('a chat paid for with my own stamp', () => {
     expect(chat.retrySendMessage).toHaveBeenCalled();
   });
 
+  it('shows the stamp as ran out once Swarm ID refused it for that, though its figures said time was left', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    const swarmId = await watchPage();
+    expect(seen.chatStamp?.warning, 'the figures Swarm ID reported say the stamp is fine').toBeNull();
+    swarmId.client().stampRefusal = Object.assign(new Error('expired'), {
+      code: 'upload-unavailable',
+      reason: 'stamp-expired',
+    });
+    const mine = signedMessage('refused', {
+      key: seen.chatUser!.session!.privateKey,
+      name: seen.chatUser!.session!.username,
+      binding: seen.chatUser!.session!.binding,
+      via: MessageVia.OWN_STAMP,
+    });
+    const chat = FakeSwarmChat.latest();
+    await act(async () => {
+      await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(mine))).catch(() => {});
+    });
+    await settle();
+
+    expect(seen.chatStamp?.warning?.title).toBe(STAMP_RAN_OUT);
+    expect(button('Send').disabled).toBe(true);
+
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    await settle();
+
+    expect(swarmId.client().postageBatchReads, 'read again on focus').toBeGreaterThan(1);
+    expect(seen.chatStamp?.warning?.title, 'a read of the same stamp does not undo the refusal').toBe(STAMP_RAN_OUT);
+  });
+
+  it('says why a message is still being sent while Swarm ID asks for it to be tried again, and stops once it went', async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    const swarmId = await watchPage();
+    swarmId.client().stampRefusal = Object.assign(new Error('unconfirmed'), {
+      code: 'upload-unavailable',
+      reason: 'session-unconfirmed',
+    });
+    const mine = signedMessage('waiting', {
+      key: seen.chatUser!.session!.privateKey,
+      name: seen.chatUser!.session!.username,
+      binding: seen.chatUser!.session!.binding,
+      via: MessageVia.OWN_STAMP,
+    });
+    const chat = FakeSwarmChat.latest();
+    const write = () =>
+      act(async () => {
+        await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(mine))).catch(() => {});
+      });
+    await act(async () => chat.emitter.emit(EVENTS.MESSAGE_REQUEST_INITIATED, messageData(mine, -1)));
+    await write();
+    await settle();
+
+    expect(chatRegion()?.textContent).toContain('Sending… Swarm ID is still checking your session. Trying again.');
+    expect(chatRegion()?.textContent).not.toContain('Not sent.');
+
+    swarmId.client().stampRefusal = null;
+    await write();
+    await settle();
+
+    expect(chatRegion()?.textContent).toContain('Sending…');
+    expect(chatRegion()?.textContent).not.toContain('still checking your session');
+  });
+
   it('offers to choose a stamp in Swarm ID when it says it gave this site none, though a stamp was shown', async () => {
     chatOnMyBeeNode();
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
@@ -448,6 +513,34 @@ describe('a chat paid for with my own stamp', () => {
     expect(chatRegion()?.textContent).not.toContain('Your browser blocked the Swarm ID window.');
     expect(seen.chatStamp?.warning, 'nothing holds a message any more').toBeNull();
   });
+
+  it("does not take the page's own hold on a stamp that ran out for Swarm ID's word, so the stamp picked next is not held", async () => {
+    chatOnMyBeeNode();
+    saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
+    const swarmId = await watchPage({ ...BATCH, utilization: 1 });
+    const mine = signedMessage('held resend', {
+      key: seen.chatUser!.session!.privateKey,
+      name: seen.chatUser!.session!.username,
+      binding: seen.chatUser!.session!.binding,
+      via: MessageVia.OWN_STAMP,
+    });
+    const chat = FakeSwarmChat.latest();
+    // Swarm ID already names the new stamp while its figures are still being read, so the bar still holds sending
+    // with the old stamp's figures when the chat resends a message.
+    swarmId.client().postageBatchHangs = true;
+    swarmId.client().pickStamp({ ...BATCH, label: 'A new stamp' });
+    await settle();
+    await act(async () => {
+      await chat.parts?.write?.(new TextEncoder().encode(JSON.stringify(mine))).catch(() => {});
+    });
+    await settle();
+
+    swarmId.client().postageBatchHangs = false;
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    await settle();
+
+    expect(seen.chatStamp?.warning, 'the stamp picked next is not held').toBeNull();
+  });
 });
 
 describe("a sender's own feed in the message details", () => {
@@ -474,6 +567,9 @@ describe("a sender's own feed in the message details", () => {
     feeds.asked.filter((read) => read.endsWith(OWN_TOPIC) || read.startsWith('chunk')).length;
   const listed = (label: string) =>
     [...(section()?.querySelectorAll(`[aria-label="${label}"] li`) ?? [])].map((item) => item.textContent);
+  /** The check's result as its lines read, in order: this message, then each count of what disagrees. */
+  const resultLines = (shown: HTMLElement) =>
+    [...shown.querySelectorAll('.own-feed-this, .own-feed-missing > span:first-child')].map((line) => line.textContent);
 
   /** The watch page on a chat that `feeds` serves through `pageReads`, with `shown` in it and its details open. */
   async function openDetailsOn(feeds: ReturnType<typeof servedFeeds>, shown: ChatMessage, pageReads = feeds.reads) {
@@ -543,15 +639,13 @@ describe("a sender's own feed in the message details", () => {
     expect(window.getSelection()?.toString()).toBe(`${addressOf(SENDER_KEY)}/${OWN_TOPIC}`);
   });
 
-  it('says how many messages are in the chat and that every one on their own stamp is in their own feed', async () => {
+  it('says only that this message is in their own feed when the chat and their own feed agree', async () => {
     const [a, b] = [mine('a'), mine('b')];
     await openDetails(b, [a, b], [a, b]);
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('2 messages from them in this chat, all signatures valid');
-    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
-    expect(shown.textContent).toContain('This message is in their own feed');
+    expect(resultLines(shown)).toEqual(['This message is in their own feed']);
     expect(shown.querySelector('.own-feed-missing')).toBeNull();
   });
 
@@ -566,9 +660,11 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('3 messages from them in this chat');
-    expect(shown.textContent).toContain('3 on their own stamp, 2 missing from their own feed');
-    expect(shown.textContent).toContain('This message is not in their own feed');
+    expect(resultLines(shown)).toEqual([
+      'This message is not in their own feed',
+      '2 messages in this chat but not in their own feed',
+      '1 message in their own feed but not in this chat',
+    ]);
     expect(listed('Missing from their own feed')).toEqual([c.text, b.text]);
     expect(listed('Missing from the chat feed')).toEqual([d.text]);
   });
@@ -580,9 +676,7 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('4 messages from them in this chat, all signatures valid');
-    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
-    expect(shown.textContent).toContain('2 paid by the gateway, which have no own-feed copy');
+    expect(resultLines(shown)).toEqual(['This message is in their own feed']);
     expect(shown.querySelector('[aria-label="Missing from their own feed"]')).toBeNull();
   });
 
@@ -593,7 +687,7 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('2 messages from them in this chat, 1 with a signature that does not match');
+    expect(shown.textContent).toContain('1 message carrying their address with a signature that does not match');
     expect(listed('Signature does not match')).toEqual(['changed after signing']);
   });
 
@@ -635,13 +729,12 @@ describe("a sender's own feed in the message details", () => {
     const [a, b] = [mine('a'), mine('b')];
     const feeds = await openDetails(a, [a], [a]);
     await verify();
-    expect(section()?.textContent).toContain('1 on their own stamp, in their own feed');
+    expect(section()?.textContent).not.toContain('in this chat but not in their own feed');
 
     feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b]);
-    feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, [a, b]);
     const shown = await verify();
 
-    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
+    expect(shown.textContent).toContain('1 message in this chat but not in their own feed');
   });
 
   it('says in one line when the source does not serve their own feed', async () => {
@@ -662,7 +755,7 @@ describe("a sender's own feed in the message details", () => {
     const shown = await verify();
 
     expect(shown.textContent).toContain('This source does not serve their own feed, so it cannot be checked here.');
-    expect(shown.textContent).not.toMatch(/Checked|from them in this chat/);
+    expect(shown.textContent).not.toMatch(/Checked|in their own feed but not|This message is/);
   });
 
   it('says the own feed is too large to check when it names far more entries than the sender sent', async () => {
@@ -729,7 +822,7 @@ describe("a sender's own feed in the message details", () => {
     const shown = await verify();
 
     expect(shown.querySelector('[aria-label="Missing from the chat feed"]')).toBeNull();
-    expect(shown.textContent).toContain('2 on their own stamp, all 2 in their own feed');
+    expect(shown.querySelector('[aria-label="Missing from their own feed"]')).toBeNull();
   });
 
   it('says plainly when no own feed is found, without claiming the sender keeps none', async () => {
@@ -738,9 +831,8 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('1 on their own stamp, and no own feed found');
+    expect(resultLines(shown)[0]).toBe('No own feed found for them in this chat');
     expect(shown.textContent).not.toMatch(/keeps (no|none)/);
-    expect(shown.textContent).toContain('1 message from them in this chat');
   });
 });
 

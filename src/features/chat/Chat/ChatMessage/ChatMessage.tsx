@@ -182,7 +182,11 @@ export function ChatMessage({
             )}
           </p>
         )}
-        {isSending && !isUnconfirmed && <p className="chat-message-status">Sending…</p>}
+        {isSending && !isUnconfirmed && (
+          <p className="chat-message-status">
+            {message.sendProblem ? `Sending… ${message.sendProblem} Trying again.` : 'Sending…'}
+          </p>
+        )}
         {isSending && isUnconfirmed && (
           <p className="chat-message-status">
             Not confirmed yet.{' '}
