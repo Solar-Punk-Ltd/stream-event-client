@@ -102,7 +102,7 @@ describe("a sender's ENS name", () => {
 describe('a name with characters a reader may mistake', () => {
   it('is told apart from a name of plain ASCII', () => {
     expect(hasNonAsciiCharacters('ida.eth')).toBe(false);
-    expect(hasNonAsciiCharacters('vitalik-2.eth')).toBe(false);
+    expect(hasNonAsciiCharacters('alice-2.eth')).toBe(false);
     expect(hasNonAsciiCharacters('іda.eth'), 'a Cyrillic і').toBe(true);
     expect(hasNonAsciiCharacters('🔥.eth')).toBe(true);
   });

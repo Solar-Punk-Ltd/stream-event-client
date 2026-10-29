@@ -83,8 +83,8 @@ describe('joining the chat from My Swarm', () => {
     await header();
     click(button('My Swarm'));
     for (const name of [
-      'vitalik.eth',
-      'Vitalik.ETH',
+      'alice.eth',
+      'Alice.ETH',
       '\uff36\uff29\uff34\uff21\uff2c\uff29\uff2b\uff0e\uff25\uff34\uff28',
     ]) {
       type(input('Your name'), name);
