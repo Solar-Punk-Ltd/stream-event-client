@@ -577,7 +577,7 @@ describe("a sender's own feed in the message details", () => {
     await watchPage(BATCH, ON_THIS_SERVER);
     await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(shown, 0)));
     await waitFor(() => (chatRegion()?.textContent?.includes(shown.text) ? true : null));
-    click(button('Sent with their own stamp, show details'));
+    click(button(/own stamp, show details$/));
     return section()!;
   }
 
@@ -825,7 +825,7 @@ describe("a sender's own feed in the message details", () => {
     await waitFor(() => (chatRegion()?.textContent?.includes(a.text) ? true : null));
     const details = () =>
       [...document.querySelectorAll('button')].filter(
-        (shown) => shown.getAttribute('aria-label') === 'Sent with their own stamp, show details',
+        (shown) => shown.getAttribute('aria-label') === "Sent with the sender's own stamp, show details",
       );
 
     click(details()[0]!);

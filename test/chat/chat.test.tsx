@@ -605,7 +605,7 @@ describe('who sent a message', () => {
     expect(sender().querySelector('.chat-message-name')?.classList.contains('guest')).toBe(true);
     const badge = button('Guest, show details');
     expect(badge.querySelector('svg.sender-badge-guest')).not.toBeNull();
-    expect(queryButton('Sent with their own stamp, show details')).toBeNull();
+    expect(queryButton(/own stamp, show details$/)).toBeNull();
   });
 
   it('marks a Swarm ID sender with the filled hexagon and its check, and the name in the accent colour', async () => {
@@ -683,7 +683,7 @@ describe('who sent a message', () => {
     await open();
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'stamped', via: MessageVia.OWN_STAMP }));
 
-    const stamp = button('Sent with their own stamp, show details');
+    const stamp = button("Sent with the sender's own stamp, show details");
     click(stamp);
     press(document.body, 'Escape');
     expect(details()).toBeNull();
@@ -724,7 +724,7 @@ describe('who sent a message', () => {
     await open();
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'stamped', via: MessageVia.OWN_STAMP }));
 
-    const stamp = button('Sent with their own stamp, show details');
+    const stamp = button("Sent with the sender's own stamp, show details");
     expect(stamp.closest('.chat-message-sender')).toBe(sender());
     expect(stamp.getAttribute('title')).toBe('Own stamp');
     click(stamp);
@@ -733,6 +733,22 @@ describe('who sent a message', () => {
 
     click(button('Guest, show details'));
     expect(details()).toBeNull();
+  });
+
+  it("names the stamp as yours under a message you sent, and as the sender's under anyone else's", async () => {
+    signIn('Ada');
+    await open();
+    await emit(
+      EVENTS.MESSAGE_RECEIVED,
+      message({ id: 'mine', username: 'Ada', key: session!.privateKey, via: MessageVia.OWN_STAMP }),
+    );
+    await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'theirs', username: 'Bea', via: MessageVia.OWN_STAMP }));
+
+    const stamps = [...document.querySelectorAll('.chat-message-sender button[title="Own stamp"]')];
+    expect(stamps.map((stamp) => stamp.getAttribute('aria-label'))).toEqual([
+      'Sent with your own stamp, show details',
+      "Sent with the sender's own stamp, show details",
+    ]);
   });
 });
 
