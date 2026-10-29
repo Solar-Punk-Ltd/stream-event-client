@@ -4,6 +4,7 @@ import { act, createElement, useSyncExternalStore } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { WAITING_WATCH_PAGE_POLL_MS } from '../src/features/catalog/catalogPoll';
 import { markerPeriodAt, markerPeriodStartMs } from '../src/shared/ladderMarker';
 import { StreamWatcher } from '../src/features/player/StreamWatcher/StreamWatcher';
 import { mount, type Mounted } from './helpers/dom';
@@ -30,6 +31,8 @@ const app = vi.hoisted(() => {
   const state = {
     gateway: null as unknown as import('./helpers/fakeLadderGateway').FakeLadderGateway,
     streamList: [] as unknown[],
+    /** The poll's SWR key carries it, so no test opens on the list an earlier one left in SWR's cache. */
+    sourceId: '',
     heldSlot: 0,
     /** When the list's next slot was asked, on the test's clock. */
     listReadsAtMs: [] as number[],
@@ -73,9 +76,9 @@ vi.mock('../src/app/AppProvider', () => ({
       streamList,
       isStreamListLoaded: true,
       chat: null,
-      streamListSourceId: 'waiting-page-markers',
+      streamListSourceId: app.state.sourceId,
       sources: [],
-      parts: { player: 'waiting-page-markers' },
+      parts: { player: app.state.sourceId },
       swarm: {
         reader: () => gateway.reader,
         statusOf: () => ({ state: 'ready' }),
@@ -123,10 +126,10 @@ async function advanceTo(atMs: number): Promise<void> {
 }
 
 /** Opens the watch page on an announced entry, one second into a marker period, with Bee's skip rule on. */
-function openWaitingPage(): FakeLadderGateway {
+function openWaitingPage(sourceId: string): FakeLadderGateway {
   vi.useFakeTimers({ now: Date.UTC(2026, 9, 8, 12, 0, 1) });
   const gateway = new FakeLadderGateway(OWNER);
-  Object.assign(app.state, { gateway, heldSlot: 0, listReadsAtMs: [], playerRenditions: [] });
+  Object.assign(app.state, { gateway, sourceId, heldSlot: 0, listReadsAtMs: [], playerRenditions: [] });
   gateway.publishSlot(LIST_TOPIC, 0, JSON.stringify([entry('scheduled')]));
   gateway.modelSkipList(PEERS, SKIP_MS, Date.now);
   app.setStreamList([entry('scheduled')]);
@@ -181,15 +184,17 @@ function gapsBetween(times: readonly number[]): number[] {
 }
 
 describe('a watch page waiting on an announced stream', () => {
-  it('asks the list at most once a minute while waiting, and plays with the renditions soon after the first marker', async () => {
-    const gateway = openWaitingPage();
+  it('asks the list at most once a poll interval while waiting, and plays with the renditions soon after the first marker', async () => {
+    const gateway = openWaitingPage('waiting-page-markers-poll');
     expect(isPlaying()).toBe(false);
 
     await advance(130_000);
     const readsBeforeLive = [...app.state.listReadsAtMs];
     expect(readsBeforeLive.length, 'the page stopped watching the list for a cancellation').toBeGreaterThan(0);
     for (const gap of gapsBetween(readsBeforeLive)) {
-      expect(gap, 'the list was asked more than once a minute while waiting').toBeGreaterThanOrEqual(60_000);
+      expect(gap, 'the list was asked more often than the poll interval while waiting').toBeGreaterThanOrEqual(
+        WAITING_WATCH_PAGE_POLL_MS,
+      );
     }
 
     // The admin writes the live entry when the first quality reports, before that quality's first
@@ -209,7 +214,7 @@ describe('a watch page waiting on an announced stream', () => {
   });
 
   it('reads the list again only at the next marker when the first read after a marker is too early', async () => {
-    const gateway = openWaitingPage();
+    const gateway = openWaitingPage('waiting-page-markers-too-early');
     await advance(22_000);
     const firstPeriod = markerPeriodAt(Date.now()) + 1;
     const readsBeforeMarkers = app.state.listReadsAtMs.length;

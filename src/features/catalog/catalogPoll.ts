@@ -3,10 +3,9 @@ import type { SWRConfiguration } from 'swr';
 import { WATCH_VIEW_NOT_STARTED, WATCH_VIEW_UNAVAILABLE, WatchPageView } from '@/features/catalog/watchPageView';
 
 /**
- * How often a page that shows the catalog reads it again, in milliseconds.
+ * How often the browse page reads the catalog again, in milliseconds.
  *
- * One number for every page that polls, and both read at the same pace: the browse page always, and
- * the watch page while what it shows depends on the catalog. Both use the same SWR key, so a viewer
+ * The watch page polls the same SWR key at {@link WAITING_WATCH_PAGE_POLL_MS} while it waits, so a viewer
  * moving between the two pages never has two polls running against the gateway.
  *
  * **Every ten seconds, never faster.** Every read asks the list's next slot, which is not written yet,
@@ -16,11 +15,21 @@ import { WATCH_VIEW_NOT_STARTED, WATCH_VIEW_UNAVAILABLE, WatchPageView } from '@
  * times a minute before its write was readable 0.3 to 0.6 s after it (2026-10-29). The gateway also keeps a
  * slot's answer for a second, so its node sees about one ask a second however many pages are open. Ten
  * seconds shows an admin's change on an open page within about that, and keeps a viewer reading through
- * their own node at about six early asks a minute, a few more for a viewer who keeps switching back to the tab. A waiting watch page learns that its stream went live from
- * the ladder's markers (see `watchForLadderMarkers`), so this poll only carries a new or changed entry, a
- * new start time or a cancellation.
+ * their own node at about six early asks a minute, a few more for a viewer who keeps switching back to the tab.
  */
 export const CATALOG_POLL_INTERVAL_MS = 10_000;
+
+/**
+ * How often a watch page waiting on its stream reads the catalog again, in milliseconds.
+ *
+ * **Once a minute, slower than the browse page.** The page learns that its stream went live from the
+ * ladder's markers, each of which prompts a read of the list's next slot, so this poll only carries a new
+ * start time, a title change or a cancellation. Bee skips each peer asked for an unwritten address for a
+ * minute, so on a viewer's own node with few peers a ten second poll used every peer up before the live
+ * entry was written, and the read a marker prompted found none left: the page went live up to about 30 s
+ * late. One ask a minute never runs a node out of peers.
+ */
+export const WAITING_WATCH_PAGE_POLL_MS = 60_000;
 
 /**
  * How often the watch page has to read the catalog again, or null when it need not.
@@ -34,7 +43,7 @@ export const CATALOG_POLL_INTERVAL_MS = 10_000;
  * catalog poll for that case, see `isStreamListLoaded` in `app/AppProvider.tsx`.
  */
 export function watchPageCatalogPollMs(view: WatchPageView): number | null {
-  return view === WATCH_VIEW_NOT_STARTED || view === WATCH_VIEW_UNAVAILABLE ? CATALOG_POLL_INTERVAL_MS : null;
+  return view === WATCH_VIEW_NOT_STARTED || view === WATCH_VIEW_UNAVAILABLE ? WAITING_WATCH_PAGE_POLL_MS : null;
 }
 
 /**

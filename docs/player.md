@@ -49,7 +49,9 @@ Words used here, such as slot, marker, ladder and part, are explained in
     once, about 4 seconds into the period (`StreamWatcher/useListReadAtMarkers.ts`).
   - Each marker found prompts one read of the stream list, and the player starts once the list says live, with the
     stream's renditions.
-  - Apart from that the page reads the list every 10 seconds, for a new start time, a title change or an unpublish.
+  - Apart from that the page reads the list once a minute, for a new start time, a title change or an unpublish.
+    Asking the list's unwritten next slot more often makes a viewer's own node with few peers skip them all for that
+    slot, and the live entry then arrives up to about 30 seconds late.
   - If the stream is unpublished while the page waits, the page says it is no longer available.
 
 ## The watch page
