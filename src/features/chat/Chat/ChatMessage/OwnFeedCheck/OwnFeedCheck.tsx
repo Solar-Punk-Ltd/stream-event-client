@@ -51,7 +51,7 @@ const VIEWER_WORDS: FeedOwnerWords = {
   ownFeed: 'your own feed',
   ownFeedFirst: 'Your own feed',
   address: 'your address',
-  noOwnFeed: 'You have no own feed in this chat.',
+  noOwnFeed: 'No own feed of yours was found in this chat.',
 };
 
 /** Under anyone else's message. */
@@ -59,7 +59,7 @@ const SENDER_WORDS: FeedOwnerWords = {
   ownFeed: "the sender's own feed",
   ownFeedFirst: "The sender's own feed",
   address: "the sender's address",
-  noOwnFeed: 'The sender has no own feed in this chat.',
+  noOwnFeed: "No own feed of the sender's was found in this chat.",
 };
 
 function inChatOnlyLine(count: number, { ownFeed }: FeedOwnerWords): string {
