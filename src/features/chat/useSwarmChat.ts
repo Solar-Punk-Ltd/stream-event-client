@@ -94,6 +94,17 @@ function inChatOrder(a: MessageData, b: MessageData): number {
   return aPending ? a.timestamp - b.timestamp : a.index - b.index;
 }
 
+/** The newest feed index among `messages`, pending ones left out, or null when none is published yet. */
+function newestPublishedIndex(messages: readonly MessageData[]): number | null {
+  let newest: number | null = null;
+  for (const { index } of messages) {
+    if (index !== PENDING_INDEX && (newest === null || index > newest)) {
+      newest = index;
+    }
+  }
+  return newest;
+}
+
 /**
  * A message drawn only from what was verified. The feed's place and the server's receive time are the library's, and
  * every field the message says itself is read from the signed message rather than from the event's copies of it.
@@ -192,6 +203,8 @@ export function useSwarmChat(
   const chatBuildRef = useRef<ChatBuild | null>(null);
   const chatWaitersRef = useRef(new Set<ChatWaiter>());
   const [messages, setMessages] = useState<VisibleMessage[]>([]);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
   const [status, setStatus] = useState<ChatStatus>(CHAT_LOADING);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
@@ -531,6 +544,9 @@ export function useSwarmChat(
 
   const restart = useCallback(() => setRestarts((count) => count + 1), []);
 
+  /** The newest feed index the chat holds now, among its messages of every type, or null while it holds none. */
+  const newestHeldIndex = useCallback(() => newestPublishedIndex(messagesRef.current), []);
+
   /** Writes a sent message's copy into the viewer's own feed, through the chat's write as it is now. */
   const copyToOwnFeed = useCallback(
     (messageId: string, payload: Uint8Array): Promise<CopyOutcome> =>
@@ -557,6 +573,7 @@ export function useSwarmChat(
     restart,
     copyToOwnFeed,
     onOwnSendSettled,
+    newestHeldIndex,
     /** Messages the chat delivered that failed their check, never shown. */
     refusedCount,
   };

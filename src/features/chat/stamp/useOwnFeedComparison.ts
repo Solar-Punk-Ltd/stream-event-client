@@ -3,7 +3,13 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { ChatReads } from '../chatParts';
 import { chatVerifier } from '../verify/chatVerifier';
 
-import { compareOwnFeed, type OwnFeedComparison, OwnFeedRefusedError, OwnFeedTooLargeError } from './ownFeedComparison';
+import {
+  ChatNotReadYetError,
+  compareOwnFeed,
+  type OwnFeedComparison,
+  OwnFeedRefusedError,
+  OwnFeedTooLargeError,
+} from './ownFeedComparison';
 
 /** Where a sender's own feed and the chat are read: the chat's reader on the chat history's source. */
 export interface OwnFeedSource {
@@ -11,6 +17,8 @@ export interface OwnFeedSource {
   readonly chatTopic: string;
   /** The chat server's feed owner. */
   readonly chatOwner: string;
+  /** The newest feed index the chat on screen holds now, or null when it holds none, read as each check starts. */
+  readonly knownNewestIndex: () => number | null;
 }
 
 const OwnFeedSourceContext = createContext<OwnFeedSource | null>(null);
@@ -31,6 +39,7 @@ export const CHECKED = 'checked';
 export const UNREADABLE = 'unreadable';
 export const TOO_LARGE = 'too-large';
 export const REFUSED = 'refused';
+export const CHAT_NOT_READ_YET = 'chat-not-read-yet';
 
 type OwnFeedCheck =
   | { readonly status: typeof NOT_CHECKED }
@@ -38,13 +47,17 @@ type OwnFeedCheck =
   | { readonly status: typeof CHECKED; readonly comparison: OwnFeedComparison }
   | { readonly status: typeof UNREADABLE }
   | { readonly status: typeof TOO_LARGE }
-  | { readonly status: typeof REFUSED };
+  | { readonly status: typeof REFUSED }
+  | { readonly status: typeof CHAT_NOT_READ_YET };
 
 const NOTHING_CHECKED: OwnFeedCheck = { status: NOT_CHECKED };
 
 function failedCheck(error: unknown): OwnFeedCheck {
   if (error instanceof OwnFeedRefusedError) {
     return { status: REFUSED };
+  }
+  if (error instanceof ChatNotReadYetError) {
+    return { status: CHAT_NOT_READ_YET };
   }
   return { status: error instanceof OwnFeedTooLargeError ? TOO_LARGE : UNREADABLE };
 }
@@ -81,6 +94,7 @@ export function useOwnFeedComparison(source: OwnFeedSource | null, sender: strin
         verify: chatVerifier(),
         chatOwner: source.chatOwner,
         chatTopic: source.chatTopic,
+        knownNewestIndex: source.knownNewestIndex(),
         sender,
         timeoutMs: READ_TIMEOUT_MS,
         signal: controller.signal,

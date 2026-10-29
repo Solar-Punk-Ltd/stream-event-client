@@ -9,6 +9,7 @@ import {
   type OwnFeedRecord,
 } from '../../../stamp/ownFeedComparison';
 import {
+  CHAT_NOT_READ_YET,
   CHECKED,
   CHECKING,
   messagesText,
@@ -163,6 +164,9 @@ export function OwnFeedCheck({ sender, signature }: { readonly sender: string; r
         <button type="button" className="own-feed-again own-feed-verify" onClick={() => check()}>
           {VERIFY}
         </button>
+      )}
+      {state.status === CHAT_NOT_READ_YET && (
+        <span className="own-feed-hint">The chat could not be read yet. Try again in a moment.</span>
       )}
       {state.status === REFUSED && (
         <span className="own-feed-hint">This source does not serve their own feed, so it cannot be checked here.</span>
