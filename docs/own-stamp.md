@@ -152,6 +152,6 @@ own stamp in that chat have their copy, as in Own feed: 45 of 47 messages, and 2
 - It says Counting… while it first reads, Your own feed is too large to count past the limits, and that the source does
   not serve your own feed when the source turns that feed away, with Try again.
 
-**A known limit.** The next index is counted from one read of the feed's newest entry each time the chat starts, so a
-chat started again seconds after a send, before that entry can be read back, or another device writing the same feed at
-once, can write a copy at an index already used.
+The next index is counted from one read of the feed's newest entry each time the chat starts, so a chat started again
+seconds after a send, before that entry can be read back, or another device writing the same feed at once, can write a
+copy at an index already used.
