@@ -102,7 +102,7 @@ Swarm ID**, Swarm ID's button again, whose click opens the Swarm ID sign-in wind
   after messages sent, at most every 15 seconds (`siteStamp.ts`, `ChatStamp.tsx`).
 
 A stamp changed directly on Swarm ID's own Apps screen, rather than through this button, reaches an
-open viewer on another domain at its next sign-in with Swarm ID, so until then the viewer may show the old
+open viewer on another domain only at its next sign-in with Swarm ID, so until then the viewer may show the old
 stamp's figures.
 
 A report with no stamp id means Swarm ID gives this site no stamp, and the page shows that at once without reading.

@@ -95,9 +95,9 @@ export function liveLatencyFor(segmentMs: number | null | undefined): LiveLatenc
  *
  * hls.js reads exactly 1 as "never adapt" and then leaves the playback rate alone entirely. Viewers
  * see the stream at normal speed, so a viewer who falls behind the target is not played faster to
- * catch up. A stall leaves the viewer that much
- * further behind, inside the room {@link LIVE_SYNC_DURATION_S} gives, and only past
- * {@link LIVE_MAX_LATENCY_DURATION_S} does hls.js jump them forward to the target.
+ * catch up. A stall leaves the viewer that much further behind, inside the room
+ * {@link LIVE_SYNC_DURATION_S} gives, and only past {@link LIVE_MAX_LATENCY_DURATION_S} does hls.js
+ * jump them forward to the target.
  *
  * Because hls.js never writes the rate, a speed the viewer picks from the native controls stays
  * theirs without any guard.
@@ -132,8 +132,8 @@ export const LIVE_GAP_WINDOW_MS = 5 * 60_000;
  *
  * A live playlist can name a segment a moment before a gateway can hand it over: the uploader pushes the playlist
  * slot to the network synchronously and the segment's chunks deferred, so the one chunk overtakes the hundreds. On
- * the event's development gateway on 2026-10-28, 297 of 8,675 segments were answered 404 first and 200 within two seconds, 7% of the
- * 720p and 1080p ones. hls.js retries no 4xx by itself, so each such 404 cost the viewer a quality.
+ * the event's development gateway on 2026-10-28, 297 of 8,675 segments were answered 404 first and 200 within two
+ * seconds, 7% of the 720p and 1080p ones. hls.js retries no 4xx by itself, so each such 404 cost the viewer a quality.
  *
  * hls.js waits 1 s before the first ask and 2 s before the second (its default `retryDelayMs` doubling), so a
  * late segment costs at most 3 s of buffer, well inside {@link LIVE_SYNC_DURATION_S}.
