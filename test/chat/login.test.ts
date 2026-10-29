@@ -44,11 +44,11 @@ describe('the display name rule', () => {
   });
 
   it.each([
-    ['vitalik.eth'],
-    ['Vitalik.ETH'],
-    ['  vitalik.eth  '],
+    ['alice.eth'],
+    ['Alice.ETH'],
+    ['  alice.eth  '],
     ['\uff36\uff29\uff34\uff21\uff2c\uff29\uff2b\uff0e\uff25\uff34\uff28'],
-    ['vitalik\u3002eth'],
+    ['alice\u3002eth'],
   ])('refuses %s, since a name ending in .eth could pass for a verified ENS name', (raw) => {
     expect(checkDisplayName(raw)).toEqual({ ok: false, problem: ENS_NAME_PROBLEM });
   });
@@ -59,7 +59,7 @@ describe('the display name rule', () => {
 
   it('accepts a name that only mentions eth', () => {
     expect(checkDisplayName('eth fan').ok).toBe(true);
-    expect(checkDisplayName('vitalik.ethereum').ok).toBe(true);
+    expect(checkDisplayName('alice.ethereum').ok).toBe(true);
   });
 
   it('accepts names in any script', () => {

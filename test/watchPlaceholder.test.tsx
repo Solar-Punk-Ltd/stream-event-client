@@ -82,13 +82,13 @@ describe('the watch page in place of the player', () => {
 });
 
 describe('a link the stream list does not carry', () => {
-  it('says the stream is not listed and may have been removed, while the player keeps looking (STMB-560)', () => {
+  it('says the stream is not listed and may have been removed, while the player keeps looking', () => {
     const html = renderToStaticMarkup(createElement(UnlistedStreamNote));
     assert.match(html, /not in the stream list/);
     assert.match(html, /removed, or the link may be wrong/);
   });
 
-  it('says a link without a watch link shape names no stream (STMB-662)', () => {
+  it('says a link without a watch link shape names no stream', () => {
     assert.match(renderToStaticMarkup(createElement(NotAStreamLink)), /This link does not name a stream/);
   });
 });

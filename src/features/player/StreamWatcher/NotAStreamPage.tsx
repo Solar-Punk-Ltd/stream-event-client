@@ -5,7 +5,7 @@ import { ROUTES } from '@/app/routes';
 import { WatchLayout } from './WatchLayout';
 import { NotAStreamLink } from './WatchPlaceholder';
 
-/** Any address no route matches, a watch link cut off when it was copied among them (STMB-662). */
+/** Any address no route matches, a watch link cut off when it was copied among them. */
 export function NotAStreamPage() {
   return (
     <WatchLayout

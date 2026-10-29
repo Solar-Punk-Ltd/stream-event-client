@@ -45,7 +45,7 @@ export function WatchPlaceholder({ view, scheduledStart, thumbnail }: WatchPlace
 /**
  * Under the player for a link whose stream the list does not carry once it has been read. The player still runs, because
  * a deep link may name a real stream the list has not caught up with, but a stream that was deleted or a link that was
- * mistyped would otherwise only ever say it is reconnecting (STMB-560, STMB-661).
+ * mistyped would otherwise only ever say it is reconnecting.
  */
 export function UnlistedStreamNote() {
   return (

@@ -112,7 +112,7 @@ const manager = ManifestStateManager.getInstance();
 const realFetch = globalThis.fetch;
 const realConsoleError = console.error;
 
-describe('ManifestFetcher follow-up fetches (CON-29)', () => {
+describe('ManifestFetcher follow-up fetches', () => {
   let fetcher: ManifestFetcher;
   let requested: bigint[];
   let publishedThrough: bigint;

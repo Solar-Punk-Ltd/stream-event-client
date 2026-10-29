@@ -1298,7 +1298,7 @@ describe('FeedHealthTracker judging the rung a viewer is actually watching', () 
   });
 
   /**
-   * The constraint the owner attached to this fix. A rung failing to reach a gateway its siblings
+   * The constraint on this fix. A rung failing to reach a gateway its siblings
    * are reaching is that rung's own flake, and raising the overlay on it is what the agreement rule
    * exists to prevent. Watching the rung must not change that.
    */
