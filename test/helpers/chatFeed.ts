@@ -54,6 +54,8 @@ export function servedFeeds() {
   const chunks = new Map<string, Uint8Array>();
   const heads = new Map<string, SwarmAnswer>();
   const files = new Map<string, Uint8Array>();
+  /** Each feed's payloads by index, under its owner and topic as its head is kept. */
+  const written = new Map<string, ReadonlyArray<Uint8Array | null>>();
   const asked: string[] = [];
 
   const reads: ChatReads = {
@@ -83,6 +85,7 @@ export function servedFeeds() {
         chunks.set(singleOwnerChunkAddress(identifier, owner), socBytes(signer, identifier, payload));
       }
     });
+    written.set(`${owner}/${topic.toHex()}`, payloads);
     const newest = payloads.length - 1;
     if (newest >= 0 && payloads[newest]) {
       heads.set(`${owner}/${topic.toHex()}`, content(payloads[newest]!, newest));
@@ -135,5 +138,23 @@ export function servedFeeds() {
     heads.set(`${owner}/${topic.toHex()}`, content(encoder.encode('{}'), index));
   }
 
-  return { reads, asked, chat, ownFeed, ownFeedHeadAt, heads, files };
+  /**
+   * Makes the chat feed's head lookup name its entry at `index`, or find no entry when `index` is null, as a gateway
+   * serving a lookup seconds old answers it, while every entry stays readable by its own index.
+   */
+  function chatHeadAt(serverKey: string, chatTopic: string, index: number | null) {
+    const owner = new PrivateKey(serverKey).publicKey().address().toHex();
+    const key = `${owner}/${Topic.fromString(chatTopic).toHex()}`;
+    if (index === null) {
+      heads.delete(key);
+      return;
+    }
+    const payload = written.get(key)?.[index];
+    if (!payload) {
+      throw new Error(`the chat feed holds no entry at index ${index}`);
+    }
+    heads.set(key, content(payload, index));
+  }
+
+  return { reads, asked, chat, ownFeed, ownFeedHeadAt, chatHeadAt, heads, files };
 }

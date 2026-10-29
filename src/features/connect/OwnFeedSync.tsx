@@ -5,6 +5,8 @@ import { type OwnFeedChat, useOwnFeedChat } from '@/features/chat/stamp/OwnFeedC
 import type { OwnFeedRecord } from '@/features/chat/stamp/ownFeedComparison';
 import { COPIED } from '@/features/chat/stamp/ownFeedCopies';
 import {
+  CHAT_NOT_READ_YET,
+  CHAT_NOT_READ_YET_TEXT,
   CHECKED,
   CHECKING,
   messagesText,
@@ -99,6 +101,16 @@ function OwnFeedSyncOf({ chat }: { readonly chat: OwnFeedChat }) {
     return (
       <div className="connect-own-feed" aria-label={OWN_FEED_GROUP} role="group">
         <span className="connect-ex">This source does not serve your own feed, so it cannot be counted here.</span>
+        <Button variant={ButtonVariant.SECONDARY} className="connect-small" onClick={recount}>
+          {TRY_AGAIN}
+        </Button>
+      </div>
+    );
+  }
+  if (count.status === CHAT_NOT_READ_YET) {
+    return (
+      <div className="connect-own-feed" aria-label={OWN_FEED_GROUP} role="group">
+        <span className="connect-ex">{CHAT_NOT_READ_YET_TEXT}</span>
         <Button variant={ButtonVariant.SECONDARY} className="connect-small" onClick={recount}>
           {TRY_AGAIN}
         </Button>
