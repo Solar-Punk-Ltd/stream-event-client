@@ -96,6 +96,8 @@ interface MessageDetailsProps {
   identity: ChatIdentity | null;
   /** Whether its sender paid with their own stamp, and so keeps a copy in their own feed, which the details read. */
   ownStamp: boolean;
+  /** Whether the viewer sent it, so the details name its sender's own feed as the viewer's. */
+  sentByViewer: boolean;
   onClose: () => void;
 }
 
@@ -112,6 +114,7 @@ export function MessageDetails({
   badge,
   identity,
   ownStamp,
+  sentByViewer,
   onClose,
 }: MessageDetailsProps) {
   return (
@@ -157,7 +160,7 @@ export function MessageDetails({
         <dt>Sent</dt>
         <dd>{ownStamp ? OWN_STAMP_TITLE : SENT_BY_GATEWAY}</dd>
       </dl>
-      {ownStamp && <OwnFeedCheck sender={address} signature={signature} />}
+      {ownStamp && <OwnFeedCheck sender={address} signature={signature} sentByViewer={sentByViewer} />}
     </div>
   );
 }

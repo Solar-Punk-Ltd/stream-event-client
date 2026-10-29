@@ -165,6 +165,7 @@ export function ChatMessage({
             badge={badge}
             identity={message.identity}
             ownStamp={ownStamp}
+            sentByViewer={ownMessage}
             onClose={details.close}
           />
         )}

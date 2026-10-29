@@ -12,6 +12,7 @@ import {
   CHECKED,
   CHECKING,
   messagesText,
+  oneOrMany,
   REFUSED,
   TOO_LARGE,
   UNREADABLE,
@@ -32,15 +33,54 @@ const VERIFY = 'Verify';
 const STOP = 'Stop';
 const COPY_LABEL = 'Copy the own feed address';
 const BAD_SIGNATURES = 'Signature does not match';
-const MISSING_FROM_OWN_FEED = 'Missing from their own feed';
 const MISSING_FROM_CHAT = 'Missing from the chat feed';
+
+/** How the check's lines name the own feed it reads, and the address that owns it. */
+interface FeedOwnerWords {
+  /** Inside a sentence, as in "not in your own feed". */
+  readonly ownFeed: string;
+  /** At the start of a sentence, as in "Your own feed could not be read." */
+  readonly ownFeedFirst: string;
+  readonly address: string;
+  /** The first line when no own feed is found. */
+  readonly noOwnFeed: string;
+}
+
+/** Under a message the viewer sent. */
+const VIEWER_WORDS: FeedOwnerWords = {
+  ownFeed: 'your own feed',
+  ownFeedFirst: 'Your own feed',
+  address: 'your address',
+  noOwnFeed: 'You have no own feed in this chat.',
+};
+
+/** Under anyone else's message. */
+const SENDER_WORDS: FeedOwnerWords = {
+  ownFeed: "the sender's own feed",
+  ownFeedFirst: "The sender's own feed",
+  address: "the sender's address",
+  noOwnFeed: 'The sender has no own feed in this chat.',
+};
+
+function inChatOnlyLine(count: number, { ownFeed }: FeedOwnerWords): string {
+  return `${messagesText(count)} ${oneOrMany(count, 'is', 'are')} in this chat but not in ${ownFeed}`;
+}
+
+function inOwnFeedOnlyLine(count: number, { ownFeed }: FeedOwnerWords): string {
+  return `${messagesText(count)} ${oneOrMany(count, 'is', 'are')} in ${ownFeed} but not in this chat`;
+}
+
+function badSignaturesLine(count: number, { address }: FeedOwnerWords): string {
+  const doesNotMatch = oneOrMany(count, 'its signature does not match', 'their signatures do not match');
+  return `${messagesText(count)} ${oneOrMany(count, 'carries', 'carry')} ${address}, but ${doesNotMatch}`;
+}
 
 const shortHex = (hex: string) => `${hex.slice(0, KEPT_DIGITS)}…${hex.slice(-KEPT_DIGITS)}`;
 
 interface MessageListProps {
   readonly label: string;
-  /** What the list's count reads as, such as "2 messages in this chat but not in their own feed". */
-  readonly line: (count: string) => string;
+  /** The line counting `records`, such as "2 messages are in this chat but not in your own feed". */
+  readonly line: (count: number) => string;
   readonly records: readonly OwnFeedRecord[];
 }
 
@@ -52,7 +92,7 @@ function MessageList({ label, line, records }: MessageListProps) {
   const more = records.length - LISTED_MISSING;
   return (
     <div className="own-feed-missing" aria-label={label} role="group">
-      <span>{line(messagesText(records.length))}</span>
+      <span>{line(records.length)}</span>
       <ul>
         {records.slice(0, LISTED_MISSING).map(({ index, message }) => (
           <li key={`${index}-${message.sig}`}>{message.text}</li>
@@ -87,16 +127,22 @@ function OwnFeedAddress({ sender, chatTopic }: { readonly sender: string; readon
   );
 }
 
+interface ResultProps {
+  readonly comparison: OwnFeedComparison;
+  readonly signature: string;
+  readonly words: FeedOwnerWords;
+}
+
 /**
- * Whether this message is in their own feed first, then only what disagrees: their messages in the chat with no copy
- * in their own feed, copies in their own feed the chat does not hold, and messages carrying their address whose
- * signature does not match. A check that found nothing wrong says the first line alone.
+ * Whether this message is in its sender's own feed first, then only what disagrees: the sender's messages in the chat
+ * with no copy in their own feed, copies in their own feed the chat does not hold, and messages carrying their address
+ * whose signature does not match. A check that found nothing wrong says the first line alone.
  */
-function Result({ comparison, signature }: { readonly comparison: OwnFeedComparison; readonly signature: string }) {
+function Result({ comparison, signature, words }: ResultProps) {
   return (
     <>
       {comparison.own === null ? (
-        <span className="own-feed-this">No own feed found for them in this chat</span>
+        <span className="own-feed-this">{words.noOwnFeed}</span>
       ) : (
         <span className="own-feed-this">
           {isInOwnFeed(comparison, signature) ? (
@@ -110,30 +156,38 @@ function Result({ comparison, signature }: { readonly comparison: OwnFeedCompari
                   strokeLinejoin="round"
                 />
               </svg>
-              This message is in their own feed
+              This message is in {words.ownFeed}.
             </>
           ) : (
-            'This message is not in their own feed'
+            `This message is not in ${words.ownFeed}.`
           )}
         </span>
       )}
       <MessageList
-        label={MISSING_FROM_OWN_FEED}
-        line={(count) => `${count} in this chat but not in their own feed`}
+        label={`Missing from ${words.ownFeed}`}
+        line={(count) => inChatOnlyLine(count, words)}
         records={comparison.missingFromOwnFeed}
       />
       <MessageList
         label={MISSING_FROM_CHAT}
-        line={(count) => `${count} in their own feed but not in this chat`}
+        line={(count) => inOwnFeedOnlyLine(count, words)}
         records={comparison.missingFromChat}
       />
       <MessageList
         label={BAD_SIGNATURES}
-        line={(count) => `${count} carrying their address with a signature that does not match`}
+        line={(count) => badSignaturesLine(count, words)}
         records={comparison.badSignatures}
       />
     </>
   );
+}
+
+interface OwnFeedCheckProps {
+  /** The sender's chat address, which owns the own feed the check reads. */
+  readonly sender: string;
+  readonly signature: string;
+  /** Whether the viewer sent the message, so the check names the own feed as the viewer's. */
+  readonly sentByViewer: boolean;
 }
 
 /**
@@ -141,12 +195,13 @@ function Result({ comparison, signature }: { readonly comparison: OwnFeedCompari
  * and the whole own feed, read afresh through the source the viewer picked for the chat history, with how far it has
  * got and a way to stop it. It writes nothing.
  */
-export function OwnFeedCheck({ sender, signature }: { readonly sender: string; readonly signature: string }) {
+export function OwnFeedCheck({ sender, signature, sentByViewer }: OwnFeedCheckProps) {
   const source = useOwnFeedSource();
   const { state, check, stop } = useOwnFeedComparison(source, sender);
   if (!source) {
     return null;
   }
+  const words = sentByViewer ? VIEWER_WORDS : SENDER_WORDS;
   return (
     <section className="own-feed-check" aria-label="Own feed">
       <OwnFeedAddress sender={sender} chatTopic={source.chatTopic} />
@@ -165,11 +220,11 @@ export function OwnFeedCheck({ sender, signature }: { readonly sender: string; r
         </button>
       )}
       {state.status === REFUSED && (
-        <span className="own-feed-hint">This source does not serve their own feed, so it cannot be checked here.</span>
+        <span className="own-feed-hint">This source does not serve {words.ownFeed}, so it cannot be checked here.</span>
       )}
-      {state.status === UNREADABLE && <span className="own-feed-hint">Their own feed could not be read.</span>}
-      {state.status === TOO_LARGE && <span className="own-feed-hint">Their own feed is too large to check.</span>}
-      {state.status === CHECKED && <Result comparison={state.comparison} signature={signature} />}
+      {state.status === UNREADABLE && <span className="own-feed-hint">{words.ownFeedFirst} could not be read.</span>}
+      {state.status === TOO_LARGE && <span className="own-feed-hint">{words.ownFeedFirst} is too large to check.</span>}
+      {state.status === CHECKED && <Result comparison={state.comparison} signature={signature} words={words} />}
     </section>
   );
 }
