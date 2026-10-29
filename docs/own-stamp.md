@@ -29,7 +29,7 @@ The event gateway's chat path stamps every write with the gateway's own batch, a
 alone, and the page cannot tell what any other gateway does with a stamp, so no gateway is ever sent a message on the
 viewer's stamp.
 
-The message goes through the source picked for **Chat history** when that is a Bee node. Otherwise it goes through the
+The message goes through the source picked for **Chat history** when that is a Bee node or Weeb3. Otherwise it goes through the
 first Bee node in the viewer's list of sources, and with no Bee node there, through Weeb3 (`ownStampRoute.ts`). The
 chat history is still read from the source picked for it, and nothing changes who pays or what Use for says.
 
