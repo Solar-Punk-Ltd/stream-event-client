@@ -17,6 +17,19 @@ import type { SwarmReader } from '@/swarm/client';
  */
 const MAX_WALK_PER_READ = 32;
 
+/**
+ * The window of the one head lookup a reader makes, in milliseconds, three times a slot read's.
+ *
+ * Bee finds a feed's head by searching forward from its first index in fixed rounds, so the lookup
+ * costs more the higher the head sits. The catalog gains a slot per broadcast and is never reset, so a
+ * long-lived catalog's head can take longer than the ordinary ten seconds through a gateway. Cut at
+ * ten, the lookup never finished, the reader never held a position, every poll asked
+ * for the head again, and the stream list showed as failing on a gateway that was answering.
+ *
+ * Only the head lookup gets it. Every slot read after it stays on the ordinary window.
+ */
+export const CATALOG_HEAD_READ_TIMEOUT_MS = 30_000;
+
 /** What the stream list reads Swarm through: its feed's head, and its entries by index. */
 export type CatalogSource = Pick<SwarmReader, 'readFeedHead' | 'readFeedEntry'>;
 
@@ -144,9 +157,10 @@ export class CatalogFeedReader {
    * Null rather than a repeat of the previous body, so a caller can skip re-rendering an unchanged
    * list. Both existing callers already ignore a non-array, so null is inert for them.
    *
-   * @param source The gateway's reads, which the Swarm client's stream-list reader gives. Each read has
-   *   its ten second window, headers and body together, and the client keeps the gateway clock from
-   *   every answer's `Date`, which is where the player's time markers take the time from.
+   * @param source The gateway's reads, which the Swarm client's stream-list reader gives. Each slot read
+   *   has the ordinary ten second window and the head lookup {@link CATALOG_HEAD_READ_TIMEOUT_MS},
+   *   headers and body together, and the client keeps the gateway clock from every answer's `Date`,
+   *   which is where the player's time markers take the time from.
    * @param maxSlots How many slots past the one held this read may ask for. One asks only the next
    *   slot, for a caller that knows it is written and must not ask the slot after it early.
    */
@@ -234,7 +248,10 @@ export class CatalogFeedReader {
     generation: number,
     signal?: AbortSignal,
   ): Promise<CatalogSnapshot | null> {
-    const answer = await source.readFeedHead(this.owner, this.topic, { signal });
+    const answer = await source.readFeedHead(this.owner, this.topic, {
+      signal,
+      timeoutMs: CATALOG_HEAD_READ_TIMEOUT_MS,
+    });
     // A catalog nobody has broadcast to has no head, which is nothing to show rather than a fault.
     if (answer.kind === 'not-found') {
       return null;

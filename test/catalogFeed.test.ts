@@ -1,11 +1,14 @@
 import { FeedIndex, Topic } from '@ethersphere/bee-js';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CatalogFeedReader, type CatalogSource } from '@/features/catalog/catalogFeed';
+import { CATALOG_HEAD_READ_TIMEOUT_MS, CatalogFeedReader, type CatalogSource } from '@/features/catalog/catalogFeed';
 import { feedSlotPath, nextFeedRequest, resolvedFeedIndex } from '@/shared/feedFollow';
 import type { PathResponse } from './helpers/playerReader';
 import type { SwarmAnswer } from '@/swarm/answers';
 import { FetchTimeoutError } from '@/shared/fetchTimeoutError';
+import { FAILING_AFTER_MS, SwarmClient } from '@/swarm/client';
+import { DEFAULT_READ_TIMEOUT_MS, type ReadOptions } from '@/swarm/provider';
+import { fault, notFound, ScriptedProvider } from './helpers/scriptedProvider';
 
 /**
  * That the catalog is followed by walking rather than by resolving its head on every poll.
@@ -495,5 +498,145 @@ describe('CatalogFeedReader when two reads overlap on one gateway', () => {
 
     expect(newer).toEqual({ body: '[8]', slot: 8n });
     expect(older).toEqual({ body: '[7]', slot: 7n });
+  });
+});
+
+/**
+ * A gateway whose feed head lookup answers only after a while, as Bee's does on a long feed.
+ *
+ * Bee resolves a feed's head by searching forward from the start, so the lookup costs more the higher
+ * the feed's index. A catalog past a thousand slots took longer than the ordinary read window to
+ * resolve, while every slot read stayed fast.
+ */
+class SlowHeadGateway extends ScriptedProvider {
+  /** How long the head lookup takes to answer, or null for a gateway that never answers it. */
+  headAnswersAfterMs: number | null = 15_000;
+  headAnswer: SwarmAnswer = {
+    kind: 'content',
+    bytes: new TextEncoder().encode('[{"id":"a"}]'),
+    feedIndex: 1521,
+    serverTimeMs: null,
+  };
+
+  override async readFeedHead(_owner: string, _topic: unknown, options?: ReadOptions): Promise<SwarmAnswer> {
+    this.asked.push('feed-head');
+    this.windows.push(options?.timeoutMs);
+    const windowMs = options?.timeoutMs ?? DEFAULT_READ_TIMEOUT_MS;
+    const answersAfterMs = this.headAnswersAfterMs;
+    const timedOut: SwarmAnswer = { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: windowMs } };
+    return new Promise((resolve) => {
+      if (answersAfterMs !== null && answersAfterMs <= windowMs) {
+        setTimeout(() => resolve(this.headAnswer), answersAfterMs);
+      } else {
+        setTimeout(() => resolve(timedOut), windowMs);
+      }
+    });
+  }
+}
+
+type CatalogRead = Awaited<ReturnType<CatalogFeedReader['read']>>;
+type Settled = { snapshot: CatalogRead } | { error: unknown };
+
+/** A read whose outcome is caught as it happens, so a rejection while the clock moves is not unhandled. */
+function settle(read: Promise<CatalogRead>): Promise<Settled> {
+  return read.then(
+    (snapshot) => ({ snapshot }),
+    (error: unknown) => ({ error }),
+  );
+}
+
+describe('CatalogFeedReader on a feed whose head lookup is slow', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: 0 });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function streamList(gateway: ScriptedProvider) {
+    const client = new SwarmClient({ chosen: { id: 'event-gateway', provider: gateway } });
+    return { client, source: client.reader('stream-list') };
+  }
+
+  it('waits out a head lookup slower than the ordinary window, and holds a position after it', async () => {
+    const gateway = new SlowHeadGateway('gateway');
+    const { client, source } = streamList(gateway);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
+
+    const read = settle(reader.read(source));
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    expect(await read).toEqual({ snapshot: { body: '[{"id":"a"}]', slot: 1521n } });
+    expect(reader.getIndex()?.toBigInt()).toBe(1521n);
+    expect(client.failures()).toEqual([]);
+  });
+
+  it('shows no failing bar for the stream list while that one head lookup is within its window', async () => {
+    const gateway = new SlowHeadGateway('gateway');
+    gateway.headAnswersAfterMs = CATALOG_HEAD_READ_TIMEOUT_MS - 1_000;
+    const { client, source } = streamList(gateway);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
+
+    const read = settle(reader.read(source));
+    for (let elapsedMs = 0; elapsedMs < CATALOG_HEAD_READ_TIMEOUT_MS - 1_000; elapsedMs += 1_000) {
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(client.failures()).toEqual([]);
+    }
+
+    expect(await read).toEqual({ snapshot: { body: '[{"id":"a"}]', slot: 1521n } });
+    expect(client.failures()).toEqual([]);
+  });
+
+  it('gives only the head lookup the longer window, and every slot read the ordinary one', async () => {
+    const gateway = new SlowHeadGateway('gateway');
+    gateway.answer = notFound;
+    const { source } = streamList(gateway);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
+
+    const head = settle(reader.read(source));
+    await vi.advanceTimersByTimeAsync(15_000);
+    await head;
+    await reader.read(source);
+
+    expect(gateway.asked).toEqual(['feed-head', 'feed-entry']);
+    expect(gateway.windows).toEqual([CATALOG_HEAD_READ_TIMEOUT_MS, DEFAULT_READ_TIMEOUT_MS]);
+    expect(CATALOG_HEAD_READ_TIMEOUT_MS).toBeGreaterThan(DEFAULT_READ_TIMEOUT_MS);
+  });
+
+  it("still raises the bar for a gateway that never answers, once the head lookup's own window runs out", async () => {
+    const gateway = new SlowHeadGateway('gateway');
+    gateway.headAnswersAfterMs = null;
+    const { client, source } = streamList(gateway);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
+
+    const read = settle(reader.read(source));
+    await vi.advanceTimersByTimeAsync(CATALOG_HEAD_READ_TIMEOUT_MS - 1);
+    expect(client.failures()).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(await read).toEqual({ error: expect.any(FetchTimeoutError) });
+    expect(client.failures()).toEqual([
+      {
+        feature: 'stream-list',
+        provider: 'event-gateway',
+        forMs: CATALOG_HEAD_READ_TIMEOUT_MS,
+        cause: { kind: 'no-answer' },
+      },
+    ]);
+  });
+
+  it('still raises the bar as soon as before for a gateway that refuses the connection', async () => {
+    const gateway = new ScriptedProvider('gateway');
+    gateway.answer = fault;
+    const { client, source } = streamList(gateway);
+    const reader = new CatalogFeedReader(OWNER, TOPIC);
+
+    expect(await settle(reader.read(source))).toEqual({ error: expect.any(TypeError) });
+    await vi.advanceTimersByTimeAsync(FAILING_AFTER_MS);
+
+    expect(client.failures()).toEqual([
+      { feature: 'stream-list', provider: 'event-gateway', forMs: FAILING_AFTER_MS, cause: { kind: 'no-answer' } },
+    ]);
   });
 });
