@@ -618,7 +618,7 @@ describe("a sender's own feed in the message details", () => {
       `Own feed: ${owner.slice(0, 4)}…${owner.slice(-4)}/${OWN_TOPIC.slice(0, 4)}…`,
     );
     expect(ownFeedReads(feeds)).toBe(0);
-    expect(section()?.textContent).not.toContain('from them in this chat');
+    expect(section()?.textContent).not.toContain('no own feed in this chat');
 
     click(button('Copy the own feed address'));
     await settle();
@@ -639,13 +639,13 @@ describe("a sender's own feed in the message details", () => {
     expect(window.getSelection()?.toString()).toBe(`${addressOf(SENDER_KEY)}/${OWN_TOPIC}`);
   });
 
-  it('says only that this message is in their own feed when the chat and their own feed agree', async () => {
+  it("says only that this message is in the sender's own feed when the chat and that feed agree", async () => {
     const [a, b] = [mine('a'), mine('b')];
     await openDetails(b, [a, b], [a, b]);
 
     const shown = await verify();
 
-    expect(resultLines(shown)).toEqual(['This message is in their own feed']);
+    expect(resultLines(shown)).toEqual(["This message is in the sender's own feed."]);
     expect(shown.querySelector('.own-feed-missing')).toBeNull();
   });
 
@@ -661,11 +661,11 @@ describe("a sender's own feed in the message details", () => {
     const shown = await verify();
 
     expect(resultLines(shown)).toEqual([
-      'This message is not in their own feed',
-      '2 messages in this chat but not in their own feed',
-      '1 message in their own feed but not in this chat',
+      "This message is not in the sender's own feed.",
+      "2 messages are in this chat but not in the sender's own feed",
+      "1 message is in the sender's own feed but not in this chat",
     ]);
-    expect(listed('Missing from their own feed')).toEqual([c.text, b.text]);
+    expect(listed("Missing from the sender's own feed")).toEqual([c.text, b.text]);
     expect(listed('Missing from the chat feed')).toEqual([d.text]);
   });
 
@@ -676,8 +676,8 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(resultLines(shown)).toEqual(['This message is in their own feed']);
-    expect(shown.querySelector('[aria-label="Missing from their own feed"]')).toBeNull();
+    expect(resultLines(shown)).toEqual(["This message is in the sender's own feed."]);
+    expect(shown.querySelector(`[aria-label="Missing from the sender's own feed"]`)).toBeNull();
   });
 
   it('names the messages in the chat that carry their address but fail the signature check', async () => {
@@ -687,7 +687,7 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('1 message carrying their address with a signature that does not match');
+    expect(shown.textContent).toContain("1 message carries the sender's address, but its signature does not match");
     expect(listed('Signature does not match')).toEqual(['changed after signing']);
   });
 
@@ -729,15 +729,15 @@ describe("a sender's own feed in the message details", () => {
     const [a, b] = [mine('a'), mine('b')];
     const feeds = await openDetails(a, [a], [a]);
     await verify();
-    expect(section()?.textContent).not.toContain('in this chat but not in their own feed');
+    expect(section()?.textContent).not.toContain("in this chat but not in the sender's own feed");
 
     feeds.chat(SERVER_KEY, CHAT_TOPIC, [a, b]);
     const shown = await verify();
 
-    expect(shown.textContent).toContain('1 message in this chat but not in their own feed');
+    expect(shown.textContent).toContain("1 message is in this chat but not in the sender's own feed");
   });
 
-  it('says in one line when the source does not serve their own feed', async () => {
+  it("says in one line when the source does not serve the sender's own feed", async () => {
     const a = mine('a');
     const feeds = servedFeeds();
     feeds.chat(SERVER_KEY, CHAT_TOPIC, [a]);
@@ -754,8 +754,10 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('This source does not serve their own feed, so it cannot be checked here.');
-    expect(shown.textContent).not.toMatch(/Checked|in their own feed but not|This message is/);
+    expect(shown.textContent).toContain(
+      "This source does not serve the sender's own feed, so it cannot be checked here.",
+    );
+    expect(shown.textContent).not.toMatch(/Checked|own feed but not in this chat|This message is/);
   });
 
   it('says the own feed is too large to check when it names far more entries than the sender sent', async () => {
@@ -764,7 +766,20 @@ describe("a sender's own feed in the message details", () => {
 
     const shown = await verify();
 
-    expect(shown.textContent).toContain('Their own feed is too large to check.');
+    expect(shown.textContent).toContain("The sender's own feed is too large to check.");
+  });
+
+  it("says the sender's own feed could not be read when the read of its newest entry fails", async () => {
+    const a = mine('a');
+    await openDetails(a, [a], [a], (feeds) => {
+      for (const key of [...feeds.heads.keys()].filter((head) => head.endsWith(OWN_TOPIC))) {
+        feeds.heads.set(key, { kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: 1_000 } });
+      }
+    });
+
+    const shown = await verify();
+
+    expect(shown.textContent).toContain("The sender's own feed could not be read.");
   });
 
   it('stops reading the chat and the own feed when the details close', async () => {
@@ -822,17 +837,122 @@ describe("a sender's own feed in the message details", () => {
     const shown = await verify();
 
     expect(shown.querySelector('[aria-label="Missing from the chat feed"]')).toBeNull();
-    expect(shown.querySelector('[aria-label="Missing from their own feed"]')).toBeNull();
+    expect(shown.querySelector(`[aria-label="Missing from the sender's own feed"]`)).toBeNull();
   });
 
-  it('says plainly when no own feed is found, without claiming the sender keeps none', async () => {
+  it('says in one line that the sender has no own feed in this chat when none is found', async () => {
     const a = mine('a');
     await openDetails(a, [a], null);
 
     const shown = await verify();
 
-    expect(resultLines(shown)[0]).toBe('No own feed found for them in this chat');
+    expect(resultLines(shown)[0]).toBe('The sender has no own feed in this chat.');
     expect(shown.textContent).not.toMatch(/keeps (no|none)/);
+  });
+
+  describe('under a message the viewer sent', () => {
+    /** The viewer's messages, signed by the chat key the fake Swarm ID gives this site, on their own stamp. */
+    async function viewers(labels: string[]): Promise<ChatMessage[]> {
+      const key = await chatKeyFor(BOUND_SITE);
+      return labels.map((label) => signed(key, label));
+    }
+
+    /** Opens the details of the viewer's `shown`, in a chat holding `chatMessages` and their own feed holding `copies`. */
+    async function openViewersDetails(
+      shown: ChatMessage,
+      chatMessages: ChatMessage[],
+      copies: ChatMessage[] | null,
+      arrange: (feeds: ReturnType<typeof servedFeeds>, viewersKey: string) => void = () => {},
+    ) {
+      const key = await chatKeyFor(BOUND_SITE);
+      const feeds = servedFeeds();
+      feeds.chat(SERVER_KEY, CHAT_TOPIC, chatMessages);
+      if (copies) {
+        feeds.ownFeed(key, CHAT_TOPIC, copies);
+      }
+      arrange(feeds, key);
+      await openDetailsOn(feeds, shown);
+    }
+
+    const ownFeedHeadAnswers = (answer: SwarmAnswer) => (feeds: ReturnType<typeof servedFeeds>) => {
+      for (const key of [...feeds.heads.keys()].filter((head) => head.endsWith(OWN_TOPIC))) {
+        feeds.heads.set(key, answer);
+      }
+    };
+
+    it('says this message is in your own feed when the chat and your own feed agree', async () => {
+      const [a, b] = await viewers(['a', 'b']);
+      await openViewersDetails(b!, [a!, b!], [a!, b!]);
+
+      const shown = await verify();
+
+      expect(resultLines(shown)).toEqual(['This message is in your own feed.']);
+    });
+
+    it('names what each side lacks as yours, each count with the verb its number needs', async () => {
+      const [a, b, c, d, e] = await viewers(['a', 'b', 'c', 'd', 'e']);
+      await openViewersDetails(c!, [a!, b!, c!], [a!, b!, d!, e!]);
+
+      const shown = await verify();
+
+      expect(resultLines(shown)).toEqual([
+        'This message is not in your own feed.',
+        '1 message is in this chat but not in your own feed',
+        '2 messages are in your own feed but not in this chat',
+      ]);
+      expect(listed('Missing from your own feed')).toEqual([c!.text]);
+    });
+
+    it.each([
+      ['one of them', 1, '1 message carries your address, but its signature does not match'],
+      ['two of them', 2, '2 messages carry your address, but their signatures do not match'],
+    ])(
+      'names the messages carrying your address whose signature does not match, %s',
+      async (_count, forgedCount, line) => {
+        const [a, b, c] = await viewers(['a', 'b', 'c']);
+        const forged = [b!, c!].slice(0, forgedCount).map((message) => ({ ...message, text: 'changed after signing' }));
+        await openViewersDetails(a!, [a!, ...forged], [a!]);
+
+        const shown = await verify();
+
+        expect(shown.textContent).toContain(line);
+      },
+    );
+
+    it('says you have no own feed in this chat when none is found', async () => {
+      const [a] = await viewers(['a']);
+      await openViewersDetails(a!, [a!], null);
+
+      const shown = await verify();
+
+      expect(resultLines(shown)[0]).toBe('You have no own feed in this chat.');
+    });
+
+    it.each([
+      [
+        'the source refuses it',
+        ownFeedHeadAnswers({ kind: 'unavailable', cause: { kind: 'status', status: 403 } }),
+        'This source does not serve your own feed, so it cannot be checked here.',
+      ],
+      [
+        'a read of it fails',
+        ownFeedHeadAnswers({ kind: 'unavailable', cause: { kind: 'timeout', timeoutMs: 1_000 } }),
+        'Your own feed could not be read.',
+      ],
+      [
+        'it names far more entries than you sent',
+        (feeds: ReturnType<typeof servedFeeds>, viewersKey: string) =>
+          feeds.ownFeedHeadAt(viewersKey, CHAT_TOPIC, Number.MAX_SAFE_INTEGER),
+        'Your own feed is too large to check.',
+      ],
+    ] as const)('says in one line about your own feed when %s', async (_why, arrange, line) => {
+      const [a] = await viewers(['a']);
+      await openViewersDetails(a!, [a!], [a!], arrange);
+
+      const shown = await verify();
+
+      expect(shown.textContent).toContain(line);
+    });
   });
 });
 
