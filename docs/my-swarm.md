@@ -50,7 +50,7 @@ holds who the viewer is in the chat, every source they can read Swarm through, a
     deployment's default source.
   - While the event pays, chat messages are sent to `chat.writeUrl`, whichever source reads the chat history. On the
     viewer's own stamp they go through a Bee node of their own or Weeb3, the one picked for Chat history when it is a
-    Bee node, as [who pays for a message](own-stamp.md) says.
+    Bee node or Weeb3, as [who pays for a message](own-stamp.md) says.
   - The deployment's default gateway reads its chat history at `chat.readUrl`, where it serves the chat's paths, and
     any other source reads the chat at its own address.
   - A part saved on a source the deployment no longer offers is read from the deployment's default source when the
