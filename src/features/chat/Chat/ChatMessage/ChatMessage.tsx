@@ -148,6 +148,7 @@ export function ChatMessage({
           isEnsName={ensName !== undefined}
           badge={badge}
           ownStamp={ownStamp}
+          sentByViewer={ownMessage}
           timestamp={message.timestamp}
           detailsId={detailsId}
           areDetailsShown={details.isShown}
