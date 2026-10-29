@@ -3,6 +3,8 @@ import { act, createElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { StreamBrowser } from '../src/features/catalog/StreamBrowser/StreamBrowser';
+import { WAITING_WATCH_PAGE_POLL_MS } from '../src/features/catalog/catalogPoll';
+import { useCatalogPoll } from '../src/features/catalog/useCatalogPoll';
 import { mount, type Mounted } from './helpers/dom';
 
 /**
@@ -66,6 +68,12 @@ function gapsBetween(times: readonly number[]): number[] {
   return times.slice(1).map((atMs, i) => atMs - times[i]);
 }
 
+/** Stands in for a watch page waiting on its stream, which polls the same key at its own pace. */
+function WaitingWatchPagePoll(): null {
+  useCatalogPoll(WAITING_WATCH_PAGE_POLL_MS);
+  return null;
+}
+
 describe('the browse page reading the stream list', () => {
   it('reads it again every ten seconds, never faster', async () => {
     app.fails = () => false;
@@ -92,6 +100,31 @@ describe('the browse page reading the stream list', () => {
       POLL_MS,
       POLL_MS,
     ]);
+  });
+
+  /**
+   * SWR keeps a request's de-duplication window as the page that made it set it. A waiting watch page's
+   * window, half its minute, would drop the browse page's reads for up to half a minute after the viewer
+   * came back from it.
+   */
+  it('reads it within ten seconds of a viewer coming back from a waiting watch page', async () => {
+    app.fails = () => false;
+    vi.useFakeTimers({ now: Date.UTC(2026, 9, 9, 12, 0, 0) });
+    Object.assign(app, { sourceId: 'browse-poll-back-from-watch', readsAtMs: [] });
+    mounted = mount(createElement(WaitingWatchPagePoll));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    mounted.render(createElement(StreamBrowser));
+    const backAtMs = Date.now();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_MS);
+    });
+
+    expect(
+      app.readsAtMs.filter((atMs) => atMs > backAtMs),
+      'the list was not read in the first ten seconds back on the browse page',
+    ).not.toEqual([]);
   });
 
   /** A viewer whose first read fails is retried sooner than the routine read, until the list has been shown once. */

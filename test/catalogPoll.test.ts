@@ -25,7 +25,7 @@ import {
 } from '../src/features/catalog/watchPageView';
 
 describe('when the watch page reads the catalog again', () => {
-  it('reads it at the same pace as the browse page while the stream has not started, so a reschedule or a cancellation reaches the page', () => {
+  it('reads it once a minute while the stream has not started, so a reschedule or a cancellation reaches the page', () => {
     assert.equal(watchPageCatalogPollMs(WATCH_VIEW_NOT_STARTED), WAITING_WATCH_PAGE_POLL_MS);
   });
 
