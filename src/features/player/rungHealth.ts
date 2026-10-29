@@ -23,7 +23,7 @@ import { parseSwarmUri } from './playlist';
  * level out and moves the viewer to the sibling.
  *
  * **Every announced rung is dropped, however many came before**, until the viewer is on a quality
- * that moves (ruled 2026-10-07). A cap of one per ladder is not used. It was tried from 2026-09-01,
+ * that moves. A cap of one per ladder is not used. It was tried from 2026-09-01,
  * when an uploader dying read as every rung failing in turn and the player took the ladder apart. The
  * poller does not condemn a rung for being quiet alone. It fails over only to a sibling it watched
  * make progress, and a broadcast that stops everywhere shows none, so a cascade has nothing to drive it.

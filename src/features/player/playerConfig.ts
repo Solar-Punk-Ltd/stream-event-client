@@ -25,7 +25,7 @@ const MB = 1024 * 1024;
  * stage. The event runs 2 s segments, and on the event's development gateway on 2026-10-12 a 2 s segment
  * became fetchable 7 to 9 s after it was filmed, past six. Over SRT the shipped player stalled about
  * 30 times per 15 minutes at six and about 9 times at fourteen, on the same broadcast and gateway.
- * Twelve sits in the 10 to 14 s range the product owner chose, and with catch-up switched off (see
+ * Twelve sits in the 10 to 14 s range chosen for the event, and with catch-up switched off (see
  * {@link LIVE_SYNC_PLAYBACK_RATE}) the margin over the arrival delay is what absorbs a slow fetch.
  *
  * **Twelve is the floor, not the whole target.** Longer segments are covered by the three-segment
@@ -93,9 +93,9 @@ export function liveLatencyFor(segmentMs: number | null | undefined): LiveLatenc
 /**
  * The playback rate a live viewer is held at: normal speed, always.
  *
- * hls.js reads exactly 1 as "never adapt" and then leaves the playback rate alone entirely. The
- * product owner ruled on 2026-10-12 that viewers see the stream at normal speed, so a viewer who
- * falls behind the target is not played faster to catch up. A stall leaves the viewer that much
+ * hls.js reads exactly 1 as "never adapt" and then leaves the playback rate alone entirely. Viewers
+ * see the stream at normal speed, so a viewer who falls behind the target is not played faster to
+ * catch up. A stall leaves the viewer that much
  * further behind, inside the room {@link LIVE_SYNC_DURATION_S} gives, and only past
  * {@link LIVE_MAX_LATENCY_DURATION_S} does hls.js jump them forward to the target.
  *
@@ -132,7 +132,7 @@ export const LIVE_GAP_WINDOW_MS = 5 * 60_000;
  *
  * A live playlist can name a segment a moment before a gateway can hand it over: the uploader pushes the playlist
  * slot to the network synchronously and the segment's chunks deferred, so the one chunk overtakes the hundreds. On
- * swarm-dev on 2026-10-28, 297 of 8,675 segments were answered 404 first and 200 within two seconds, 7% of the
+ * the event's development gateway on 2026-10-28, 297 of 8,675 segments were answered 404 first and 200 within two seconds, 7% of the
  * 720p and 1080p ones. hls.js retries no 4xx by itself, so each such 404 cost the viewer a quality.
  *
  * hls.js waits 1 s before the first ask and 2 s before the second (its default `retryDelayMs` doubling), so a
