@@ -16,7 +16,7 @@ import { WATCH_VIEW_NOT_STARTED, WATCH_VIEW_UNAVAILABLE, WatchPageView } from '@
  * times a minute before its write was readable 0.3 to 0.6 s after it (2026-10-29). The gateway also keeps a
  * slot's answer for a second, so its node sees about one ask a second however many pages are open. Ten
  * seconds shows an admin's change on an open page within about that, and keeps a viewer reading through
- * their own node at six early asks a minute. A waiting watch page learns that its stream went live from
+ * their own node at about six early asks a minute, a few more for a viewer who keeps switching back to the tab. A waiting watch page learns that its stream went live from
  * the ladder's markers (see `watchForLadderMarkers`), so this poll only carries a new or changed entry, a
  * new start time or a cancellation.
  */
