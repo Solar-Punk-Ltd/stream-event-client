@@ -821,7 +821,7 @@ describe("a sender's own feed in the message details", () => {
       }
       await waitFor(() => (onScreen.every(({ text }) => chatRegion()?.textContent?.includes(text)) ? true : null));
       const stamps = [...document.querySelectorAll('button')].filter(
-        (stamp) => stamp.getAttribute('aria-label') === 'Sent with their own stamp, show details',
+        (stamp) => stamp.getAttribute('aria-label') === "Sent with the sender's own stamp, show details",
       );
       click(stamps.at(-1)!);
       return verify();
