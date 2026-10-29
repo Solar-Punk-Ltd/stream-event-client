@@ -196,7 +196,7 @@ and so does `Q` when you are not typing in a field.
 
 - The panel lives in the browser window, not in the player: drag the button to move it anywhere in the window, and drag
   any edge or corner to resize it like a window, down to 160 by 120 px. Moving and resizing need a mouse, a finger or a
-  pen. The keyboard can focus the panel and scroll it, but moving or resizing it from the keyboard is not built yet.
+  pen. The keyboard can focus the panel and scroll it.
 - It opens 250 px wide at the player's top right. It is always kept inside the window with its header, or its button
   when collapsed, in reach, also after the window is resized and when full screen starts or ends.
 - Where it was left, its size and whether it was open are remembered in this browser under
