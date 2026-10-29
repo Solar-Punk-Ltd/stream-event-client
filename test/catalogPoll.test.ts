@@ -6,6 +6,7 @@ import {
   CATALOG_POLL_INTERVAL_MS,
   FIRST_LOAD_RETRY_MS,
   retryCatalogReadAfter,
+  WAITING_WATCH_PAGE_POLL_MS,
   watchPageCatalogPollMs,
 } from '../src/features/catalog/catalogPoll';
 import { catalogUpdater, StreamCatalog, toCatalogRead } from '../src/features/catalog/catalogState';
@@ -24,12 +25,12 @@ import {
 } from '../src/features/catalog/watchPageView';
 
 describe('when the watch page reads the catalog again', () => {
-  it('reads it at the same pace as the browse page while the stream has not started, so a reschedule or a cancellation reaches the page', () => {
-    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_NOT_STARTED), CATALOG_POLL_INTERVAL_MS);
+  it('reads it once a minute while the stream has not started, so a reschedule or a cancellation reaches the page', () => {
+    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_NOT_STARTED), WAITING_WATCH_PAGE_POLL_MS);
   });
 
   it('keeps reading it while the stream it waited for is missing, so a republish reaches the page', () => {
-    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_UNAVAILABLE), CATALOG_POLL_INTERVAL_MS);
+    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_UNAVAILABLE), WAITING_WATCH_PAGE_POLL_MS);
   });
 
   /**
@@ -244,7 +245,7 @@ describe('when a scheduled stream that is not the newest entry is unpublished', 
 
     assert.equal(watchPageView(true, listedAnnounced(opened), waitingWhenOpened), WATCH_VIEW_NOT_STARTED);
     assert.equal(viewAfterUnpublish, WATCH_VIEW_UNAVAILABLE, 'the page mounts a player that can never load');
-    assert.equal(watchPageCatalogPollMs(viewAfterUnpublish), CATALOG_POLL_INTERVAL_MS);
+    assert.equal(watchPageCatalogPollMs(viewAfterUnpublish), WAITING_WATCH_PAGE_POLL_MS);
     assert.equal(
       watchPageView(true, listedAnnounced(afterRepublish), waitingAfterRepublish),
       WATCH_VIEW_NOT_STARTED,

@@ -16,7 +16,7 @@ The Swarm words these docs use, feed, stamp, gateway, part and the rest, are exp
 ## Features
 
 - **The stream list**, read from a Swarm feed: live streams featured, the next upcoming one with a countdown, then
-  upcoming and past streams, with search and paging. A change reaches an open page within a minute.
+  upcoming and past streams, with search and paging. A change reaches an open page within about 10 seconds.
 - **A player that reads only the quality it plays.** It finds the newest playlist from the markers the uploader
   writes, follows the feed as it grows, skips a segment that will not load, rejoins a broadcast that comes back, and
   keeps your place in a recording when you switch source.

@@ -10,13 +10,17 @@ Words used here, such as slot, marker, ladder and part, are explained in
 
 ## The stream list
 
-- **Reading it.** The list is read from a Swarm feed (`config.catalog.owner` and `topic`) and read again once a minute,
-  also after a failed read, never on a longer backoff (`catalogPoll.ts`).
+- **Reading it.** The list is read from a Swarm feed (`config.catalog.owner` and `topic`) and read again every 10
+  seconds, also after a failed read, never on a longer backoff (`catalogPoll.ts`).
   - Until the list has been shown from the source now selected, a failed read is tried again after 5 seconds, so a
-    first read that fails, on load or after switching source, does not leave the page waiting a minute.
-  - Each read asks the list's next slot before it is written, and Bee skips each peer asked that early for a minute,
-    so the page asks no more often than that. A new or changed entry therefore reaches an open browse page up to a
-    minute after it is written.
+    first read that fails, on load or after switching source, does not leave the page waiting.
+  - A new or changed entry reaches an open browse page within about 10 seconds of being written, and a reload shows
+    it at once.
+  - Each read asks the list's next slot before it is written, and Bee skips each peer asked that early for a minute.
+    The event gateway's node showed no delay from that up to 120 early asks a minute (2026-10-29), and the gateway
+    keeps a slot's answer for a second, so its node sees about one ask a second however many pages are open. A
+    viewer reading through their own node asks it about six times a minute, a few more when they keep switching back
+    to the tab, under the 25 to 40 a minute that delayed a slot on a node with few peers.
   - The feed's head is looked up once, on the first read, and every read after it asks for the next slot by its
     index. Bee finds a head by searching forward from the feed's first index, so the lookup grows slower as the list
     gains slots. It gets a window of 30 seconds of its own (`CATALOG_HEAD_READ_TIMEOUT_MS`), while every slot read
@@ -46,8 +50,8 @@ Words used here, such as slot, marker, ladder and part, are explained in
   - Each marker found prompts one read of the stream list, and the player starts once the list says live, with the
     stream's renditions.
   - Apart from that the page reads the list once a minute, for a new start time, a title change or an unpublish.
-    Asking the list's unwritten next slot more often makes the node skip its peers for that slot, and the live entry
-    then arrives up to a minute late.
+    Asking the list's unwritten next slot more often makes a viewer's own node with few peers skip them all for that
+    slot, and the live entry then arrives up to about 30 seconds late.
   - If the stream is unpublished while the page waits, the page says it is no longer available.
 
 ## The watch page
