@@ -20,8 +20,7 @@ Words used here, such as slot, marker, ladder and part, are explained in
     The event gateway's node showed no delay from that up to 120 early asks a minute (2026-10-29), and the gateway
     keeps a slot's answer for a second, so its node sees about one ask a second however many pages are open. A
     viewer reading through their own node asks it about six times a minute, a few more when they keep switching back
-    to the tab, under the 25 to 40 a minute that delayed a
-    slot on a node with few peers.
+    to the tab, under the 25 to 40 a minute that delayed a slot on a node with few peers.
   - The feed's head is looked up once, on the first read, and every read after it asks for the next slot by its
     index. Bee finds a head by searching forward from the feed's first index, so the lookup grows slower as the list
     gains slots. It gets a window of 30 seconds of its own (`CATALOG_HEAD_READ_TIMEOUT_MS`), while every slot read
