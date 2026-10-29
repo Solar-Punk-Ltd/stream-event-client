@@ -22,6 +22,11 @@ interface CatalogPollState {
  * has been shown from the source now selected, and within a few seconds before that, see
  * {@link retryCatalogReadAfter}.
  *
+ * SWR drops a read that falls inside its de-duplication window, and the refresh due at the end of the first
+ * interval falls exactly on the end of a window as long as the interval, so that read was dropped and came an
+ * interval late. The window is half the interval: still long enough that a refocus or a second page on the
+ * same key does not read twice in a row, and short enough that no refresh lands in it.
+ *
  * @param pollMs How often to read, or null not to read at all, which is SWR's null key.
  */
 export function useCatalogPoll(pollMs: number | null): CatalogPollState {
@@ -30,7 +35,7 @@ export function useCatalogPoll(pollMs: number | null): CatalogPollState {
   const { data, error, isLoading } = useSWR(pollMs === null ? null : ['app-state', streamListSourceId], fetchAppState, {
     revalidateOnFocus: true,
     refreshInterval: pollMs ?? 0,
-    dedupingInterval: pollMs ?? 0,
+    dedupingInterval: pollMs === null ? 0 : pollMs / 2,
     shouldRetryOnError: true,
     onErrorRetry: retryCatalogReadAfter(pollMs, () => listShownForSource.current === streamListSourceId),
   });
