@@ -973,6 +973,16 @@ describe('my own feed in My Swarm', () => {
     expect(button('Sync')).toBeTruthy();
   });
 
+  it('says the chat could not be read yet, and offers a Try again, when the newest message on screen is not in the chat feed', async () => {
+    const [a, b, c, d] = await myMessages(['a', 'b', 'c', 'd']);
+    const box = await openMySwarm([a!, b!], [a!, b!, c!, d!], undefined, [a!, b!, c!, d!]);
+
+    expect(box()?.textContent).toContain('The chat could not be read yet. Try again in a moment.');
+    expect(box()?.textContent).not.toContain('could not be counted');
+    expect(button('Try again')).toBeTruthy();
+    expect(queryButton('Sync')).toBeNull();
+  });
+
   it('says my own feed is too large to count, and offers no sync, when it names far more entries than I sent', async () => {
     const [a] = await myMessages(['a']);
     const box = await openMySwarm([a!], [a!], (feeds, myKey) =>
