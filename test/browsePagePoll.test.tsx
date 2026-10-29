@@ -78,6 +78,23 @@ describe('the browse page reading the stream list', () => {
   });
 
   /**
+   * SWR drops a refresh that falls inside its de-duplication window. A window as long as the poll put the
+   * refresh due right at the poll's end inside it, so the page's first read after the one it opened with was
+   * skipped and came a whole interval late.
+   */
+  it('reads it again after exactly one interval, the first time as every time after', async () => {
+    app.fails = () => false;
+    const reads = await openBrowsePageFor(4 * SKIP_MS, 'browse-poll-no-skipped-read');
+
+    expect(gapsBetween(reads), 'a read was skipped and came an interval late').toEqual([
+      SKIP_MS,
+      SKIP_MS,
+      SKIP_MS,
+      SKIP_MS,
+    ]);
+  });
+
+  /**
    * A viewer whose first read fails would otherwise look at an empty page for a minute. A retry asks
    * the same unwritten slot again, so the quick ones are kept to the first load.
    */
