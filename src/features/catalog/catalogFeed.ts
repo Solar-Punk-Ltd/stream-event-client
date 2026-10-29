@@ -12,7 +12,7 @@ import type { SwarmReader } from '@/swarm/client';
  * per poll has a catch-up rate equal to its poll rate, so a reader that falls behind never recovers.
  * Walking while the slots keep answering fixes that, and this caps what one poll can spend doing it.
  *
- * Thirty two is far more than a one minute poll can fall behind on a catalog that gains a slot per
+ * Thirty two is far more than a ten second poll can fall behind on a catalog that gains a slot per
  * broadcast, and small enough that a pathological feed cannot hold the page for a minute.
  */
 const MAX_WALK_PER_READ = 32;
@@ -101,7 +101,7 @@ function failureOf(answer: Exclude<SwarmAnswer, { kind: 'content' | 'not-found' 
  * **A miss is cheap, which is what makes this work for a mostly idle feed.** A walking reader asks
  * for a slot that does not exist yet on almost every poll, since broadcasts are rare. Measured
  * 2026-08-05: that 404 costs 4ms at the median, indistinguishable from a hit. It has a real tail,
- * about one in twenty taking 1.4s, which is invisible at a one minute cadence and is the reason
+ * about one in twenty taking 1.4s, which is invisible at a ten second cadence and is the reason
  * `MAX_WALK_PER_READ` exists rather than an unbounded walk.
  */
 export class CatalogFeedReader {

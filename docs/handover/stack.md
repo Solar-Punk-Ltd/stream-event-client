@@ -54,7 +54,7 @@ flowchart LR
    recording.
 4. **The stream list says it is live.** The uploader tells the admin the stream is live, and later that it ended. The
    admin then writes the event's stream list feed and signs it with the event's key.
-5. **The viewer plays it.** The browse page reads the stream list once a minute. The watch page reads the playlist
+5. **The viewer plays it.** The browse page reads the stream list every 10 seconds. The watch page reads the playlist
    feed of the one quality it plays and loads the segments it names, from the source My Swarm picked, by default the
    event gateway ([the player](../player.md)).
 

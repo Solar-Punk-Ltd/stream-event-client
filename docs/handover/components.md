@@ -50,7 +50,7 @@ The Swarm words, part, slot, feed, marker and the rest, are in the [glossary](st
 | `StreamSearch/`, `Pagination/`, `WatchLink/`                     | The search box, the pager, the link to a watch page                                                                                |
 | `catalogFeed.ts`                                                 | `CatalogFeedReader`: reads the stream list feed by slot through `reader('stream-list')`                                            |
 | `catalogState.ts`, `catalogList.ts`                              | The catalog's state and how a new read replaces the list                                                                           |
-| `catalogPoll.ts`                                                 | The poll interval (60 s), the first-load retry (5 s), the watch page's poll                                                        |
+| `catalogPoll.ts`                                                 | The poll interval (10 s), the first-load retry (5 s), the watch page's poll                                                        |
 | `useCatalogPoll.ts`                                              | The SWR hook that polls the list                                                                                                   |
 | `useNow.ts`                                                      | The 30 s clock the countdowns and sections read                                                                                    |
 | `stream.ts`, `streamLabels.ts`, `scheduledStart.ts`, `format.ts` | The stream type and its labels, start times and formatting                                                                         |

@@ -6,12 +6,12 @@ import { StreamBrowser } from '../src/features/catalog/StreamBrowser/StreamBrows
 import { mount, type Mounted } from './helpers/dom';
 
 /**
- * Bee skips each peer it asked for an address not written yet, for a minute. Every read of the stream
- * list asks the list's next slot, which is not written until something changes, so each read is one
- * such early ask, and a page asking more than once a minute keeps its node's peers skipped for the slot
- * the next change lands in.
+ * An open page reads the stream list every ten seconds, so a stream published, edited or gone live shows within
+ * about that. Every read asks the list's next slot before it is written. On the event gateway's node that cost
+ * nothing measurable up to 120 such asks a minute (2026-10-29). Ten seconds keeps a viewer's own node at six a
+ * minute, well under the 25 to 40 that delayed a slot on a smaller node.
  */
-const SKIP_MS = 60_000;
+const POLL_MS = 10_000;
 
 const app = vi.hoisted(() => ({
   sourceId: '',
@@ -67,13 +67,13 @@ function gapsBetween(times: readonly number[]): number[] {
 }
 
 describe('the browse page reading the stream list', () => {
-  it('keeps reading it, and asks the unwritten next slot at most once a minute', async () => {
+  it('reads it again every ten seconds, never faster', async () => {
     app.fails = () => false;
-    const reads = await openBrowsePageFor(4 * SKIP_MS, 'browse-poll-answered');
+    const reads = await openBrowsePageFor(6 * POLL_MS, 'browse-poll-answered');
 
     expect(reads.length, 'an open page stopped reading the list').toBeGreaterThan(1);
     for (const gap of gapsBetween(reads)) {
-      expect(gap, 'the list was asked more than once a minute').toBeGreaterThanOrEqual(SKIP_MS);
+      expect(gap, 'the list was asked more than once in ten seconds').toBeGreaterThanOrEqual(POLL_MS);
     }
   });
 
@@ -84,27 +84,25 @@ describe('the browse page reading the stream list', () => {
    */
   it('reads it again after exactly one interval, the first time as every time after', async () => {
     app.fails = () => false;
-    const reads = await openBrowsePageFor(4 * SKIP_MS, 'browse-poll-no-skipped-read');
+    const reads = await openBrowsePageFor(4 * POLL_MS, 'browse-poll-no-skipped-read');
 
     expect(gapsBetween(reads), 'a read was skipped and came an interval late').toEqual([
-      SKIP_MS,
-      SKIP_MS,
-      SKIP_MS,
-      SKIP_MS,
+      POLL_MS,
+      POLL_MS,
+      POLL_MS,
+      POLL_MS,
     ]);
   });
 
-  /**
-   * A viewer whose first read fails would otherwise look at an empty page for a minute. A retry asks
-   * the same unwritten slot again, so the quick ones are kept to the first load.
-   */
+  /** A viewer whose first read fails is retried sooner than the routine read, until the list has been shown once. */
   it('retries a failed first read within a few seconds, until the list has been shown once', async () => {
     app.fails = (readsBefore) => readsBefore < 2;
     const reads = await openBrowsePageFor(30_000, 'browse-poll-first-read-fails');
 
     expect(reads.length, 'a failed first read was not retried within half a minute').toBeGreaterThanOrEqual(3);
-    for (const gap of gapsBetween(reads)) {
-      expect(gap, 'a failed first read waited the routine minute').toBeLessThanOrEqual(10_000);
+    const twoFailedReadsAndTheirRetry = reads.slice(0, 3);
+    for (const gap of gapsBetween(twoFailedReadsAndTheirRetry)) {
+      expect(gap, 'a failed first read waited the routine ten seconds').toBeLessThan(POLL_MS);
     }
   });
 
@@ -132,18 +130,18 @@ describe('the browse page reading the stream list', () => {
       'a failed first read on the new source was not retried within half a minute',
     ).toBeGreaterThanOrEqual(3);
     for (const gap of gapsBetween(reads)) {
-      expect(gap, 'a failed first read on the new source waited the routine minute').toBeLessThanOrEqual(10_000);
+      expect(gap, 'a failed first read on the new source waited the routine ten seconds').toBeLessThan(POLL_MS);
     }
   });
 
-  it('waits the routine minute after a failed read once the list has been shown', async () => {
+  it('waits the routine ten seconds after a failed read once the list has been shown', async () => {
     app.fails = (readsBefore) => readsBefore > 0;
-    const reads = await openBrowsePageFor(4 * SKIP_MS, 'browse-poll-later-reads-fail');
+    const reads = await openBrowsePageFor(6 * POLL_MS, 'browse-poll-later-reads-fail');
 
     expect(reads.length, 'a failed read stopped the page reading').toBeGreaterThan(2);
     for (const gap of gapsBetween(reads)) {
-      expect(gap, 'a failed read after the list was shown was retried more than once a minute').toBeGreaterThanOrEqual(
-        SKIP_MS,
+      expect(gap, 'a failed read after the list was shown was retried sooner than ten seconds').toBeGreaterThanOrEqual(
+        POLL_MS,
       );
     }
   });
