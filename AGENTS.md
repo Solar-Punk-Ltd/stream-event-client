@@ -6,8 +6,7 @@ Read by AI coding agents and by people working in this repository. `CLAUDE.md` i
 ## What this is
 
 The Devcon 8 viewer: browse the event's streams, watch them over Swarm, and chat beside the video.
-The plan and its decisions are kept by the owner outside this repository. The README says what is
-built.
+The README says what is built.
 
 ## Scope
 
@@ -22,7 +21,7 @@ built.
 - In: a theme switcher for viewers logged in to the chat. A deployment picks its theme with `theme` in
   `config.json`, which decides the logo and the words. A viewer's switch changes only the colours and
   typefaces, and `themeSwitcher` turns it off.
-- Out, and staying out unless the owner says otherwise: admin sign-in, the page holding wallets or
+- Out, and staying out unless the maintainers say otherwise: admin sign-in, the page holding wallets or
   stamp keys, buying or managing stamps, uploads beyond chat messages, creating or managing streams,
   and any theme beyond `swarm` and `web3privacy`.
 
@@ -34,5 +33,5 @@ built.
 - A bug gets its own pull request, with a test that fails before the fix.
 - When you change behaviour, change the page that describes it in the same pull request.
 - Browser and end-to-end suites check that things work. Timings are reported, never asserted.
-- Nothing is deployed without the owner's word.
+- Nothing is deployed without a maintainer's approval.
 - A comment carries context the code cannot, never a narration of the line below it.
