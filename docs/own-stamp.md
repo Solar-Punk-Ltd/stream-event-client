@@ -81,9 +81,8 @@ weeb-3 answers a stamp it will not take with silence, never an error, so each pu
   could not push it", with what went wrong.
 - The own-feed copy goes through Weeb3 the same way, after the message.
 
-**A known limit:** the deadline does not cancel the push, since weeb-3 offers no way to. A valid push slower than a
-minute is reported as refused, the node is let go, and weeb-3 may still deliver the message later, when the chat reads
-it back.
+The deadline does not cancel the push, since weeb-3 offers no way to. A valid push slower than a minute is reported as
+refused, the node is let go, and weeb-3 may still deliver the message later, when the chat reads it back.
 
 ## The stamp's figures
 
@@ -100,9 +99,8 @@ Swarm ID**, Swarm ID's button again, whose click opens the Swarm ID sign-in wind
 - The figures are also read when the person signs in, when My Swarm opens, when the page comes back into focus, and
   after messages sent, at most every 15 seconds (`siteStamp.ts`, `ChatStamp.tsx`).
 
-**A known limit:** a stamp changed directly on Swarm ID's own Apps screen, rather than through this button, reaches an
-open viewer on another domain only at its next sign-in with Swarm ID, so until then the viewer may show the old
-stamp's figures.
+A stamp changed directly on Swarm ID's own Apps screen, rather than through this button, reaches an open viewer on
+another domain only at its next sign-in with Swarm ID, so until then the viewer may show the old stamp's figures.
 
 A report with no stamp id means Swarm ID gives this site no stamp, and the page shows that at once without reading.
 Every sign-in starts that way until the person confirms a stamp with Go to app in the Swarm ID window, so My Swarm says
