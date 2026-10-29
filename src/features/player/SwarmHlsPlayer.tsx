@@ -250,7 +250,6 @@ function levelIndexByName(hls: Hls, level: string): number {
   return hls.levels.findIndex((candidate) => candidate.height === height);
 }
 
-// TODO Consider switching to React.MediaHTMLAttributes<HTMLMediaElement> to support <audio> as well
 interface HlsPlayerProps extends React.VideoHTMLAttributes<HTMLVideoElement> {
   owner: string;
   topicString: string;

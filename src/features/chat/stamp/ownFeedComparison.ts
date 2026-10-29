@@ -68,6 +68,18 @@ export class OwnFeedRefusedError extends Error {
 }
 
 /**
+ * The chat on screen holds an entry that neither the chat feed's head lookup nor a read of that entry's own slot finds
+ * yet, so the chat cannot be read as far as the screen shows it, and a copy of a message on screen would count as
+ * missing from the chat.
+ */
+export class ChatNotReadYetError extends Error {
+  constructor(index: number) {
+    super(`the chat entry at index ${index}, which the chat on screen holds, was not found`);
+    this.name = 'ChatNotReadYetError';
+  }
+}
+
+/**
  * The sender's own feed names more entries than their messages in the chat can account for. Its newest index is the
  * sender's to choose, so it is never read whole past {@link ownFeedCap}.
  */
@@ -113,6 +125,11 @@ interface ChatWalkOptions {
   /** The chat server's feed owner, 40 hex digits. */
   readonly chatOwner: string;
   readonly chatTopic: string;
+  /**
+   * The newest feed index the chat on screen holds, or null when it holds none. The chat is read from no older entry,
+   * since a source may serve a head lookup seconds old, or one that finds nothing in a chat that has just begun.
+   */
+  readonly knownNewestIndex?: number | null;
   readonly timeoutMs: number;
   /** Ends every read the walk makes, and the walk with them. */
   readonly signal?: AbortSignal;
@@ -150,6 +167,26 @@ async function newestIndex(reads: ChatReads, owner: string, topic: Topic, window
     throw new OwnFeedUnreadableError(what, head);
   }
   return { index: head.feedIndex, payload: head.bytes };
+}
+
+/**
+ * The chat feed's newest entry: the one its head lookup names, or the entry at `shownIndex` read by its own slot, as
+ * the chat on screen reads it, when the lookup names an older entry or none. Null only when neither names an entry.
+ *
+ * @param shownIndex The newest feed index the chat on screen holds, or null when it holds none.
+ * @throws ChatNotReadYetError when the lookup is older than the chat on screen and the entry at `shownIndex` is not
+ *   there either.
+ */
+async function chatHead(reads: ChatReads, owner: string, topic: Topic, window: ReadOptions, shownIndex: number | null) {
+  const looked = await newestIndex(reads, owner, topic, window, 'the chat feed');
+  if (shownIndex === null || (looked !== null && looked.index >= shownIndex)) {
+    return looked;
+  }
+  const payload = await readEntry(reads, owner, topic, shownIndex, window);
+  if (payload === null) {
+    throw new ChatNotReadYetError(shownIndex);
+  }
+  return { index: shownIndex, payload };
 }
 
 const REFUSED = 'refused';
@@ -259,8 +296,8 @@ function indicesOutside(held: readonly SeqRange[], end: number, limit: number): 
 
 /**
  * Every message of the chat feed, by its index: the newest entry, every history file back to the first, and each entry
- * no history file holds, read by its own index. An entry or a row that fails the library's check, or the check a
- * message passes on this page, is left out.
+ * no history file holds, read by its own index. The newest entry is never older than the newest the chat on screen
+ * holds. An entry or a row that fails the library's check, or the check a message passes on this page, is left out.
  */
 async function readWholeChat(options: ChatWalkOptions): Promise<WholeChat> {
   const { chatTopic } = options;
@@ -269,7 +306,7 @@ async function readWholeChat(options: ChatWalkOptions): Promise<WholeChat> {
   const owner = bareHex(options.chatOwner);
   const topic = Topic.fromString(chatTopic);
   const messages = new Map<number, ChatMessage>();
-  const head = await newestIndex(reads, owner, topic, window, 'the chat feed');
+  const head = await chatHead(reads, owner, topic, window, options.knownNewestIndex ?? null);
   if (head === null) {
     return { checked: messages, badSignatures: new Map() };
   }
@@ -472,6 +509,7 @@ function onePerSignature(records: readonly OwnFeedRecord[]): OwnFeedRecord[] {
  *
  * @throws OwnFeedUnreadableError when a feed's newest entry, one of its entries or a history file of the chat could not
  *   be read.
+ * @throws ChatNotReadYetError when the source does not serve the newest entry the chat on screen holds yet.
  * @throws OwnFeedRefusedError when the source served the chat but turned away the own feed's newest entry.
  * @throws OwnFeedTooLargeError when the own feed names more entries than {@link ownFeedCap} allows.
  */

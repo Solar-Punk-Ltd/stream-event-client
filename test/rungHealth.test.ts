@@ -171,7 +171,7 @@ describe('dropping a rung that has stopped being produced', () => {
   });
 
   /**
-   * **Any number of drops, until the viewer is on a quality that moves** (ruled 2026-10-07).
+   * **Any number of drops, until the viewer is on a quality that moves**.
    *
    * A cap of one would fail here: a live test on 2026-09-01 showed an uploader dying read as
    * every rung failing in turn. The poller does not announce a rung for being quiet alone, it fails

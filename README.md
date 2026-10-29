@@ -2,8 +2,8 @@
 
 A web app for watching an event's live streams and recordings over [Swarm](https://www.ethswarm.org), with a chat
 beside each stream. Browse the event's streams, watch one, choose and test where each part of the page loads from
-(the event gateway, another gateway, your own Bee node, or Weeb3, a Swarm node that runs in the browser tab, the
-package is weeb-3), and chat as a guest or signed in with Swarm ID, with the event paying for each message or a stamp
+(the event gateway, another gateway, your own Bee node, or Weeb3, a Swarm node that runs in the browser tab, from
+the weeb-3 package), and chat as a guest or signed in with Swarm ID, with the event paying for each message or a stamp
 of your own.
 
 It is a static page: one build serves every deployment, and everything a deployment differs by is a setting in

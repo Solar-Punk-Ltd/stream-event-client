@@ -160,6 +160,12 @@ How the check reads, in `src/features/chat/stamp/ownFeedComparison.ts`, which on
 - Both are read through the source picked for Chat history. The chat feed is read from its newest entry back through
   its history files, each file older than the one before and 50 at most, and each entry no file holds by its own
   index, 500 at most. Past those limits the chat is not counted.
+- The chat feed's newest entry is never older than the newest message the chat on screen holds, of any type. A gateway
+  may answer the lookup of that entry with one seconds old, or with none in a chat that has just begun, while the chat
+  on screen reads its entries one by one. When the lookup names an older entry or none, the entry of the newest message
+  on screen is read by its own index, and the chat is read back from it through its history files as above. When that
+  entry is not there either, the check says **The chat could not be read yet. Try again in a moment.** and lists
+  nothing as missing. My Swarm's count reads the chat the same way and says the same line, with Try again.
 - Then the own feed is read from its first entry to its newest, and on past the newest by index until an entry is not
   there, since a gateway may serve a newest entry seconds old and a copy written since would otherwise count as
   missing, and My stamp would offer to copy it again.

@@ -47,10 +47,6 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
   const { sending, ownStamp, warning, noRouteLine } = useChatStamp();
   const settings = useMemo(() => chatSettings(chat, topic, session, sending), [chat, topic, session, sending]);
   const isSendingHeld = noRouteLine !== null || (warning?.blocksSending ?? false);
-  const ownFeedSource = useMemo(
-    () => ({ reads, chatTopic: settings.infra.chatTopic, chatOwner: settings.infra.chatAddress }),
-    [reads, settings.infra.chatTopic, settings.infra.chatAddress],
-  );
   const ownAddress = session?.address ?? null;
   const {
     status,
@@ -71,8 +67,18 @@ export function Chat({ chat, topic, reads, source = null }: ChatProps) {
     restart,
     copyToOwnFeed,
     onOwnSendSettled,
+    newestHeldIndex,
     refusedCount,
   } = useSwarmChat(settings, ownAddress, reads, ownStamp);
+  const ownFeedSource = useMemo(
+    () => ({
+      reads,
+      chatTopic: settings.infra.chatTopic,
+      chatOwner: settings.infra.chatAddress,
+      knownNewestIndex: newestHeldIndex,
+    }),
+    [reads, settings.infra.chatTopic, settings.infra.chatAddress, newestHeldIndex],
+  );
   const ownFeedChat: OwnFeedChat | null = useMemo(
     () =>
       ownStamp && ownAddress

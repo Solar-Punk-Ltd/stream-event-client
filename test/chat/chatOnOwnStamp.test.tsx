@@ -811,6 +811,54 @@ describe("a sender's own feed in the message details", () => {
     release();
   });
 
+  describe('when the head lookup of the chat lags the chat on screen', () => {
+    /** The watch page with `onScreen` read into the chat at indices 0 and on, and the newest one checked. */
+    async function verifyNewest(feeds: ReturnType<typeof servedFeeds>, onScreen: readonly ChatMessage[]) {
+      reads = feeds.reads;
+      await watchPage(BATCH, ON_THIS_SERVER);
+      for (const [index, shown] of onScreen.entries()) {
+        await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(shown, index)));
+      }
+      await waitFor(() => (onScreen.every(({ text }) => chatRegion()?.textContent?.includes(text)) ? true : null));
+      const stamps = [...document.querySelectorAll('button')].filter(
+        (stamp) => stamp.getAttribute('aria-label') === 'Sent with their own stamp, show details',
+      );
+      click(stamps.at(-1)!);
+      return verify();
+    }
+
+    it.each([
+      ['finds no entry', null],
+      ['names an older entry', 1],
+    ] as const)(
+      'reads on to the newest message on screen when the lookup %s, so none of its copies are missing from the chat',
+      async (_what, staleIndex) => {
+        const onScreen = ['a', 'b', 'c', 'd'].map((label) => mine(label));
+        const feeds = servedFeeds();
+        feeds.chat(SERVER_KEY, CHAT_TOPIC, onScreen);
+        feeds.chatHeadAt(SERVER_KEY, CHAT_TOPIC, staleIndex);
+        feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, onScreen);
+
+        const shown = await verifyNewest(feeds, onScreen);
+
+        expect(shown.querySelector('.own-feed-tick'), 'this message is in the own feed').toBeTruthy();
+        expect(shown.querySelector('.own-feed-missing')).toBeNull();
+      },
+    );
+
+    it('says the chat could not be read yet, and lists nothing missing, when the newest message on screen is not there either', async () => {
+      const onScreen = ['a', 'b', 'c', 'd'].map((label) => mine(label));
+      const feeds = servedFeeds();
+      feeds.chat(SERVER_KEY, CHAT_TOPIC, onScreen.slice(0, 2));
+      feeds.ownFeed(SENDER_KEY, CHAT_TOPIC, onScreen);
+
+      const shown = await verifyNewest(feeds, onScreen);
+
+      expect(shown.textContent).toContain('The chat could not be read yet. Try again in a moment.');
+      expect(shown.querySelector('.own-feed-missing')).toBeNull();
+    });
+  });
+
   it('reads the chat afresh for each check, so messages that reached it since an earlier check are not missing', async () => {
     const theirs = signed(OTHER_KEY, 'theirs');
     const [a, b] = [mine('a'), mine('b')];
@@ -981,11 +1029,15 @@ describe('my own feed in My Swarm', () => {
     );
   }
 
-  /** The watch page on my own stamp, a chat holding `chatMessages`, and my own feed holding `copies`, in My Swarm. */
+  /**
+   * The watch page on my own stamp, a chat holding `chatMessages`, and my own feed holding `copies`, in My Swarm, with
+   * `onScreen` read into the chat at indices 0 and on before My Swarm opens.
+   */
   async function openMySwarm(
     chatMessages: ChatMessage[],
     copies: ChatMessage[],
     arrange: (feeds: ReturnType<typeof servedFeeds>, myKey: string) => void = () => {},
+    onScreen: readonly ChatMessage[] = [],
   ) {
     const feeds = servedFeeds();
     feeds.chat(SERVER_KEY, CHAT_TOPIC, chatMessages);
@@ -995,6 +1047,10 @@ describe('my own feed in My Swarm', () => {
     chatOnMyBeeNode();
     saveChatStampChoice(signedInAddress, { payWith: MessageVia.OWN_STAMP });
     await watchPage(BATCH, ON_THIS_SERVER);
+    for (const [index, shown] of onScreen.entries()) {
+      await act(async () => FakeSwarmChat.latest().emitter.emit(EVENTS.MESSAGE_RECEIVED, messageData(shown, index)));
+    }
+    await waitFor(() => (onScreen.every(({ text }) => chatRegion()?.textContent?.includes(text)) ? true : null));
     click(button(/^(My Swarm|Ida|Ada)/));
     await settle();
     const box = () => document.querySelector<HTMLElement>('[aria-label="Own feed in this chat"]');
@@ -1036,6 +1092,16 @@ describe('my own feed in My Swarm', () => {
     expect(box()?.textContent).toContain('Own feed: 1 of 3 messages');
     expect(box()?.textContent).toContain('2 missing');
     expect(button('Sync')).toBeTruthy();
+  });
+
+  it('says the chat could not be read yet, and offers a Try again, when the newest message on screen is not in the chat feed', async () => {
+    const [a, b, c, d] = await myMessages(['a', 'b', 'c', 'd']);
+    const box = await openMySwarm([a!, b!], [a!, b!, c!, d!], undefined, [a!, b!, c!, d!]);
+
+    expect(box()?.textContent).toContain('The chat could not be read yet. Try again in a moment.');
+    expect(box()?.textContent).not.toContain('could not be counted');
+    expect(button('Try again')).toBeTruthy();
+    expect(queryButton('Sync')).toBeNull();
   });
 
   it('says my own feed is too large to count, and offers no sync, when it names far more entries than I sent', async () => {
@@ -1222,5 +1288,13 @@ describe('my own feed in My Swarm', () => {
     await act(async () => vi.advanceTimersByTimeAsync(OWN_COPY_RETRY_MS));
     await waitFor(() => (box()?.textContent?.includes('All 2 copied') ? true : null));
     vi.useRealTimers();
+  });
+
+  it('counts my messages up to the newest on screen when the head lookup of the chat finds none yet', async () => {
+    const [a, b] = await myMessages(['a', 'b']);
+    const box = await openMySwarm([a!, b!], [a!], (feeds) => feeds.chatHeadAt(SERVER_KEY, CHAT_TOPIC, null), [a!, b!]);
+
+    expect(box()?.textContent).toContain('Own feed: 1 of 2 messages');
+    expect(box()?.textContent).toContain('1 missing');
   });
 });
