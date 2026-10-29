@@ -545,6 +545,27 @@ describe('a head lookup older than the chat on screen', () => {
     ).rejects.toBeInstanceOf(ChatNotReadYetError);
   });
 
+  it('throws when the head lookup lags and the entry at the known index fails to read with an answer that is not absent', async () => {
+    const sent = ['a', 'b', 'c', 'd'].map((label) => message(label));
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, sent, { filesThrough: [1] });
+    feeds.chatHeadAt(SERVER_KEY, CHAT_TOPIC, 1);
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, sent);
+    const newest = singleOwnerChunkAddress(
+      makeFeedIdentifier(Topic.fromString(CHAT_TOPIC), FeedIndex.fromBigInt(3n)),
+      addressOf(SERVER_KEY),
+    );
+    const reads: ChatReads = {
+      ...feeds.reads,
+      readChunk: async (address, options) =>
+        address === newest ? unanswered : feeds.reads.readChunk(address, options),
+    };
+
+    await expect(
+      compareOwnFeed({ ...compareOptions(), reads: () => reads, knownNewestIndex: 3 }),
+    ).rejects.toBeInstanceOf(OwnFeedUnreadableError);
+  });
+
   it.each([1, 2])(
     'reads no chat entry by its own index when the head lookup names index 2 and the chat on screen holds up to %i',
     async (onScreen) => {
