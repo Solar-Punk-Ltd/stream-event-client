@@ -135,6 +135,9 @@ export function useOwnFeedComparison(source: OwnFeedSource | null, sender: strin
   return { state, check, stop };
 }
 
+/** Said by the check in a message's details and by the count in My Swarm when the chat on screen is ahead of what the source serves. */
+export const CHAT_NOT_READ_YET_TEXT = 'The chat could not be read yet. Try again in a moment.';
+
 /** "1 message" or "N messages". */
 export function messagesText(count: number): string {
   return count === 1 ? '1 message' : `${count} messages`;
