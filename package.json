@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "description": "Watch an event's live streams and recordings over Swarm, with a chat beside each stream",
+  "bugs": "https://github.com/Solar-Punk-Ltd/stream-event-client/issues",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Solar-Punk-Ltd/stream-event-client.git"
   },
-  "bugs": "https://github.com/Solar-Punk-Ltd/stream-event-client/issues",
-  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
