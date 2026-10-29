@@ -143,8 +143,8 @@ else's message each names **the sender's own feed** and **the sender's address**
 - Each count names its messages, five at most, newest first. A check that found nothing wrong shows the first line
   alone.
 - **No own feed of yours was found in this chat.** when none is found, and under anyone else's message
-  **No own feed of the sender's was found in this chat.** It says found, since copies that have not reached Swarm yet
-  look the same as none.
+  **No own feed of the sender's was found in this chat.** It says only that none was found, since copies that have not
+  reached Swarm yet look the same as none.
 - **Your own feed could not be read.** when a read fails, and **Your own feed is too large to check.** when it names
   more entries than the sender's messages in the chat and 25 more, or more than 1,000.
 - When the source answers the chat but turns away the sender's own feed, as an event gateway that serves only the chat
