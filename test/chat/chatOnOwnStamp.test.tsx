@@ -618,7 +618,7 @@ describe("a sender's own feed in the message details", () => {
       `Own feed: ${owner.slice(0, 4)}…${owner.slice(-4)}/${OWN_TOPIC.slice(0, 4)}…`,
     );
     expect(ownFeedReads(feeds)).toBe(0);
-    expect(section()?.textContent).not.toContain('no own feed in this chat');
+    expect(section()?.textContent).not.toContain('was found in this chat');
 
     click(button('Copy the own feed address'));
     await settle();
@@ -840,14 +840,14 @@ describe("a sender's own feed in the message details", () => {
     expect(shown.querySelector(`[aria-label="Missing from the sender's own feed"]`)).toBeNull();
   });
 
-  it('says in one line that the sender has no own feed in this chat when none is found', async () => {
+  it("says no own feed of the sender's was found when none is, without claiming the sender keeps none", async () => {
     const a = mine('a');
     await openDetails(a, [a], null);
 
     const shown = await verify();
 
-    expect(resultLines(shown)[0]).toBe('The sender has no own feed in this chat.');
-    expect(shown.textContent).not.toMatch(/keeps (no|none)/);
+    expect(resultLines(shown)[0]).toBe("No own feed of the sender's was found in this chat.");
+    expect(shown.textContent).not.toMatch(/keeps (no|none)|has no own feed/);
   });
 
   describe('under a message the viewer sent', () => {
@@ -919,13 +919,14 @@ describe("a sender's own feed in the message details", () => {
       },
     );
 
-    it('says you have no own feed in this chat when none is found', async () => {
+    it('says no own feed of yours was found when none is, without claiming you keep none', async () => {
       const [a] = await viewers(['a']);
       await openViewersDetails(a!, [a!], null);
 
       const shown = await verify();
 
-      expect(resultLines(shown)[0]).toBe('You have no own feed in this chat.');
+      expect(resultLines(shown)[0]).toBe('No own feed of yours was found in this chat.');
+      expect(shown.textContent).not.toMatch(/have no own feed/);
     });
 
     it.each([
