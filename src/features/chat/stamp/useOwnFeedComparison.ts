@@ -140,5 +140,10 @@ export const CHAT_NOT_READ_YET_TEXT = 'The chat could not be read yet. Try again
 
 /** "1 message" or "N messages". */
 export function messagesText(count: number): string {
-  return count === 1 ? '1 message' : `${count} messages`;
+  return `${count} ${oneOrMany(count, 'message', 'messages')}`;
+}
+
+/** `one` for a count of 1 and `many` for any other, so a word such as is or are agrees with the count it follows. */
+export function oneOrMany(count: number, one: string, many: string): string {
+  return count === 1 ? one : many;
 }

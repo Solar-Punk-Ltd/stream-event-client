@@ -16,7 +16,11 @@ export function senderBadge(identity: ChatIdentity | null): SenderBadge {
 
 /** The stamp's short name, shown as its title. */
 export const OWN_STAMP_TITLE = 'Own stamp';
-export const OWN_STAMP_LABEL = 'Sent with their own stamp, show details';
+
+/** The stamp button's accessible name, which names whose stamp paid as the own feed check names whose feed it reads. */
+export function ownStampLabel(sentByViewer: boolean): string {
+  return sentByViewer ? 'Sent with your own stamp, show details' : "Sent with the sender's own stamp, show details";
+}
 
 /** The badge button's accessible name, which says what pressing it does. */
 export function badgeLabel(badge: SenderBadge): string {

@@ -6,7 +6,7 @@ import { SwarmIdBadgeIcon } from '@/shared/components/Icons/SwarmIdBadgeIcon';
 
 import { hasNonAsciiCharacters, NON_LATIN_NAME_NOTE } from '../../../ens/ensLookup';
 import { messageTime } from '../messageTime';
-import { badgeLabel, OWN_STAMP_LABEL, OWN_STAMP_TITLE, type SenderBadge } from '../senderBadge';
+import { badgeLabel, OWN_STAMP_TITLE, ownStampLabel, type SenderBadge } from '../senderBadge';
 
 import './SenderLine.scss';
 
@@ -39,6 +39,8 @@ interface SenderLineProps {
   badge: SenderBadge;
   /** Whether the sender paid for the write with a stamp of their own. */
   ownStamp: boolean;
+  /** Whether the viewer sent the message, so the stamp is named as the viewer's. */
+  sentByViewer: boolean;
   /** The server's receive time once published, the sender's clock while sending, in milliseconds. */
   timestamp: number;
   /** The id of the details card the badge opens. */
@@ -57,6 +59,7 @@ export function SenderLine({
   isEnsName = false,
   badge,
   ownStamp,
+  sentByViewer,
   timestamp,
   detailsId,
   areDetailsShown,
@@ -92,7 +95,7 @@ export function SenderLine({
         <button
           type="button"
           className="sender-badge"
-          aria-label={OWN_STAMP_LABEL}
+          aria-label={ownStampLabel(sentByViewer)}
           title={OWN_STAMP_TITLE}
           aria-expanded={areDetailsShown}
           aria-controls={areDetailsShown ? detailsId : undefined}

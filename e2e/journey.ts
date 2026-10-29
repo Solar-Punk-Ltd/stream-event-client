@@ -153,7 +153,7 @@ async function badgesAndDetails(chat: Locator, published: Published): Promise<vo
   ).toBeVisible();
   await expect(
     row(published.chat.ownStamp.text).getByRole('button', {
-      name: 'Sent with their own stamp, show details',
+      name: "Sent with the sender's own stamp, show details",
       exact: true,
     }),
     'a message sent with its own stamp shows the stamp',
@@ -185,7 +185,7 @@ async function badgesAndDetails(chat: Locator, published: Published): Promise<vo
   await expect(details, 'the details close').toHaveCount(0);
 
   const ownStamp = row(published.chat.ownStamp.text);
-  await ownStamp.getByRole('button', { name: 'Sent with their own stamp, show details', exact: true }).click();
+  await ownStamp.getByRole('button', { name: "Sent with the sender's own stamp, show details", exact: true }).click();
   const stampDetails = ownStamp.getByRole('region', { name: 'Details for this message', exact: true });
   await expect(stampDetails, 'the stamp opens the details as the badge does').toBeVisible();
   await expect(stampDetails).toContainText('Own stamp');

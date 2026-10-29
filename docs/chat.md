@@ -128,23 +128,29 @@ under their chat address, as **Own feed: a1b2…c3d4/5e6f…7a8b**, its owner an
 copies both in full as `owner/topic`. Opening the details reads nothing more.
 
 A **Verify** button compares the own feed with the chat only when pressed, and says **Checked 12 of 40** while it
-reads, counting the entries of the chat feed and of the own feed, with a **Stop** button. It then says first whether
-**this message is in their own feed**, and after that only what disagrees, each line shown only when there is one:
+reads, counting the entries of the chat feed and of the own feed, with a **Stop** button. It then says first
+**This message is in your own feed.** or **This message is not in your own feed.**, and after that only what
+disagrees, each line shown only when there is one, and each count with the verb its number takes, as in
+**1 message is** and **2 messages are**. The lines here are those under a message the viewer sent. Under anyone
+else's message each names **the sender's own feed** and **the sender's address** instead, as in
+**This message is in the sender's own feed.**
 
-- **X messages in this chat but not in their own feed**, of the sender's messages on their own stamp. A message the
+- **2 messages are in this chat but not in your own feed**, of the sender's messages on their own stamp. A message the
   gateway paid for never gets a copy, as each message's signed `via` says, so it is never counted missing.
-- **Y messages in their own feed but not in this chat**.
-- **Z carrying their address with a signature that does not match**.
+- **1 message is in your own feed but not in this chat**.
+- **1 message carries your address, but its signature does not match**, and for more than one,
+  **2 messages carry your address, but their signatures do not match**.
 - Each count names its messages, five at most, newest first. A check that found nothing wrong shows the first line
   alone.
-- It says no own feed found for them when none is found, since copies that have not reached Swarm yet look the same
-  as none.
-  Their own feed could not be read when a read fails. Their own feed is too large to check when it names more entries
-  than the sender's messages in the chat and 25 more, or more than 1,000.
+- **No own feed of yours was found in this chat.** when none is found, and under anyone else's message
+  **No own feed of the sender's was found in this chat.** It says only that none was found, since copies that have not
+  reached Swarm yet look the same as none.
+- **Your own feed could not be read.** when a read fails, and **Your own feed is too large to check.** when it names
+  more entries than the sender's messages in the chat and 25 more, or more than 1,000.
 - When the source answers the chat but turns away the sender's own feed, as an event gateway that serves only the chat
-  server's feeds does, it says in one line that this source does not serve their own feed. A refusal is a 4xx other
-  than 404 and 429, or a network failure on two reads in a row, since a refusal without CORS headers reads as one but
-  so does a dropped connection.
+  server's feeds does, it says **This source does not serve your own feed, so it cannot be checked here.** A refusal
+  is a 4xx other than 404 and 429, or a network failure on two reads in a row, since a refusal without CORS headers
+  reads as one but so does a dropped connection.
 
 How the check reads, in `src/features/chat/stamp/ownFeedComparison.ts`, which only reads:
 
