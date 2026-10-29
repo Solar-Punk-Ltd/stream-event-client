@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ChatReads } from '../../src/features/chat/chatParts';
 import {
+  ChatNotReadYetError,
   compareOwnFeed,
   isInOwnFeed,
   MAX_ENTRIES_READ_ALONE,
@@ -493,5 +494,84 @@ describe("comparing a sender's own feed with the chat", () => {
 
     expect(planned, 'three chat entries, two own feed entries and the one past its head').toBe(6);
     expect(checked).toBe(6);
+  });
+});
+
+describe('a head lookup older than the chat on screen', () => {
+  const chatSlotReads = (feeds: ReturnType<typeof servedFeeds>, count: number) => {
+    const slots = Array.from(
+      { length: count },
+      (_, index) =>
+        `chunk ${singleOwnerChunkAddress(
+          makeFeedIdentifier(Topic.fromString(CHAT_TOPIC), FeedIndex.fromBigInt(BigInt(index))),
+          addressOf(SERVER_KEY),
+        )}`,
+    );
+    return feeds.asked.filter((read) => slots.includes(read));
+  };
+
+  it.each([
+    ['finds no entry', null],
+    ['names an older entry', 1],
+  ] as const)(
+    "reads on to the newest message on screen when the head lookup %s, and lists none of the sender's copies as missing from the chat",
+    async (_what, staleIndex) => {
+      const sent = ['a', 'b', 'c', 'd'].map((label) => message(label));
+      const feeds = servedFeeds();
+      feeds.chat(SERVER_KEY, CHAT_TOPIC, sent, { filesThrough: [1] });
+      feeds.chatHeadAt(SERVER_KEY, CHAT_TOPIC, staleIndex);
+      feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, sent);
+
+      const comparison = await compareOwnFeed({ ...compareOptions(), reads: () => feeds.reads, knownNewestIndex: 3 });
+
+      expect(ids(comparison.chatOnOwnStamp)).toEqual(['d', 'c', 'b', 'a'].map(idOf));
+      expect(comparison.missingFromChat).toEqual([]);
+      expect(comparison.missingFromOwnFeed).toEqual([]);
+      expect(
+        feeds.asked.filter((read) => read.startsWith('bytes')),
+        'the history file the entry on screen links to',
+      ).toHaveLength(1);
+    },
+  );
+
+  it('says the chat could not be read yet, rather than listing copies as missing, when the newest entry on screen is not there', async () => {
+    const sent = ['a', 'b', 'c', 'd'].map((label) => message(label));
+    const feeds = servedFeeds();
+    feeds.chat(SERVER_KEY, CHAT_TOPIC, sent.slice(0, 2));
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, sent);
+
+    await expect(
+      compareOwnFeed({ ...compareOptions(), reads: () => feeds.reads, knownNewestIndex: 3 }),
+    ).rejects.toBeInstanceOf(ChatNotReadYetError);
+  });
+
+  it.each([1, 2])(
+    'reads no chat entry by its own index when the head lookup names index 2 and the chat on screen holds up to %i',
+    async (onScreen) => {
+      const sent = ['a', 'b', 'c'].map((label) => message(label));
+      const feeds = servedFeeds();
+      feeds.chat(SERVER_KEY, CHAT_TOPIC, sent, { filesThrough: [1] });
+      feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, sent);
+
+      const comparison = await compareOwnFeed({
+        ...compareOptions(),
+        reads: () => feeds.reads,
+        knownNewestIndex: onScreen,
+      });
+
+      expect(comparison.chatOnOwnStamp).toHaveLength(3);
+      expect(chatSlotReads(feeds, 3)).toEqual([]);
+    },
+  );
+
+  it('reads the chat as empty when neither the head lookup nor the chat on screen names an entry', async () => {
+    const a = message('a');
+    const feeds = servedFeeds();
+    feeds.ownFeed(GUEST_KEY, CHAT_TOPIC, [a]);
+
+    const comparison = await compareOwnFeed({ ...compareOptions(), reads: () => feeds.reads, knownNewestIndex: null });
+
+    expect(comparison.inChat).toEqual([]);
+    expect(ids(comparison.missingFromChat)).toEqual([idOf('a')]);
   });
 });
