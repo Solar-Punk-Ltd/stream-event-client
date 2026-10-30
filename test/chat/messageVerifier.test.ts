@@ -52,6 +52,26 @@ describe('checking a chat message off the main thread', () => {
     expect(await inThreadVerifier(BOUND_SITE).verify(elsewhere)).toMatchObject({ ok: false, reason: 'binding' });
   });
 
+  it('passes a binding made on another site this chat lists as one of its own, naming that site', async () => {
+    const scope = pageScope({ origin: BOUND_SITE, protocol: 'https:', hostname: 'example.com' }, [OTHER_SITE]);
+    const elsewhere = signedMessage('elsewhere', { key: otherSiteKey, binding: OTHER_SITE_BINDING });
+    const verdict = await createMessageVerifier(() => inThreadPort(), scope).verify(elsewhere);
+    expect(verdict).toEqual({
+      ok: true,
+      message: elsewhere,
+      identity: { account: FORK_ACCOUNT, site: OTHER_SITE, date: '2026-10-14T12:00:00.000Z' },
+    });
+  });
+
+  it('still refuses a binding made on a site the chat does not list', async () => {
+    const scope = pageScope({ origin: BOUND_SITE, protocol: 'https:', hostname: 'example.com' }, [
+      'https://mirror.example.com',
+    ]);
+    const elsewhere = signedMessage('elsewhere', { key: otherSiteKey, binding: OTHER_SITE_BINDING });
+    const verdict = await createMessageVerifier(() => inThreadPort(), scope).verify(elsewhere);
+    expect(verdict).toMatchObject({ ok: false, reason: 'binding' });
+  });
+
   it('refuses a binding for another chat address carried by a key it does not name', async () => {
     const forged = forgedWithBinding('forged', GUEST_KEY, CHAT_BINDING);
     expect(await inThreadVerifier(BOUND_SITE).verify(forged)).toMatchObject({ ok: false, reason: 'binding' });
@@ -214,4 +234,11 @@ describe("the page's own scope", () => {
     });
   });
 
+  it('adds the other sites that serve the chat after the page origin, each once', () => {
+    const page = { origin: 'https://view.example.com', protocol: 'https:', hostname: 'view.example.com' };
+    expect(pageScope(page, ['https://mirror.example.com', 'https://view.example.com'])).toEqual({
+      origins: ['https://view.example.com', 'https://mirror.example.com'],
+      allowLocalHttp: false,
+    });
+  });
 });

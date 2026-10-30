@@ -88,12 +88,12 @@ per account, so another account signing in on the same browser starts with the g
 ## What the chat checks, and the badges
 
 Every message is signed by its sender's chat key. The page checks each one, live, from history and the viewer's own
-while it is still sending, in a Web Worker with swarm-chat-js's `verifyChatMessage` and the page's own origin, so a
-long history never holds up the page (`src/features/chat/verify/`).
+while it is still sending, in a Web Worker with swarm-chat-js's `verifyChatMessage`, the page's own origin and the other sites named in
+`chat.siteOrigins`, so a long history never holds up the page (`src/features/chat/verify/`).
 
 - History is checked in batches of 25, and each batch shows as soon as it passed. A message is shown only once it
   passed.
-- One that fails, whether its text was changed after signing, its Swarm ID binding was made for another site, or it is
+- One that fails, whether its text was changed after signing, its Swarm ID binding was made for a site this chat does not list, or it is
   in the format before version 8, is never shown, and the panel counts them in its `data-refused-messages` attribute.
   A chat whose history is all of the older format opens as an empty chat.
 - The worker is the bundle's own file, so the page's policy allows it with `worker-src 'self'`. A worker that cannot

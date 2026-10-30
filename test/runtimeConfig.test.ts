@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
+  chatSiteOrigins,
   CONFIG_URL,
   configProblemText,
   enabledChat,
@@ -203,6 +204,51 @@ describe('the chat settings', () => {
     expect(on.ok && enabledChat(on.config)).toEqual(CHAT);
     expect(off.ok && enabledChat(off.config)).toBeNull();
     expect(absent.ok && enabledChat(absent.config)).toBeNull();
+  });
+});
+
+describe('the other sites that serve this chat', () => {
+  const SITES = ['https://mirror.example.com', 'https://viewer.example.eth.limo', 'https://example.org:8443'];
+
+  it('hands on the https origins a deployment lists, and none when it lists none or chat is off', () => {
+    const listed = parseRuntimeConfig({ ...VALID, chat: { ...CHAT, siteOrigins: SITES } });
+    const empty = parseRuntimeConfig({ ...VALID, chat: { ...CHAT, siteOrigins: [] } });
+    const unset = parseRuntimeConfig({ ...VALID, chat: CHAT });
+    const off = parseRuntimeConfig({ ...VALID, chat: { ...CHAT, enabled: false, siteOrigins: SITES } });
+
+    expect(listed.ok && chatSiteOrigins(listed.config)).toEqual(SITES);
+    expect(empty.ok && chatSiteOrigins(empty.config)).toEqual([]);
+    expect(unset.ok && chatSiteOrigins(unset.config)).toEqual([]);
+    expect(off.ok && chatSiteOrigins(off.config)).toEqual([]);
+  });
+
+  it('refuses an entry that is not a bare https origin as a browser writes it, naming the entry', () => {
+    for (const site of [
+      'http://mirror.example.com',
+      'https://mirror.example.com/',
+      'https://mirror.example.com/chat',
+      'https://Mirror.example.com',
+      'https://mirror.example.com:443',
+      'https://user@mirror.example.com',
+      'mirror.example.com',
+      '',
+      '<another site>',
+    ]) {
+      const problem = problemOf(parseRuntimeConfig({ ...VALID, chat: { ...CHAT, siteOrigins: [SITES[0], site] } }));
+      expect(problem).toContain('chat.siteOrigins.1');
+    }
+  });
+
+  it('refuses a site listed twice, naming the second', () => {
+    const siteOrigins = [SITES[0], SITES[1], SITES[0]];
+    const problem = problemOf(parseRuntimeConfig({ ...VALID, chat: { ...CHAT, siteOrigins } }));
+    expect(problem).toContain('chat.siteOrigins.2: is listed twice');
+  });
+
+  it('refuses a single site not written as a list', () => {
+    expect(problemOf(parseRuntimeConfig({ ...VALID, chat: { ...CHAT, siteOrigins: SITES[0] } }))).toContain(
+      'chat.siteOrigins',
+    );
   });
 });
 

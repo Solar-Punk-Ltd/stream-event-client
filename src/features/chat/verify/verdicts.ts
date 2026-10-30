@@ -5,7 +5,7 @@ import {
   verifyChatMessage,
 } from '@solarpunkltd/swarm-chat-js/message';
 
-/** Which sites' Swarm ID bindings a check accepts: this page's own origin. */
+/** Which sites' Swarm ID bindings a check accepts: this page's own origin, then the other sites serving its chat. */
 export interface VerifyScope {
   readonly origins: readonly string[];
   /** True only on a page served over plain http from this machine, where a development build of Swarm ID signs. */
@@ -44,10 +44,13 @@ export function verifyBatch({ batch, messages, origins, allowLocalHttp }: Verify
 
 const LOCAL_HOSTS: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '[::1]']);
 
-/** The scope of the page at `location`. */
-export function pageScope(location: Pick<Location, 'origin' | 'protocol' | 'hostname'>): VerifyScope {
+/** The scope of the page at `location`, also accepting `siteOrigins`, the other sites that serve the same chat. */
+export function pageScope(
+  location: Pick<Location, 'origin' | 'protocol' | 'hostname'>,
+  siteOrigins: readonly string[] = [],
+): VerifyScope {
   return {
-    origins: [location.origin],
+    origins: [...new Set([location.origin, ...siteOrigins])],
     allowLocalHttp: location.protocol === 'http:' && LOCAL_HOSTS.has(location.hostname),
   };
 }
