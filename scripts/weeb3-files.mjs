@@ -3,15 +3,17 @@
  *
  * The page's own code loads the package as a chunk of the bundle. What it starts then fetches the rest by these fixed
  * paths: its service worker at /weeb-3/service.js, its shared worker at /weeb-3/worker.js, which imports weeb_3.js and
- * its snippets beside it, and the WebAssembly module. So the build copies them out of the installed package, and the
- * dev and preview servers serve the service worker with the header that lets it control the whole site.
+ * its snippets beside it, and the WebAssembly module. So the build copies them out of the installed package. The page
+ * registers its service worker through a root file, /weeb-3-host.js, which the build writes and which may control the
+ * whole site on any host. The dev and preview servers still send weeb-3's own worker with the header that lets it
+ * control the whole site, as the image does, for a page an earlier version left registering it.
  *
  * Two rewrites happen while the bundler reads the package. The default WebAssembly path of its page-side module
  * points at the served copy, and its `import("hls.js")` loads the app's own stoppable hls.js.
  *
  * A build without the package installed copies nothing and says so once.
  */
-import { cpSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, extname, join, normalize, sep } from 'node:path';
 
@@ -22,6 +24,13 @@ export const WEEB3_FILES = ['weeb_3.js', 'weeb_3_bg.wasm', 'service.js', 'worker
 
 const PREFIX = '/weeb-3/';
 const SERVICE_WORKER = `${PREFIX}service.js`;
+
+/**
+ * The root worker the page registers for the whole site (`src/swarm/providers/weeb-3/weeb3HostWorker.ts` says why).
+ * It names the package's worker by the same fixed path the package itself uses, so it loads the copy beside it.
+ */
+export const WEEB3_HOST_WORKER = 'weeb-3-host.js';
+const HOST_WORKER_SOURCE = `// weeb-3's service worker, loaded from the site's root so it may control the whole site.\nimportScripts('${SERVICE_WORKER}');\n`;
 const TYPES = { '.js': 'text/javascript', '.wasm': 'application/wasm' };
 
 /** The installed package's folder, or null while it is not installed. */
@@ -33,7 +42,10 @@ export function weeb3PackageFolder(root) {
   }
 }
 
-/** Copies the package's browser files into `<outDir>/weeb-3/`. Answers whether there was a package to copy. */
+/**
+ * Copies the package's browser files into `<outDir>/weeb-3/` and writes the root worker beside the page. Answers whether
+ * there was a package to copy.
+ */
 export function copyWeeb3Files(packageFolder, outDir) {
   if (packageFolder === null) {
     return false;
@@ -46,6 +58,7 @@ export function copyWeeb3Files(packageFolder, outDir) {
       cpSync(from, join(target, file), { recursive: true });
     }
   }
+  writeFileSync(join(outDir, WEEB3_HOST_WORKER), HOST_WORKER_SOURCE);
   return true;
 }
 
@@ -107,6 +120,11 @@ export function weeb3HlsRedirect(source, importer, packageFolder, root) {
 function middleware(packageFolder, servesFiles) {
   return (request, response, next) => {
     const path = (request.url ?? '').split('?')[0];
+    if (path === `/${WEEB3_HOST_WORKER}` && servesFiles && packageFolder !== null) {
+      response.setHeader('Content-Type', TYPES['.js']);
+      response.end(HOST_WORKER_SOURCE);
+      return;
+    }
     if (!path.startsWith(PREFIX)) {
       return next();
     }

@@ -67,9 +67,12 @@ hls.js reads a playlist with a request, so a stream card hands it its preview pl
 blob.
 
 `/weeb-3/` always serves weeb-3's files: the WebAssembly module as `application/wasm`, and its service worker at
-`/weeb-3/service.js` with `Service-Worker-Allowed: /`, because the worker answers the node's `/weeb-3/...` routes for a
-page anywhere on the site. Every file there is answered `no-cache` and a missing one is a 404, never the page. weeb-3
-keeps every route under `/weeb-3/` at the site's root, so the viewer is served at the root.
+`/weeb-3/service.js`. The page registers that worker through `/weeb-3-host.js`, a root file the build writes, which only
+loads `/weeb-3/service.js`. Served from the root it may answer the node's `/weeb-3/...` routes for a page anywhere on
+the site with no header at all, so the same build works on a host that sets no headers, such as an ENS gateway.
+`/weeb-3/service.js` is still answered with `Service-Worker-Allowed: /`, for a page an earlier version left registering
+it directly. Both are answered `no-cache`, and a missing file is a 404, never the page. weeb-3 keeps every route under
+`/weeb-3/` at the site's root, so the viewer is served at the root.
 
 ## Caching, fonts and the proxy
 

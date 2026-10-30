@@ -271,11 +271,17 @@ void describe("weeb-3's files, always served", () => {
     await waitForServer(base, 'image-test-weeb3');
   });
 
-  void it('serves its service worker allowed the whole site, and a missing file as a 404 rather than the page', async () => {
+  void it('serves its root worker and its own service worker allowed the whole site, and a missing file as a 404 rather than the page', async () => {
     const worker = await get(`${base}/weeb-3/service.js`);
     assert.equal(worker.status, 200);
     assert.equal(worker.headers.get('service-worker-allowed'), '/');
     policyOf(worker);
+    const host = await get(`${base}/weeb-3-host.js`);
+    assert.equal(host.status, 200);
+    assert.match(host.headers.get('content-type') ?? '', /javascript/);
+    assert.equal(host.headers.get('cache-control'), 'no-cache');
+    assert.match(await host.text(), /importScripts\('\/weeb-3\/service\.js'\)/);
+    policyOf(host);
     const missing = await get(`${base}/weeb-3/not-there.js`);
     assert.equal(missing.status, 404);
     assert.doesNotMatch(await missing.text(), /<div id="root">/);
