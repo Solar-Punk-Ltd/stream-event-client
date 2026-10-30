@@ -18,7 +18,9 @@ controls the page, and counts as failed when it is not ready after 30 s (`WEEB3_
   of its own.
 - **Its service worker.** Before the node is made, the page registers `/weeb-3-host.js` for the whole site
   (`weeb3HostWorker.ts`). That root file only loads weeb-3's `/weeb-3/service.js`, and from the root it may control
-  every page without the `Service-Worker-Allowed` header, which an ENS gateway or a Bee node never sends. The worker
+  every page without the `Service-Worker-Allowed` header, on any host that serves the site at its root, such as an ENS
+  gateway. A site served under a sub-path, such as a Bee node's `/bzz/<reference>/`, is not covered, because weeb-3
+  reads through fixed `/weeb-3/` paths at the origin's root. The worker
   claims the page as it activates, so a first visit needs no reload, and weeb-3 then finds the page controlled and
   registers nothing of its own. A later visit is already controlled and registers nothing. A browser that kept
   weeb-3's own worker for the whole site from an earlier version has it replaced in the same registration. When the
