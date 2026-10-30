@@ -2,10 +2,11 @@ import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router';
 
-import { ensRpcUrl, loadRuntimeConfig, selectedTheme, swarmIdUrl } from '@/config/runtimeConfig';
+import { chatSiteOrigins, ensRpcUrl, loadRuntimeConfig, selectedTheme, swarmIdUrl } from '@/config/runtimeConfig';
 import { applyLook, applyThemeContent } from '@/design';
 import { EnsNamesProvider } from '@/features/chat/ens/EnsNames';
 import { ChatStampProvider } from '@/features/chat/stamp/ChatStamp';
+import { setChatSiteOrigins } from '@/features/chat/verify/chatVerifier';
 import { ConnectProvider } from '@/features/connect/ConnectContext';
 
 import { AppChatUserProvider } from './AppChatUserProvider';
@@ -30,13 +31,18 @@ void loadRuntimeConfig().then((result) => {
   if (result.ok) {
     applyThemeContent(selectedTheme(result.config));
     applyLook(wornLook(result.config, themeChoice));
+    setChatSiteOrigins(chatSiteOrigins(result.config));
   }
   root.render(
     <StrictMode>
       {result.ok ? (
         <AppProvider config={result.config}>
           <ThemeChoiceProvider config={result.config}>
-            <AppChatUserProvider swarmIdUrl={swarmIdUrl(result.config)} appName={document.title}>
+            <AppChatUserProvider
+              swarmIdUrl={swarmIdUrl(result.config)}
+              siteOrigins={chatSiteOrigins(result.config)}
+              appName={document.title}
+            >
               <ConnectProvider>
                 <ChatStampProvider>
                   <EnsNamesProvider rpcUrl={ensRpcUrl(result.config)}>

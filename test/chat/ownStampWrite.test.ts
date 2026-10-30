@@ -229,7 +229,7 @@ describe("a copy in the sender's own feed", () => {
     const sent = bee.posted[0].body.subarray(8);
     const copy = bee.posted[1].body.subarray(8);
     expect(hexOf(copy), 'the copy is the message exactly as it is sent').toBe(hexOf(sent));
-    const check = parseChatMessage(sent, { origin: 'https://example.com' });
+    const check = parseChatMessage(sent, { origins: ['https://example.com'] });
     expect(check.ok && check.message).toMatchObject({ id: idOf('one'), via: MessageVia.OWN_STAMP });
     expect(check.ok && 'own' in check.message).toBe(false);
     expect(hexOf(sent)).toBe(hexOf(encodeChatMessage(check.ok ? check.message : ({} as never))));
@@ -271,7 +271,7 @@ describe("a copy in the sender's own feed", () => {
 
     expect(bee.posted).toHaveLength(2);
     for (const written of bee.posted) {
-      const check = parseChatMessage(written.body.subarray(8), { origin: BOUND_SITE });
+      const check = parseChatMessage(written.body.subarray(8), { origins: [BOUND_SITE] });
       expect(check.ok, check.ok ? '' : `${check.reason}: ${check.detail}`).toBe(true);
       if (check.ok) {
         expect(check.identity).not.toBeNull();

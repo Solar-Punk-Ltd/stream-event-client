@@ -100,7 +100,8 @@ says. Messages go through the event gateway, which stamps them, unless the perso
 - **A blocked window.** The click is Swarm ID's own, so a browser opens the window unless it blocks pop-ups outright.
   When it does, the line under the button says "Your browser blocked the Swarm ID window. Allow pop-ups for this site,
   then press the button again." The page has no window of its own to offer instead.
-- **A binding the chat would refuse** is refused at sign-in rather than at every message: one made for another site,
+- **A binding the chat would refuse** is refused at sign-in rather than at every message: one made for a site this chat
+  does not list,
   naming another address than the key's, or signed by another account than the one the frame says is signed in, leaves
   the person signed out with the reason (`swarmIdSignIn.ts`).
 - **When the Swarm ID site cannot be used**, as for a site it does not serve, My Swarm says it cannot be reached and
@@ -146,6 +147,19 @@ not govern.
 `swarmId.url` must be the identical origin. When they differ the policy refuses the frame, the page offers no sign-in,
 and the console warns once, naming both settings. It warns the same when the Swarm ID site does not start for this page
 at all.
+
+## One chat on several sites
+
+The same chat can be served from more than one page, such as the viewer at `https://viewer.example.com` and a copy of it
+on Swarm at `https://viewer.example.eth.limo`. Swarm ID binds a chat address to the one site it was signed on, so a
+message sent from the copy carries a binding for the copy's origin, which the first page would refuse by default.
+
+Each deployment lists the other sites in `chat.siteOrigins` ([configuration](configuration.md#the-chat-block)), and its
+page then accepts a binding for its own origin or for any site listed. The first page above lists
+`https://viewer.example.eth.limo` and the copy lists `https://viewer.example.com`, so a message signed in on either
+shows the Swarm ID badge on both. A binding for a site neither lists is refused as before. A person signed in on both
+sites chats from two chat addresses, one per site, both bound to the same account. Each site also has to be on the
+Swarm ID site's allow list, below, for a person to sign in there.
 
 ## What the Swarm ID site requires
 

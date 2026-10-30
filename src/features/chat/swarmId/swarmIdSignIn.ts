@@ -47,7 +47,7 @@ const POLICY_VIOLATION = 'securitypolicyviolation';
 interface SwarmIdSignInOptions {
   url: string;
   appName: string;
-  /** This page's origin, which every binding must name. */
+  /** This page's origin and the other sites serving its chat, one of which every binding must name. */
   scope: VerifyScope;
   load: LoadSwarmIdClient;
   warn?: (message: string) => void;

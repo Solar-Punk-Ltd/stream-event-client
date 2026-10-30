@@ -74,8 +74,9 @@ function accountOf(identity: SwarmIdIdentity): string {
 
 /**
  * The session a signed-in viewer chats with. The binding is checked as every reader will check it, for this page's
- * origin and this key's address, so a viewer is never signed in to send messages the chat would refuse. Its signer
- * must also be the account the frame says is signed in, so the badge names who the person picked.
+ * origin or another site serving its chat, and this key's address, so a viewer is never signed in to send messages the
+ * chat would refuse. Its signer must also be the account the frame says is signed in, so the badge names who the
+ * person picked.
  */
 export function swarmIdSession(
   identity: SwarmIdIdentity,

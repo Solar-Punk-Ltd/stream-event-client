@@ -24,7 +24,7 @@ const CHAT: ChatConfig = {
   pollIntervalMs: 750,
 };
 
-const PAGE = { origin: BOUND_SITE, allowLocalHttp: false };
+const PAGE = { origins: [BOUND_SITE], allowLocalHttp: false };
 
 let chatKey: Uint8Array;
 
@@ -63,7 +63,7 @@ describe("a Swarm ID viewer's wallet link", () => {
       ...(user.walletLink ? { wl: user.walletLink } : {}),
     }).message;
 
-    const check = verifyChatMessage(sent, { origin: BOUND_SITE });
+    const check = verifyChatMessage(sent, { origins: [BOUND_SITE] });
     expect(check.ok && check.identity?.wallet).toBe(LINK_WALLET);
   });
 

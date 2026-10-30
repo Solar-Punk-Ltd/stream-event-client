@@ -52,6 +52,26 @@ describe('checking a chat message off the main thread', () => {
     expect(await inThreadVerifier(BOUND_SITE).verify(elsewhere)).toMatchObject({ ok: false, reason: 'binding' });
   });
 
+  it('passes a binding made on another site this chat lists as one of its own, naming that site', async () => {
+    const scope = pageScope({ origin: BOUND_SITE, protocol: 'https:', hostname: 'example.com' }, [OTHER_SITE]);
+    const elsewhere = signedMessage('elsewhere', { key: otherSiteKey, binding: OTHER_SITE_BINDING });
+    const verdict = await createMessageVerifier(() => inThreadPort(), scope).verify(elsewhere);
+    expect(verdict).toEqual({
+      ok: true,
+      message: elsewhere,
+      identity: { account: FORK_ACCOUNT, site: OTHER_SITE, date: '2026-10-14T12:00:00.000Z' },
+    });
+  });
+
+  it('still refuses a binding made on a site the chat does not list', async () => {
+    const scope = pageScope({ origin: BOUND_SITE, protocol: 'https:', hostname: 'example.com' }, [
+      'https://mirror.example.com',
+    ]);
+    const elsewhere = signedMessage('elsewhere', { key: otherSiteKey, binding: OTHER_SITE_BINDING });
+    const verdict = await createMessageVerifier(() => inThreadPort(), scope).verify(elsewhere);
+    expect(verdict).toMatchObject({ ok: false, reason: 'binding' });
+  });
+
   it('refuses a binding for another chat address carried by a key it does not name', async () => {
     const forged = forgedWithBinding('forged', GUEST_KEY, CHAT_BINDING);
     expect(await inThreadVerifier(BOUND_SITE).verify(forged)).toMatchObject({ ok: false, reason: 'binding' });
@@ -74,7 +94,7 @@ describe('checking a chat message off the main thread', () => {
 
   it('sends a history read in batches, answering each batch as it comes back rather than after the last', async () => {
     const port = inThreadPort();
-    const verifier = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
+    const verifier = createMessageVerifier(() => port, { origins: [BOUND_SITE], allowLocalHttp: false });
     const count = VERIFY_BATCH_SIZE * 2 + 3;
     const messages = Array.from({ length: count }, (_, at) => signedMessage(`m${at}`, { ts: 1_000 + at }));
 
@@ -97,7 +117,7 @@ describe('checking a chat message off the main thread', () => {
 
   it('checks one message once, however many events carry it', async () => {
     const port = inThreadPort();
-    const verifier = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
+    const verifier = createMessageVerifier(() => port, { origins: [BOUND_SITE], allowLocalHttp: false });
     const message = signedMessage('again');
     await verifier.verify(message);
     await verifier.verify({ ...message });
@@ -116,7 +136,7 @@ describe('checking a chat message off the main thread', () => {
 });
 
 describe('a worker that fails', () => {
-  const scope = { origin: BOUND_SITE, allowLocalHttp: false };
+  const scope = { origins: [BOUND_SITE], allowLocalHttp: false };
 
   /** A worker that takes a batch and never answers it, until the test fails it. */
   function silentPort() {
@@ -200,16 +220,24 @@ describe("the page's own scope", () => {
   it('names the page origin, and lets a local development page take a local binding', () => {
     expect(pageScope({ origin: 'https://view.example.com', protocol: 'https:', hostname: 'view.example.com' })).toEqual(
       {
-        origin: 'https://view.example.com',
+        origins: ['https://view.example.com'],
         allowLocalHttp: false,
       },
     );
     expect(pageScope({ origin: 'http://127.0.0.1:4173', protocol: 'http:', hostname: '127.0.0.1' })).toEqual({
-      origin: 'http://127.0.0.1:4173',
+      origins: ['http://127.0.0.1:4173'],
       allowLocalHttp: true,
     });
     expect(pageScope({ origin: 'http://192.0.2.7', protocol: 'http:', hostname: '192.0.2.7' })).toEqual({
-      origin: 'http://192.0.2.7',
+      origins: ['http://192.0.2.7'],
+      allowLocalHttp: false,
+    });
+  });
+
+  it('adds the other sites that serve the chat after the page origin, each once', () => {
+    const page = { origin: 'https://view.example.com', protocol: 'https:', hostname: 'view.example.com' };
+    expect(pageScope(page, ['https://mirror.example.com', 'https://view.example.com'])).toEqual({
+      origins: ['https://view.example.com', 'https://mirror.example.com'],
       allowLocalHttp: false,
     });
   });

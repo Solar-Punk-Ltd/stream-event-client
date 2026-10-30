@@ -37,7 +37,7 @@ const CHAT: ChatConfig = {
   pollIntervalMs: 750,
 };
 
-const PAGE = { origin: BOUND_SITE, allowLocalHttp: false };
+const PAGE = { origins: [BOUND_SITE], allowLocalHttp: false };
 
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -195,7 +195,7 @@ describe('signing in with Swarm ID', () => {
 
     expect(sent.idb).toEqual(CHAT_BINDING);
     expect(sent.via).toBe('gateway');
-    const check = verifyChatMessage(sent, { origin: BOUND_SITE });
+    const check = verifyChatMessage(sent, { origins: [BOUND_SITE] });
     expect(check.ok && check.identity?.account).toBe(FORK_ACCOUNT);
   });
 

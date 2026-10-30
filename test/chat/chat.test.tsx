@@ -449,7 +449,7 @@ describe('what the chat checks', () => {
     const answer = port.postMessage;
     const held: Array<() => void> = [];
     port.postMessage = (request) => held.push(() => answer(request));
-    verifier.current = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
+    verifier.current = createMessageVerifier(() => port, { origins: [BOUND_SITE], allowLocalHttp: false });
     await open();
 
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'waits' }));
@@ -464,7 +464,7 @@ describe('what the chat checks', () => {
     const answer = port.postMessage;
     const held: Array<() => void> = [];
     port.postMessage = (request) => held.push(() => answer(request));
-    verifier.current = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
+    verifier.current = createMessageVerifier(() => port, { origins: [BOUND_SITE], allowLocalHttp: false });
     await open(panel('stream-one'));
     const signed = message({ id: 'refused' });
     await emit(EVENTS.MESSAGE_RECEIVED, message({ id: 'late' }));
@@ -482,7 +482,7 @@ describe('what the chat checks', () => {
   it('still checks and shows messages when the worker fails, and still refuses a tampered one', async () => {
     const port = inThreadPort();
     port.postMessage = () => port.onerror?.(new Event('error') as ErrorEvent);
-    verifier.current = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
+    verifier.current = createMessageVerifier(() => port, { origins: [BOUND_SITE], allowLocalHttp: false });
     await open();
 
     const signed = message({ id: 'tampered' });

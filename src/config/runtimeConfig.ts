@@ -40,6 +40,37 @@ const chatEndpoint = filledIn.refine(isRootedPathOrHttpUrl, {
   message: 'must be a path on this site or an http or https address',
 });
 
+/** An https origin exactly as a browser reports it: lower case, no default port, nothing after the host. */
+function isBareHttpsOrigin(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return url.protocol === 'https:' && url.origin === value;
+}
+
+const siteOriginSchema = filledIn.refine(isBareHttpsOrigin, {
+  message:
+    'must be an https origin such as https://mirror.example.com, in lower case, with no path and no trailing slash',
+});
+
+/**
+ * The other sites that serve this same chat, such as a copy of the viewer on Swarm under an ENS name. A message signed
+ * in with Swarm ID on any of them shows as signed in here, since Swarm ID binds a chat address to the one site it was
+ * signed on.
+ */
+const siteOriginsSchema = z
+  .array(siteOriginSchema, { message: 'must be a list of origins' })
+  .superRefine((origins, context) => {
+    origins.forEach((origin, at) => {
+      if (origins.indexOf(origin) !== at) {
+        context.addIssue({ code: 'custom', path: [at], message: 'is listed twice' });
+      }
+    });
+  });
+
 const enabledChatSchema = z.object({
   enabled: z.literal(true),
   /** Where the chat's feed and history files are read, a gateway that serves only reads. */
@@ -58,6 +89,7 @@ const enabledChatSchema = z.object({
   gsocTopic: notEmpty,
   feedOwner: ethAddress,
   pollIntervalMs: z.number().int().positive(),
+  siteOrigins: siteOriginsSchema.optional(),
 });
 
 /** Chat switched off is not read any further, so its example placeholders can stay. */
@@ -207,6 +239,13 @@ export function experimentalEnabled(config: RuntimeConfig): boolean {
 /** The chat's settings when chat is on, and null when it is off or not configured. */
 export function enabledChat(config: RuntimeConfig): ChatConfig | null {
   return config.chat?.enabled ? config.chat : null;
+}
+
+const NO_OTHER_SITES: readonly string[] = [];
+
+/** The other sites whose Swarm ID bindings this chat accepts beside the page's own, none when chat is off. */
+export function chatSiteOrigins(config: RuntimeConfig): readonly string[] {
+  return enabledChat(config)?.siteOrigins ?? NO_OTHER_SITES;
 }
 
 /**

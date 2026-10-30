@@ -170,7 +170,7 @@ export async function publish(beeUrl: string, stamp: string, beeVersion: string)
       via: seq === OWN_STAMP_MESSAGE ? MessageVia.OWN_STAMP : MessageVia.GATEWAY,
       ...(binding ? { idb: binding } : {}),
     }).message;
-    const verdict = verifyChatMessage(message, { origin: PREVIEW_ORIGIN, allowLocalHttp: true });
+    const verdict = verifyChatMessage(message, { origins: [PREVIEW_ORIGIN], allowLocalHttp: true });
     if (!verdict.ok || (verdict.identity !== null) !== (binding !== undefined)) {
       throw new Error(`message ${seq} would not pass the viewer's check: ${JSON.stringify(verdict)}`);
     }

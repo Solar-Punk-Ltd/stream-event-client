@@ -82,9 +82,12 @@ interface ChatUserProviderProps {
    * site's content through, or null for a source with none.
    */
   beeApiUrl?: string | null;
+  /** The other sites that serve this chat, whose Swarm ID bindings every reader here accepts beside this page's own. */
+  siteOrigins?: readonly string[];
 }
 
 const NO_SWARM_ID = (): null => null;
+const NO_OTHER_SITES: readonly string[] = [];
 const NO_LISTENER = () => () => {};
 
 /**
@@ -96,9 +99,10 @@ function useSwarmIdSignIn(
   appName: string,
   load: LoadSwarmIdClient,
   beeApiUrl: string | null,
+  siteOrigins: readonly string[],
 ): [SwarmIdState | null, SwarmIdSignIn | null] {
   const [signIn] = useState(() =>
-    url ? createSwarmIdSignIn({ url, appName, scope: pageScope(window.location), load, beeApiUrl }) : null,
+    url ? createSwarmIdSignIn({ url, appName, scope: pageScope(window.location, siteOrigins), load, beeApiUrl }) : null,
   );
   useEffect(() => signIn?.useBeeApiUrl(beeApiUrl), [signIn, beeApiUrl]);
   useEffect(() => {
@@ -128,9 +132,10 @@ export function ChatUserProvider({
   appName = '',
   loadSwarmIdClient = loadSwarmIdLibrary,
   beeApiUrl = null,
+  siteOrigins = NO_OTHER_SITES,
 }: ChatUserProviderProps) {
   const [guestSession, setGuestSession] = useState<Session | null>(restoreUserSession);
-  const [swarmId, signIn] = useSwarmIdSignIn(swarmIdUrl, appName, loadSwarmIdClient, beeApiUrl);
+  const [swarmId, signIn] = useSwarmIdSignIn(swarmIdUrl, appName, loadSwarmIdClient, beeApiUrl, siteOrigins);
 
   const loginAsUser = useCallback((name: string): DisplayNameCheck => {
     const checked = checkDisplayName(name);
