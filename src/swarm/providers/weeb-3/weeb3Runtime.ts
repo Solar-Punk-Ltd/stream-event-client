@@ -1,6 +1,7 @@
 import { OPEN_MY_SWARM } from '@/shared/mySwarmPanel';
 
 import type { DownloadProgress, ProviderState } from '../../provider';
+import { controlThisPage } from './weeb3HostWorker';
 import { loadWeeb3Package } from './weeb3Module';
 import type { Weeb3Node, Weeb3Package } from './weeb3Package';
 
@@ -9,7 +10,7 @@ export const WEEB3_PATH = '/weeb-3/';
 
 const WASM_URL = `${WEEB3_PATH}weeb_3_bg.wasm`;
 
-/** The service worker's scope, so its `/weeb-3/` routes answer a page served anywhere on the site. */
+/** The service worker's scope, so its `/weeb-3/` routes answer a page served anywhere on the site (`weeb3HostWorker.ts`). */
 const SERVICE_WORKER_SCOPE = '/';
 
 /** weeb-3's initial connection target, `CONNECTION_BUILDUP_LIMIT` in its `src/accounting.rs` and in its project README. */
@@ -53,6 +54,8 @@ interface Weeb3RuntimeOptions {
   readonly load?: () => Promise<Weeb3Package>;
   /** Whether weeb-3's service worker controls this page, which its `/weeb-3/` reads go through. */
   readonly isControlled?: () => boolean;
+  /** Puts weeb-3's root worker in control of the page before the node is made. Injected by tests. */
+  readonly controlPage?: () => Promise<boolean>;
   /** Injected by tests. The global `fetch` otherwise. */
   readonly fetcher?: typeof fetch;
   /** The module's size in bytes. What the build recorded otherwise, and none in an unbundled test. */
@@ -74,6 +77,7 @@ function pageIsControlled(): boolean {
 export class Weeb3Runtime {
   private readonly load: () => Promise<Weeb3Package>;
   private readonly isControlled: () => boolean;
+  private readonly controlPage: () => Promise<boolean>;
   private readonly fetcher: typeof fetch;
   private readonly wasmBytes: number | null;
   private readonly listeners = new Set<Listener>();
@@ -88,6 +92,7 @@ export class Weeb3Runtime {
   constructor(options: Weeb3RuntimeOptions = {}) {
     this.load = options.load ?? loadWeeb3Package;
     this.isControlled = options.isControlled ?? pageIsControlled;
+    this.controlPage = options.controlPage ?? controlThisPage;
     // Called bare by `download`, never as this object's method, which the browser's fetch would refuse.
     this.fetcher = options.fetcher ?? fetch;
     this.wasmBytes = options.wasmBytes ?? (typeof __WEEB3_WASM_BYTES__ === 'undefined' ? null : __WEEB3_WASM_BYTES__);
@@ -199,7 +204,9 @@ export class Weeb3Runtime {
   private async started(generation: number): Promise<Weeb3Node> {
     this.clearPoll();
     try {
-      const [weeb3, wasm] = await Promise.all([this.load(), this.download(generation)]);
+      // A node made before the root worker controls the page registers weeb-3's own worker, which a host without its
+      // header refuses. Without control the node is made all the same and stays starting until its deadline.
+      const [weeb3, wasm] = await Promise.all([this.load(), this.download(generation), this.controlPage()]);
       if (generation === this.generation) {
         this.set({ state: 'starting', peers: 0 });
       }

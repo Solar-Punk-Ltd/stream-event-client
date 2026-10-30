@@ -7,7 +7,7 @@ import { parseRuntimeConfig } from '../src/config/runtimeConfig';
 import { NodeInTabProgress } from '../src/features/gateway/NodeInTabProgress';
 import { sharedWeeb3Runtime } from '../src/swarm/providers/weeb-3/weeb3Runtime';
 import { chooseSource, setMode, setPart } from '../src/swarm/routing';
-import { fakeWeeb3Package } from './helpers/fakeWeeb3';
+import { fakeWeeb3Package, hostWorkerInControl } from './helpers/fakeWeeb3';
 import { mount, settle, text, waitFor, type Mounted } from './helpers/dom';
 
 /** The package the page's one weeb-3 runtime loads, made afresh for each case. */
@@ -138,8 +138,7 @@ describe('the node in this browser, over the life of the page', () => {
   });
 
   it('says how far the node has got while a part waits for it, and nothing once it is ready', async () => {
-    // The package's service worker would control the page, which the node needs to be ready.
-    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { controller: {} } });
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: hostWorkerInControl() });
     start();
     await settle();
     expect(text()).toBe('');

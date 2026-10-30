@@ -11,6 +11,7 @@ import {
 } from '../../src/swarm/providers/weeb-3/weeb3Runtime';
 import { button, click, dialog, doubleClick, type Mounted, settle, text, waitFor } from '../helpers/dom';
 import { connectPage, seen } from '../helpers/connectPage';
+import { hostWorkerInControl } from '../helpers/fakeWeeb3';
 
 /** The package the page's one weeb-3 runtime loads, which each case sets. */
 const fakeWeeb3 = vi.hoisted(() => ({
@@ -79,7 +80,7 @@ let mounted: Mounted | null = null;
 
 beforeAll(() => {
   globalThis.fetch = (async (input: RequestInfo | URL) => answering(input)) as typeof fetch;
-  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { controller: {} } });
+  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: hostWorkerInControl() });
 });
 
 afterAll(() => {

@@ -16,6 +16,13 @@ controls the page, and counts as failed when it is not ready after 30 s (`WEEB3_
   the first page load carries none of it. The build copies the package's browser files, its service worker, shared
   worker and WebAssembly module, to `/weeb-3/` (`scripts/weeb3-files.mjs`). The bundle carries no copy of the module
   of its own.
+- **Its service worker.** Before the node is made, the page registers `/weeb-3-host.js` for the whole site
+  (`weeb3HostWorker.ts`). That root file only loads weeb-3's `/weeb-3/service.js`, and from the root it may control
+  every page without the `Service-Worker-Allowed` header, which an ENS gateway or a Bee node never sends. The worker
+  claims the page as it activates, so a first visit needs no reload, and weeb-3 then finds the page controlled and
+  registers nothing of its own. A later visit is already controlled and registers nothing. A browser that kept
+  weeb-3's own worker for the whole site from an earlier version has it replaced in the same registration. When the
+  worker cannot take control within 10 s the node starts all the same and fails at its own deadline.
 - **When it runs.** The node runs while something holds it: the video while weeb-3 is its source, the watch page's
   player while it shows, My Swarm from adding it until My Swarm closes, or a source's settings while it is checked
   there, and every read through it while that read runs.
