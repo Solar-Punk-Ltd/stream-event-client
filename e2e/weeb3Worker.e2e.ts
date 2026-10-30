@@ -2,14 +2,13 @@ import { join } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { PREVIEW_ORIGIN } from './recording';
 import { serveWithoutHeaders, type StaticSite } from './staticSite';
 
 /**
  * The real weeb-3 package taking control of the page through its service worker, which every read of the node goes
  * through. Starting the node is enough: it registers the worker before it looks for peers, and no peer is ever
- * reached, since every other origin is refused. One host sends no headers of its own, the way an ENS gateway or a Bee
- * node serves the site, and one is `vite preview`, which sends `Service-Worker-Allowed` the way the image does.
+ * reached, since every other origin is refused. The site is served as a host that sends no headers of its own, such
+ * as an ENS gateway, serves it.
  */
 
 const CONFIG = { gatewayUrl: '/bee', catalog: { owner: `0x${'1'.repeat(40)}`, topic: 'weeb3-worker-test' } };
@@ -81,34 +80,47 @@ test.describe('on a host that sends no Service-Worker-Allowed header', () => {
   });
 });
 
-test.describe('on a host that sends the header, as the image does', () => {
+test.describe('on a host that served the header before this version', () => {
+  let site: StaticSite;
+  let seeding = true;
+
+  test.beforeAll(async () => {
+    // The header is sent only while the old registration is seeded, as the deployment before the root worker sent it.
+    site = await serveWithoutHeaders(join(import.meta.dirname, '..', 'dist'), { allowsWholeSiteScope: () => seeding });
+  });
+
+  test.afterAll(async () => {
+    await site.close();
+  });
+
   test("a browser that kept weeb-3's own worker from an earlier version moves to the root one, once", async ({
     page,
   }) => {
-    await onlyThisOrigin(page, PREVIEW_ORIGIN);
-    await page.goto('/');
+    await onlyThisOrigin(page, site.origin);
+    await page.goto(`${site.origin}/`);
     await page.evaluate(async (worker) => {
       await navigator.serviceWorker.register(worker, { scope: '/' });
       await navigator.serviceWorker.ready;
     }, PACKAGE_WORKER);
     await page.reload();
     expect(await controllingWorker(page), 'the earlier version left its worker in control').toBe(
-      `${PREVIEW_ORIGIN}${PACKAGE_WORKER}`,
+      `${site.origin}${PACKAGE_WORKER}`,
     );
+    seeding = false;
 
     await startTheNode(page);
 
     await expect
       .poll(() => controllingWorker(page), { message: 'the root worker took over', timeout: 30_000 })
-      .toBe(`${PREVIEW_ORIGIN}${HOST_WORKER}`);
-    expect(await registeredWorkers(page)).toEqual([`${PREVIEW_ORIGIN}/ ${PREVIEW_ORIGIN}${HOST_WORKER}`]);
+      .toBe(`${site.origin}${HOST_WORKER}`);
+    expect(await registeredWorkers(page)).toEqual([`${site.origin}/ ${site.origin}${HOST_WORKER}`]);
 
     await page.reload();
     await startTheNode(page);
     await page.waitForTimeout(5_000);
     expect(await controllingWorker(page), 'the next visit keeps it, and weeb-3 never puts its own back').toBe(
-      `${PREVIEW_ORIGIN}${HOST_WORKER}`,
+      `${site.origin}${HOST_WORKER}`,
     );
-    expect(await registeredWorkers(page)).toEqual([`${PREVIEW_ORIGIN}/ ${PREVIEW_ORIGIN}${HOST_WORKER}`]);
+    expect(await registeredWorkers(page)).toEqual([`${site.origin}/ ${site.origin}${HOST_WORKER}`]);
   });
 });

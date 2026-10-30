@@ -5,8 +5,7 @@
  * paths: its service worker at /weeb-3/service.js, its shared worker at /weeb-3/worker.js, which imports weeb_3.js and
  * its snippets beside it, and the WebAssembly module. So the build copies them out of the installed package. The page
  * registers its service worker through a root file, /weeb-3-host.js, which the build writes and which may control the
- * whole site on any host. The dev and preview servers still send weeb-3's own worker with the header that lets it
- * control the whole site, as the image does, for a page an earlier version left registering it.
+ * whole site on any host.
  *
  * Two rewrites happen while the bundler reads the package. The default WebAssembly path of its page-side module
  * points at the served copy, and its `import("hls.js")` loads the app's own stoppable hls.js.
@@ -116,22 +115,19 @@ export function weeb3HlsRedirect(source, importer, packageFolder, root) {
   return importer.split('?')[0].startsWith(packageFolder + sep) ? join(root, WEEB3_HLS_MODULE) : null;
 }
 
-/** Sends the service worker's scope header, and in the dev server, which has no build, the files themselves. */
-function middleware(packageFolder, servesFiles) {
+/** Serves the files in the dev server, which has no build. */
+function middleware(packageFolder) {
   return (request, response, next) => {
     const path = (request.url ?? '').split('?')[0];
-    if (path === `/${WEEB3_HOST_WORKER}` && servesFiles && packageFolder !== null) {
+    if (packageFolder === null) {
+      return next();
+    }
+    if (path === `/${WEEB3_HOST_WORKER}`) {
       response.setHeader('Content-Type', TYPES['.js']);
       response.end(HOST_WORKER_SOURCE);
       return;
     }
     if (!path.startsWith(PREFIX)) {
-      return next();
-    }
-    if (path === SERVICE_WORKER) {
-      response.setHeader('Service-Worker-Allowed', '/');
-    }
-    if (!servesFiles || packageFolder === null) {
       return next();
     }
     let relative;
@@ -151,8 +147,7 @@ function middleware(packageFolder, servesFiles) {
 
 /**
  * The Vite plugins: the package's module rewritten before the bundler reads its asset URLs, its hls.js
- * pointed at the app's stoppable one, then the copy at build, and the files and header in the dev and
- * preview servers. The dev server's dependency bundler would read the package past these, so the
+ * pointed at the app's stoppable one, then the copy at build, and the files in the dev server. The dev server's dependency bundler would read the package past these, so the
  * package is left out of it.
  */
 export function weeb3Files(root) {
@@ -186,10 +181,7 @@ export function weeb3Files(root) {
         logger = config.logger;
       },
       configureServer(server) {
-        server.middlewares.use(middleware(packageFolder, true));
-      },
-      configurePreviewServer(server) {
-        server.middlewares.use(middleware(packageFolder, false));
+        server.middlewares.use(middleware(packageFolder));
       },
       writeBundle(options) {
         if (!copyWeeb3Files(packageFolder, options.dir)) {
