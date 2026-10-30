@@ -103,8 +103,9 @@ from the environment when the image workflow sets them, else git's tag or neares
 
 `scripts/weeb3-files.mjs` is a Vite plugin that copies the weeb-3 package's browser files, its service worker, shared
 worker and WebAssembly module, to `/weeb-3/` in the build, writes the root worker `/weeb-3-host.js` that loads the
-service worker (`src/swarm/providers/weeb-3/weeb3HostWorker.ts` registers it), serves both from the dev server, defines `__WEEB3_VERSION__`, and points the package's own import of hls.js at
-`src/swarm/providers/weeb-3/weeb3Hls.ts`, the stoppable copy.
+service worker (`src/swarm/providers/weeb-3/weeb3HostWorker.ts` registers it), serves both from the dev server,
+defines `__WEEB3_VERSION__`, and points the package's own import of hls.js at `src/swarm/providers/weeb-3/weeb3Hls.ts`,
+the stoppable copy.
 
 ## Dependencies
 

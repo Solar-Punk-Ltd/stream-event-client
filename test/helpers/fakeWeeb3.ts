@@ -103,7 +103,7 @@ export function fakeWeeb3Package(options: FakeWeeb3Options = {}): FakeWeeb3 {
   };
 }
 
-/** `navigator.serviceWorker` once weeb-3's root worker controls the page, as the real one would, so the node can be ready. */
+/** `navigator.serviceWorker` once weeb-3's root worker controls the page, so the node can be ready. */
 export function hostWorkerInControl(): Pick<ServiceWorkerContainer, 'controller'> {
   return { controller: { scriptURL: new URL(WEEB3_HOST_WORKER_URL, location.origin).href } as ServiceWorker };
 }

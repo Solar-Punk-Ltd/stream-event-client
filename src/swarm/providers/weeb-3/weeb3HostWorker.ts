@@ -3,8 +3,8 @@
  * A worker may control the paths under its own folder, and wider only when its answer carries
  * `Service-Worker-Allowed`, which a host such as an ENS gateway never sends. Served from the root it may control the
  * whole site on any host that serves the site at its root. A site under a sub-path, such as a Bee node's
- * `/bzz/<reference>/`, stays out of reach, because weeb-3 uses fixed `/weeb-3/` paths. weeb-3 accepts a page controlled by another script that answers its forwarding protocol, and
- * this one answers it with weeb-3's own code.
+ * `/bzz/<reference>/`, stays out of reach, because weeb-3 uses fixed `/weeb-3/` paths. weeb-3 accepts a page
+ * controlled by another script that answers its forwarding protocol, and this one answers it with weeb-3's own code.
  */
 export const WEEB3_HOST_WORKER_URL = '/weeb-3-host.js';
 

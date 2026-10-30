@@ -29,7 +29,11 @@ const SERVICE_WORKER = `${PREFIX}service.js`;
  * It names the package's worker by the same fixed path the package itself uses, so it loads the copy beside it.
  */
 export const WEEB3_HOST_WORKER = 'weeb-3-host.js';
-const HOST_WORKER_SOURCE = `// weeb-3's service worker, loaded from the site's root so it may control the whole site.\nimportScripts('${SERVICE_WORKER}');\n`;
+const HOST_WORKER_SOURCE = [
+  "// weeb-3's service worker, loaded from the site's root so it may control the whole site.",
+  `importScripts('${SERVICE_WORKER}');`,
+  '',
+].join('\n');
 const TYPES = { '.js': 'text/javascript', '.wasm': 'application/wasm' };
 
 /** The installed package's folder, or null while it is not installed. */
@@ -42,8 +46,8 @@ export function weeb3PackageFolder(root) {
 }
 
 /**
- * Copies the package's browser files into `<outDir>/weeb-3/` and writes the root worker beside the page. Answers whether
- * there was a package to copy.
+ * Copies the package's browser files into `<outDir>/weeb-3/` and writes the root worker beside the page. Answers
+ * whether there was a package to copy.
  */
 export function copyWeeb3Files(packageFolder, outDir) {
   if (packageFolder === null) {
@@ -146,9 +150,9 @@ function middleware(packageFolder) {
 }
 
 /**
- * The Vite plugins: the package's module rewritten before the bundler reads its asset URLs, its hls.js
- * pointed at the app's stoppable one, then the copy at build, and the files in the dev server. The dev server's dependency bundler would read the package past these, so the
- * package is left out of it.
+ * The Vite plugins: the package's module rewritten before the bundler reads its asset URLs, its hls.js pointed at the
+ * app's stoppable one, then the copy at build, and the files in the dev server. The dev server's dependency bundler
+ * would read the package past these, so the package is left out of it.
  */
 export function weeb3Files(root) {
   const packageFolder = weeb3PackageFolder(root);

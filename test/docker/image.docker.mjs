@@ -271,7 +271,7 @@ void describe("weeb-3's files, always served", () => {
     await waitForServer(base, 'image-test-weeb3');
   });
 
-  void it('serves its root worker and its own service worker no-cache, with no scope header, and a missing file as a 404', async () => {
+  void it('serves both workers no-cache with no scope header, and a missing file as a 404', async () => {
     const worker = await get(`${base}/weeb-3/service.js`);
     assert.equal(worker.status, 200);
     assert.equal(worker.headers.get('service-worker-allowed'), null);
