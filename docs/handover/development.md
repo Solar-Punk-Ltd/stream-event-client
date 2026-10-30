@@ -68,6 +68,9 @@ one worker, with no node and no network:
   button frame.
 - `ladder.e2e.ts`, `connect.e2e.ts` and `weeb3.e2e.ts` run real hls.js against a fake gateway (`ladderGateway.ts`)
   publishing a live stream in four qualities, each answer held back 650 ms.
+- `weeb3Worker.e2e.ts` starts the real weeb-3 package and checks that its root worker takes control of the page, once
+  on a host that sends no headers (`staticSite.ts`, the built app served as an ENS gateway serves it) and once with
+  weeb-3's own worker already registered for the whole site, as an earlier version left it.
 
 `installBrowser.ts` fetches the pinned Chromium headless shell before the first run, and the system libraries with it
 when `CI` or `PLAYWRIGHT_INSTALL_DEPS` is set. The journeys print their timings and read rates without asserting them.
@@ -99,9 +102,10 @@ from the environment when the image workflow sets them, else git's tag or neares
 ## weeb-3's files
 
 `scripts/weeb3-files.mjs` is a Vite plugin that copies the weeb-3 package's browser files, its service worker, shared
-worker and WebAssembly module, to `/weeb-3/` in the build, serves the service worker from the dev and preview servers
-with `Service-Worker-Allowed`, defines `__WEEB3_VERSION__`, and points the package's own import of hls.js at
-`src/swarm/providers/weeb-3/weeb3Hls.ts`, the stoppable copy.
+worker and WebAssembly module, to `/weeb-3/` in the build, writes the root worker `/weeb-3-host.js` that loads the
+service worker (`src/swarm/providers/weeb-3/weeb3HostWorker.ts` registers it), serves both from the dev server,
+defines `__WEEB3_VERSION__`, and points the package's own import of hls.js at `src/swarm/providers/weeb-3/weeb3Hls.ts`,
+the stoppable copy.
 
 ## Dependencies
 

@@ -1,5 +1,7 @@
 import type { Page } from '@playwright/test';
 
+import { WEEB3_HOST_WORKER_URL } from '../src/swarm/providers/weeb-3/weeb3HostWorker';
+
 /** What the fake package's `postPushChunk` was handed, as hex, kept on the page for a journey to read. */
 interface FakeWeeb3Push {
   readonly data: string;
@@ -47,11 +49,15 @@ export const FAILING_WEEB3 = FAKE_WEEB3.replace(
   "export default async function init() { throw new Error('the fake fails'); }",
 );
 
-/** The page is told a service worker controls it, which the real package's worker would, so the node can be ready. */
+/**
+ * The page is told weeb-3's root worker controls it, which the real one would, so the node can be ready and the page
+ * registers no real worker beside the fake package.
+ */
 export async function claimServiceWorkerControl(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator.serviceWorker, 'controller', { configurable: true, get: () => ({}) });
-  });
+  await page.addInitScript((hostWorker) => {
+    const controller = { scriptURL: new URL(hostWorker, location.origin).href };
+    Object.defineProperty(navigator.serviceWorker, 'controller', { configurable: true, get: () => controller });
+  }, WEEB3_HOST_WORKER_URL);
 }
 
 /** The chunk the page loads the package from answers with `module`, and its WebAssembly module with a few bytes. */

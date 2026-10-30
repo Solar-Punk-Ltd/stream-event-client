@@ -3,10 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { WEEB3_HOST_WORKER_URL } from '../src/swarm/providers/weeb-3/weeb3HostWorker';
 import {
   copyWeeb3Files,
   wasmBytesOf,
   WEEB3_FILES,
+  WEEB3_HOST_WORKER,
   WEEB3_HLS_MODULE,
   weeb3HlsRedirect,
   weeb3VersionOf,
@@ -52,6 +54,19 @@ describe("the build's copy of weeb-3's files", () => {
     expect(WEEB3_FILES).not.toContain('weeb_3.d.ts');
   });
 
+  it("writes the root worker beside them, which loads the package's service worker so it may control the whole site", () => {
+    const out = folder();
+
+    copyWeeb3Files(packageFolder(), out);
+
+    expect(`/${WEEB3_HOST_WORKER}`).toBe(WEEB3_HOST_WORKER_URL);
+    const source = readFileSync(join(out, WEEB3_HOST_WORKER), 'utf8');
+    expect(source).toContain("importScripts('/weeb-3/service.js');");
+    expect(source, 'a classic script, since the package registers its own worker as one').not.toMatch(
+      /^\s*(import|export)\b/m,
+    );
+  });
+
   it("points the package's own default module path at the copy under /weeb-3/, so the bundle carries no second one", () => {
     const code = "if (x === undefined) {\n  module_or_path = new URL('weeb_3_bg.wasm', import.meta.url);\n}";
 
@@ -93,6 +108,6 @@ describe("the build's copy of weeb-3's files", () => {
     const out = folder();
 
     expect(copyWeeb3Files(null, out)).toBe(false);
-    expect(readdirSync(out)).toEqual([]);
+    expect(readdirSync(out), 'nor a root worker that would load a file that is not there').toEqual([]);
   });
 });

@@ -1,3 +1,4 @@
+import { WEEB3_HOST_WORKER_URL } from '../../src/swarm/providers/weeb-3/weeb3HostWorker';
 import type { HlsStart, StreamQuality, Weeb3Node, Weeb3Package } from '../../src/swarm/providers/weeb-3/weeb3Package';
 
 /** One node the fake package made, with what the page asked of it. */
@@ -100,4 +101,9 @@ export function fakeWeeb3Package(options: FakeWeeb3Options = {}): FakeWeeb3 {
       return loads;
     },
   };
+}
+
+/** `navigator.serviceWorker` once weeb-3's root worker controls the page, so the node can be ready. */
+export function hostWorkerInControl(): Pick<ServiceWorkerContainer, 'controller'> {
+  return { controller: { scriptURL: new URL(WEEB3_HOST_WORKER_URL, location.origin).href } as ServiceWorker };
 }

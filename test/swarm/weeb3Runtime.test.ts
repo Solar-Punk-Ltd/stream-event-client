@@ -53,6 +53,38 @@ describe('the node in this browser', () => {
     expect(fake.nodes[0].started).toBe(1);
   });
 
+  it("puts weeb-3's root worker in control of the page before it makes the node", async () => {
+    const fake = fakeWeeb3Package();
+    let controlled!: () => void;
+    const controlPage = vi.fn(() => new Promise<boolean>((resolve) => (controlled = () => resolve(true))));
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch(), controlPage });
+
+    const started = runtime.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(controlPage).toHaveBeenCalledTimes(1);
+    expect(fake.nodes, 'no node while the worker is not in control yet').toHaveLength(0);
+
+    controlled();
+    await started;
+    expect(fake.nodes).toHaveLength(1);
+    expect(fake.nodes[0].started).toBe(1);
+  });
+
+  it('still makes the node when the root worker could not take control, which then says itself what it lacks', async () => {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({
+      load: fake.load,
+      isControlled: () => false,
+      fetcher: wasmFetch(),
+      controlPage: async () => false,
+    });
+
+    await runtime.start();
+
+    expect(fake.nodes).toHaveLength(1);
+    expect(runtime.status()).toEqual({ state: 'starting', peers: 0 });
+  });
+
   it('is starting until it has a peer and its service worker controls the page, then ready', async () => {
     const fake = fakeWeeb3Package();
     let controlled = false;

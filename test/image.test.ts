@@ -339,16 +339,19 @@ describe('the image server', () => {
     expect(types).toEqual(expect.arrayContaining(['application/wasm', 'text/javascript', 'application/javascript']));
   });
 
-  it("always serves weeb-3's files with the WebAssembly type, never the page, and its worker allowed the whole site", () => {
+  it("always serves weeb-3's files with the WebAssembly type, never the page, and its root worker beside the page", () => {
     const files = SERVER.slice(
       SERVER.indexOf('location /weeb-3/ {'),
-      SERVER.indexOf('location = /weeb-3/service.js {'),
+      SERVER.indexOf('include /etc/nginx/stream-event-client/gateway.conf;'),
     );
     expect(files).toContain('application/wasm wasm;');
     expect(files).toContain('try_files $uri =404;');
     expect(files).toContain('Cache-Control "no-cache"');
     expect(files).toContain('include /etc/nginx/stream-event-client/headers.conf;');
-    expect(location('location = /weeb-3/service.js')).toContain('add_header Service-Worker-Allowed "/" always;');
+    const hostWorker = location('location = /weeb-3-host.js');
+    expect(hostWorker).toContain('Cache-Control "no-cache"');
+    expect(hostWorker).toContain('try_files $uri =404;');
+    expect(SERVER, 'the root worker needs no scope header, so none is sent').not.toContain('Service-Worker-Allowed');
   });
 
   it('repeats the security headers in every location that sets a header of its own', () => {
@@ -356,7 +359,7 @@ describe('the image server', () => {
       'location = /index.html',
       'location = /config.json',
       'location /assets/',
-      'location = /weeb-3/service.js',
+      'location = /weeb-3-host.js',
     ]) {
       expect(location(opening)).toContain('include /etc/nginx/stream-event-client/headers.conf;');
     }
