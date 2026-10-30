@@ -147,5 +147,5 @@ export function inThreadPort(): VerifierPort & { posted: VerifyRequest[] } {
 }
 
 export function inThreadVerifier(origin: string = BOUND_SITE) {
-  return createMessageVerifier(() => inThreadPort(), { origin, allowLocalHttp: false });
+  return createMessageVerifier(() => inThreadPort(), { origins: [origin], allowLocalHttp: false });
 }

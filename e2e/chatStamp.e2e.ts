@@ -178,7 +178,10 @@ const pagePrimary = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim());
 
 const messageIn = (written: Written) =>
-  parseChatMessage(new Uint8Array(written.body.subarray(SPAN_BYTES)), { origin: PREVIEW_ORIGIN, allowLocalHttp: true });
+  parseChatMessage(new Uint8Array(written.body.subarray(SPAN_BYTES)), {
+    origins: [PREVIEW_ORIGIN],
+    allowLocalHttp: true,
+  });
 
 test('a message on my own stamp is stamped by Swarm ID and sent through my Bee node, never the gateway', async ({
   page,

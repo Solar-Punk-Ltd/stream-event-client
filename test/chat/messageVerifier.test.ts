@@ -74,7 +74,7 @@ describe('checking a chat message off the main thread', () => {
 
   it('sends a history read in batches, answering each batch as it comes back rather than after the last', async () => {
     const port = inThreadPort();
-    const verifier = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
+    const verifier = createMessageVerifier(() => port, { origins: [BOUND_SITE], allowLocalHttp: false });
     const count = VERIFY_BATCH_SIZE * 2 + 3;
     const messages = Array.from({ length: count }, (_, at) => signedMessage(`m${at}`, { ts: 1_000 + at }));
 
@@ -97,7 +97,7 @@ describe('checking a chat message off the main thread', () => {
 
   it('checks one message once, however many events carry it', async () => {
     const port = inThreadPort();
-    const verifier = createMessageVerifier(() => port, { origin: BOUND_SITE, allowLocalHttp: false });
+    const verifier = createMessageVerifier(() => port, { origins: [BOUND_SITE], allowLocalHttp: false });
     const message = signedMessage('again');
     await verifier.verify(message);
     await verifier.verify({ ...message });
@@ -116,7 +116,7 @@ describe('checking a chat message off the main thread', () => {
 });
 
 describe('a worker that fails', () => {
-  const scope = { origin: BOUND_SITE, allowLocalHttp: false };
+  const scope = { origins: [BOUND_SITE], allowLocalHttp: false };
 
   /** A worker that takes a batch and never answers it, until the test fails it. */
   function silentPort() {
@@ -200,17 +200,18 @@ describe("the page's own scope", () => {
   it('names the page origin, and lets a local development page take a local binding', () => {
     expect(pageScope({ origin: 'https://view.example.com', protocol: 'https:', hostname: 'view.example.com' })).toEqual(
       {
-        origin: 'https://view.example.com',
+        origins: ['https://view.example.com'],
         allowLocalHttp: false,
       },
     );
     expect(pageScope({ origin: 'http://127.0.0.1:4173', protocol: 'http:', hostname: '127.0.0.1' })).toEqual({
-      origin: 'http://127.0.0.1:4173',
+      origins: ['http://127.0.0.1:4173'],
       allowLocalHttp: true,
     });
     expect(pageScope({ origin: 'http://192.0.2.7', protocol: 'http:', hostname: '192.0.2.7' })).toEqual({
-      origin: 'http://192.0.2.7',
+      origins: ['http://192.0.2.7'],
       allowLocalHttp: false,
     });
   });
+
 });

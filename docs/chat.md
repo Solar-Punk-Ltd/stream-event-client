@@ -4,7 +4,7 @@ Every stream has a chat beside it, and this page says how it works: what a viewe
 this repository, how it reads and writes Swarm, and how every message is checked before it is shown. The chat sits
 beside the video on a desktop and under it on a phone, where it folds away. It is optional: without a `chat` block in
 `config.json`, or with `enabled` false, nothing of it is on the page ([configuration](configuration.md#the-chat-block)).
-The code is `src/features/chat/`, and the library under it is `@solarpunkltd/swarm-chat-js` 9.0.0.
+The code is `src/features/chat/`, and the library under it is `@solarpunkltd/swarm-chat-js` 10.0.0.
 
 Words used here, such as slot, part and Use for, are explained in
 [the glossary](handover/stack.md#words-used-across-these-docs).

@@ -16,7 +16,7 @@ async function started(swarmId: FakeSwarmId, warn: (message: string) => void = (
   const signIn = createSwarmIdSignIn({
     url: 'https://id.example.com',
     appName: 'Devcon streams',
-    scope: { origin: BOUND_SITE, allowLocalHttp: false },
+    scope: { origins: [BOUND_SITE], allowLocalHttp: false },
     load: swarmId.load,
     warn,
   });
