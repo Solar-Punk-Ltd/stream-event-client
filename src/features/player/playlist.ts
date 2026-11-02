@@ -29,15 +29,16 @@ export function isMasterPlaylist(text: string): boolean {
 /**
  * The rungs as hls.js is told about them, each live rung's average replaced by its peak.
  *
- * hls.js chooses a rung by its AVERAGE-BANDWIDTH whenever two segments are buffered, and by its
- * BANDWIDTH otherwise. The uploader announces a rung's average from its first segment or two and
- * corrects a live rung only when the peak drifts 15% from the announced one, so a live rung whose
- * peak sits on its encoder target keeps that first figure for the whole broadcast. On 2026-11-02 a
- * live 1080p rung was listed at 0.97 Mbps against a measured 4.49, which ranked it below 720p and
- * lifted viewers on a 3 Mbps line to it until their buffer ran dry. The peak is the figure the
- * uploader keeps correcting, and the one hls.js itself uses for a rung its master gives no average.
- * A finished rung, one with an `index`, was rewritten at the end with the average over the whole
- * recording and keeps it.
+ * hls.js compares a rung's AVERAGE-BANDWIDTH with its estimate whenever two segments are buffered,
+ * and its BANDWIDTH otherwise (`abr-controller.ts`, `findBestLevel`). The uploader announces a
+ * rung's average from its first segment or two and corrects a live rung only when the peak drifts
+ * 15% from the announced one, so a live rung whose peak sits on its encoder target keeps that first
+ * figure for the whole broadcast. On 2026-11-02 a live 1080p rung was listed at 0.97 Mbps against a
+ * measured 4.49, which ranked it below 720p and lifted viewers on a 3 Mbps line to it until their
+ * buffer ran dry. The peak is the figure the uploader keeps correcting, and the one hls.js falls
+ * back to for a rung its master gives no average, as long as `abrMaxWithRealBitrate` stays off as
+ * this player leaves it. A finished rung, one with an `index`, was rewritten at the end with the
+ * average over the whole recording and keeps it.
  */
 export function liveAveragesAsPeaks(renditions: readonly Rendition[]): Rendition[] {
   return renditions.map((rendition) =>
