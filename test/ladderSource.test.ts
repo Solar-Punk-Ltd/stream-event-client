@@ -415,49 +415,6 @@ describe('the ladder entry points', () => {
     });
   });
 
-  describe('the average bitrate a master hands hls.js', () => {
-    it('is the peak for a live rung, so a stale low average cannot lift hls.js to a rung the line cannot carry', () => {
-      const source = `${OWNER}/${SOURCE_TOPIC}`;
-      const live1080p = { ...rung('1080p', 1920, 1080, 5_000_000), avgBandwidth: 967_072 };
-      fetcher.registerLadder(source, () => ({ owner: OWNER, renditions: [live1080p] }));
-
-      assert.match(fetcher.masterFor(source)!, /BANDWIDTH=5000000,AVERAGE-BANDWIDTH=5000000,/);
-    });
-
-    it('is the measured one for a finished rung, which the uploader wrote over the whole recording', () => {
-      const source = `${OWNER}/${SOURCE_TOPIC}`;
-      const recorded1080p = {
-        ...rung('1080p', 1920, 1080, 5_063_968),
-        avgBandwidth: 2_286_221,
-        index: 899,
-        duration: 1798,
-      };
-      fetcher.registerLadder(source, () => ({ owner: OWNER, renditions: [recorded1080p] }));
-
-      assert.match(fetcher.masterFor(source)!, /BANDWIDTH=5063968,AVERAGE-BANDWIDTH=2286221,/);
-    });
-
-    it('is decided rung by rung, and leaves the stream list renditions it was given as they were', () => {
-      const source = `${OWNER}/${SOURCE_TOPIC}`;
-      const ladder = [
-        { ...rung('480p', 854, 480, 1_474_171), avgBandwidth: 1_119_686 },
-        { ...rung('720p', 1280, 720, 2_969_397), avgBandwidth: 1_436_458, index: 899, duration: 1798 },
-        { ...rung('1080p', 1920, 1080, 5_000_000), avgBandwidth: 967_072 },
-      ];
-      fetcher.registerLadder(source, () => ({ owner: OWNER, renditions: ladder }));
-
-      const master = fetcher.masterFor(source)!;
-
-      assert.match(master, /BANDWIDTH=1474171,AVERAGE-BANDWIDTH=1474171,/);
-      assert.match(master, /BANDWIDTH=2969397,AVERAGE-BANDWIDTH=1436458,/);
-      assert.match(master, /BANDWIDTH=5000000,AVERAGE-BANDWIDTH=5000000,/);
-      assert.deepEqual(
-        ladder.map((rendition) => rendition.avgBandwidth),
-        [1_119_686, 1_436_458, 967_072],
-      );
-    });
-  });
-
   describe('a single-rendition stream', () => {
     it('is ingested from the read that identified it, rather than fetched a second time', async () => {
       stubFetch(mediaPlaylist('only-seg.ts'));

@@ -27,7 +27,7 @@ import { LadderMarkerReads } from './ladderMarkerReads';
 import { MarkerFinder } from './markerFinder';
 import { headIndexOf, type PlayerReader, retryAfterMsOf, servedText, type ServedText } from './playerReads';
 import { LIVE_GAP_NEWEST_SEGMENTS } from './playerConfig';
-import { buildMasterPlaylist, isMasterPlaylist, liveAveragesAsPeaks, masterRungs, parseSwarmUri } from './playlist';
+import { buildMasterPlaylist, isMasterPlaylist, masterRungs, parseSwarmUri } from './playlist';
 import { isSlotNotWrittenYet, ManifestFetchError, probePastRefusal, shouldProbePastRefusal } from './refusedSlot';
 import { rungHeadMarkers } from './rungHeadMarkers';
 import { SegmentNames } from './segmentNames';
@@ -945,7 +945,7 @@ export class ManifestFetcher {
       return null;
     }
 
-    return buildMasterPlaylist(ladder.owner, liveAveragesAsPeaks(ladder.renditions));
+    return buildMasterPlaylist(ladder.owner, ladder.renditions);
   }
 
   async fetch(url: string): Promise<string> {

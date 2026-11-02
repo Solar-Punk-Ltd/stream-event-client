@@ -1,10 +1,14 @@
 /**
- * Which rungs of a catalog entry the watch page hands the player.
+ * Which rungs of a catalog entry the watch page hands the player, and with which averages.
  *
  * A finished ladder can lack a rung: on 2026-09-23 1080p's batch refused its recording and the
  * ladder finished without it. The admin's entry still lists that rung, without an index, over a feed
  * whose last playlist is a live one that will never end, and the player would walk it for as long as
  * the recording was watched.
+ *
+ * A live rung's average is the uploader's first measurement and can stay far too low for a whole
+ * broadcast, so a live ladder is handed over at its peaks. The stream's state decides, because a
+ * rung that streams again after it finished still carries its recording's index.
  */
 
 import assert from 'node:assert/strict';
@@ -20,6 +24,11 @@ function rung(name: string, recording?: { index: number; duration: number }): Re
 
 const RECORDED = { index: 7, duration: 12 };
 
+/** Each rung's name with the average it is handed over with. */
+function averagesOf(renditions: Rendition[] | undefined): [string, number][] | undefined {
+  return renditions?.map(({ name, avgBandwidth }) => [name, avgBandwidth]);
+}
+
 describe('the rungs a viewer is handed', () => {
   it('leaves out a rung with no recording once the ladder is a recording', () => {
     const renditions = [rung('360p', RECORDED), rung('720p', RECORDED), rung('1080p')];
@@ -34,6 +43,34 @@ describe('the rungs a viewer is handed', () => {
     const renditions = [rung('360p'), rung('1080p')];
 
     assert.deepEqual(playableRenditions({ state: STREAM_STATUS_LIVE, renditions }), renditions);
+  });
+
+  it('hands over a live ladder at its peaks, a rung streaming again after it finished included', () => {
+    const renditions = [
+      { ...rung('480p'), bandwidth: 1_474_171, avgBandwidth: 1_119_686 },
+      { ...rung('1080p', RECORDED), bandwidth: 5_000_000, avgBandwidth: 967_072 },
+    ];
+
+    assert.deepEqual(averagesOf(playableRenditions({ state: STREAM_STATUS_LIVE, renditions })), [
+      ['480p', 1_474_171],
+      ['1080p', 5_000_000],
+    ]);
+    assert.deepEqual(averagesOf(renditions), [
+      ['480p', 1_119_686],
+      ['1080p', 967_072],
+    ]);
+  });
+
+  it('keeps the averages a recording finished with, a rung recorded at index 0 included', () => {
+    const renditions = [
+      { ...rung('360p', { index: 0, duration: 2 }), bandwidth: 989_632, avgBandwidth: 667_286 },
+      { ...rung('1080p', RECORDED), bandwidth: 5_063_968, avgBandwidth: 2_286_221 },
+    ];
+
+    assert.deepEqual(averagesOf(playableRenditions({ state: STREAM_STATUS_VOD, renditions })), [
+      ['360p', 667_286],
+      ['1080p', 2_286_221],
+    ]);
   });
 
   it('hands over nothing for an entry that is not a ladder', () => {
