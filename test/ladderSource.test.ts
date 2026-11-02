@@ -436,6 +436,26 @@ describe('the ladder entry points', () => {
 
       assert.match(fetcher.masterFor(source)!, /BANDWIDTH=5063968,AVERAGE-BANDWIDTH=2286221,/);
     });
+
+    it('is decided rung by rung, and leaves the stream list renditions it was given as they were', () => {
+      const source = `${OWNER}/${SOURCE_TOPIC}`;
+      const ladder = [
+        { ...rung('480p', 854, 480, 1_474_171), avgBandwidth: 1_119_686 },
+        { ...rung('720p', 1280, 720, 2_969_397), avgBandwidth: 1_436_458, index: 899, duration: 1798 },
+        { ...rung('1080p', 1920, 1080, 5_000_000), avgBandwidth: 967_072 },
+      ];
+      fetcher.registerLadder(source, () => ({ owner: OWNER, renditions: ladder }));
+
+      const master = fetcher.masterFor(source)!;
+
+      assert.match(master, /BANDWIDTH=1474171,AVERAGE-BANDWIDTH=1474171,/);
+      assert.match(master, /BANDWIDTH=2969397,AVERAGE-BANDWIDTH=1436458,/);
+      assert.match(master, /BANDWIDTH=5000000,AVERAGE-BANDWIDTH=5000000,/);
+      assert.deepEqual(
+        ladder.map((rendition) => rendition.avgBandwidth),
+        [1_119_686, 1_436_458, 967_072],
+      );
+    });
   });
 
   describe('a single-rendition stream', () => {
