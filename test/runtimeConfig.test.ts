@@ -380,16 +380,22 @@ describe('weeb-3', () => {
     expect(parseRuntimeConfig({ ...VALID, weeb3: { bootnodes: [wss] } }).ok).toBe(true);
   });
 
-  it('refuses a bootnode a browser cannot dial, naming the entry: no websocket, no peer id, or not a multiaddr', () => {
-    const tcpOnly = '/dns4/bootnode.example.org/tcp/1634/p2p/QmPeer';
-    const noPeer = '/dns4/bootnode.example.org/tcp/443/tls/ws';
-    const url = 'wss://bootnode.example.org/';
+  it('refuses a bootnode a browser cannot dial, naming the entry: plain TCP, no TLS, by IP address, no host, no peer id, a URL, or an embedded placeholder', () => {
+    const undialable = [
+      '/dns4/bootnode.example.org/tcp/1634/p2p/QmPeer',
+      '/dns4/bootnode.example.org/tcp/80/ws/p2p/QmPeer',
+      '/ip4/192.0.2.1/tcp/443/tls/ws/p2p/QmPeer',
+      '/ws/p2p/QmPeer',
+      '/dns4/bootnode.example.org/tcp/443/tls/ws',
+      'wss://bootnode.example.org/',
+      '/dns4/<bootnode domain>/tcp/443/tls/ws/p2p/QmPeer',
+    ];
 
-    const problem = problemOf(parseRuntimeConfig({ ...VALID, weeb3: { bootnodes: [BOOTNODE, tcpOnly, noPeer, url] } }));
+    const problem = problemOf(parseRuntimeConfig({ ...VALID, weeb3: { bootnodes: [BOOTNODE, ...undialable] } }));
 
-    expect(problem).toContain('weeb3.bootnodes.1: must be a multiaddr with /ws/ or /wss/');
-    expect(problem).toContain('weeb3.bootnodes.2:');
-    expect(problem).toContain('weeb3.bootnodes.3:');
+    for (let at = 1; at <= undialable.length; at += 1) {
+      expect(problem, undialable[at - 1]).toContain(`weeb3.bootnodes.${at}: must be a multiaddr a browser can dial`);
+    }
     expect(problem).not.toContain('weeb3.bootnodes.0');
   });
 
