@@ -21,6 +21,8 @@ const MARKER_PERIOD_MS = markerPeriodStartMs(1);
 const RENDITIONS = [
   { name: '720p', width: 1280, height: 720, topic: `${TOPIC}-720p`, bandwidth: 3_000_000, avgBandwidth: 2_500_000 },
 ];
+/** The rungs a live player is handed, by name and feed. Its averages are `playableRenditions`'s to set. */
+const RUNGS = RENDITIONS.map(({ name, topic }) => ({ name, topic }));
 
 /**
  * The app's stream list, held where both the mocked context and the test can reach it. The poll itself
@@ -205,7 +207,7 @@ describe('a watch page waiting on an announced stream', () => {
 
     expect(wentLiveAtMs, 'the page never left "starts soon"').not.toBeNull();
     expect(wentLiveAtMs! - liveAtMs).toBeLessThanOrEqual(MARKER_PERIOD_MS + 5_000);
-    expect(app.state.playerRenditions.at(-1)).toEqual(RENDITIONS);
+    expect(app.state.playerRenditions.at(-1)).toMatchObject(RUNGS);
 
     await advance(60_000);
     const reads = markerReads(gateway);
@@ -234,6 +236,6 @@ describe('a watch page waiting on an announced stream', () => {
       markerPeriodStartMs(firstPeriod) + 4_000,
       markerPeriodStartMs(firstPeriod + 1) + 4_000,
     ]);
-    expect(app.state.playerRenditions.at(-1)).toEqual(RENDITIONS);
+    expect(app.state.playerRenditions.at(-1)).toMatchObject(RUNGS);
   });
 });
