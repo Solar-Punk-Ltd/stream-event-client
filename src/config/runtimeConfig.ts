@@ -179,15 +179,17 @@ const ensRpcUrlSchema = filledIn.refine(isEnsEndpoint, {
 });
 
 /**
- * A peer the node in this browser dials first, as a multiaddr a browser can dial: a DNS name with TLS and WebSocket,
- * ending in the peer's id, such as `/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/<peer id>`. A browser dials nothing
- * else, so an address without `/ws/` or `/wss/`, or without its `/p2p/` id, is refused here rather than failing quietly
- * in the node.
+ * A peer the node in this browser dials first, as the one multiaddr shape a browser can dial: a DNS name, a TCP port,
+ * TLS with WebSocket, and the peer's id last, such as `/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/<peer id>`. A
+ * browser opens no plain WebSocket from an https page and no TLS connection to a bare IP address, so anything else is
+ * refused here rather than failing quietly in the node. The pattern leaves no room for a placeholder.
  */
-const weeb3BootnodeSchema = filledIn.refine(
-  (value) => value.startsWith('/') && /\/wss?\//.test(value) && /\/p2p\/[A-Za-z0-9]+$/.test(value),
-  { message: 'must be a multiaddr with /ws/ or /wss/ and the peer id after /p2p/' },
-);
+const WEEB3_BOOTNODE =
+  /^\/dns(4|6)?\/[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+\/tcp\/[1-9][0-9]{0,4}\/(tls\/ws|wss)\/p2p\/[A-Za-z0-9]+$/i;
+
+const weeb3BootnodeSchema = filledIn.refine((value) => WEEB3_BOOTNODE.test(value), {
+  message: 'must be a multiaddr a browser can dial, /dns4/<host>/tcp/<port>/tls/ws/p2p/<peer id>',
+});
 
 /**
  * The node in this browser. Its package carries its own list of bootnodes, and a deployment that runs peers the browser
