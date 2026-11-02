@@ -47,9 +47,10 @@ controls the page, and counts as failed when it is not ready after 30 s (`WEEB3_
   names under one public domain and so stand or fall with it. A deployment that runs peers a browser can reach names
   them in `weeb3.bootnodes` ([configuration](configuration.md#the-fields)), and the runtime hands them to the package's
   `start` as it starts the node, each marked usable, in place of the package's list. The node's other peers it learns
-  from those. The settings carry the list (`swarmSettingsFrom`), and making a client (`createSwarmClient`), which the
-  page does as it starts and again on every change of sources, hands it to the page's one runtime, so it is there
-  before anything starts the node, a read, the player or the chat's push alike. A peer a browser can reach is one with
+  from those. The settings carry the list (`swarmSettingsFrom`), and making a client from them (`createSwarmClient`),
+  which the page does as it starts, hands it to the page's one runtime, so it is there before anything starts the
+  node, a read, the player, a source's checks or the chat's push alike. A client made from settings that name no
+  bootnodes, such as a source check's client for that one source, leaves the runtime's list as it is. A peer a browser can reach is one with
   a DNS name, TLS and WebSocket on a port the browser may open, which a Bee node gets from a TLS proxy in front of its
   p2p port, since Bee's own WebSocket transport cannot share that port.
 - **A node that lost its peers.** Once ready, the node's peers are read every half second. When every read for 20 s
