@@ -3,7 +3,7 @@ import { OPEN_MY_SWARM } from '@/shared/mySwarmPanel';
 import type { DownloadProgress, ProviderState } from '../../provider';
 import { controlThisPage } from './weeb3HostWorker';
 import { loadWeeb3Package } from './weeb3Module';
-import type { Weeb3Node, Weeb3Package } from './weeb3Package';
+import type { Weeb3Node, Weeb3Package, Weeb3StartOptions } from './weeb3Package';
 
 /** Where the build places the package's files, which its service worker and shared worker are served from. */
 export const WEEB3_PATH = '/weeb-3/';
@@ -60,7 +60,11 @@ interface Weeb3RuntimeOptions {
   readonly fetcher?: typeof fetch;
   /** The module's size in bytes. What the build recorded otherwise, and none in an unbundled test. */
   readonly wasmBytes?: number | null;
+  /** The peers a node dials first, `weeb3.bootnodes` in the config. The package's own list when there are none. */
+  readonly bootnodes?: readonly string[];
 }
+
+const PACKAGE_BOOTNODES: readonly string[] = [];
 
 const STOPPED: Weeb3Status = { state: 'stopped', peers: 0 };
 
@@ -80,6 +84,7 @@ export class Weeb3Runtime {
   private readonly controlPage: () => Promise<boolean>;
   private readonly fetcher: typeof fetch;
   private readonly wasmBytes: number | null;
+  private bootnodes: readonly string[];
   private readonly listeners = new Set<Listener>();
   private current: Weeb3Status = STOPPED;
   private node: Promise<Weeb3Node> | null = null;
@@ -96,6 +101,28 @@ export class Weeb3Runtime {
     // Called bare by `download`, never as this object's method, which the browser's fetch would refuse.
     this.fetcher = options.fetcher ?? fetch;
     this.wasmBytes = options.wasmBytes ?? (typeof __WEEB3_WASM_BYTES__ === 'undefined' ? null : __WEEB3_WASM_BYTES__);
+    this.bootnodes = options.bootnodes ?? PACKAGE_BOOTNODES;
+  }
+
+  /**
+   * The peers the next node dials first, which the page sets from its config before anything starts the node. A node
+   * already running keeps the peers it has. None means the package's own list.
+   */
+  useBootnodes(bootnodes: readonly string[]): void {
+    this.bootnodes = bootnodes;
+  }
+
+  /** The peers the next node dials first, empty for the package's own list. */
+  bootnodesInUse(): readonly string[] {
+    return this.bootnodes;
+  }
+
+  /** What the node is started with: the deployment's bootnodes when it names them, else nothing, for the package's own. */
+  private startOptions(): Weeb3StartOptions | undefined {
+    if (this.bootnodes.length === 0) {
+      return undefined;
+    }
+    return { bootstrapNodes: this.bootnodes.map((multiaddr) => ({ multiaddr, usable: true })) };
   }
 
   status(): Weeb3Status {
@@ -215,7 +242,7 @@ export class Weeb3Runtime {
         throw new Error('the node in this browser was stopped while it started');
       }
       const node = new weeb3.Weeb3No103(undefined, SERVICE_WORKER_SCOPE);
-      node.start();
+      node.start(this.startOptions());
       this.watchPeers(node, generation, Date.now() + WEEB3_START_DEADLINE_MS, 0);
       return node;
     } catch (error) {

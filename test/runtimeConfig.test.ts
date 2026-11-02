@@ -14,6 +14,7 @@ import {
   parseRuntimeConfig,
   type RuntimeConfigResult,
   swarmIdUrl,
+  weeb3Bootnodes,
 } from '../src/config/runtimeConfig';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -356,10 +357,52 @@ describe('the ENS endpoint setting', () => {
 });
 
 describe('weeb-3', () => {
-  it('reads no weeb3 block a deployment still writes, since the page offers weeb-3 everywhere', () => {
+  const BOOTNODE = '/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N';
+
+  it('reads nothing of a weeb3 block but its bootnodes, since the page offers weeb-3 everywhere', () => {
     const result = parseRuntimeConfig({ ...VALID, weeb3: { enabled: 'yes' } });
 
-    expect(result.ok && 'weeb3' in result.config).toBe(false);
+    expect(result.ok && result.config.weeb3).toEqual({});
+    expect(result.ok && weeb3Bootnodes(result.config)).toEqual([]);
+  });
+
+  it("hands on the bootnodes a deployment names, and none when it leaves the node to its package's own list", () => {
+    const named = parseRuntimeConfig({ ...VALID, weeb3: { bootnodes: [BOOTNODE] } });
+    const unnamed = parseRuntimeConfig(VALID);
+
+    expect(named.ok && weeb3Bootnodes(named.config)).toEqual([BOOTNODE]);
+    expect(unnamed.ok && weeb3Bootnodes(unnamed.config)).toEqual([]);
+  });
+
+  it('accepts a bootnode over wss as well, which a browser dials just the same', () => {
+    const wss = '/dns4/bootnode.example.org/tcp/443/wss/p2p/QmPeer';
+
+    expect(parseRuntimeConfig({ ...VALID, weeb3: { bootnodes: [wss] } }).ok).toBe(true);
+  });
+
+  it('refuses a bootnode a browser cannot dial, naming the entry: no websocket, no peer id, or not a multiaddr', () => {
+    const tcpOnly = '/dns4/bootnode.example.org/tcp/1634/p2p/QmPeer';
+    const noPeer = '/dns4/bootnode.example.org/tcp/443/tls/ws';
+    const url = 'wss://bootnode.example.org/';
+
+    const problem = problemOf(parseRuntimeConfig({ ...VALID, weeb3: { bootnodes: [BOOTNODE, tcpOnly, noPeer, url] } }));
+
+    expect(problem).toContain('weeb3.bootnodes.1: must be a multiaddr with /ws/ or /wss/');
+    expect(problem).toContain('weeb3.bootnodes.2:');
+    expect(problem).toContain('weeb3.bootnodes.3:');
+    expect(problem).not.toContain('weeb3.bootnodes.0');
+  });
+
+  it('refuses an empty list, a single address not written as a list, and the example placeholder, naming the field', () => {
+    expect(problemOf(parseRuntimeConfig({ ...VALID, weeb3: { bootnodes: [] } }))).toContain(
+      'weeb3.bootnodes: must name at least one bootnode',
+    );
+    expect(problemOf(parseRuntimeConfig({ ...VALID, weeb3: { bootnodes: BOOTNODE } }))).toContain(
+      'weeb3.bootnodes: must be a list of multiaddrs',
+    );
+    expect(problemOf(parseRuntimeConfig({ ...VALID, weeb3: { bootnodes: ['<bootnode multiaddr>'] } }))).toContain(
+      'weeb3.bootnodes.0: still holds the example placeholder',
+    );
   });
 
   it('refuses weeb-3 among the gateways a deployment offers, since a viewer adds it in their own browser', () => {

@@ -178,6 +178,29 @@ const ensRpcUrlSchema = filledIn.refine(isEnsEndpoint, {
   message: 'must be an https address such as https://ethereum-rpc.example.org, or http on a local development host',
 });
 
+/**
+ * A peer the node in this browser dials first, as a multiaddr a browser can dial: a DNS name with TLS and WebSocket,
+ * ending in the peer's id, such as `/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/<peer id>`. A browser dials nothing
+ * else, so an address without `/ws/` or `/wss/`, or without its `/p2p/` id, is refused here rather than failing quietly
+ * in the node.
+ */
+const weeb3BootnodeSchema = filledIn.refine(
+  (value) => value.startsWith('/') && /\/wss?\//.test(value) && /\/p2p\/[A-Za-z0-9]+$/.test(value),
+  { message: 'must be a multiaddr with /ws/ or /wss/ and the peer id after /p2p/' },
+);
+
+/**
+ * The node in this browser. Its package carries its own list of bootnodes, and a deployment that runs peers the browser
+ * can reach names them here, so the node dials those instead. The other parts of the node are the page's, not the
+ * deployment's, and nothing else in this block is read.
+ */
+const weeb3Schema = z.object({
+  bootnodes: z
+    .array(weeb3BootnodeSchema, { message: 'must be a list of multiaddrs' })
+    .min(1, { message: 'must name at least one bootnode' })
+    .optional(),
+});
+
 const runtimeConfigSchema = z
   .object({
     /** Which of this build's themes the page wears. Absent means the default. */
@@ -196,6 +219,7 @@ const runtimeConfigSchema = z
     chat: chatSchema.optional(),
     swarmId: swarmIdSchema.optional(),
     ensRpcUrl: ensRpcUrlSchema.optional(),
+    weeb3: weeb3Schema.optional(),
   })
   .superRefine((config, context) => {
     if (config.gatewayUrl !== undefined && config.providers !== undefined) {
@@ -259,6 +283,13 @@ export function swarmIdUrl(config: RuntimeConfig): string | null {
 /** The endpoint to read ENS names through, or null when there is none or no chat to show them in. */
 export function ensRpcUrl(config: RuntimeConfig): string | null {
   return enabledChat(config) && config.ensRpcUrl ? config.ensRpcUrl : null;
+}
+
+const PACKAGE_BOOTNODES: readonly string[] = [];
+
+/** The peers the node in this browser dials first, and none when the deployment leaves it to the package's own list. */
+export function weeb3Bootnodes(config: Pick<RuntimeConfig, 'weeb3'>): readonly string[] {
+  return config.weeb3?.bootnodes ?? PACKAGE_BOOTNODES;
 }
 
 export function parseRuntimeConfig(raw: unknown): RuntimeConfigResult {

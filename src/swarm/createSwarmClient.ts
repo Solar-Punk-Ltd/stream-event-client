@@ -1,4 +1,5 @@
 import { SwarmClient, type NamedProvider, type SwarmClientOptions, type SwarmFeature } from './client';
+import { sharedWeeb3Runtime } from './providers/weeb-3/weeb3Runtime';
 import { PROVIDER_REGISTRY, type ProviderEnvironment, type ProviderKind } from './registry';
 import type { GatewaySetting, SwarmSettings } from './settings';
 import type { ProviderKindName } from './providerKinds';
@@ -21,6 +22,10 @@ export interface CreateSwarmClientOptions {
 /** The Swarm client the settings and the viewer's choice describe, its providers made by their kinds. */
 export function createSwarmClient(settings: SwarmSettings, options: CreateSwarmClientOptions = {}): SwarmClient {
   const { choice, routes = {}, environment = {}, registry = PROVIDER_REGISTRY } = options;
+  // The node in this browser is one per page, shared by every client and by the chat's push on the viewer's own stamp,
+  // which starts it without a provider. The page makes a client before anything starts the node, and again on every
+  // change of sources, so this is where the settings' bootnodes reach it in time, whichever kind the client is made of.
+  sharedWeeb3Runtime().useBootnodes(settings.weeb3Bootnodes ?? []);
   const offered = (id: string | null) => settings.gateways.find((gateway) => gateway.id === id) ?? null;
   const make = (gateway: GatewaySetting): NamedProvider => ({
     id: gateway.id,

@@ -344,6 +344,51 @@ describe('the node in this browser', () => {
 
     expect(await runtime.start()).toBe(fake.nodes[0]);
   });
+
+  it("starts the node bare, on the package's own bootnodes, when the deployment names none", async () => {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
+
+    await runtime.start();
+
+    expect(fake.nodes[0].startedWith).toEqual([undefined]);
+  });
+
+  it("starts the node on the deployment's bootnodes when it names them, each marked usable", async () => {
+    const fake = fakeWeeb3Package();
+    const bootnodes = [
+      '/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/QmPeer1',
+      '/dns4/two.example.org/tcp/443/tls/ws/p2p/QmPeer2',
+    ];
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch(), bootnodes });
+
+    await runtime.start();
+
+    expect(fake.nodes[0].startedWith).toEqual([
+      {
+        bootstrapNodes: [
+          { multiaddr: bootnodes[0], usable: true },
+          { multiaddr: bootnodes[1], usable: true },
+        ],
+      },
+    ]);
+  });
+
+  it('dials the bootnodes handed to it before the start on the next node, as the page hands them from its config', async () => {
+    const fake = fakeWeeb3Package();
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
+
+    runtime.useBootnodes(['/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/QmPeer1']);
+    await runtime.start();
+    await runtime.stop();
+    runtime.useBootnodes([]);
+    await runtime.start();
+
+    expect(fake.nodes[0].startedWith).toEqual([
+      { bootstrapNodes: [{ multiaddr: '/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/QmPeer1', usable: true }] },
+    ]);
+    expect(fake.nodes[1].startedWith, 'back on the package list once the deployment names none').toEqual([undefined]);
+  });
 });
 
 describe('the node in this browser once it is ready', () => {
