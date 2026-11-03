@@ -178,18 +178,31 @@ const ensRpcUrlSchema = filledIn.refine(isEnsEndpoint, {
   message: 'must be an https address such as https://ethereum-rpc.example.org, or http on a local development host',
 });
 
-/**
- * A peer the node in this browser dials first, as the one multiaddr shape a browser can dial: a DNS name, a TCP port,
- * TLS with WebSocket, and the peer's id last, such as `/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/<peer id>`. A
- * browser opens no plain WebSocket from an https page and no TLS connection to a bare IP address, so anything else is
- * refused here rather than failing quietly in the node. The pattern leaves no room for a placeholder.
- */
-const WEEB3_BOOTNODE =
-  /^\/dns(4|6)?\/[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+\/tcp\/[1-9][0-9]{0,4}\/(tls\/ws|wss)\/p2p\/[A-Za-z0-9]+$/i;
+const HOST_NAME = '[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+';
+const TCP_PORT = '[1-9][0-9]{0,4}';
+const PEER_ID = '[A-Za-z0-9]+';
 
-const weeb3BootnodeSchema = filledIn.refine((value) => WEEB3_BOOTNODE.test(value), {
-  message: 'must be a multiaddr a browser can dial, /dns4/<host>/tcp/<port>/tls/ws/p2p/<peer id>',
-});
+/**
+ * A peer the node in this browser dials first, in one of the two multiaddr shapes a browser can dial: a DNS name, a
+ * TCP port, TLS with WebSocket and the peer's id last, such as `/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/<peer
+ * id>`; or the form a Bee node prints for its own secure WebSocket address, `/ip4/<ip>/tcp/<port>/tls/sni/<name>/ws/p2p/
+ * <peer id>`, which the package rewrites to the first and dials by that name. A browser opens no plain WebSocket from an
+ * https page and no TLS connection to a bare IP address, so anything else is refused here rather than failing quietly
+ * in the node. The patterns leave no room for a placeholder.
+ */
+const WEEB3_BOOTNODE_BY_NAME = new RegExp(`^/dns(4|6)?/${HOST_NAME}/tcp/${TCP_PORT}/(tls/ws|wss)/p2p/${PEER_ID}$`, 'i');
+const WEEB3_BOOTNODE_BY_SNI = new RegExp(
+  `^/ip4/[0-9]{1,3}(\\.[0-9]{1,3}){3}/tcp/${TCP_PORT}/tls/sni/${HOST_NAME}/ws/p2p/${PEER_ID}$`,
+  'i',
+);
+
+const weeb3BootnodeSchema = filledIn.refine(
+  (value) => WEEB3_BOOTNODE_BY_NAME.test(value) || WEEB3_BOOTNODE_BY_SNI.test(value),
+  {
+    message:
+      'must be a multiaddr a browser can dial, /dns4/<host>/tcp/<port>/tls/ws/p2p/<peer id> or /ip4/<ip>/tcp/<port>/tls/sni/<host>/ws/p2p/<peer id>',
+  },
+);
 
 /**
  * The node in this browser. Its package carries its own list of bootnodes, and a deployment that runs peers the browser
