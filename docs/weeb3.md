@@ -51,8 +51,10 @@ controls the page, and counts as failed when it is not ready after 30 s (`WEEB3_
   which the page does as it starts, hands it to the page's one runtime, so it is there before anything starts the
   node, a read, the player, a source's checks or the chat's push alike. A client made from settings that name no
   bootnodes, such as a source check's client for that one source, leaves the runtime's list as it is. A peer a browser can reach is one with
-  a DNS name, TLS and WebSocket on a port the browser may open, which a Bee node gets from a TLS proxy in front of its
-  p2p port, since Bee's own WebSocket transport cannot share that port.
+  a DNS name, TLS and WebSocket on a port the browser may open. Bee's own secure WebSocket transport gives a node such
+  an address by itself, on a port of its own, with a name and a certificate from the libp2p forge. While the forge's
+  domain does not resolve, a TLS proxy in front of a node's p2p port stands in for it; Bee's plain WebSocket flag is no
+  substitute, since it cannot share that port.
 - **A node that lost its peers.** Once ready, the node's peers are read every half second. When every read for 20 s
   finds no peers or throws, as after a phone locked the tab, the node is lost (`WEEB3_LOST_AFTER_MS`). A shorter dip,
   such as a network handover, leaves it ready.
