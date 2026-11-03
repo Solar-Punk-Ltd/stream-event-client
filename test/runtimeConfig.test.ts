@@ -374,10 +374,16 @@ describe('weeb-3', () => {
     expect(unnamed.ok && weeb3Bootnodes(unnamed.config)).toEqual([]);
   });
 
-  it('accepts a bootnode over wss as well, which a browser dials just the same', () => {
+  it('accepts a bootnode over wss, and one in the form a Bee node prints for its own secure WebSocket address, which the package dials by the name in it', () => {
     const wss = '/dns4/bootnode.example.org/tcp/443/wss/p2p/QmPeer';
+    const sni = '/ip4/192.0.2.1/tcp/443/tls/sni/bootnode.example.org/ws/p2p/QmPeer';
 
-    expect(parseRuntimeConfig({ ...VALID, weeb3: { bootnodes: [wss] } }).ok).toBe(true);
+    const result = parseRuntimeConfig({ ...VALID, weeb3: { bootnodes: [wss, sni] } });
+
+    expect(
+      result.ok && weeb3Bootnodes(result.config),
+      'handed on as written, the package rewrites the sni form',
+    ).toEqual([wss, sni]);
   });
 
   it('refuses a bootnode a browser cannot dial, naming the entry: plain TCP, no TLS, by IP address, no host, no peer id, a URL, or an embedded placeholder', () => {
@@ -385,6 +391,7 @@ describe('weeb-3', () => {
       '/dns4/bootnode.example.org/tcp/1634/p2p/QmPeer',
       '/dns4/bootnode.example.org/tcp/80/ws/p2p/QmPeer',
       '/ip4/192.0.2.1/tcp/443/tls/ws/p2p/QmPeer',
+      '/ip4/192.0.2.1/tcp/443/tls/sni/bootnode.example.org/p2p/QmPeer',
       '/ws/p2p/QmPeer',
       '/dns4/bootnode.example.org/tcp/443/tls/ws',
       'wss://bootnode.example.org/',
