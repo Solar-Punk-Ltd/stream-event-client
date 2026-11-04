@@ -142,9 +142,9 @@ those reads work, for a developer who changes that.
 `pnpm proof:weeb3` (`e2e/weeb3Live.proof.ts`) adds the node in a real browser on the public Swarm network, plays a
 finished stream through it and checks its reads and its stop. It prints what it saw and is never part of `pnpm e2e`.
 `WEEB3_PROOF_OWNER` and `WEEB3_PROOF_TOPIC` name another stream than its default. The stream counts as playing once
-two readings of the video show its position moved on and more frames decoded (`e2e/playback.ts`), because a stream's
-timeline need not start at 0, so a position alone proves nothing, and a player decodes frames ahead of a position it
-may never leave.
+two readings of the video show its position moved on and more frames decoded (`e2e/playback.ts`), because a player
+that joins a stream away from its start has a position before any frame arrives, and it decodes frames ahead of a
+position it may never leave.
 
 What the page's policy allows weeb-3, WebAssembly and secure websockets to any host, is in
 [the image](image.md#what-the-page-may-reach).

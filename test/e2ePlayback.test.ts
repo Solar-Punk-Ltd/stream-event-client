@@ -4,7 +4,7 @@ import { playedBetween, type PlaybackReading } from '../e2e/playback';
 
 const reading = (currentTime: number, framesDecoded: number): PlaybackReading => ({ currentTime, framesDecoded });
 
-// The numbers come from weeb-3 runs on a stream whose timeline does not start at 0.
+// The numbers come from weeb-3 runs that joined a stream near its end.
 describe('playedBetween', () => {
   it('takes no position set before any frame for play', () => {
     expect(playedBetween(reading(0, 0), reading(53298.5, 0))).toBe(false);

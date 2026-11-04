@@ -17,8 +17,8 @@ const LONGEST_PLAYED_STEP_S = 5;
 
 /**
  * Whether the video played between two readings: its position moved on by a playing step and more frames were decoded.
- * Neither is enough alone. A stream's timeline need not start at 0, so a player sets a position before any frame
- * arrives, and it decodes frames ahead of a position it may never leave.
+ * Neither is enough alone. A player that joins a stream away from its start has a position before any frame arrives,
+ * and it decodes frames ahead of a position it may never leave.
  */
 export function playedBetween(earlier: PlaybackReading, later: PlaybackReading): boolean {
   const step = later.currentTime - earlier.currentTime;
