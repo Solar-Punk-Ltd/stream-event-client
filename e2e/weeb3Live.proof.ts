@@ -2,6 +2,7 @@ import { Topic } from '@ethersphere/bee-js';
 import { expect, test, type Page } from '@playwright/test';
 
 import { serveConfig } from './journey';
+import { playedBetween, type PlaybackReading, readPlayback } from './playback';
 import { PREVIEW_ORIGIN } from './recording';
 
 /**
@@ -93,11 +94,17 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
   const openedAtMs = Date.now();
   await page.goto(`/#/watch/video/${STREAM.owner}/${STREAM.topic}`);
   const video = page.locator('.own-player video');
+  let earlier: PlaybackReading | null = null;
   await expect
-    .poll(() => video.evaluate((element: HTMLVideoElement) => element.readyState >= 3 || element.currentTime > 0), {
-      message: 'the stream shows a picture',
-      timeout: 240_000,
-    })
+    .poll(
+      async () => {
+        const later = await video.evaluate(readPlayback);
+        const played = earlier !== null && playedBetween(earlier, later);
+        earlier = later;
+        return played;
+      },
+      { message: 'the stream plays', timeout: 240_000 },
+    )
     .toBe(true);
   report.firstFrameMs = since(openedAtMs);
 
