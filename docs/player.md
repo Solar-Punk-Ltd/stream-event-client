@@ -100,6 +100,13 @@ stream list names the stream's renditions, the player builds the master from the
 (`src/shared/masterPlaylist.ts`). hls.js chooses the quality, and the player reads only the feed of the quality it
 plays.
 
+While a stream is live, the watch page hands the player every quality with its peak bitrate as its average too
+(`playableRenditions.ts`). hls.js chooses by the average once two segments are buffered, and the uploader measures a
+live quality's average from its first segments and sends it again only when the peak moves 15% from the one it sent.
+A stale low average would lift viewers to a quality their connection cannot carry. The stream's state decides, because
+a quality that streams again after it finished still carries its recording's index. A recording keeps the averages
+measured over the whole recording.
+
 A stream turns live once its first quality has reported, so a viewer who joins a moment before the others report gets
 an entry naming only some of them, or none. The player compares the entry with the stream's time marker, the one it
 reads at the start anyway and then one per 10 second period for a minute, each address once
