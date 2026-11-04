@@ -14,7 +14,7 @@ const LIST_HEAD_PATH = nextFeedRequest(PROOF_CATALOG.owner, Topic.fromString(PRO
 const feedIndexHeader = (index: number) => index.toString(16).padStart(16, '0');
 
 /** What the gateway answers to one request under `gatewayPath`. */
-export interface ProofGatewayAnswer {
+interface ProofGatewayAnswer {
   readonly status: number;
   readonly headers: Record<string, string>;
   readonly body: string;
