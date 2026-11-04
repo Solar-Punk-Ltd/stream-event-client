@@ -183,12 +183,12 @@ const TCP_PORT = '[1-9][0-9]{0,4}';
 const PEER_ID = '[A-Za-z0-9]+';
 
 /**
- * A peer the node in this browser dials first, in one of the two multiaddr shapes a browser can dial: a DNS name, a
- * TCP port, TLS with WebSocket and the peer's id last, such as `/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/<peer
- * id>`; or the form a Bee node prints for its own secure WebSocket address, `/ip4/<ip>/tcp/<port>/tls/sni/<name>/ws/p2p/
- * <peer id>`, which the package rewrites to the first and dials by that name. A browser opens no plain WebSocket from an
- * https page and no TLS connection to a bare IP address, so anything else is refused here rather than failing quietly
- * in the node. The patterns leave no room for a placeholder.
+ * A peer the node in this browser dials first, in one of the two multiaddr shapes a browser can dial. One is a DNS
+ * name, a TCP port, TLS with WebSocket and the peer's id last, such as `/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/
+ * <peer id>`. The other is the form a Bee node prints for its own secure WebSocket address, `/ip4/<ip>/tcp/<port>/tls/
+ * sni/<name>/ws/p2p/<peer id>`, which the package rewrites to the first and dials by that name. A browser opens no plain
+ * WebSocket from an https page and no TLS connection to a bare IP address, so anything else is refused here rather than
+ * failing quietly in the node. The patterns leave no room for a placeholder.
  */
 const WEEB3_BOOTNODE_BY_NAME = new RegExp(`^/dns(4|6)?/${HOST_NAME}/tcp/${TCP_PORT}/(tls/ws|wss)/p2p/${PEER_ID}$`, 'i');
 const WEEB3_BOOTNODE_BY_SNI = new RegExp(

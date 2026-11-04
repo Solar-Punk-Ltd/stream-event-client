@@ -14,7 +14,7 @@ export interface StreamQuality {
   currentLevel: number;
 }
 
-/** A peer `start` dials first. `usable` false keeps it in the list without dialing it; true when left out. */
+/** A peer `start` dials first. `usable` false keeps it in the list without dialing it, and left out it counts as true. */
 interface Weeb3BootstrapNode {
   readonly multiaddr: string;
   readonly usable?: boolean;
