@@ -1,12 +1,15 @@
 import { Topic } from '@ethersphere/bee-js';
 
+import { nextFeedRequest } from '../src/shared/feedFollow';
+
 /** The stream list the proof answers, since a deployment's list is a placeholder. */
 export const PROOF_CATALOG = { owner: `0x${'1'.repeat(40)}`, topic: 'weeb3-proof-stream-list' };
 
 /** The title of the proof's one stream, which the watch page shows once the list has reached it. */
 export const PROOF_STREAM_TITLE = 'weeb-3 proof stream';
 
-const CATALOG_TOPIC_HEX = Topic.fromString(PROOF_CATALOG.topic).toString();
+/** Where the app reads the list's head, taken from the app so the two cannot differ. */
+const LIST_HEAD_PATH = nextFeedRequest(PROOF_CATALOG.owner, Topic.fromString(PROOF_CATALOG.topic), null).path;
 
 const feedIndexHeader = (index: number) => index.toString(16).padStart(16, '0');
 
@@ -23,7 +26,7 @@ export function proofGatewayAnswer(
   pathname: string,
   stream: { readonly owner: string; readonly topic: string },
 ): ProofGatewayAnswer {
-  if (pathname === `${gatewayPath}/feeds/${PROOF_CATALOG.owner.slice(2)}/${CATALOG_TOPIC_HEX}`) {
+  if (pathname === `${gatewayPath}/${LIST_HEAD_PATH}`) {
     const entry = { ...stream, title: PROOF_STREAM_TITLE, timestamp: 0, mediatype: 'video', state: 'vod' };
     return {
       status: 200,

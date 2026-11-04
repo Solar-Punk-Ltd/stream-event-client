@@ -2,8 +2,8 @@ import { Topic } from '@ethersphere/bee-js';
 import { expect, test, type Page } from '@playwright/test';
 
 import { serveConfig } from './journey';
-import { playedBetween, type PlaybackReading, readPlayback } from './playback';
-import { PROOF_CATALOG, proofGatewayAnswer } from './proofStreamList';
+import { isNearBeginning, playedBetween, type PlaybackReading, readPlayback } from './playback';
+import { PROOF_CATALOG, PROOF_STREAM_TITLE, proofGatewayAnswer } from './proofStreamList';
 import { PREVIEW_ORIGIN } from './recording';
 
 /**
@@ -78,6 +78,9 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
 
   const openedAtMs = Date.now();
   await page.goto(`/#/watch/video/${STREAM.owner}/${STREAM.topic}`);
+  await expect(page.locator('.watch-info-title'), 'the stream list reaches the page').toHaveText(PROOF_STREAM_TITLE, {
+    timeout: 60_000,
+  });
   const video = page.locator('.own-player video');
   let earlier: PlaybackReading | null = null;
   await expect
@@ -92,6 +95,9 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
     )
     .toBe(true);
   report.firstFrameMs = since(openedAtMs);
+  const playing = await video.evaluate(readPlayback);
+  report.playingAtSeconds = playing.currentTime;
+  expect(isNearBeginning(playing), 'the stream plays from its beginning').toBe(true);
 
   // weeb-3's player reads its segments inside its worker, so a segment's reference is found by following its
   // own playlists from the stream's feed, as its player does.

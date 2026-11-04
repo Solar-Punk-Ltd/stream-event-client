@@ -144,7 +144,9 @@ finished stream through it and checks its reads and its stop. It prints what it 
 `WEEB3_PROOF_OWNER` and `WEEB3_PROOF_TOPIC` name another stream than its default. The stream counts as playing once
 two readings of the video show its position moved on and more frames decoded (`e2e/playback.ts`), because a player
 that joins a stream away from its start has a position before any frame arrives, and it decodes frames ahead of a
-position it may never leave.
+position it may never leave. It answers the stream list itself, at the path the app reads it
+(`e2e/proofStreamList.ts`), and fails when the stream's title does not show or the video does not start near its
+beginning, so a stream the page took for live cannot pass.
 
 What the page's policy allows weeb-3, WebAssembly and secure websockets to any host, is in
 [the image](image.md#what-the-page-may-reach).

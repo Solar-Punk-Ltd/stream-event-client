@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { playedBetween, type PlaybackReading } from '../e2e/playback';
+import { isNearBeginning, playedBetween, type PlaybackReading } from '../e2e/playback';
 
 const reading = (currentTime: number, framesDecoded: number): PlaybackReading => ({ currentTime, framesDecoded });
 
@@ -24,5 +24,15 @@ describe('playedBetween', () => {
 
   it('takes a position moving on with more frames decoded for play', () => {
     expect(playedBetween(reading(10938.4, 0), reading(10939.3, 31))).toBe(true);
+  });
+});
+
+describe('isNearBeginning', () => {
+  it('finds a recording played from its start near the beginning', () => {
+    expect(isNearBeginning(reading(0.2, 9))).toBe(true);
+  });
+
+  it('does not find a player that joined near the end there', () => {
+    expect(isNearBeginning(reading(2714.6, 0))).toBe(false);
   });
 });

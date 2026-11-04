@@ -24,3 +24,11 @@ export function playedBetween(earlier: PlaybackReading, later: PlaybackReading):
   const step = later.currentTime - earlier.currentTime;
   return step > 0 && step <= LONGEST_PLAYED_STEP_S && later.framesDecoded > earlier.framesDecoded;
 }
+
+/** How far into a stream a video may be, when it is first seen to play, and still have started at its beginning. */
+const NEAR_THE_BEGINNING_S = 30;
+
+/** Whether a video is near the beginning, which a player that took a recording for live never is. */
+export function isNearBeginning(reading: PlaybackReading): boolean {
+  return reading.currentTime < NEAR_THE_BEGINNING_S;
+}
