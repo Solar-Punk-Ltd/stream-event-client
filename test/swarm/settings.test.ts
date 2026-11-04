@@ -5,7 +5,6 @@ import { createSwarmClient } from '../../src/swarm/createSwarmClient';
 import { PROVIDER_KINDS } from '../../src/swarm/providerKinds';
 import { BeeHttpProvider } from '../../src/swarm/providers/bee-http/beeHttpProvider';
 import { Weeb3Provider } from '../../src/swarm/providers/weeb-3/weeb3Provider';
-import { sharedWeeb3Runtime } from '../../src/swarm/providers/weeb-3/weeb3Runtime';
 import { PROVIDER_REGISTRY } from '../../src/swarm/registry';
 import { SINGLE_GATEWAY_ID, swarmSettingsFrom } from '../../src/swarm/settings';
 
@@ -63,15 +62,6 @@ describe('the Swarm settings', () => {
       defaultId: 'primary',
     });
   });
-
-  it('carry the bootnodes the config names for the node in this browser, and none when it names none', () => {
-    const bootnode = '/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/QmPeer';
-
-    expect(swarmSettingsFrom(config({ gatewayUrl: '/bee', weeb3: { bootnodes: [bootnode] } })).weeb3Bootnodes).toEqual([
-      bootnode,
-    ]);
-    expect(swarmSettingsFrom(TWO_GATEWAYS).weeb3Bootnodes).toBeUndefined();
-  });
 });
 
 describe('the registry of provider kinds', () => {
@@ -100,23 +90,6 @@ describe('the registry of provider kinds', () => {
 });
 
 describe('making the client from the settings', () => {
-  it("hands the settings' bootnodes to the page's one node runtime, so the node dials them wherever it is started from", () => {
-    const bootnode = '/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/QmPeer';
-
-    createSwarmClient(swarmSettingsFrom(config({ gatewayUrl: '/bee', weeb3: { bootnodes: [bootnode] } })));
-    expect(sharedWeeb3Runtime().bootnodesInUse()).toEqual([bootnode]);
-  });
-
-  it("leaves the runtime's bootnodes as the page set them when a client is made from settings that name none, as a source check's one-source client is", () => {
-    const bootnode = '/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/QmPeer';
-    createSwarmClient(swarmSettingsFrom(config({ gatewayUrl: '/bee', weeb3: { bootnodes: [bootnode] } })));
-
-    createSwarmClient({ gateways: [{ id: 'weeb3', kind: 'weeb-3', url: '' }], defaultId: 'weeb3' });
-    createSwarmClient(swarmSettingsFrom(TWO_GATEWAYS));
-
-    expect(sharedWeeb3Runtime().bootnodesInUse()).toEqual([bootnode]);
-  });
-
   it('reads from the default gateway alone, whatever it answers', async () => {
     const asked: string[] = [];
     const client = createSwarmClient(swarmSettingsFrom(TWO_GATEWAYS), {

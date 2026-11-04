@@ -2,12 +2,20 @@ import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router';
 
-import { chatSiteOrigins, ensRpcUrl, loadRuntimeConfig, selectedTheme, swarmIdUrl } from '@/config/runtimeConfig';
+import {
+  chatSiteOrigins,
+  ensRpcUrl,
+  loadRuntimeConfig,
+  selectedTheme,
+  swarmIdUrl,
+  weeb3Bootnodes,
+} from '@/config/runtimeConfig';
 import { applyLook, applyThemeContent } from '@/design';
 import { EnsNamesProvider } from '@/features/chat/ens/EnsNames';
 import { ChatStampProvider } from '@/features/chat/stamp/ChatStamp';
 import { setChatSiteOrigins } from '@/features/chat/verify/chatVerifier';
 import { ConnectProvider } from '@/features/connect/ConnectContext';
+import { setWeeb3Bootnodes } from '@/swarm/createSwarmClient';
 
 import { AppChatUserProvider } from './AppChatUserProvider';
 import { AppContextProvider as AppProvider } from './AppProvider';
@@ -32,6 +40,7 @@ void loadRuntimeConfig().then((result) => {
     applyThemeContent(selectedTheme(result.config));
     applyLook(wornLook(result.config, themeChoice));
     setChatSiteOrigins(chatSiteOrigins(result.config));
+    setWeeb3Bootnodes(weeb3Bootnodes(result.config));
   }
   root.render(
     <StrictMode>

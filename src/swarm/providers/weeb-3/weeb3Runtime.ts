@@ -60,11 +60,7 @@ interface Weeb3RuntimeOptions {
   readonly fetcher?: typeof fetch;
   /** The module's size in bytes. What the build recorded otherwise, and none in an unbundled test. */
   readonly wasmBytes?: number | null;
-  /** The peers a node dials first, `weeb3.bootnodes` in the config. The package's own list when there are none. */
-  readonly bootnodes?: readonly string[];
 }
-
-const PACKAGE_BOOTNODES: readonly string[] = [];
 
 const STOPPED: Weeb3Status = { state: 'stopped', peers: 0 };
 
@@ -84,7 +80,7 @@ export class Weeb3Runtime {
   private readonly controlPage: () => Promise<boolean>;
   private readonly fetcher: typeof fetch;
   private readonly wasmBytes: number | null;
-  private bootnodes: readonly string[];
+  private bootnodes: readonly string[] = [];
   private readonly listeners = new Set<Listener>();
   private current: Weeb3Status = STOPPED;
   private node: Promise<Weeb3Node> | null = null;
@@ -101,7 +97,6 @@ export class Weeb3Runtime {
     // Called bare by `download`, never as this object's method, which the browser's fetch would refuse.
     this.fetcher = options.fetcher ?? fetch;
     this.wasmBytes = options.wasmBytes ?? (typeof __WEEB3_WASM_BYTES__ === 'undefined' ? null : __WEEB3_WASM_BYTES__);
-    this.bootnodes = options.bootnodes ?? PACKAGE_BOOTNODES;
   }
 
   /**
@@ -110,11 +105,6 @@ export class Weeb3Runtime {
    */
   useBootnodes(bootnodes: readonly string[]): void {
     this.bootnodes = bootnodes;
-  }
-
-  /** The peers the next node dials first, empty for the package's own list. */
-  bootnodesInUse(): readonly string[] {
-    return this.bootnodes;
   }
 
   /** What the node is started with: the deployment's bootnodes when it names them, else nothing, for the package's own. */

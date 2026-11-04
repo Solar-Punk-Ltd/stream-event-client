@@ -360,8 +360,9 @@ describe('the node in this browser', () => {
       '/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/QmPeer1',
       '/dns4/two.example.org/tcp/443/tls/ws/p2p/QmPeer2',
     ];
-    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch(), bootnodes });
+    const runtime = new Weeb3Runtime({ load: fake.load, isControlled: () => true, fetcher: wasmFetch() });
 
+    runtime.useBootnodes(bootnodes);
     await runtime.start();
 
     expect(fake.nodes[0].startedWith).toEqual([

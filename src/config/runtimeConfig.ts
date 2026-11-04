@@ -300,11 +300,9 @@ export function ensRpcUrl(config: RuntimeConfig): string | null {
   return enabledChat(config) && config.ensRpcUrl ? config.ensRpcUrl : null;
 }
 
-const PACKAGE_BOOTNODES: readonly string[] = [];
-
 /** The peers the node in this browser dials first, and none when the deployment leaves it to the package's own list. */
 export function weeb3Bootnodes(config: Pick<RuntimeConfig, 'weeb3'>): readonly string[] {
-  return config.weeb3?.bootnodes ?? PACKAGE_BOOTNODES;
+  return config.weeb3?.bootnodes ?? [];
 }
 
 export function parseRuntimeConfig(raw: unknown): RuntimeConfigResult {
