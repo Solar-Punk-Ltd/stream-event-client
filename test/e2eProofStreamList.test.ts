@@ -1,7 +1,7 @@
 import { Topic } from '@ethersphere/bee-js';
 import { describe, expect, it } from 'vitest';
 
-import { PROOF_CATALOG, PROOF_STREAM_TITLE, proofGatewayAnswer } from '../e2e/proofStreamList';
+import { PROOF_CATALOG, PROOF_STREAM_TITLE, proofBootnodes, proofGatewayAnswer } from '../e2e/proofStreamList';
 import { CatalogFeedReader } from '@/features/catalog/catalogFeed';
 import { viewerCatalogSchema } from '@/shared/catalog';
 import { BeeHttpProvider } from '@/swarm/providers/bee-http/beeHttpProvider';
@@ -37,5 +37,19 @@ describe('the live proof stream list', () => {
 
     expect(viewerCatalogSchema.safeParse(parsed).success).toBe(true);
     expect(parsed).toEqual([expect.objectContaining({ ...STREAM, title: PROOF_STREAM_TITLE, state: 'vod' })]);
+  });
+});
+
+describe('the peers the live proof names', () => {
+  const ONE = '/dns4/one.example.org/tcp/443/tls/ws/p2p/QmOne';
+  const TWO = '/dns4/two.example.org/tcp/443/wss/p2p/QmTwo';
+
+  it('reach the config as a list, so the proof can run while the package list is down', () => {
+    expect(proofBootnodes(`${ONE},${TWO}`)).toEqual({ weeb3: { bootnodes: [ONE, TWO] } });
+  });
+
+  it('leave the node on its package list when none are named', () => {
+    expect(proofBootnodes(undefined)).toEqual({});
+    expect(proofBootnodes('')).toEqual({});
   });
 });
