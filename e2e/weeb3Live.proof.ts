@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { serveConfig } from './journey';
 import { playedBetween, type PlaybackReading, readPlayback } from './playback';
+import { PROOF_CATALOG, proofGatewayAnswer } from './proofStreamList';
 import { PREVIEW_ORIGIN } from './recording';
 
 /**
@@ -19,26 +20,10 @@ const STREAM = {
   topic: process.env.WEEB3_PROOF_TOPIC ?? 'b193bf5c-4df2-457f-8524-e370315f29de',
 };
 
-const CATALOG = { owner: '0x' + '1'.repeat(40), topic: 'weeb3-proof-stream-list' };
-const CATALOG_TOPIC_HEX = Topic.fromString(CATALOG.topic).toString();
-
-const feedIndexHeader = (index: number) => index.toString(16).padStart(16, '0');
-
-/** The stream list as one entry for the proof's stream, at index 0, and nothing else at the gateway. */
 async function answerStreamList(page: Page): Promise<void> {
-  await page.route(`${PREVIEW_ORIGIN}/bee/**`, (route) => {
-    const path = new URL(route.request().url()).pathname;
-    if (path === `/bee/feeds/${CATALOG.owner.slice(2)}/${CATALOG_TOPIC_HEX}`) {
-      const entry = { ...STREAM, title: 'weeb-3 proof stream', timestamp: 0, mediatype: 'video', state: 'vod' };
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/octet-stream',
-        headers: { 'swarm-feed-index': feedIndexHeader(0), 'swarm-feed-index-next': feedIndexHeader(1) },
-        body: JSON.stringify([entry]),
-      });
-    }
-    return route.fulfill({ status: 404, body: '' });
-  });
+  await page.route(`${PREVIEW_ORIGIN}/bee/**`, (route) =>
+    route.fulfill(proofGatewayAnswer('/bee', new URL(route.request().url()).pathname, STREAM)),
+  );
 }
 
 const since = (startedAtMs: number) => Math.round(Date.now() - startedAtMs);
@@ -71,7 +56,7 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
       segments.push(match[1]);
     }
   });
-  await serveConfig(page, { gatewayUrl: '/bee', catalog: CATALOG });
+  await serveConfig(page, { gatewayUrl: '/bee', catalog: PROOF_CATALOG });
   await answerStreamList(page);
   // The node as an earlier visit added it, so the proof measures playing through it rather than its checks.
   await page.addInitScript(() => {
