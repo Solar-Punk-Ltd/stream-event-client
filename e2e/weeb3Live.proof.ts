@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { serveConfig } from './journey';
 import { isNearBeginning, playedBetween, type PlaybackReading, readPlayback } from './playback';
-import { PROOF_CATALOG, PROOF_STREAM_TITLE, proofGatewayAnswer } from './proofStreamList';
+import { PROOF_CATALOG, PROOF_STREAM_TITLE, proofBootnodes, proofGatewayAnswer } from './proofStreamList';
 import { PREVIEW_ORIGIN } from './recording';
 
 /**
@@ -12,7 +12,8 @@ import { PREVIEW_ORIGIN } from './recording';
  * here with one entry for that stream, since the deployment's list is a placeholder. Timings are printed, never
  * asserted. Run it with `pnpm proof:weeb3`.
  *
- * WEEB3_PROOF_OWNER and WEEB3_PROOF_TOPIC name another stream.
+ * WEEB3_PROOF_OWNER and WEEB3_PROOF_TOPIC name another stream. WEEB3_PROOF_BOOTNODES, a comma list of multiaddrs, names
+ * the peers the node dials first.
  */
 
 const STREAM = {
@@ -56,7 +57,11 @@ test('the real weeb-3 node reaches ready with peers and plays a finished stream 
       segments.push(match[1]);
     }
   });
-  await serveConfig(page, { gatewayUrl: '/bee', catalog: PROOF_CATALOG });
+  await serveConfig(page, {
+    gatewayUrl: '/bee',
+    catalog: PROOF_CATALOG,
+    ...proofBootnodes(process.env.WEEB3_PROOF_BOOTNODES),
+  });
   await answerStreamList(page);
   // The node as an earlier visit added it, so the proof measures playing through it rather than its checks.
   await page.addInitScript(() => {

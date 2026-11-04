@@ -8,6 +8,14 @@ export const PROOF_CATALOG = { owner: `0x${'1'.repeat(40)}`, topic: 'weeb3-proof
 /** The title of the proof's one stream, which the watch page shows once the list has reached it. */
 export const PROOF_STREAM_TITLE = 'weeb-3 proof stream';
 
+/**
+ * What the proof's config adds for a comma list of peers for the node to dial first, read from the environment since a
+ * repository names no real peer. No list leaves the node on its package's own.
+ */
+export function proofBootnodes(listed: string | undefined): { readonly weeb3?: { readonly bootnodes: string[] } } {
+  return listed ? { weeb3: { bootnodes: listed.split(',') } } : {};
+}
+
 /** Where the app reads the list's head, taken from the app so the two cannot differ. */
 const LIST_HEAD_PATH = nextFeedRequest(PROOF_CATALOG.owner, Topic.fromString(PROOF_CATALOG.topic), null).path;
 
