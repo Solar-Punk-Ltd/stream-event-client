@@ -11,15 +11,16 @@ interface FakeWeeb3Push {
 }
 
 /**
- * A fake of the weeb-3 package: a node with three peers, a player that marks the video it was handed so a journey can
- * see what was attached, with three qualities playing the highest until one is held, and the level held marked on the
- * video, and a push that keeps what it was handed in `window.weeb3Pushes` and answers success.
+ * A fake of the weeb-3 package: a node with three peers that keeps what each `start` was given in `window.weeb3Starts`,
+ * a player that marks the video it was handed so a journey can see what was attached, with three qualities playing the
+ * highest until one is held, and the level held marked on the video, and a push that keeps what it was handed in
+ * `window.weeb3Pushes` and answers success.
  */
 export const FAKE_WEEB3 = `
 const hex = (bytes) => Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 export default async function init() {}
 export class Weeb3No103 {
-  start() {}
+  start(options) { (window.weeb3Starts ??= []).push(options ?? null); }
   async connectionCount() { return 3; }
   async attachStream(media, owner, topic, start) { media.dataset.weeb3 = [owner, topic, start].join('/'); }
   streamQuality(media) {
@@ -68,6 +69,11 @@ export async function serveFakeWeeb3(page: Page, module: string): Promise<void> 
   await page.route(/\/weeb-3\/weeb_3_bg\.wasm$/, (route) =>
     route.fulfill({ status: 200, contentType: 'application/wasm', body: Buffer.alloc(64) }),
   );
+}
+
+/** What each `start` of the fake package was given, null for a bare start. */
+export function weeb3Starts(page: Page): Promise<unknown[]> {
+  return page.evaluate(() => (window as unknown as { weeb3Starts?: unknown[] }).weeb3Starts ?? []);
 }
 
 /** What the fake package has pushed so far. */
