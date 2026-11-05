@@ -1,10 +1,18 @@
 import { WEEB3_HOST_WORKER_URL } from '../../src/swarm/providers/weeb-3/weeb3HostWorker';
-import type { HlsStart, StreamQuality, Weeb3Node, Weeb3Package } from '../../src/swarm/providers/weeb-3/weeb3Package';
+import type {
+  HlsStart,
+  StreamQuality,
+  Weeb3Node,
+  Weeb3Package,
+  Weeb3StartOptions,
+} from '../../src/swarm/providers/weeb-3/weeb3Package';
 
 /** One node the fake package made, with what the page asked of it. */
 interface FakeWeeb3Node extends Weeb3Node {
   readonly constructedWith: readonly unknown[];
   started: number;
+  /** What each `start` was given, `undefined` for a bare call. */
+  readonly startedWith: (Weeb3StartOptions | undefined)[];
   peers: number;
   freed: boolean;
   /** What `streamQuality` answers, and what `setStreamQuality` asked for. */
@@ -37,6 +45,7 @@ export function fakeWeeb3Package(options: FakeWeeb3Options = {}): FakeWeeb3 {
   class FakeNode implements FakeWeeb3Node {
     readonly constructedWith: readonly unknown[];
     started = 0;
+    readonly startedWith: (Weeb3StartOptions | undefined)[] = [];
     peers = 0;
     freed = false;
     quality: StreamQuality = { levels: [], selectedLevel: -1, currentLevel: -1 };
@@ -49,8 +58,9 @@ export function fakeWeeb3Package(options: FakeWeeb3Options = {}): FakeWeeb3 {
       nodes.push(this);
     }
 
-    start(): void {
+    start(options?: Weeb3StartOptions): void {
       this.started += 1;
+      this.startedWith.push(options);
     }
 
     async connectionCount(): Promise<number> {

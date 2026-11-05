@@ -178,6 +178,44 @@ const ensRpcUrlSchema = filledIn.refine(isEnsEndpoint, {
   message: 'must be an https address such as https://ethereum-rpc.example.org, or http on a local development host',
 });
 
+const HOST_NAME = '[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+';
+const TCP_PORT = '[1-9][0-9]{0,4}';
+const PEER_ID = '[A-Za-z0-9]+';
+
+/**
+ * A peer the node in this browser dials first, in one of the two multiaddr shapes a browser can dial. One is a DNS
+ * name, a TCP port, TLS with WebSocket and the peer's id last, such as `/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/
+ * <peer id>`. The other is the form a Bee node prints for its own secure WebSocket address, `/ip4/<ip>/tcp/<port>/tls/
+ * sni/<name>/ws/p2p/<peer id>`, which the package rewrites to the first and dials by that name. A browser opens no plain
+ * WebSocket from an https page and no TLS connection to a bare IP address, so anything else is refused here rather than
+ * failing quietly in the node. The patterns leave no room for a placeholder.
+ */
+const WEEB3_BOOTNODE_BY_NAME = new RegExp(`^/dns(4|6)?/${HOST_NAME}/tcp/${TCP_PORT}/(tls/ws|wss)/p2p/${PEER_ID}$`, 'i');
+const WEEB3_BOOTNODE_BY_SNI = new RegExp(
+  `^/ip4/[0-9]{1,3}(\\.[0-9]{1,3}){3}/tcp/${TCP_PORT}/tls/sni/${HOST_NAME}/ws/p2p/${PEER_ID}$`,
+  'i',
+);
+
+const weeb3BootnodeSchema = filledIn.refine(
+  (value) => WEEB3_BOOTNODE_BY_NAME.test(value) || WEEB3_BOOTNODE_BY_SNI.test(value),
+  {
+    message:
+      'must be a multiaddr a browser can dial, /dns4/<host>/tcp/<port>/tls/ws/p2p/<peer id> or /ip4/<ip>/tcp/<port>/tls/sni/<host>/ws/p2p/<peer id>',
+  },
+);
+
+/**
+ * The node in this browser. Its package carries its own list of bootnodes, and a deployment that runs peers the browser
+ * can reach names them here, so the node dials those instead. The other parts of the node are the page's, not the
+ * deployment's, and nothing else in this block is read.
+ */
+const weeb3Schema = z.object({
+  bootnodes: z
+    .array(weeb3BootnodeSchema, { message: 'must be a list of multiaddrs' })
+    .min(1, { message: 'must name at least one bootnode' })
+    .optional(),
+});
+
 const runtimeConfigSchema = z
   .object({
     /** Which of this build's themes the page wears. Absent means the default. */
@@ -196,6 +234,7 @@ const runtimeConfigSchema = z
     chat: chatSchema.optional(),
     swarmId: swarmIdSchema.optional(),
     ensRpcUrl: ensRpcUrlSchema.optional(),
+    weeb3: weeb3Schema.optional(),
   })
   .superRefine((config, context) => {
     if (config.gatewayUrl !== undefined && config.providers !== undefined) {
@@ -259,6 +298,11 @@ export function swarmIdUrl(config: RuntimeConfig): string | null {
 /** The endpoint to read ENS names through, or null when there is none or no chat to show them in. */
 export function ensRpcUrl(config: RuntimeConfig): string | null {
   return enabledChat(config) && config.ensRpcUrl ? config.ensRpcUrl : null;
+}
+
+/** The peers the node in this browser dials first, and none when the deployment leaves it to the package's own list. */
+export function weeb3Bootnodes(config: Pick<RuntimeConfig, 'weeb3'>): readonly string[] {
+  return config.weeb3?.bootnodes ?? [];
 }
 
 export function parseRuntimeConfig(raw: unknown): RuntimeConfigResult {

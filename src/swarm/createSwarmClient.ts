@@ -1,4 +1,5 @@
 import { SwarmClient, type NamedProvider, type SwarmClientOptions, type SwarmFeature } from './client';
+import { sharedWeeb3Runtime } from './providers/weeb-3/weeb3Runtime';
 import { PROVIDER_REGISTRY, type ProviderEnvironment, type ProviderKind } from './registry';
 import type { GatewaySetting, SwarmSettings } from './settings';
 import type { ProviderKindName } from './providerKinds';
@@ -16,6 +17,15 @@ export interface CreateSwarmClientOptions {
   readonly registry?: Readonly<Record<ProviderKindName, ProviderKind>>;
   /** Everything else the client takes, such as the clock. */
   readonly client?: Omit<SwarmClientOptions, 'chosen' | 'routes'>;
+}
+
+/**
+ * Names the peers the node in this browser dials first. The node is one per page, shared by every client and by the
+ * chat's push on the viewer's own stamp, which starts it without a client, so the page names them once as its config
+ * loads, before anything can start it.
+ */
+export function setWeeb3Bootnodes(bootnodes: readonly string[]): void {
+  sharedWeeb3Runtime().useBootnodes(bootnodes);
 }
 
 /** The Swarm client the settings and the viewer's choice describe, its providers made by their kinds. */
