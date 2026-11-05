@@ -43,6 +43,18 @@ controls the page, and counts as failed when it is not ready after 30 s (`WEEB3_
     which its project README says drops to four fifths for every 100 lost connections, down to 30).
   - The node is ready at its first peer, so the video does not wait for the rest, and the count keeps building up
     after that.
+- **Which peers it dials first.** Started bare, the node dials the bootnodes its package carries, which are all
+  names under one public domain and so stand or fall with it. A deployment that runs peers a browser can reach names
+  them in `weeb3.bootnodes` ([configuration](configuration.md#the-fields)), and the runtime hands them to the package's
+  `start` as it starts the node, each marked usable, in place of the package's list. A few are enough, since the node
+  learns its other peers from those, and naming one on each server keeps a server that is down from leaving the node
+  with none. The page sets the list on its one runtime as its config loads, before it renders anything (`App.tsx`), so
+  it is there before anything starts the node, a read, the player, a source's checks or the chat's push alike.
+- **Which peers a browser can reach.** One with a DNS name, TLS and WebSocket on a port the browser may open. Bee's own
+  secure WebSocket transport gives a node such an address by itself, on a port of its own, with a name and a certificate
+  from a forge. That is the public libp2p forge by default, or one a deployment runs itself, which Bee reaches through
+  `--autotls-domain` and `--autotls-registration-endpoint`. A TLS proxy in front of a node's p2p port also works. Bee's
+  plain WebSocket flag is no substitute, since it cannot share that port.
 - **A node that lost its peers.** Once ready, the node's peers are read every half second. When every read for 20 s
   finds no peers or throws, as after a phone locked the tab, the node is lost (`WEEB3_LOST_AFTER_MS`). A shorter dip,
   such as a network handover, leaves it ready.

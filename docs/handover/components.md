@@ -156,7 +156,7 @@ The Swarm words, part, slot, feed, marker and the rest, are in the [glossary](st
 | `provider.ts`                                    | `SwarmProvider`, `ProbeResult`, `ProviderStatus`, `OwnPlayer`, the read options and defaults                                                          |
 | `answers.ts`                                     | `SwarmAnswer`: content, not-found, rate-limited, unsupported, unavailable, aborted                                                                    |
 | `client.ts`                                      | `SwarmClient`, `SwarmReader`, `SWARM_FEATURES`, counts, activity, failures, the clock                                                                 |
-| `createSwarmClient.ts`                           | Makes the client from the settings, the choice and the routes through the registry                                                                    |
+| `createSwarmClient.ts`                           | Makes the client from the settings, the choice and the routes through the registry, and names the peers the node in this browser dials first          |
 | `providerKinds.ts`, `registry.ts`                | The kinds and how each is made                                                                                                                        |
 | `settings.ts`                                    | `GatewaySetting`, `SwarmSettings`, `swarmSettingsFrom(config)`, `gatewayName`                                                                         |
 | `sources.ts`                                     | Source types, added sources, their names, settings and storage format                                                                                 |

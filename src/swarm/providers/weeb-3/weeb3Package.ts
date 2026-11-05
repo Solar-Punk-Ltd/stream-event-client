@@ -14,10 +14,23 @@ export interface StreamQuality {
   currentLevel: number;
 }
 
+/** A peer `start` dials first. `usable` false keeps it in the list without dialing it, and left out it counts as true. */
+interface Weeb3BootstrapNode {
+  readonly multiaddr: string;
+  readonly usable?: boolean;
+}
+
+/** What `start` takes. Without bootstrap nodes the node dials the package's built-in list for the network. */
+export interface Weeb3StartOptions {
+  /** The Swarm network to join, `1` for mainnet. The package's default, mainnet, when left out. */
+  readonly networkId?: string;
+  readonly bootstrapNodes?: readonly Weeb3BootstrapNode[];
+}
+
 /** A node running in this tab, as `new Weeb3No103(...)` makes it. */
 export interface Weeb3Node {
   /** Joins the network. Without options it dials the package's built-in mainnet bootnodes. */
-  start(options?: unknown): void;
+  start(options?: Weeb3StartOptions): void;
   /** How many peers the node is connected to. Rejects when its shared worker cannot be reached. */
   connectionCount(): Promise<number>;
   /** Plays a stream into a media element the page owns, with the package's own player. */

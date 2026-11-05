@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { claimServiceWorkerControl, FAILING_WEEB3, FAKE_WEEB3, serveFakeWeeb3 } from './fakeWeeb3';
+import { claimServiceWorkerControl, FAILING_WEEB3, FAKE_WEEB3, serveFakeWeeb3, weeb3Starts } from './fakeWeeb3';
 import { refuseOtherOrigins, serveConfig } from './journey';
 import { LadderGateway } from './ladderGateway';
 
@@ -82,6 +82,22 @@ test('a weeb-3 node that fails says so on the watch page, and the video stays on
 
   await expect(page.locator('.own-player-words')).toHaveText('Failed to start', { timeout: 20_000 });
   await expect(page.locator('.swarm-hls-player-wrapper'), "the app's player never takes its place").toHaveCount(0);
+});
+
+test('the node starts on the bootnodes the config names, each marked usable', async ({ page }) => {
+  const bootnode = '/dns4/bootnode.example.org/tcp/443/tls/ws/p2p/QmPeer';
+  const gateway = new LadderGateway({ servesMaster: true });
+  await refuseOtherOrigins(page.context());
+  await claimServiceWorkerControl(page);
+  await serveFakeWeeb3(page, FAKE_WEEB3);
+  await serveConfig(page, { ...gateway.config(), weeb3: { bootnodes: [bootnode] } });
+  await gateway.attach(page);
+  await keepAddedNode(page);
+
+  await page.goto('/');
+  await pickNodeInThisBrowser(page, '3 of 200 peers');
+
+  expect(await weeb3Starts(page)).toEqual([{ bootstrapNodes: [{ multiaddr: bootnode, usable: true }] }]);
 });
 
 test('a routing saved with weeb-3 for all features reads the stream list from the gateway, never through the node', async ({
