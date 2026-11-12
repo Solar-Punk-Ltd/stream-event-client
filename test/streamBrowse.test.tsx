@@ -120,6 +120,24 @@ describe('the browse page list', () => {
     expect(links('Apple / iCal (.ics)')[0].download).toBe('next-talk.ics');
   });
 
+  it('lays out the featured description as the cards do: the agenda as a list under its heading', () => {
+    showList([
+      entry(1, STREAM_STATUS_SCHEDULED, {
+        scheduledStartTime: '2026-11-05T15:30:00Z',
+        description: 'Monthly call.\n\nThis month\u2019s agenda:\n- In Focus: TBD\n- Community AMA & Open Space',
+      }),
+    ]);
+
+    const featured = document.querySelector('.featured-stream')!;
+    expect([...featured.querySelectorAll('.stream-card-agenda li')].map((item) => item.textContent?.trim())).toEqual([
+      'In Focus: TBD',
+      'Community AMA & Open Space',
+    ]);
+    expect(featured.querySelector('.stream-card-agenda strong')?.textContent).toBe('In Focus:');
+    expect(featured.querySelector('.stream-card-agenda-heading')?.textContent).toBe('This month\u2019s agenda:');
+    expect(featured.textContent).not.toContain('- In Focus');
+  });
+
   it('gives every live stream a featured block of its own under "Live now"', () => {
     showList([entry(1, STREAM_STATUS_LIVE), entry(2, STREAM_STATUS_LIVE)]);
 

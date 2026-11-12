@@ -35,6 +35,9 @@ Words used here, such as slot, marker, ladder and part, are explained in
     has passed but that have not gone live, labelled "Start time passed", the most recent first, then any with no start
     time.
   - Past streams follow newest first, eight to a page (`StreamList/displayedStreams.ts`, `StreamList/pagination.ts`).
+  - A description is laid out the same in a featured block and a card: each line a paragraph, a line starting `- ` an
+    agenda item with the part before its first colon or em dash in bold, and a last line ending in a colon set as the
+    agenda's heading (`StreamCard/streamDescription.ts`, `StreamCard/CardDescription.tsx`).
   - Under the call to watch, a stream shows the links its entry carries, such as "Watch on X" and "Watch on YouTube".
     Only the admin layer writes `links`, a list of `{ label, href }`. The page shows four at most, and leaves out any
     whose address is not https (`streamLinks.ts`).
