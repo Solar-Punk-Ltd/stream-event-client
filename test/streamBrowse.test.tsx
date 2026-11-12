@@ -75,7 +75,7 @@ describe('the browse page list', () => {
     expect(featured?.textContent).toContain('Starts in');
     expect(featured?.textContent).toMatch(/01\s*Days\s*03\s*Hours\s*30\s*Minutes/);
     expect(headings()).toEqual(['Next talk', 'Upcoming streams', 'Later talk', 'Past streams', 'Old talk']);
-    expect(links('Join stream & chat →')).toHaveLength(2);
+    expect(links('Watch on Swarm & chat →')).toHaveLength(2);
     expect(links('Watch on Swarm →')).toHaveLength(1);
   });
 
@@ -96,6 +96,9 @@ describe('the browse page list', () => {
     expect(links('Watch on YouTube →')).toHaveLength(1);
     expect(links('Unsafe →')).toHaveLength(0);
     expect(document.querySelectorAll('.stream-links')).toHaveLength(1);
+    // X and YouTube are sites the page has an icon of, and the call to watch here carries the Swarm mark.
+    expect(document.querySelectorAll('.stream-link .link-icon')).toHaveLength(2);
+    expect(document.querySelectorAll('.watch-link .link-icon')).toHaveLength(2);
   });
 
   it('offers the calendars for a stream still to come, with an entry that starts when it does', () => {

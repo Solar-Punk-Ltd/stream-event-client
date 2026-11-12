@@ -22,7 +22,7 @@ export function streamLabel(
 
 export function callToAction(state: StreamState | undefined): string {
   return state === STREAM_STATUS_LIVE || state === STREAM_STATUS_SCHEDULED
-    ? 'Join stream & chat →'
+    ? 'Watch on Swarm & chat →'
     : 'Watch on Swarm →';
 }
 
