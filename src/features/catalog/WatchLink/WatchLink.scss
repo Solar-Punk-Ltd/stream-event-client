@@ -1,5 +1,8 @@
 .watch-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
   width: 100%;
   margin-top: var(--spacing-sm);
   padding: var(--spacing-sm-md) var(--spacing-base);

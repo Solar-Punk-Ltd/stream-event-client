@@ -35,6 +35,18 @@ Words used here, such as slot, marker, ladder and part, are explained in
     has passed but that have not gone live, labelled "Start time passed", the most recent first, then any with no start
     time.
   - Past streams follow newest first, eight to a page (`StreamList/displayedStreams.ts`, `StreamList/pagination.ts`).
+  - A description is laid out the same in a featured block and a card: each line a paragraph, a line starting `- ` an
+    agenda item with the part before its first colon or em dash in bold, and a last line ending in a colon set as the
+    agenda's heading (`StreamCard/streamDescription.ts`, `StreamCard/CardDescription.tsx`).
+  - Under the call to watch, a stream shows the links its entry carries, such as "X" and "YouTube", side by side in
+    one row. Only the admin layer writes `links`, a list of `{ label, href }`. The page shows four at most, and leaves
+    out any whose address is not https (`streamLinks.ts`). A link to X, YouTube or Twitch carries that site's icon.
+    They are outlined in a neutral colour, so the call to watch here is the one that stands out: it carries the Swarm
+    mark and names Swarm, "Watch on Swarm & chat" for a live or upcoming stream and "Watch on Swarm" for a recording.
+  - An upcoming stream whose start is still ahead offers Add to Calendar: Google Calendar, Outlook.com, Office 365,
+    Yahoo Calendar and an iCalendar file. Each is made in the page from the entry: the title, the start, an end an hour
+    later since the catalog names none, the description with the places to watch, and the stream's page as the
+    location (`AddToCalendar/calendarEvent.ts`).
   - The clock is read every 30 seconds, so a page left open moves its countdown and its feature on. A read from a
     newer feed slot replaces the list whatever changed in it, so an entry edited, unpublished or gone live in place
     shows on an open page without a reload.

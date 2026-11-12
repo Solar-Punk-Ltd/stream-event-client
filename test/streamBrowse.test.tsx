@@ -75,8 +75,72 @@ describe('the browse page list', () => {
     expect(featured?.textContent).toContain('Starts in');
     expect(featured?.textContent).toMatch(/01\s*Days\s*03\s*Hours\s*30\s*Minutes/);
     expect(headings()).toEqual(['Next talk', 'Upcoming streams', 'Later talk', 'Past streams', 'Old talk']);
-    expect(links('Join stream & chat →')).toHaveLength(2);
+    expect(links('Watch on Swarm & chat →')).toHaveLength(2);
     expect(links('Watch on Swarm →')).toHaveLength(1);
+  });
+
+  it('shows the other places to watch a stream under its call, and none on a stream without them', () => {
+    showList([
+      entry(1, STREAM_STATUS_SCHEDULED, {
+        scheduledStartTime: '2026-11-05T15:30:00Z',
+        links: [
+          { label: 'X', href: 'https://x.com/i/broadcasts/abc' },
+          { label: 'YouTube', href: 'https://youtube.com/live/abc' },
+          { label: 'Twitch', href: 'https://www.twitch.tv/example' },
+          { label: 'Unsafe', href: 'javascript:alert(1)' },
+        ],
+      }),
+      entry(2, STREAM_STATUS_VOD),
+    ]);
+
+    expect(links('X').map((link) => link.href)).toEqual(['https://x.com/i/broadcasts/abc']);
+    expect(links('YouTube')).toHaveLength(1);
+    expect(links('Twitch')).toHaveLength(1);
+    expect(links('Unsafe')).toHaveLength(0);
+    expect(document.querySelectorAll('.stream-links')).toHaveLength(1);
+    // Each is a site the page has an icon of, and the call to watch here carries the Swarm mark.
+    expect(document.querySelectorAll('.stream-link .link-icon')).toHaveLength(3);
+    expect(document.querySelectorAll('.watch-link .link-icon')).toHaveLength(2);
+  });
+
+  it('offers the calendars for a stream still to come, with an entry that starts when it does', () => {
+    showList([
+      entry(1, STREAM_STATUS_SCHEDULED, { title: 'Next talk', scheduledStartTime: '2026-11-05T15:30:00Z' }),
+      entry(2, STREAM_STATUS_SCHEDULED, { title: 'Overdue talk', scheduledStartTime: '2026-11-04T11:00:00Z' }),
+      entry(3, STREAM_STATUS_LIVE),
+      entry(4, STREAM_STATUS_VOD, { scheduledStartTime: '2026-11-01T11:00:00Z' }),
+    ]);
+
+    expect(document.querySelectorAll('.add-to-calendar')).toHaveLength(1);
+    expect(links('Google Calendar')).toHaveLength(0);
+
+    click(button(/^Add to Calendar/));
+
+    const [google] = links('Google Calendar');
+    expect(new URL(google.href).searchParams.get('dates')).toBe('20261105T153000Z/20261105T163000Z');
+    expect(new URL(google.href).searchParams.get('location')).toMatch(/#\/watch\/video\/0x1{40}\/topic-1$/);
+    for (const name of ['Outlook.com', 'Office 365', 'Yahoo Calendar', 'Apple / iCal (.ics)']) {
+      expect(links(name)).toHaveLength(1);
+    }
+    expect(links('Apple / iCal (.ics)')[0].download).toBe('next-talk.ics');
+  });
+
+  it('lays out the featured description as the cards do: the agenda as a list under its heading', () => {
+    showList([
+      entry(1, STREAM_STATUS_SCHEDULED, {
+        scheduledStartTime: '2026-11-05T15:30:00Z',
+        description: 'Monthly call.\n\nThis month\u2019s agenda:\n- In Focus: TBD\n- Community AMA & Open Space',
+      }),
+    ]);
+
+    const featured = document.querySelector('.featured-stream')!;
+    expect([...featured.querySelectorAll('.stream-card-agenda li')].map((item) => item.textContent?.trim())).toEqual([
+      'In Focus: TBD',
+      'Community AMA & Open Space',
+    ]);
+    expect(featured.querySelector('.stream-card-agenda strong')?.textContent).toBe('In Focus:');
+    expect(featured.querySelector('.stream-card-agenda-heading')?.textContent).toBe('This month\u2019s agenda:');
+    expect(featured.textContent).not.toContain('- In Focus');
   });
 
   it('gives every live stream a featured block of its own under "Live now"', () => {
