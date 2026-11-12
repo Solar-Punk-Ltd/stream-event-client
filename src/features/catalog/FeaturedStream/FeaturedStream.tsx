@@ -1,9 +1,11 @@
 import { Fragment } from 'react';
 
+import { AddToCalendar } from '@/features/catalog/AddToCalendar/AddToCalendar';
 import { StreamThumbnail } from '@/features/catalog/StreamCard/StreamCard';
 import { scheduledStartMs } from '@/features/catalog/scheduledStart';
 import { type Stream, STREAM_STATUS_LIVE } from '@/features/catalog/stream';
 import { startDateTimeLabel, streamLabel } from '@/features/catalog/streamLabels';
+import { StreamLinks } from '@/features/catalog/StreamLinks/StreamLinks';
 import { WatchLink } from '@/features/catalog/WatchLink/WatchLink';
 
 import { type Countdown, countdownTo, twoDigits } from './countdown';
@@ -42,6 +44,8 @@ export function FeaturedStream({ stream, now }: FeaturedStreamProps) {
       <div className="featured-stream-media">
         <StreamThumbnail stream={stream} />
         <WatchLink stream={stream} />
+        <StreamLinks links={stream.links} />
+        <AddToCalendar stream={stream} now={now} />
       </div>
     </div>
   );

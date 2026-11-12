@@ -7,6 +7,8 @@ export { STREAM_STATUS_LIVE, STREAM_STATUS_SCHEDULED, STREAM_STATUS_VOD } from '
 import type { Rendition } from '@/shared/masterPlaylist';
 import type { MediaType } from '@/shared/mediaType';
 
+import type { StreamLink } from './streamLinks';
+
 /** Known values are `StreamStatus`. Future publisher values remain valid and are treated as not-live. */
 export type StreamState = string;
 
@@ -41,6 +43,11 @@ export interface Stream {
   thumbnail?: string;
   description?: string;
   tags?: string[];
+  /**
+   * Other places the broadcast can be watched, such as X or YouTube. Only the admin layer writes it,
+   * and only on a stream that was given some. Read through `shownLinks`, never as it stands.
+   */
+  links?: StreamLink[];
   /**
    * When an announced broadcast is meant to begin. Only the admin layer writes it, and it is
    * explicitly `null` on an entry that has no time fixed yet, which is why null is in the type.

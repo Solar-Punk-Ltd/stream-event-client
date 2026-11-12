@@ -79,6 +79,47 @@ describe('the browse page list', () => {
     expect(links('Watch on Swarm →')).toHaveLength(1);
   });
 
+  it('shows the other places to watch a stream under its call, and none on a stream without them', () => {
+    showList([
+      entry(1, STREAM_STATUS_SCHEDULED, {
+        scheduledStartTime: '2026-11-05T15:30:00Z',
+        links: [
+          { label: 'Watch on X', href: 'https://x.com/i/broadcasts/abc' },
+          { label: 'Watch on YouTube', href: 'https://youtube.com/live/abc' },
+          { label: 'Unsafe', href: 'javascript:alert(1)' },
+        ],
+      }),
+      entry(2, STREAM_STATUS_VOD),
+    ]);
+
+    expect(links('Watch on X →').map((link) => link.href)).toEqual(['https://x.com/i/broadcasts/abc']);
+    expect(links('Watch on YouTube →')).toHaveLength(1);
+    expect(links('Unsafe →')).toHaveLength(0);
+    expect(document.querySelectorAll('.stream-links')).toHaveLength(1);
+  });
+
+  it('offers the calendars for a stream still to come, with an entry that starts when it does', () => {
+    showList([
+      entry(1, STREAM_STATUS_SCHEDULED, { title: 'Next talk', scheduledStartTime: '2026-11-05T15:30:00Z' }),
+      entry(2, STREAM_STATUS_SCHEDULED, { title: 'Overdue talk', scheduledStartTime: '2026-11-04T11:00:00Z' }),
+      entry(3, STREAM_STATUS_LIVE),
+      entry(4, STREAM_STATUS_VOD, { scheduledStartTime: '2026-11-01T11:00:00Z' }),
+    ]);
+
+    expect(document.querySelectorAll('.add-to-calendar')).toHaveLength(1);
+    expect(links('Google Calendar')).toHaveLength(0);
+
+    click(button(/^Add to Calendar/));
+
+    const [google] = links('Google Calendar');
+    expect(new URL(google.href).searchParams.get('dates')).toBe('20261105T153000Z/20261105T163000Z');
+    expect(new URL(google.href).searchParams.get('location')).toMatch(/#\/watch\/video\/0x1{40}\/topic-1$/);
+    for (const name of ['Outlook.com', 'Office 365', 'Yahoo Calendar', 'Apple / iCal (.ics)']) {
+      expect(links(name)).toHaveLength(1);
+    }
+    expect(links('Apple / iCal (.ics)')[0].download).toBe('next-talk.ics');
+  });
+
   it('gives every live stream a featured block of its own under "Live now"', () => {
     showList([entry(1, STREAM_STATUS_LIVE), entry(2, STREAM_STATUS_LIVE)]);
 
