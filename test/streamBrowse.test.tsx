@@ -84,20 +84,22 @@ describe('the browse page list', () => {
       entry(1, STREAM_STATUS_SCHEDULED, {
         scheduledStartTime: '2026-11-05T15:30:00Z',
         links: [
-          { label: 'Watch on X', href: 'https://x.com/i/broadcasts/abc' },
-          { label: 'Watch on YouTube', href: 'https://youtube.com/live/abc' },
+          { label: 'X', href: 'https://x.com/i/broadcasts/abc' },
+          { label: 'YouTube', href: 'https://youtube.com/live/abc' },
+          { label: 'Twitch', href: 'https://www.twitch.tv/example' },
           { label: 'Unsafe', href: 'javascript:alert(1)' },
         ],
       }),
       entry(2, STREAM_STATUS_VOD),
     ]);
 
-    expect(links('Watch on X →').map((link) => link.href)).toEqual(['https://x.com/i/broadcasts/abc']);
-    expect(links('Watch on YouTube →')).toHaveLength(1);
-    expect(links('Unsafe →')).toHaveLength(0);
+    expect(links('X').map((link) => link.href)).toEqual(['https://x.com/i/broadcasts/abc']);
+    expect(links('YouTube')).toHaveLength(1);
+    expect(links('Twitch')).toHaveLength(1);
+    expect(links('Unsafe')).toHaveLength(0);
     expect(document.querySelectorAll('.stream-links')).toHaveLength(1);
-    // X and YouTube are sites the page has an icon of, and the call to watch here carries the Swarm mark.
-    expect(document.querySelectorAll('.stream-link .link-icon')).toHaveLength(2);
+    // Each is a site the page has an icon of, and the call to watch here carries the Swarm mark.
+    expect(document.querySelectorAll('.stream-link .link-icon')).toHaveLength(3);
     expect(document.querySelectorAll('.watch-link .link-icon')).toHaveLength(2);
   });
 
