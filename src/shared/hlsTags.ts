@@ -25,6 +25,12 @@ export const HLS_DISCONTINUITY = '#EXT-X-DISCONTINUITY';
  */
 export const HLS_GAP = '#EXT-X-GAP';
 export const HLS_ENDLIST = '#EXT-X-ENDLIST';
+/**
+ * Names the initialization section the segments after it need before they can be decoded, an fMP4
+ * stream's `ftyp` and `moov`. RFC 8216 §4.3.2.5. It is a media segment tag, not a header: it holds for
+ * every segment until the next one, and a stream whose encoder restarts writes a new one there.
+ */
+export const HLS_MAP = '#EXT-X-MAP';
 
 /**
  * How many `#EXT-X-DISCONTINUITY` tags the playlist's own window has already slid past, so a client

@@ -4,10 +4,76 @@ import { describe, it } from 'vitest';
 import {
   buildExtinf,
   buildProgramDateTime,
+  mapUri,
   parseManifest,
   programDateTimeMs,
   segmentDuration,
+  withMapUri,
 } from '../../src/shared/manifest.js';
+
+// An fMP4 stream as an AntStream publisher writes it in the solar-punk format: every entry, the
+// initialization section included, a bare reference, and a fresh section after an encoder restart.
+const REF = (c: string) => c.repeat(64);
+const MAP_A = `#EXT-X-MAP:URI="${REF('a')}"`;
+const MAP_B = `#EXT-X-MAP:URI="${REF('b')}"`;
+const FMP4 = [
+  '#EXTM3U',
+  '#EXT-X-VERSION:7',
+  '#EXT-X-TARGETDURATION:2',
+  '#EXT-X-MEDIA-SEQUENCE:10',
+  MAP_A,
+  '#EXT-X-PROGRAM-DATE-TIME:2026-10-20T12:00:00.000Z',
+  '#EXTINF:2.000,',
+  REF('1'),
+  '#EXT-X-PROGRAM-DATE-TIME:2026-10-20T12:00:02.000Z',
+  '#EXTINF:2.000,',
+  REF('2'),
+  '#EXT-X-DISCONTINUITY',
+  MAP_B,
+  '#EXT-X-PROGRAM-DATE-TIME:2026-10-20T12:00:30.000Z',
+  '#EXTINF:2.000,',
+  REF('3'),
+].join('\n');
+
+describe('parseManifest and #EXT-X-MAP', () => {
+  it('never files a map as a header', () => {
+    const { headers } = parseManifest(FMP4);
+
+    assert.deepEqual(headers, ['#EXTM3U', '#EXT-X-VERSION:7', '#EXT-X-TARGETDURATION:2', '#EXT-X-MEDIA-SEQUENCE:10']);
+  });
+
+  it('puts the map in force on every segment it covers, and the new one after a restart', () => {
+    const { segments } = parseManifest(FMP4);
+
+    assert.deepEqual(
+      segments.map((segment) => segment.map),
+      [MAP_A, MAP_A, MAP_B],
+    );
+    assert.equal(segments[2].discontinuity, true);
+  });
+
+  it('leaves a stream without a map with none on its segments', () => {
+    const { segments } = parseManifest(['#EXTM3U', '#EXTINF:2,', 'seg0.ts'].join('\n'));
+
+    assert.equal(segments[0].map, undefined);
+  });
+});
+
+describe('mapUri and withMapUri', () => {
+  it('read and replace the URI and keep every other attribute', () => {
+    const line = '#EXT-X-MAP:URI="init.mp4",BYTERANGE="720@0"';
+
+    assert.equal(mapUri(line), 'init.mp4');
+    assert.equal(
+      withMapUri(line, 'https://gw.example/bytes/x'),
+      '#EXT-X-MAP:URI="https://gw.example/bytes/x",BYTERANGE="720@0"',
+    );
+  });
+
+  it('read no URI from a map that names none', () => {
+    assert.equal(mapUri('#EXT-X-MAP:BYTERANGE="720@0"'), null);
+  });
+});
 
 describe('segmentDuration', () => {
   it('reads the fractional seconds an EXTINF line carries', () => {

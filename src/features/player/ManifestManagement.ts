@@ -8,7 +8,7 @@ import {
   HLS_PLAYLIST_TYPE_EVENT,
   HLS_PLAYLIST_TYPE_VOD,
 } from '@/shared/hlsTags';
-import { parseManifest, type Segment } from '@/shared/manifest';
+import { mapUri, parseManifest, type Segment, withMapUri } from '@/shared/manifest';
 import Pqueue from 'p-queue';
 
 import { Rendition } from '@/features/catalog/stream';
@@ -263,9 +263,19 @@ export class ManifestStateManager {
       lines.push(HLS_PLAYLIST_TYPE_EVENT);
     }
 
+    let mapInForce: string | undefined;
     for (const seg of state.segments) {
       if (seg.discontinuity) {
         lines.push(HLS_DISCONTINUITY);
+      }
+      // Written above the first segment it covers and again wherever it changes, the way the publisher
+      // wrote it, but with its URI resolved like a segment's. hls.js loads the section with the
+      // fragment loader, which refuses a URL that names no gateway, so a map left as the publisher's
+      // bare reference made every segment of an fMP4 stream undecodable.
+      if (seg.map !== undefined && seg.map !== mapInForce) {
+        const uri = mapUri(seg.map);
+        lines.push(uri === null ? seg.map : withMapUri(seg.map, this.buildUri(uri, segmentUrl)));
+        mapInForce = seg.map;
       }
       // Written back or hls.js loads the entry. The publisher lists a sequence it lost as an entry
       // rather than leaving it out, so the numbering behind the hole never moves, and this tag is the
