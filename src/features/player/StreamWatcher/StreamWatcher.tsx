@@ -16,7 +16,7 @@ import {
   STREAM_STATUS_SCHEDULED,
   STREAM_STATUS_VOD,
 } from '@/features/catalog/stream';
-import { playableRenditions } from '@/features/player/playableRenditions';
+import { playableRenditions, recordingOf } from '@/features/player/playableRenditions';
 import { scheduledStartMs } from '@/features/catalog/scheduledStart';
 import { WATCH_VIEW_PLAYER, watchPageDescription, watchPageView } from '@/features/catalog/watchPageView';
 import { WatchChat } from '@/features/chat/WatchChat';
@@ -121,6 +121,7 @@ export function StreamWatcher() {
       mediaType={mediatype}
       enableQoeOverlay={enableQoeOverlay}
       renditions={playableRenditions(stream)}
+      recording={recordingOf(stream)}
       level={level}
       onLadderShort={readNextStreamListSlot}
       place={place}
