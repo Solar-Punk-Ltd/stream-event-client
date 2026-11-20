@@ -63,6 +63,14 @@ picked for the video it shows weeb-3's own player instead of this app's, as [wee
 Until the stream list has loaded, which can take several seconds on a first open, an empty block holds the place of the
 title and one line of the description. On a phone the chat sits under them, so it stays where it is when they arrive.
 
+The player is mounted once the app's first read of the stream list has ended, also when that read failed, so a direct
+link still plays. While the list the page holds has no entry for its stream, the page reads the list again once a
+minute, and a read that fails before the list has been shown is tried again after 5 seconds
+(`watchPageCatalogPollMs` in `src/features/catalog/catalogPoll.ts`). The entry that arrives hands the player its
+qualities, which rebuilds it on them, and the reads stop. A recording kept only by its archive has nothing to play from
+without them. A direct link to a stream the list does not name keeps reading at the same pace. A page that holds its
+entry reads no list of its own.
+
 - **A broadcast that comes back.** After a feed finishes, the player keeps asking for the slot after the finished
   playlist, about every 30 seconds and spread per viewer (`feedReturn.ts`). When the broadcast returns and the viewer
   has reached the end of what they were playing, the player rejoins it live.
