@@ -148,6 +148,25 @@ player with every quality, which costs the viewer a moment of loading. The page 
   - At a switch, the new quality is read further back when the viewer is behind the live edge, at most ten reads, and
     the old one stops being read once hls.js has switched. When hls.js goes back to the old one before the new one
     plays, the new one stops instead. A switch asked before hls.js has reported its first quality is kept.
+- **A recording is read where its entry says.** Once a stream's stage stamps run out, only the archive's copy of a
+  recording stays on Swarm: the master slot at the entry's `index`, the card's frame, and each archived quality's
+  final playlist at its rendition's `index`, with its segments. Every earlier slot of a feed, its head lookup and the
+  time markers then answer 404. The watch page hands the player a recording for an entry whose `state` is `vod`, with
+  its `index` (`recordingOf` in `playableRenditions.ts`).
+  - Each quality is one read. Its final playlist is closed with `#EXT-X-ENDLIST` and lists every segment, so the
+    player reads it at its rendition's `index` and nothing else: at the start, at a switch, at a failover and when an
+    end is checked on the next lower quality. Nothing is searched, nothing is read back to the viewer's position, and
+    no time marker is read or watched.
+  - A one-quality recording is read at the entry's own `index` rather than by the feed head lookup.
+  - A quality whose final slot cannot be read is read up to three times, a poll interval apart, and then dropped for
+    the session, so hls.js moves to the qualities that remain. Its archive may never have been made, and its stage
+    stamp may have run out. The last quality left is kept and read again.
+  - The watch for a broadcast that comes back is unchanged. A player that rejoins it searches the feeds again,
+    whatever the entry still says.
+  - A live entry is searched as above, whatever index it carries, since a slot it names is an older playlist. The card
+    follows the same rule.
+  - A direct link to a stream the list does not name cannot play a recording whose early feed slots are gone, since
+    nothing names its final slots.
 - **A quality that stops.** A quality is judged by its own progress, never by comparing it with another, because the
   qualities' feeds drift apart (`rungHealth.ts`).
   - A switch is refused to a quality that has finished while the playing one is live, and to one still open whose
