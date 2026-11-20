@@ -66,6 +66,11 @@
   }
 }
 
+.stream-card-agenda-heading {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+}
+
 .stream-card-agenda {
   display: flex;
   flex-direction: column;

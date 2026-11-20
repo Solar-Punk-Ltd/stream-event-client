@@ -1,7 +1,9 @@
+import { AddToCalendar } from '@/features/catalog/AddToCalendar/AddToCalendar';
 import { startHasPassed } from '@/features/catalog/scheduledStart';
 import { StreamPreview } from '@/features/catalog/StreamPreview/StreamPreview';
 import type { Stream } from '@/features/catalog/stream';
 import { cardDateLabel, streamLabel } from '@/features/catalog/streamLabels';
+import { StreamLinks } from '@/features/catalog/StreamLinks/StreamLinks';
 import { WatchLink } from '@/features/catalog/WatchLink/WatchLink';
 
 import { CardDescription } from './CardDescription';
@@ -24,6 +26,8 @@ export function StreamCard({ stream, now }: { stream: Stream; now: number }) {
       <div className="stream-card-media">
         <StreamThumbnail stream={stream} />
         <WatchLink stream={stream} />
+        <StreamLinks links={stream.links} />
+        <AddToCalendar stream={stream} now={now} />
       </div>
       <CardDescription description={stream.description} />
     </article>

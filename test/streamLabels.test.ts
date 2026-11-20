@@ -30,8 +30,8 @@ describe('the words on a stream card', () => {
   });
 
   it('offers to join a live or upcoming stream, and to watch a recording', () => {
-    expect(callToAction(STREAM_STATUS_LIVE)).toBe('Join stream & chat →');
-    expect(callToAction(STREAM_STATUS_SCHEDULED)).toBe('Join stream & chat →');
+    expect(callToAction(STREAM_STATUS_LIVE)).toBe('Watch on Swarm & chat →');
+    expect(callToAction(STREAM_STATUS_SCHEDULED)).toBe('Watch on Swarm & chat →');
     expect(callToAction(STREAM_STATUS_VOD)).toBe('Watch on Swarm →');
   });
 });

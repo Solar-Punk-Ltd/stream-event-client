@@ -1,0 +1,41 @@
+// One row whatever the number of links, each as wide as the others.
+.stream-links {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--spacing-sm);
+  margin: var(--spacing-sm) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+// A neutral outline, so the call to watch over Swarm above is the only one in the theme's colour.
+.stream-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-sm-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: normal;
+  text-decoration: none;
+  color: var(--color-text);
+  transition:
+    border-color var(--duration-base) ease,
+    color var(--duration-base) ease;
+
+  &:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}
+
+// A long label is cut short rather than pushing its neighbours out of the row.
+.stream-link-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

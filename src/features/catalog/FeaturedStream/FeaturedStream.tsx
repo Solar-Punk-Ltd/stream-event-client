@@ -1,9 +1,12 @@
 import { Fragment } from 'react';
 
+import { AddToCalendar } from '@/features/catalog/AddToCalendar/AddToCalendar';
+import { CardDescription } from '@/features/catalog/StreamCard/CardDescription';
 import { StreamThumbnail } from '@/features/catalog/StreamCard/StreamCard';
 import { scheduledStartMs } from '@/features/catalog/scheduledStart';
 import { type Stream, STREAM_STATUS_LIVE } from '@/features/catalog/stream';
 import { startDateTimeLabel, streamLabel } from '@/features/catalog/streamLabels';
+import { StreamLinks } from '@/features/catalog/StreamLinks/StreamLinks';
 import { WatchLink } from '@/features/catalog/WatchLink/WatchLink';
 
 import { type Countdown, countdownTo, twoDigits } from './countdown';
@@ -34,7 +37,9 @@ export function FeaturedStream({ stream, now }: FeaturedStreamProps) {
         </span>
         {!isLive && start !== null && <p className="featured-stream-date">{startDateTimeLabel(start)}</p>}
         <h3 className="featured-stream-title">{stream.title}</h3>
-        {stream.description && <p className="featured-stream-description">{stream.description}</p>}
+        <div className="featured-stream-description">
+          <CardDescription description={stream.description} />
+        </div>
         {countdown && <CountdownView countdown={countdown} />}
         {isLive && <p className="featured-stream-live-note">Streaming now over the Swarm network</p>}
       </div>
@@ -42,6 +47,8 @@ export function FeaturedStream({ stream, now }: FeaturedStreamProps) {
       <div className="featured-stream-media">
         <StreamThumbnail stream={stream} />
         <WatchLink stream={stream} />
+        <StreamLinks links={stream.links} />
+        <AddToCalendar stream={stream} now={now} />
       </div>
     </div>
   );
