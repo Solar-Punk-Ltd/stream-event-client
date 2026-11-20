@@ -70,7 +70,7 @@ export function StreamWatcher() {
   useListReadAtMarkers(swarm, owner, topic, stream?.state === STREAM_STATUS_SCHEDULED, readNextStreamListSlot);
   const isWaiting = useIsWaitingForStart(`${owner}/${topic}`, stream);
   const view = watchPageView(isStreamListLoaded, stream, isWaiting);
-  useCatalogPoll(watchPageCatalogPollMs(view));
+  useCatalogPoll(watchPageCatalogPollMs(view, stream !== undefined));
   const [placesAcrossSwap] = useState(() => new PlacesAcrossSwap());
 
   const streamKey = `${owner}/${topic}`;

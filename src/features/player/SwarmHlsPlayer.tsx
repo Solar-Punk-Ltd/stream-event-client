@@ -403,9 +403,9 @@ export const SwarmHlsPlayer: React.FC<HlsPlayerProps> = ({
     } else if (recorded?.index !== undefined) {
       manifestFetcher.registerRecording(sourceUrl, recorded.index);
     }
-    // The list is not polled once the player is mounted, so a viewer who joined while only some
-    // qualities had reported, or none, would keep that ladder for the whole talk. A recording's entry
-    // names every quality it recorded, and the archive keeps no markers to watch.
+    // The list is not polled once the player is mounted with its entry, so a viewer who joined while
+    // only some qualities had reported, or none, would keep that ladder for the whole talk. A recording's
+    // entry names every quality it recorded, and the archive keeps no markers to watch.
     const stopLadderWatch = recorded
       ? () => {}
       : manifestFetcher.watchLadderCompletion(

@@ -14,7 +14,7 @@ interface CatalogPollState {
  * Reads the catalog again every `pollMs` and hands each answer to the app's stream list.
  *
  * Both pages that poll the catalog come through here, the browse page always and the watch page while
- * its stream has not started or was unpublished while it waited, so they share one SWR key rather than
+ * its stream has not started, was unpublished while it waited or has no entry in the list, so they share one SWR key rather than
  * running two polls against the gateway, each at its own pace. The source is part of the key so that a switch
  * starts a fresh fetch rather than inheriting the previous node's answer: `isLoading` is then true
  * again while the new node is being asked, and an `error` belongs to the node now selected instead of
