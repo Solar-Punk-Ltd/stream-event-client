@@ -26,23 +26,28 @@ import {
 
 describe('when the watch page reads the catalog again', () => {
   it('reads it once a minute while the stream has not started, so a reschedule or a cancellation reaches the page', () => {
-    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_NOT_STARTED), WAITING_WATCH_PAGE_POLL_MS);
+    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_NOT_STARTED, true), WAITING_WATCH_PAGE_POLL_MS);
   });
 
   it('keeps reading it while the stream it waited for is missing, so a republish reaches the page', () => {
-    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_UNAVAILABLE), WAITING_WATCH_PAGE_POLL_MS);
+    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_UNAVAILABLE, false), WAITING_WATCH_PAGE_POLL_MS);
+  });
+
+  /** The player follows the stream's own feeds from then on, so there is nothing for a catalog poll to wait for. */
+  it('stops once the player is mounted with the entry for its stream', () => {
+    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_PLAYER, true), null);
   });
 
   /**
-   * The player follows the stream's own feeds from then on, and that includes a deep link to a topic
-   * the catalog does not list, so there is nothing for a catalog poll to wait for.
+   * A first catalog read that fails or times out still mounts the player, with no entry and so with no ladder. A
+   * recording kept only by its archive then has nothing to play from until the page reads the list again.
    */
-  it('stops once the player is mounted', () => {
-    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_PLAYER), null);
+  it('keeps reading it once a minute while the player has no entry for its stream', () => {
+    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_PLAYER, false), WAITING_WATCH_PAGE_POLL_MS);
   });
 
   it('adds no read of its own before the first one lands, which the app makes itself', () => {
-    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_LOADING), null);
+    assert.equal(watchPageCatalogPollMs(WATCH_VIEW_LOADING, false), null);
   });
 });
 
@@ -245,7 +250,7 @@ describe('when a scheduled stream that is not the newest entry is unpublished', 
 
     assert.equal(watchPageView(true, listedAnnounced(opened), waitingWhenOpened), WATCH_VIEW_NOT_STARTED);
     assert.equal(viewAfterUnpublish, WATCH_VIEW_UNAVAILABLE, 'the page mounts a player that can never load');
-    assert.equal(watchPageCatalogPollMs(viewAfterUnpublish), WAITING_WATCH_PAGE_POLL_MS);
+    assert.equal(watchPageCatalogPollMs(viewAfterUnpublish, false), WAITING_WATCH_PAGE_POLL_MS);
     assert.equal(
       watchPageView(true, listedAnnounced(afterRepublish), waitingAfterRepublish),
       WATCH_VIEW_NOT_STARTED,
