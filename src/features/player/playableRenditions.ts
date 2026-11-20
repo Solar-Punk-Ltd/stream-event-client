@@ -30,3 +30,27 @@ export function playableRenditions(stream: Pick<Stream, 'state' | 'renditions'> 
   }
   return renditions.filter((rendition) => rendition.index !== undefined);
 }
+
+/**
+ * A finished stream, as the player reads it: from its final playlists, at the slots its entry names.
+ * See {@link recordingOf}.
+ */
+export interface StreamRecording {
+  /** The slot of the entry's own final playlist, which for a one-quality stream is its media playlist. */
+  readonly index?: number;
+}
+
+/**
+ * What the player reads a finished entry by, or undefined for any other entry, which is searched.
+ *
+ * Once a stream's stage stamps run out, only the archive's copy is left on Swarm: the master at the
+ * entry's `index` and each rung's final playlist at its rendition's `index`. Every earlier slot and the
+ * feed head lookup answer 404, so a recording is read only at the slots its entry names. A live entry
+ * keeps the search, as the card's `finishedRungIndex` does, since a slot it names is an old playlist.
+ */
+export function recordingOf(stream: Pick<Stream, 'state' | 'index'> | undefined): StreamRecording | undefined {
+  if (stream?.state !== STREAM_STATUS_VOD) {
+    return undefined;
+  }
+  return { index: stream.index };
+}
